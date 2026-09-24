@@ -144,6 +144,10 @@ options-mute-global-chat = Tắt tiếng &kênh chung
 options-mute-table-chat = Tắt tiếng trò chuyện trong &bàn
 options-invert-multiline-enter = Đảo cách dùng &Enter trong ô nhập nhiều dòng
 options-play-typing-sounds = Phát âm &gõ phím khi nhập liệu
+options-enable-gamepad = Bật hỗ trợ tay cầm chơi &game
+options-gamepad-vibration = Bật &rung tay cầm (phản hồi xúc giác)
+gamepad-connected = Đã kết nối tay cầm: { $name }
+gamepad-disconnected = Đã ngắt kết nối tay cầm: { $name }
 options-reset-confirm-title = Xác nhận khôi phục
 options-reset-confirm-message = Khôi phục tùy chỉnh { $tab } về giá trị đã lưu?
 

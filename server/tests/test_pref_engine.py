@@ -10,6 +10,8 @@ EXPECTED_TO_DICT_KEYS = {
     "brief_announcements",
     "play_turn_sound", "music_volume", "sound_volume", "ambience_volume", "voice_volume",
     "desktop_audio_input_device_id", "desktop_audio_input_device_name",
+    "desktop_gamepad_device_id", "desktop_gamepad_device_name",
+    "desktop_gamepad_vibration", "desktop_gamepad_vibration_strength",
     "speech_mode", "speech_rate", "speech_voice",
     "mobile_tts_engine", "mobile_tts_rate", "mobile_tts_voice",
     "mute_global_chat", "mute_table_chat", "notify_table_created",

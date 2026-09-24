@@ -253,7 +253,11 @@ general-desc-speech-rate = تغییر سرعت گفتار کلاینت وب.
 general-desc-speech-voice = انتخاب صدای مورد استفاده توسط Web Speech API کلاینت وب، یا بازگشت به پیش‌فرض مرورگر.
 general-desc-mobile-tts-engine = انتخاب موتور تبدیل متن به گفتار موبایل. اندروید فعلاً از موتور مدیریت‌شده توسط سیستم استفاده می‌کند.
 general-desc-mobile-tts-voice = انتخاب صدای تبدیل متن به گفتار موبایل، یا بازگشت به پیش‌فرض سیستم.
-general-desc-mobile-tts-rate = تغییر سرعت تبدیل متن به گفتار موبایل.
+general-desc-client-options = باز کردن تنظیمات سمت کلاینت شامل تنظیمات دسته بازی، لرزش و گزینه‌های محلی دسکتاپ.
+general-desc-gamepad-options = دسته بازی فعال را انتخاب کنید، لرزش را روشن یا خاموش کنید و شدت لرزش را تنظیم کنید.
+general-desc-gamepad-device = انتخاب کنید که کدام دسته بازی متصل، ورودی‌ها و بازخورد لمسی را دریافت کند.
+general-desc-gamepad-vibration = لرزش را برای منوها و رویدادهای بازی روشن یا خاموش کنید.
+general-desc-gamepad-vibration-strength = شدت لرزش را با یک لرزش آزمایشی تأیید انتخاب کنید.
 
 saved-tables = میزهای ذخیره‌شده
 no-saved-tables = هیچ میز ذخیره‌شده‌ای ندارید.
@@ -302,6 +306,8 @@ options-category-audio = صدا
 options-category-accessibility = دسترسی‌پذیری
 options-category-notifications = اعلان‌ها
 options-category-game = بازی
+client-options = گزینه‌های کلاینت
+gamepad-options = گزینه‌های دسته بازی
 
 music-volume-option = بلندی موسیقی: { $value }%
 sound-volume-option = بلندی افکت‌های صوتی: { $value }%
@@ -312,6 +318,10 @@ volume-choice-percent = { $value }%
 volume-choice-current = { $label } (فعلی)
 audio-input-device-option = دستگاه ورودی صدا: { $device }
 audio-input-device-default = دستگاه ورودی پیش‌فرض سیستم
+gamepad-device-option = دسته بازی: { $device }
+gamepad-device-auto = خودکار (اولین دسته بازی در دسترس)
+gamepad-vibration-option = لرزش: { $status }
+gamepad-vibration-strength-option = شدت لرزش: { $value }
 
 mute-global-chat-option = بی‌صدا کردن گفتگوی عمومی: { $status }
 mute-table-chat-option = بی‌صدا کردن گفتگوی میز: { $status }

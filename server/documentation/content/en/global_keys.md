@@ -1,6 +1,6 @@
 \*\*Global Controls\*\*
 
-This guide explains the controls that work across PlayAural. Desktop users mainly use keyboard shortcuts. Mobile users mainly use built-in gestures. Both methods reach the same features.
+This guide explains the controls that work across PlayAural. Desktop users mainly use keyboard shortcuts or game controllers. Mobile users mainly use built-in gestures. All methods reach the same features.
 
 \*\*Menu Hints\*\*
 
@@ -48,6 +48,72 @@ PlayAural groups messages into separate buffers so you can review game messages,
 \* \*\*Escape:\*\* Go back or open the action menu.
 \* \*\*Home / End:\*\* Jump to the first or last item in the current list.
 \* \*\*Letter keys A-Z:\*\* Jump quickly to items that begin with that letter.
+
+\*\*Game Controller Support\*\*
+
+PlayAural supports standard game controllers on the desktop client, including PlayStation (DualShock 4, DualSense), Xbox (Xbox One, Series X/S), Nintendo Switch Pro, and generic USB or Bluetooth gamepads.
+
+\*\*Button Equivalents by Controller\*\*
+
+\* \*\*South Button (PlayStation Cross / Xbox A / Switch B / Generic Button 0):\*\* Confirm, activate the focused item, or play the selected card/tile (equivalent to Enter).
+\* \*\*East Button (PlayStation Circle / Xbox B / Switch A / Generic Button 1):\*\* Cancel, go back, close the current menu, or open the in-game action menu (equivalent to Escape). Holding this button for a long press while inside a table leaves the table (Ctrl + Q).
+\* \*\*West Button (PlayStation Square / Xbox X / Switch Y / Generic Button 2):\*\* Primary action or Space. Plays default action or reads menu hint descriptions. Pressed simultaneously with South (Cross / A): adds a bot to the table (B). When combined with R3: check scores in-game, or toggle spectator/player mode in the table lobby (F3).
+\* \*\*North Button (PlayStation Triangle / Xbox Y / Switch X / Generic Button 3):\*\* Tab: cycles between input fields and panels.
+\* \*\*D-Pad and Left Stick:\*\* Move through menus, lists, and game board directions.
+\* \*\*Left Stick Click (L3 / LS):\*\* Read the currently focused item or active message. Pressed simultaneously with R3 while in a table: saves the table (Ctrl + S).
+\* \*\*Options / Menu / Start / +:\*\* Cancel, go back, close the current menu, or open the in-game action menu (equivalent to Escape / Back).
+\* \*\*Share / Create / View / Select / Back / -:\*\* Open Table Options / Host Management (Ctrl + M) if you are the table host.
+\* \*\*Guide Button (PS / Xbox / Home):\*\* Return focus to the main menu (Alt + M).
+
+\*\*Message Buffers and Chat\*\*
+
+\* \*\*Left Bumper (L1 / LB / L):\*\* Move to the previous message buffer.
+\* \*\*Right Bumper (R1 / RB / R):\*\* Move to the next message buffer.
+\* \*\*Left Trigger (L2 / LT / ZL):\*\* Read the previous message in the current buffer.
+\* \*\*Right Trigger (R2 / RT / ZR):\*\* Read the next message in the current buffer.
+
+\*\*Right Stick Shortcuts (Info and Table Actions)\*\*
+
+Tilt the right analog stick in any of the four directions to quickly open key information or perform table actions:
+
+\* \*\*Right Stick Up:\*\* Open How to Play (Ctrl + F1).
+\* \*\*Right Stick Down:\*\* Open Host Management if you are the table host (Ctrl + M).
+\* \*\*Right Stick Left:\*\* Open Game Info (Ctrl + I).
+\* \*\*Right Stick Right:\*\* Open Who's at the Table (Ctrl + U).
+
+\*\*R3 Modifier and Table Combinations (Quick Navigation and Table Controls)\*\*
+
+Pressing and holding the Right Stick Click (R3 / RS) acts like a Shift key to jump directly to the beginning or end of lists, buffers, and messages. Controllers also support quick combinations for essential table management:
+
+\* \*\*L3 + R3 (simultaneous press):\*\* Save the current table (Ctrl + S).
+\* \*\*Cross + Square / South + West (simultaneous press):\*\* Add a bot to the table (B).
+\* \*\*Hold Circle / East (0.7-second hold):\*\* Leave the current table (Ctrl + Q).
+\* \*\*R3 + Left Bumper (L1 / LB / L):\*\* Jump to the first message buffer (Shift + `[`).
+\* \*\*R3 + Right Bumper (R1 / RB / R):\*\* Jump to the last message buffer (Shift + `]`).
+\* \*\*R3 + Left Trigger (L2 / LT / ZL):\*\* Jump to the oldest message in the current buffer (Shift + `,`).
+\* \*\*R3 + Right Trigger (R2 / RT / ZR):\*\* Jump to the newest message in the current buffer (Shift + `.`).
+\* \*\*R3 + D-Pad Up / Left Stick Up:\*\* Jump to the first item in the current menu or list (Home).
+\* \*\*R3 + D-Pad Down / Left Stick Down:\*\* Jump to the last item in the current menu or list (End).
+\* \*\*R3 + West Button (Square / X / Y):\*\* Toggle spectator or player mode in lobby, or check scores in-game (F3).
+\* \*\*R3 alone (single click):\*\* Alternates between jumping to the first and last item of the current list.
+
+\*\*Microphone and Voice Chat Button\*\*
+
+Controllers equipped with a dedicated microphone or share/misc button (such as the PlayStation DualSense microphone button or Xbox Series Share button) control table voice chat directly:
+
+\* \*\*Short Press / Tap:\*\* If not in voice chat, joins table voice chat. If already connected, mutes or unmutes your microphone.
+\* \*\*Long Press (Hold for 0.5 seconds):\*\* Leaves table voice chat.
+
+\*\*DualSense / DualShock 4 Touchpad Gestures\*\*
+
+Controllers with a capacitive touchpad support physical clicks, taps, and swipe gestures:
+
+\* \*\*Physical Click:\*\* Open the complete online users list with current activities (Shift + F2).
+\* \*\*Tap:\*\* Announce whose turn it is or time remaining (T).
+\* \*\*1-Finger Swipe Up:\*\* Read online users summary (F2).
+\* \*\*1-Finger Swipe Down:\*\* Toggle spectator/player mode in lobby, or check scores in-game (F3).
+\* \*\*1-Finger Swipe Left:\*\* Mute or unmute the current message buffer (F4).
+\* \*\*1-Finger Swipe Right:\*\* Mute or unmute table chat (F6).
 
 \*\*Mobile Controls\*\*
 

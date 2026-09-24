@@ -19,6 +19,9 @@ hiddenimports = [
     "fluent.syntax",
     "livekit.rtc",
     "livekit.rtc.resources",
+    "pygame",
+    "pygame._sdl2.controller",
+    "client.gamepad_manager",
 ]
 
 # Keep only the package resources used at runtime. Broad collect_all() calls

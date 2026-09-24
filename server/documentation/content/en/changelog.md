@@ -1,5 +1,21 @@
 Changelog
 
+Thursday 24 September 2026
+
+New Additions:
+
+* The desktop client now features complete gamepad support for DualSense, Xbox, and standard controllers with haptic vibration, menu and grid navigation, and list-boundary feedback.
+* DualSense touchpad gestures are now available on desktop: physical click opens online users with games, swipe up reads online users, swipe down toggles spectator mode in game tables, swipe left mutes or unmutes the active buffer, swipe right mutes or unmutes table chat, and soft tap announces whose turn it is.
+* Gamepad voice chat integration lets players tap the dedicated controller microphone button to join or mute table voice, and hold it to leave voice chat.
+* Semantic haptic vibration now accompanies in-game audio cues across Breach Point (bomb detonations, grenade blasts, gunfire, flashbangs, and damage), Mile by Mile (collisions, flat tires, stalls, and safety coups), Farkle (farkle penalties and hot dice), Sorry (bumped pawns), Uno, dice rolls, turn alerts, and match victories.
+* A dedicated Gamepad options menu in personal options lets players choose their active controller, toggle vibration, and tune vibration intensity from 10% to 100% with immediate test pulses.
+
+Improvements:
+
+* Desktop controller shortcuts now include L3 + R3 to save a table, holding Circle to leave a table, Cross + Square to add a bot, and R3 modifier combinations to jump across buffers, history messages, and menus.
+* Circle and Start on gamepads now cleanly trigger Back in server menus, cancel text boxes, and open the exit confirmation in the main menu.
+* The global keyboard shortcuts manual now includes complete controller reference tables across English, Spanish, Portuguese, Vietnamese, and Persian.
+
 Wednesday 23 September 2026
 
 New Additions:

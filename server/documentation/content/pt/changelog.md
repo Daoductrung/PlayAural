@@ -1,5 +1,21 @@
 # Changelog
 
+Quinta-feira, 24 de setembro de 2026
+
+Novidades:
+
+* O aplicativo para computador agora conta com suporte completo para controles DualSense, Xbox e controles padrão com feedback tátil de vibração, navegação em listas e grades, e resposta nos limites de navegação.
+* Gestos no touchpad do DualSense no computador: clique físico abre a lista de usuários com jogos, deslizar para cima lê os usuários online, deslizar para baixo alterna entre jogador e espectador na mesa, deslizar para a esquerda silencia o buffer atual, deslizar para a direita silencia o bate-papo da mesa, e um toque suave anuncia de quem é a vez.
+* Integração do bate-papo de voz no controle: pressionar o botão de microfone do controle entra na sala ou ativa/desativa o microfone, e mantê-lo pressionado sai do bate-papo de voz.
+* Resposta háptica semântica para eventos de áudio em Breach Point (detonações de bomba, granadas, tiros, efeito de flashbang e dano), Mil Milhas (colisões, pneus furados, pane seca e botas de segurança), Farkle (penalidades de farkle e dados quentes), Sorry (peões capturados), Uno, rolagem de dados, alertas de vez e vitórias.
+* Novo menu Opções do controle em opções pessoais para escolher o controle ativo, ativar/desativar a vibração e regular a intensidade da vibração de 10% a 100% com pulso de teste.
+
+Melhorias:
+
+* Novos atalhos no controle: pressionar L3 + R3 salva a mesa, segurar Círculo sai da mesa, pressionar Cruz + Quadrado adiciona um bot, e combinações com R3 pulam para o início ou fim de buffers, histórico e menus.
+* Círculo e Start no controle agora voltam nos submenus do servidor, cancelam caixas de texto e abrem a confirmação de saída no menu principal.
+* O manual de atalhos globais agora inclui tabelas de referência para controles em português, inglês, espanhol, vietnamita e persa.
+
 Sexta-feira, 11 de setembro de 2026
 
 Novidades:

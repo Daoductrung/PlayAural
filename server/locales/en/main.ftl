@@ -295,7 +295,11 @@ general-desc-speech-rate = Change the web client's speech speed.
 general-desc-speech-voice = Choose the voice used by the web client's Web Speech API, or return to the browser default.
 general-desc-mobile-tts-engine = Choose the mobile text-to-speech engine. Android currently uses the system-managed engine.
 general-desc-mobile-tts-voice = Choose the mobile text-to-speech voice, or return to the system default.
-general-desc-mobile-tts-rate = Change the mobile text-to-speech speed.
+general-desc-client-options = Open client-side preferences including gamepad setup, vibration, and local desktop options.
+general-desc-gamepad-options = Choose active controller, toggle vibration, and adjust vibration strength.
+general-desc-gamepad-device = Choose which connected controller receives inputs and haptic feedback.
+general-desc-gamepad-vibration = Toggle haptic vibration feedback for menus and gameplay cues.
+general-desc-gamepad-vibration-strength = Choose vibration intensity with a test pulse confirmation.
 
 saved-tables = Saved Tables
 no-saved-tables = You have no saved tables.
@@ -349,6 +353,8 @@ options-category-audio = Audio
 options-category-accessibility = Accessibility
 options-category-notifications = Notifications
 options-category-game = Game
+client-options = Client Options
+gamepad-options = Gamepad Options
 
 music-volume-option = Music Volume: { $value }%
 sound-volume-option = Sound Effects Volume: { $value }%
@@ -359,6 +365,10 @@ volume-choice-percent = { $value }%
 volume-choice-current = { $label } (current)
 audio-input-device-option = Audio Input Device: { $device }
 audio-input-device-default = System Default Input Device
+gamepad-device-option = Controller: { $device }
+gamepad-device-auto = Automatic (first available controller)
+gamepad-vibration-option = Vibration: { $status }
+gamepad-vibration-strength-option = Vibration Strength: { $value }
 
 mute-global-chat-option = Mute Global Chat: { $status }
 mute-table-chat-option = Mute Table Chat: { $status }

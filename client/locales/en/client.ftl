@@ -144,6 +144,10 @@ options-mute-global-chat = Mute &Global Chat
 options-mute-table-chat = Mute &Table Chat
 options-invert-multiline-enter = Invert Multiline &Enter Behavior
 options-play-typing-sounds = Play &Typing Sounds While Editing
+options-enable-gamepad = Enable &Controller (Gamepad) Support
+options-gamepad-vibration = Enable Controller &Vibration (Haptics)
+gamepad-connected = Controller connected: { $name }
+gamepad-disconnected = Controller disconnected: { $name }
 options-reset-confirm-title = Confirm Reset
 options-reset-confirm-message = Reset { $tab } settings to saved values?
 

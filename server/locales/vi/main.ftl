@@ -295,7 +295,11 @@ general-desc-speech-rate = Thay đổi tốc độ đọc của máy khách web.
 general-desc-speech-voice = Chọn giọng đọc dùng cho Web Speech API của máy khách web, hoặc quay về giọng mặc định của trình duyệt.
 general-desc-mobile-tts-engine = Chọn bộ máy đọc trên di động. Android hiện dùng bộ máy do hệ thống quản lý.
 general-desc-mobile-tts-voice = Chọn giọng đọc trên di động, hoặc quay về giọng mặc định của hệ thống.
-general-desc-mobile-tts-rate = Thay đổi tốc độ đọc trên di động.
+general-desc-client-options = Mở cài đặt phía ứng dụng bao gồm thiết lập tay cầm, độ rung và các tùy chọn cục bộ trên máy tính.
+general-desc-gamepad-options = Chọn tay cầm đang hoạt động, bật hoặc tắt rung và điều chỉnh độ rung.
+general-desc-gamepad-device = Chọn tay cầm nào được kết nối sẽ nhận tín hiệu điều khiển và phản hồi xúc giác.
+general-desc-gamepad-vibration = Bật hoặc tắt phản hồi rung cho menu và các sự kiện trong trò chơi.
+general-desc-gamepad-vibration-strength = Chọn cường độ rung kèm xung rung thử nghiệm khi chọn.
 
 saved-tables = Các bàn đã lưu
 no-saved-tables = Bạn không có bàn nào đã lưu.
@@ -349,6 +353,8 @@ options-category-audio = Âm thanh
 options-category-accessibility = Hỗ trợ tiếp cận
 options-category-notifications = Thông báo
 options-category-game = Trò chơi
+client-options = Tùy chọn ứng dụng
+gamepad-options = Tùy chọn tay cầm
 
 music-volume-option = Âm lượng nhạc: { $value }%
 sound-volume-option = Âm lượng hiệu ứng: { $value }%
@@ -359,6 +365,10 @@ volume-choice-percent = { $value }%
 volume-choice-current = { $label } (hiện tại)
 audio-input-device-option = Thiết bị đầu vào âm thanh: { $device }
 audio-input-device-default = Thiết bị đầu vào mặc định của hệ thống
+gamepad-device-option = Tay cầm: { $device }
+gamepad-device-auto = Tự động (tay cầm đầu tiên khả dụng)
+gamepad-vibration-option = Rung: { $status }
+gamepad-vibration-strength-option = Độ rung: { $value }
 
 mute-global-chat-option = Tắt tiếng trò chuyện chung: { $status }
 mute-table-chat-option = Tắt tiếng trò chuyện trong bàn: { $status }

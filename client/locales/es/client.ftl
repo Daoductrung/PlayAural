@@ -144,6 +144,10 @@ options-mute-global-chat = Silenciar chat &global
 options-mute-table-chat = Silenciar chat de &mesa
 options-invert-multiline-enter = Invertir comportamiento de la tecla &Entrar en multilínea
 options-play-typing-sounds = Reproducir sonidos de &tecleo al escribir
+options-enable-gamepad = Habilitar soporte para &mando (gamepad)
+options-gamepad-vibration = Habilitar &vibración del mando (háptica)
+gamepad-connected = Mando conectado: { $name }
+gamepad-disconnected = Mando desconectado: { $name }
 options-reset-confirm-title = Confirmar restablecimiento
 options-reset-confirm-message = ¿Restablecer las opciones de { $tab } a los valores guardados?
 

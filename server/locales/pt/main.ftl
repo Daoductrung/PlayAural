@@ -295,7 +295,11 @@ general-desc-speech-rate = Altere a velocidade da fala do cliente web.
 general-desc-speech-voice = Escolha a voz usada pela API Web Speech do cliente web ou retorne ao padrão do navegador.
 general-desc-mobile-tts-engine = Escolha o motor de texto para fala móvel. Atualmente, o Android usa o motor gerenciado pelo sistema.
 general-desc-mobile-tts-voice = Escolha a voz de texto para fala móvel ou retorne ao padrão do sistema.
-general-desc-mobile-tts-rate = Altere a velocidade de texto para fala no celular.
+general-desc-client-options = Abre as preferências locais do cliente, incluindo configuração do comando, vibração e opções da área de trabalho.
+general-desc-gamepad-options = Escolha o controle ativo, ative ou desative a vibração e ajuste a intensidade da vibração.
+general-desc-gamepad-device = Escolha qual controle conectado recebe as entradas e o feedback tátil.
+general-desc-gamepad-vibration = Ative ou desative o feedback de vibração para menus e efeitos de jogo.
+general-desc-gamepad-vibration-strength = Escolha a intensidade da vibração com um pulso de teste ao selecionar.
 
 saved-tables = Mesas Salvas
 no-saved-tables = Você não tem mesas salvas.
@@ -349,6 +353,8 @@ options-category-audio = Áudio
 options-category-accessibility = Acessibilidade
 options-category-notifications = Notificações
 options-category-game = Jogo
+client-options = Opções do cliente
+gamepad-options = Opções do controle
 
 music-volume-option = Volume da Música: { $value }%
 sound-volume-option = Volume dos Efeitos Sonoros: { $value }%
@@ -359,6 +365,10 @@ volume-choice-percent = { $value }%
 volume-choice-current = { $label } (atual)
 audio-input-device-option = Dispositivo de Entrada de Áudio: { $device }
 audio-input-device-default = Dispositivo de Entrada Padrão do Sistema
+gamepad-device-option = Controle: { $device }
+gamepad-device-auto = Automático (primeiro controle disponível)
+gamepad-vibration-option = Vibração: { $status }
+gamepad-vibration-strength-option = Intensidade da vibração: { $value }
 
 mute-global-chat-option = Silenciar Chat Global: { $status }
 mute-table-chat-option = Silenciar Chat da Mesa: { $status }

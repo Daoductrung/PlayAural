@@ -20,6 +20,16 @@ if getattr(sys, 'frozen', False):
 else:
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
+# Configure SDL environment variables for native controller HIDAPI rumble
+os.environ.setdefault("SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS", "1")
+os.environ.setdefault("SDL_JOYSTICK_HIDAPI", "1")
+os.environ.setdefault("SDL_JOYSTICK_HIDAPI_PS4", "1")
+os.environ.setdefault("SDL_JOYSTICK_HIDAPI_PS4_RUMBLE", "1")
+os.environ.setdefault("SDL_JOYSTICK_HIDAPI_PS5", "1")
+os.environ.setdefault("SDL_JOYSTICK_HIDAPI_PS5_RUMBLE", "1")
+os.environ.setdefault("SDL_JOYSTICK_HIDAPI_SWITCH", "1")
+os.environ.setdefault("SDL_JOYSTICK_HIDAPI_XBOX", "1")
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,

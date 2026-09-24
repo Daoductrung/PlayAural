@@ -1,6 +1,6 @@
 \*\*Điều khiển toàn cục\*\*
 
-Tài liệu này giải thích các cách điều khiển dùng chung trong PlayAural. Người dùng trên máy tính chủ yếu dùng phím tắt. Người dùng trên thiết bị di động chủ yếu dùng cử chỉ có sẵn trong ứng dụng. Hai cách này đều giúp bạn đi tới cùng một nhóm tính năng.
+Tài liệu này giải thích các cách điều khiển dùng chung trong PlayAural. Người dùng trên máy tính chủ yếu dùng phím tắt hoặc tay cầm chơi game. Người dùng trên thiết bị di động chủ yếu dùng cử chỉ có sẵn trong ứng dụng. Tất cả các cách này đều giúp bạn đi tới cùng một nhóm tính năng.
 
 \*\*Gợi ý trong menu\*\*
 
@@ -48,6 +48,72 @@ PlayAural chia tin nhắn thành nhiều bộ đệm để bạn dễ xem riêng
 \* \*\*Escape:\*\* Quay lại hoặc mở menu hành động.
 \* \*\*Home / End:\*\* Nhảy tới mục đầu tiên hoặc cuối cùng trong danh sách hiện tại.
 \* \*\*Các chữ cái A-Z:\*\* Nhảy nhanh tới những mục bắt đầu bằng chữ tương ứng.
+
+\*\*Hỗ trợ tay cầm chơi game\*\*
+
+PlayAural hỗ trợ đầy đủ các loại tay cầm tiêu chuẩn trên ứng dụng máy tính, bao gồm tay cầm PlayStation (DualShock 4, DualSense), Xbox (Xbox One, Series X/S), Nintendo Switch Pro và các tay cầm USB hoặc Bluetooth thông dụng khác.
+
+\*\*Tương đương nút trên các loại tay cầm\*\*
+
+\* \*\*Nút dưới / South (PlayStation X / Xbox A / Switch B / Nút 0 trên tay cầm chung):\*\* Xác nhận, kích hoạt mục đang chọn hoặc đánh lá bài/nước đi đã chọn (tương đương phím Enter).
+\* \*\*Nút phải / East (PlayStation O / Xbox B / Switch A / Nút 1 trên tay cầm chung):\*\* Hủy, quay lại, đóng menu hiện tại hoặc mở menu hành động trong ván chơi (tương đương phím Escape). Nhấn giữ nút này khi đang ở trong bàn sẽ rời bàn (Ctrl + Q).
+\* \*\*Nút trái / West (PlayStation Vuông / Xbox X / Switch Y / Nút 2 trên tay cầm chung):\*\* Hành động chính hoặc phím Space. Đánh nước mặc định hoặc đọc mô tả gợi ý của mục được chọn. Nhấn đồng thời với nút dưới (X / A): thêm bot vào bàn (B). Khi kết hợp cùng R3: xem điểm hoặc chuyển đổi giữa người chơi và khán giả trong phòng chờ (F3).
+\* \*\*Nút trên / North (PlayStation Tam giác / Xbox Y / Switch X / Nút 3 trên tay cầm chung):\*\* Phím Tab: chuyển đổi qua lại giữa các ô nhập liệu và khu vực chức năng.
+\* \*\*Phím điều hướng (D-Pad) và cần gạt trái:\*\* Di chuyển trong menu, danh sách và vị trí ô cờ trên bàn.
+\* \*\*Nhấn cần gạt trái (L3 / LS):\*\* Đọc mục đang được chọn hoặc tin nhắn hiện tại. Nhấn đồng thời với R3 khi ở trong bàn: lưu bàn (Ctrl + S).
+\* \*\*Options / Menu / Start / +:\*\* Hủy, quay lại, đóng menu hiện tại hoặc mở menu hành động trong ván chơi (tương đương phím Escape).
+\* \*\*Share / Create / View / Select / Back / -:\*\* Mở phần Tùy chọn bàn / Quản lý bàn (Ctrl + M) nếu bạn là chủ bàn.
+\* \*\*Nút Home / Guide (PS / Xbox / Home):\*\* Đưa tiêu điểm về menu chính (Alt + M).
+
+\*\*Bộ đệm tin nhắn và trò chuyện\*\*
+
+\* \*\*Nút vai trái (L1 / LB / L):\*\* Chuyển sang bộ đệm tin nhắn trước.
+\* \*\*Nút vai phải (R1 / RB / R):\*\* Chuyển sang bộ đệm tin nhắn kế tiếp.
+\* \*\*Cò trái (L2 / LT / ZL):\*\* Đọc tin nhắn trước trong bộ đệm hiện tại.
+\* \*\*Cò phải (R2 / RT / ZR):\*\* Đọc tin nhắn sau trong bộ đệm hiện tại.
+
+\*\*Phím tắt cần gạt phải (Thông tin và thao tác bàn)\*\*
+
+Gạt cần analog phải theo 4 hướng để truy cập nhanh các thông tin quan trọng hoặc thực hiện thao tác trong bàn:
+
+\* \*\*Cần phải gạt lên:\*\* Mở phần Cách chơi (Ctrl + F1).
+\* \*\*Cần phải gạt xuống:\*\* Mở phần Quản lý bàn nếu bạn là chủ bàn (Ctrl + M).
+\* \*\*Cần phải gạt sang trái:\*\* Mở phần Thông tin trò chơi (Ctrl + I).
+\* \*\*Cần phải gạt sang phải:\*\* Mở phần Ai đang ở bàn (Ctrl + U).
+
+\*\*Nút bổ trợ R3 và tổ hợp phím bàn (Điều hướng nhanh và thao tác bàn)\*\*
+
+Nhấn giữ nút cần gạt phải (R3 / RS) hoạt động giống như phím Shift để nhảy nhanh tới đầu hoặc cuối danh sách và bộ đệm. Ngoài ra tay cầm còn hỗ trợ các tổ hợp phím hữu ích trong bàn:
+
+\* \*\*L3 + R3 (nhấn đồng thời):\*\* Lưu bàn chơi hiện tại (Ctrl + S).
+\* \*\*X + Vuông / South + West (nhấn đồng thời):\*\* Thêm bot vào bàn (B).
+\* \*\*Nhấn giữ nút O / East (0.7 giây):\*\* Rời khỏi bàn chơi hiện tại (Ctrl + Q).
+\* \*\*R3 + L1 / LB / L:\*\* Nhảy tới bộ đệm đầu tiên (Shift + `[`).
+\* \*\*R3 + R1 / RB / R:\*\* Nhảy tới bộ đệm cuối cùng (Shift + `]`).
+\* \*\*R3 + L2 / LT / ZL:\*\* Nhảy tới tin nhắn cũ nhất trong bộ đệm hiện tại (Shift + `,`).
+\* \*\*R3 + R2 / RT / ZR:\*\* Nhảy tới tin nhắn mới nhất trong bộ đệm hiện tại (Shift + `.`).
+\* \*\*R3 + D-Pad lên / Cần trái gạt lên:\*\* Nhảy tới mục đầu tiên trong menu hoặc danh sách hiện tại (Home).
+\* \*\*R3 + D-Pad xuống / Cần trái gạt xuống:\*\* Nhảy tới mục cuối cùng trong menu hoặc danh sách hiện tại (End).
+\* \*\*R3 + Nút trái / West (Vuông / X / Y):\*\* Chuyển đổi giữa khán giả và người chơi trong phòng chờ, hoặc xem bảng điểm trong ván (F3).
+\* \*\*Nhấn riêng R3 một lần:\*\* Luân phiên nhảy giữa mục đầu tiên và mục cuối cùng của danh sách hiện tại.
+
+\*\*Nút micrô và trò chuyện thoại\*\*
+
+Trên các tay cầm có nút micrô hoặc nút chia sẻ chuyên dụng (như nút micrô trên tay cầm DualSense của PlayStation hoặc nút Share trên Xbox Series):
+
+\* \*\*Nhấn nhanh:\*\* Nếu chưa tham gia trò chuyện thoại trong bàn thì sẽ tham gia. Nếu đã tham gia thì bật hoặc tắt tiếng micrô của bạn.
+\* \*\*Nhấn giữ (0,5 giây):\*\* Rời khỏi trò chuyện thoại của bàn.
+
+\*\*Cử chỉ trên bàn cảm ứng Touchpad (DualSense / DualShock 4)\*\*
+
+Tay cầm có bàn cảm ứng điện dung hỗ trợ bấm vật lý, chạm nhẹ và cử chỉ vuốt:
+
+\* \*\*Bấm vật lý vào bàn cảm ứng:\*\* Mở danh sách người dùng trực tuyến đầy đủ kèm hoạt động hiện tại (Shift + F2).
+\* \*\*Chạm nhẹ (Tap):\*\* Đọc lượt đi hiện tại của ai hoặc thời gian còn lại (T).
+\* \*\*Vuốt 1 ngón lên:\*\* Nghe tóm tắt người dùng trực tuyến (F2).
+\* \*\*Vuốt 1 ngón xuống:\*\* Chuyển đổi giữa khán giả và người chơi trong phòng chờ, hoặc xem điểm trong ván (F3).
+\* \*\*Vuốt 1 ngón sang trái:\*\* Tắt hoặc bật tiếng bộ đệm tin nhắn hiện tại (F4).
+\* \*\*Vuốt 1 ngón sang phải:\*\* Tắt hoặc bật tiếng trò chuyện trong bàn (F6).
 
 \*\*Điều khiển trên di động\*\*
 

@@ -218,6 +218,7 @@ class MainWindow(wx.Frame):
         self._create_ui()
         self._setup_accelerators()
         self._populate_test_data()
+        self._init_gamepad()
         self.Bind(wx.EVT_CLOSE, self.on_close)
 
         # Language codes map
@@ -248,6 +249,632 @@ class MainWindow(wx.Frame):
             if self.voice_manager:
                 self.voice_manager.set_voice_volume(voice_volume)
             self._pending_voice_volume = voice_volume
+
+    def silence_speech(self):
+        """Immediately interrupt ongoing speech across screen readers and SAPI."""
+        try:
+            if hasattr(self, "speaker") and self.speaker:
+                output = self.speaker.get_first_available_output()
+                if output:
+                    if hasattr(output, "silence"):
+                        output.silence()
+                    elif getattr(output, "name", "") == "jaws":
+                        try:
+                            output.object.RunFunction("StopSpeech()")
+                        except Exception:
+                            pass
+        except Exception as e:
+            logger.debug("Failed to silence speech: %s", e)
+
+    def _init_gamepad(self):
+        """Initialize gamepad controller subsystem and polling timer."""
+        try:
+            from gamepad_manager import GamepadManager
+        except ModuleNotFoundError:
+            from client.gamepad_manager import GamepadManager
+
+        interface_opts = self.client_options.get("interface", {})
+        gamepad_enabled = interface_opts.get("enable_gamepad", True)
+        vibration_enabled = interface_opts.get("gamepad_vibration", True)
+        vibration_strength = interface_opts.get("gamepad_vibration_strength", 100)
+        device_id = interface_opts.get("gamepad_device_id", "")
+
+        self.gamepad_manager = GamepadManager(
+            on_button_down=self._on_gamepad_button_down,
+            on_button_up=self._on_gamepad_button_up,
+            on_controller_connected=self._on_gamepad_connected,
+            on_controller_disconnected=self._on_gamepad_disconnected,
+            vibration_enabled=vibration_enabled,
+            vibration_strength=vibration_strength,
+            preferred_controller_id=str(device_id or ""),
+            enabled=gamepad_enabled,
+        )
+        self._misc1_press_time = None
+        self._misc1_hold_triggered = False
+        self._east_press_time = None
+        self._east_hold_triggered = False
+        self._l3_is_down = False
+        self._r3_is_down = False
+        self._r3_modifier_used = False
+        self._south_is_down = False
+        self._west_is_down = False
+        self._west_combo_used = False
+
+        self._gamepad_timer = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, self._on_gamepad_tick, self._gamepad_timer)
+        if self.gamepad_manager.is_available and gamepad_enabled:
+            self._gamepad_timer.Start(16)
+
+    def _apply_client_gamepad_options(self):
+        """Update gamepad manager configuration from client options."""
+        if not hasattr(self, "gamepad_manager"):
+            return
+        interface = self.client_options.get("interface", {})
+        gamepad_enabled = interface.get("enable_gamepad", True)
+        vibration_enabled = interface.get("gamepad_vibration", True)
+        try:
+            vibration_strength = max(10, min(100, int(interface.get("gamepad_vibration_strength", 100))))
+        except (ValueError, TypeError):
+            vibration_strength = 100
+        device_id = interface.get("gamepad_device_id", "")
+        self.gamepad_manager.enabled = gamepad_enabled
+        self.gamepad_manager.vibration_enabled = vibration_enabled
+        self.gamepad_manager.vibration_strength = vibration_strength
+        self.gamepad_manager.preferred_controller_id = str(device_id or "")
+
+        if hasattr(self, "_gamepad_timer"):
+            if gamepad_enabled and self.gamepad_manager.is_available:
+                if not self._gamepad_timer.IsRunning():
+                    self._gamepad_timer.Start(16)
+            else:
+                if self._gamepad_timer.IsRunning():
+                    self._gamepad_timer.Stop()
+
+    def _schedule_pending_gamepad_action(self, action_name: str, delay: float = 0.075) -> None:
+        self._pending_gamepad_action = (action_name, time.monotonic() + delay)
+
+    def _cancel_pending_gamepad_action(self) -> None:
+        self._pending_gamepad_action = None
+
+    def _has_pending_gamepad_action(self, action_name: str) -> bool:
+        pending = getattr(self, "_pending_gamepad_action", None)
+        return pending is not None and pending[0] == action_name
+
+    def _dispatch_deferred_gamepad_action(self, action_name: str) -> None:
+        if action_name == "south":
+            if not getattr(self, "_west_combo_used", False):
+                self._execute_standalone_south()
+        elif action_name == "west":
+            if not getattr(self, "_west_combo_used", False):
+                self._execute_standalone_west()
+        elif action_name == "left_stick":
+            if not getattr(self, "_l3_combo_used", False):
+                self._execute_standalone_left_stick()
+
+    def _execute_standalone_south(self) -> None:
+        self.silence_speech()
+        count = self.menu_list.GetCount()
+        if count > 0:
+            self.menu_list._on_activation()
+            self.gamepad_manager.rumble(0.18, 0.18, 45)
+        else:
+            self._send_keybind("enter")
+
+    def _execute_standalone_west(self) -> None:
+        self.silence_speech()
+        self._send_keybind("space")
+        self.gamepad_manager.rumble(0.15, 0.15, 40)
+
+    def _execute_standalone_left_stick(self) -> None:
+        self._read_current_item_or_message()
+        self.gamepad_manager.rumble(0.12, 0.12, 40)
+
+    def _on_gamepad_tick(self, event):
+        """Periodic timer event to poll gamepad inputs and detect holds."""
+        if hasattr(self, "gamepad_manager"):
+            self.gamepad_manager.poll()
+        pending = getattr(self, "_pending_gamepad_action", None)
+        if pending is not None:
+            action_name, fire_time = pending
+            if time.monotonic() >= fire_time:
+                self._pending_gamepad_action = None
+                self._dispatch_deferred_gamepad_action(action_name)
+        if getattr(self, "_misc1_press_time", None) is not None:
+            if not getattr(self, "_misc1_hold_triggered", False) and (
+                time.monotonic() - self._misc1_press_time >= 0.5
+            ):
+                self._misc1_hold_triggered = True
+                self._handle_gamepad_mic_hold()
+        if getattr(self, "_east_press_time", None) is not None:
+            if not getattr(self, "_east_hold_triggered", False) and (
+                time.monotonic() - self._east_press_time >= 0.7
+            ):
+                if getattr(self, "current_table_context_id", "") or getattr(self, "escape_behavior", "keybind") == "keybind":
+                    self._east_hold_triggered = True
+                    self.silence_speech()
+                    self._send_keybind("q", has_control=True)
+                    self.gamepad_manager.rumble(0.35, 0.35, 90)
+
+    def _on_gamepad_connected(self, controller_name: str):
+        """Handle newly connected controller announcement and tactile welcome."""
+        msg = Localization.get("gamepad-connected", name=controller_name)
+        if hasattr(self, "speaker") and self.speaker:
+            self.speaker.speak(msg, interrupt=False)
+        if hasattr(self, "sound_manager") and self.sound_manager:
+            try:
+                self.sound_manager.play("table_join")
+            except Exception:
+                pass
+        self.gamepad_manager.rumble(0.2, 0.2, 120)
+        self._send_gamepad_devices_to_server()
+
+    def _on_gamepad_disconnected(self, controller_name: str):
+        """Handle controller disconnect announcement."""
+        msg = Localization.get("gamepad-disconnected", name=controller_name)
+        if hasattr(self, "speaker") and self.speaker:
+            self.speaker.speak(msg, interrupt=False)
+        if hasattr(self, "sound_manager") and self.sound_manager:
+            try:
+                self.sound_manager.play("table_leave")
+            except Exception:
+                pass
+        self._send_gamepad_devices_to_server()
+
+    def _navigate_menu(self, direction: str):
+        """Navigate menu_list using native focus, grid, and haptic feedback."""
+        if self.current_mode != "list":
+            return
+
+        # Interrupt screen reader immediately so prior speech does not queue up
+        self.silence_speech()
+
+        # Ensure menu_list has focus so screen readers track the cursor natively
+        if wx.Window.FindFocus() != self.menu_list:
+            self.menu_list.SetFocus()
+
+        count = self.menu_list.GetCount()
+        if count == 0:
+            if direction in ("up", "down", "left", "right"):
+                self._send_keybind(direction)
+            return
+
+        grid_key_codes = {
+            "up": wx.WXK_UP,
+            "down": wx.WXK_DOWN,
+            "left": wx.WXK_LEFT,
+            "right": wx.WXK_RIGHT,
+        }
+
+        if self.menu_list.grid_enabled:
+            old_pos = self.menu_list.GetSelection()
+            target_key = grid_key_codes.get(direction)
+            if target_key:
+                self.menu_list._handle_grid_navigation(target_key)
+            new_pos = self.menu_list.GetSelection()
+            if new_pos != old_pos:
+                self.gamepad_manager.rumble(0.12, 0.12, 35)
+            else:
+                self.gamepad_manager.rumble(0.35, 0.35, 75)
+            return
+
+        # Standard 1D vertical list
+        if direction in ("up", "down"):
+            if count == 1:
+                self.menu_list._repeat_single_item()
+                item_text = self.menu_list.GetString(0)
+                self.speaker.speak(item_text, interrupt=True)
+                self.gamepad_manager.rumble(0.12, 0.12, 35)
+                return
+
+            sel = self.menu_list.GetSelection()
+            if sel == wx.NOT_FOUND:
+                sel = 0 if direction == "down" else count - 1
+
+            if direction == "up":
+                if sel > 0:
+                    new_sel = sel - 1
+                    self.menu_list.SetSelection(new_sel)
+                    self.menu_list.EnsureVisible(new_sel)
+                    self.menu_list._play_selection_sound(new_sel)
+                    self.gamepad_manager.rumble(0.12, 0.12, 35)
+                else:
+                    self.gamepad_manager.rumble(0.35, 0.35, 80)
+
+            elif direction == "down":
+                if sel < count - 1:
+                    new_sel = sel + 1
+                    self.menu_list.SetSelection(new_sel)
+                    self.menu_list.EnsureVisible(new_sel)
+                    self.menu_list._play_selection_sound(new_sel)
+                    self.gamepad_manager.rumble(0.12, 0.12, 35)
+                else:
+                    self.gamepad_manager.rumble(0.35, 0.35, 80)
+
+        elif direction in ("left", "right"):
+            self._send_keybind(direction)
+
+    def _handle_gamepad_mic_hold(self):
+        """Handle long press (hold) on gamepad microphone button -> Leave voice chat."""
+        if self.voice_state in ("connected", "connecting"):
+            self.silence_speech()
+            self._request_voice_leave()
+            self.gamepad_manager.rumble(0.35, 0.35, 120)
+        else:
+            self.gamepad_manager.rumble(0.1, 0.1, 40)
+
+    def _handle_gamepad_mic_tap(self):
+        """Handle short press on gamepad microphone button:
+        - If connected: toggle mic mute/unmute.
+        - If disconnected/not joined: join voice chat for current table.
+        """
+        if self.voice_state == "connected":
+            self.on_toggle_voice_mic(wx.CommandEvent())
+            self.gamepad_manager.rumble(0.2, 0.2, 50)
+        elif self.voice_state == "connecting":
+            self.gamepad_manager.rumble(0.1, 0.1, 30)
+        else:
+            self._request_voice_join()
+            self.gamepad_manager.rumble(0.25, 0.25, 60)
+
+    def _read_current_item_or_message(self):
+        """Read the currently focused menu item or the current message in the buffer."""
+        self.silence_speech()
+        count = self.menu_list.GetCount()
+        if count > 0:
+            sel = self.menu_list.GetSelection()
+            if sel == wx.NOT_FOUND:
+                sel = 0
+            item_text = self.menu_list.GetString(sel)
+            self.menu_list._play_selection_sound(sel)
+            self.speaker.speak(item_text, interrupt=True)
+        elif hasattr(self, "buffer_system") and self.buffer_system:
+            self._announce_current_message()
+
+    def _jump_menu_start(self):
+        """Jump to the first item in the menu list (Home)."""
+        count = self.menu_list.GetCount()
+        if count > 0:
+            self.menu_list.SetSelection(0)
+            self.menu_list._play_selection_sound(0)
+            item_text = self.menu_list.GetString(0)
+            self.speaker.speak(item_text, interrupt=True)
+        else:
+            self._send_keybind("home")
+
+    def _jump_menu_end(self):
+        """Jump to the last item in the menu list (End)."""
+        count = self.menu_list.GetCount()
+        if count > 0:
+            last_index = count - 1
+            self.menu_list.SetSelection(last_index)
+            self.menu_list._play_selection_sound(last_index)
+            item_text = self.menu_list.GetString(last_index)
+            self.speaker.speak(item_text, interrupt=True)
+        else:
+            self._send_keybind("end")
+
+    def _jump_start_or_end(self):
+        """Standalone R3 click: toggle jumping between start and end of current context."""
+        self.silence_speech()
+        self.gamepad_manager.rumble(0.15, 0.15, 45)
+        count = self.menu_list.GetCount()
+        if count > 1:
+            sel = self.menu_list.GetSelection()
+            if sel >= count - 1:
+                self._jump_menu_start()
+            else:
+                self._jump_menu_end()
+            return
+
+        if hasattr(self, "buffer_system") and self.buffer_system:
+            current_loc, total_items = self.buffer_system.get_current_item_location()
+            if total_items > 1:
+                if current_loc >= total_items:
+                    self.on_oldest_message(wx.CommandEvent())
+                else:
+                    self.on_newest_message(wx.CommandEvent())
+            else:
+                self.on_oldest_message(wx.CommandEvent())
+
+    def _on_gamepad_button_down(self, btn_name: str, controller_id: int):
+        """Process semantic gamepad button press."""
+        if not self.IsActive():
+            return
+
+        # Mode: Text Editing / Input Dialog
+        if self.current_mode == "edit":
+            if btn_name == "east":  # Circle / B -> Cancel
+                self.trigger_escape(allow_main_menu_exit=True, from_gamepad=True)
+                return
+            elif btn_name == "south":  # Cross / A -> Submit
+                self.silence_speech()
+                if self.edit_mode_callback:
+                    if self.current_edit_multiline:
+                        val = self.edit_input_multiline.GetValue()
+                    else:
+                        val = self.edit_input.GetValue()
+                    self.edit_mode_callback(val)
+                self.gamepad_manager.rumble(0.15, 0.15, 40)
+                return
+            return
+
+        # Track L3 (Left Stick click) and R3 (Right Stick click)
+        if btn_name == "left_stick":
+            self._l3_is_down = True
+            if getattr(self, "_r3_is_down", False):
+                self._r3_modifier_used = True
+                self._l3_combo_used = True
+                self._cancel_pending_gamepad_action()
+                self.silence_speech()
+                self._send_keybind("s", has_control=True)
+                self.gamepad_manager.rumble(0.25, 0.25, 60)
+                return
+            self._l3_combo_used = False
+            self._schedule_pending_gamepad_action("left_stick", 0.075)
+            return
+
+        if btn_name == "right_stick":
+            self._r3_is_down = True
+            self._r3_modifier_used = False
+            if getattr(self, "_l3_is_down", False):
+                self._r3_modifier_used = True
+                self._l3_combo_used = True
+                self._cancel_pending_gamepad_action()
+                self.silence_speech()
+                self._send_keybind("s", has_control=True)
+                self.gamepad_manager.rumble(0.25, 0.25, 60)
+                return
+            return
+
+        # Track microphone button (misc1) press vs hold
+        if btn_name == "misc1":
+            self._misc1_press_time = time.monotonic()
+            self._misc1_hold_triggered = False
+            return
+
+        # Track East (Circle / B) press for hold detection (Leave Table Ctrl+Q)
+        if btn_name == "east":
+            self._east_press_time = time.monotonic()
+            self._east_hold_triggered = False
+            return
+
+        # R3 Modifier combos: jump to start/end across buffers, history, and menu
+        if getattr(self, "_r3_is_down", False):
+            if btn_name == "left_shoulder":  # R3 + L1 -> First buffer (Shift+[)
+                self._r3_modifier_used = True
+                self.silence_speech()
+                self.on_first_buffer(wx.CommandEvent())
+                self.gamepad_manager.rumble(0.15, 0.15, 45)
+                return
+            elif btn_name == "right_shoulder":  # R3 + R1 -> Last buffer (Shift+])
+                self._r3_modifier_used = True
+                self.silence_speech()
+                self.on_last_buffer(wx.CommandEvent())
+                self.gamepad_manager.rumble(0.15, 0.15, 45)
+                return
+            elif btn_name == "left_trigger":  # R3 + L2 -> Oldest message in buffer (Shift+,)
+                self._r3_modifier_used = True
+                self.silence_speech()
+                self.on_oldest_message(wx.CommandEvent())
+                self.gamepad_manager.rumble(0.15, 0.15, 45)
+                return
+            elif btn_name == "right_trigger":  # R3 + R2 -> Newest message in buffer (Shift+.)
+                self._r3_modifier_used = True
+                self.silence_speech()
+                self.on_newest_message(wx.CommandEvent())
+                self.gamepad_manager.rumble(0.15, 0.15, 45)
+                return
+            elif btn_name == "dpad_up":  # R3 + D-pad Up -> First menu item (Home)
+                self._r3_modifier_used = True
+                self.silence_speech()
+                self._jump_menu_start()
+                self.gamepad_manager.rumble(0.15, 0.15, 45)
+                return
+            elif btn_name == "dpad_down":  # R3 + D-pad Down -> Last menu item (End)
+                self._r3_modifier_used = True
+                self.silence_speech()
+                self._jump_menu_end()
+                self.gamepad_manager.rumble(0.15, 0.15, 45)
+                return
+            elif btn_name == "west":  # R3 + Square -> Check scores (F3)
+                self._r3_modifier_used = True
+                self.silence_speech()
+                self._send_keybind("f3")
+                self.gamepad_manager.rumble(0.15, 0.15, 45)
+                return
+
+        # Mode: Menu / Game List Navigation & Actions
+        if btn_name == "dpad_up":
+            self._navigate_menu("up")
+
+        elif btn_name == "dpad_down":
+            self._navigate_menu("down")
+
+        elif btn_name == "dpad_left":
+            self._navigate_menu("left")
+
+        elif btn_name == "dpad_right":
+            self._navigate_menu("right")
+
+        elif btn_name == "south":  # Cross / A -> Select / Enter (or Combo with West -> Add bot B)
+            self._south_is_down = True
+            if getattr(self, "_west_is_down", False):
+                self._west_combo_used = True
+                self._cancel_pending_gamepad_action()
+                self.silence_speech()
+                self._send_keybind("b")
+                self.gamepad_manager.rumble(0.25, 0.25, 60)
+                return
+            self._west_combo_used = False
+            self._schedule_pending_gamepad_action("south", 0.075)
+            return
+
+        elif btn_name == "west":  # Square / X -> Primary Game Action / Space (or Combo with South -> Add bot B)
+            self._west_is_down = True
+            if getattr(self, "_south_is_down", False):
+                self._west_combo_used = True
+                self._cancel_pending_gamepad_action()
+                self.silence_speech()
+                self._send_keybind("b")
+                self.gamepad_manager.rumble(0.25, 0.25, 60)
+                return
+            self._west_combo_used = False
+            self._schedule_pending_gamepad_action("west", 0.075)
+            return
+
+        elif btn_name == "north":  # Triangle / Y -> Turn / Table Status ("t")
+            self.silence_speech()
+            self._send_keybind("t")
+
+        elif btn_name == "left_shoulder":  # L1 / LB -> Previous buffer
+            self.silence_speech()
+            self.on_prev_buffer(wx.CommandEvent())
+            self.gamepad_manager.rumble(0.12, 0.12, 35)
+
+        elif btn_name == "right_shoulder":  # R1 / RB -> Next buffer
+            self.silence_speech()
+            self.on_next_buffer(wx.CommandEvent())
+            self.gamepad_manager.rumble(0.12, 0.12, 35)
+
+        elif btn_name == "left_trigger":  # L2 / LT -> Older message
+            self.silence_speech()
+            self.on_older_message(wx.CommandEvent())
+            self.gamepad_manager.rumble(0.08, 0.08, 30)
+
+        elif btn_name == "right_trigger":  # R2 / RT -> Newer message
+            self.silence_speech()
+            self.on_newer_message(wx.CommandEvent())
+            self.gamepad_manager.rumble(0.08, 0.08, 30)
+
+        # Right Analog Stick Directions: Game info & Table management
+        elif btn_name == "right_stick_up":  # Up -> Ctrl + F1: How to play
+            self.silence_speech()
+            self._send_keybind("f1", has_control=True)
+            self.gamepad_manager.rumble(0.12, 0.12, 40)
+
+        elif btn_name == "right_stick_down":  # Down -> Ctrl + M: Host management
+            self.silence_speech()
+            self._send_keybind("m", has_control=True)
+            self.gamepad_manager.rumble(0.12, 0.12, 40)
+
+        elif btn_name == "right_stick_left":  # Left -> Ctrl + I: Game information
+            self.silence_speech()
+            self._send_keybind("i", has_control=True)
+            self.gamepad_manager.rumble(0.12, 0.12, 40)
+
+        elif btn_name == "right_stick_right":  # Right -> Ctrl + U: Who is at table
+            self.silence_speech()
+            self._send_keybind("u", has_control=True)
+            self.gamepad_manager.rumble(0.12, 0.12, 40)
+
+        elif btn_name == "guide":  # Guide / Home / PS button -> Focus Main Menu (Alt + M)
+            self.silence_speech()
+            self.on_focus_menu(wx.CommandEvent())
+            self.gamepad_manager.rumble(0.15, 0.15, 45)
+
+        elif btn_name == "start":  # Start / Options -> Escape / Table Actions / Back
+            self.trigger_escape(allow_main_menu_exit=True, from_gamepad=True)
+
+        elif btn_name == "back":  # Back / Share / Create / Select -> Table options / Host management (Ctrl + M)
+            self.silence_speech()
+            self._send_keybind("m", has_control=True)
+            self.gamepad_manager.rumble(0.12, 0.12, 40)
+
+        # DualSense Touchpad Gestures
+        elif btn_name == "touchpad":  # Physical Click -> Open Online Users with Games (Shift+F2)
+            self.silence_speech()
+            self.on_list_online_with_games(wx.CommandEvent())
+            self.gamepad_manager.rumble(0.22, 0.22, 60)
+
+        elif btn_name == "touchpad_swipe_up":  # 1-finger Swipe Up -> Read online users (F2)
+            self.silence_speech()
+            self.on_list_online(wx.CommandEvent())
+            self.gamepad_manager.rumble(0.15, 0.15, 50)
+
+        elif btn_name == "touchpad_swipe_down":  # 1-finger Swipe Down -> Toggle spectator mode in table / F3
+            self.silence_speech()
+            self._send_keybind("f3")
+            self.gamepad_manager.rumble(0.15, 0.15, 45)
+
+        elif btn_name == "touchpad_swipe_left":  # 1-finger Swipe Left -> F4: Toggle mute current buffer
+            self.silence_speech()
+            self.on_buffer_mute_toggle(wx.CommandEvent())
+            self.gamepad_manager.rumble(0.15, 0.15, 45)
+
+        elif btn_name == "touchpad_swipe_right":  # 1-finger Swipe Right -> F6: Toggle table chat mute
+            self.silence_speech()
+            self.on_toggle_table_chat(wx.CommandEvent())
+            self.gamepad_manager.rumble(0.15, 0.15, 45)
+
+        elif btn_name == "touchpad_2finger_swipe_right":  # 2-finger Swipe Right -> Shift + F6: Toggle global chat mute
+            self.silence_speech()
+            self.on_toggle_global_chat(wx.CommandEvent())
+            self.gamepad_manager.rumble(0.2, 0.2, 50)
+
+        elif btn_name == "touchpad_2finger_swipe_left":  # 2-finger Swipe Left -> Alt + P: Ping latency
+            self.silence_speech()
+            self.on_ping(wx.CommandEvent())
+            self.gamepad_manager.rumble(0.15, 0.15, 45)
+
+        elif btn_name == "touchpad_2finger_swipe_up":  # 2-finger Swipe Up -> F10: Music volume up
+            self.on_volume_up(wx.CommandEvent())
+            self.gamepad_manager.rumble(0.1, 0.1, 35)
+
+        elif btn_name == "touchpad_2finger_swipe_down":  # 2-finger Swipe Down -> F9: Music volume down
+            self.on_volume_down(wx.CommandEvent())
+            self.gamepad_manager.rumble(0.1, 0.1, 35)
+
+        elif btn_name == "touchpad_tap":  # Soft tap -> Whose turn / Table status ("t")
+            self.silence_speech()
+            self._send_keybind("t")
+            self.gamepad_manager.rumble(0.1, 0.1, 35)
+
+    def _on_gamepad_button_up(self, btn_name: str, controller_id: int):
+        """Process semantic gamepad button release."""
+        if btn_name == "left_stick":
+            self._l3_is_down = False
+            if self._has_pending_gamepad_action("left_stick"):
+                self._cancel_pending_gamepad_action()
+                if not getattr(self, "_l3_combo_used", False):
+                    self._execute_standalone_left_stick()
+
+        elif btn_name == "right_stick":
+            was_down = getattr(self, "_r3_is_down", False)
+            used = getattr(self, "_r3_modifier_used", False)
+            self._r3_is_down = False
+            self._r3_modifier_used = False
+            if was_down and not used:
+                self._jump_start_or_end()
+
+        elif btn_name == "south":
+            self._south_is_down = False
+            if self._has_pending_gamepad_action("south"):
+                self._cancel_pending_gamepad_action()
+                if not getattr(self, "_west_combo_used", False):
+                    self._execute_standalone_south()
+
+        elif btn_name == "west":
+            self._west_is_down = False
+            if self._has_pending_gamepad_action("west"):
+                self._cancel_pending_gamepad_action()
+                if not getattr(self, "_west_combo_used", False):
+                    self._execute_standalone_west()
+
+        elif btn_name == "east":
+            if getattr(self, "_east_press_time", None) is not None:
+                held = getattr(self, "_east_hold_triggered", False)
+                self._east_press_time = None
+                self._east_hold_triggered = False
+                if not held:
+                    self.trigger_escape(allow_main_menu_exit=True, from_gamepad=True)
+
+        elif btn_name == "misc1":
+            if getattr(self, "_misc1_press_time", None) is not None:
+                held = getattr(self, "_misc1_hold_triggered", False)
+                self._misc1_press_time = None
+                self._misc1_hold_triggered = False
+                if not held:
+                    self._handle_gamepad_mic_tap()
 
     def _get_audio_input_device_preferences(self):
         audio = self.client_options.get("audio", {})
@@ -305,6 +932,19 @@ class MainWindow(wx.Frame):
                     {"id": device["id"], "name": device["name"]}
                     for device in self.available_audio_input_devices
                 ],
+            }
+        )
+
+    def _send_gamepad_devices_to_server(self):
+        if not self.connected or not hasattr(self, "gamepad_manager"):
+            return
+        devices = []
+        if self.gamepad_manager.is_available:
+            devices = self.gamepad_manager.get_controller_info_list()
+        self.network.send_packet(
+            {
+                "type": "gamepad_devices",
+                "devices": devices,
             }
         )
 
@@ -675,7 +1315,11 @@ class MainWindow(wx.Frame):
         pass
 
     def on_close(self, event):
-        """Clean up background voice resources before the frame closes."""
+        """Clean up background voice and gamepad resources before the frame closes."""
+        if hasattr(self, "_gamepad_timer") and self._gamepad_timer.IsRunning():
+            self._gamepad_timer.Stop()
+        if hasattr(self, "gamepad_manager"):
+            self.gamepad_manager.shutdown()
         for observer in self._typing_input_observers:
             observer.close()
         self._typing_input_observers.clear()
@@ -1519,38 +2163,8 @@ class MainWindow(wx.Frame):
             if key_code == wx.WXK_BACK and self.current_menu_id == "main_menu":
                 event.Skip()
                 return
-            # Handle escape based on current menu's escape_behavior
-            if self.escape_behavior == "select_last_option":
-                # Send selection for the last item without actually moving focus
-                if self.current_mode == "list" and self.connected:
-                    item_count = self.menu_list.GetCount()
-                    if item_count > 0:
-                        # Play menuenter sound like a normal activation
-                        if self.sound_manager:
-                            self.sound_manager.play_menuenter()
-                        # Build packet with selection (1-based index)
-                        packet = {
-                            "type": "menu",
-                            "menu_id": self.current_menu_id,
-                            "selection": item_count,
-                        }
-                        # Include selection_id for the last item if available
-                        last_index = item_count - 1  # 0-based for array access
-                        if 0 <= last_index < len(self.current_menu_item_ids):
-                            item_id = self.current_menu_item_ids[last_index]
-                            if item_id is not None:
-                                packet["selection_id"] = item_id
-                        self.network.send_packet(packet)
-                return
-            elif self.escape_behavior == "escape_event":
-                # Send explicit escape event to server
-                if self.connected:
-                    self.network.send_packet(
-                        {"type": "escape", "menu_id": self.current_menu_id}
-                    )
-                return
-            # else: "keybind" - fall through to send as normal keybind
-            key_name = "escape"
+            self.trigger_escape(allow_main_menu_exit=(key_code == wx.WXK_ESCAPE))
+            return
         elif key_code == wx.WXK_SPACE:
             key_name = "space"
         elif key_code == wx.WXK_RETURN or key_code == wx.WXK_NUMPAD_ENTER:
@@ -1609,36 +2223,107 @@ class MainWindow(wx.Frame):
         )
 
         if should_send:
-            # Get current menu context
-            menu_selection = self.menu_list.GetSelection()
-            if menu_selection == wx.NOT_FOUND:
-                menu_index = None
-                menu_item_id = None
-            else:
-                menu_index = menu_selection + 1  # Convert to 1-based index for server
-                # Get item ID if available
-                if 0 <= menu_selection < len(self.current_menu_item_ids):
-                    menu_item_id = self.current_menu_item_ids[menu_selection]
-                else:
-                    menu_item_id = None
-
-            self.network.send_packet(
-                {
-                    "type": "keybind",
-                    "key": key_name,
-                    "control": has_control,
-                    "alt": has_alt,
-                    "shift": has_shift,
-                    "menu_id": self.current_menu_id,
-                    "menu_index": menu_index,  # 1-based index, or None if nothing selected
-                    "menu_item_id": menu_item_id,  # Item ID, or None if not available
-                }
-            )
-            # Don't skip - we handled it
+            self._send_keybind(key_name, has_control, has_alt, has_shift)
             return
 
         # Let other keys be processed normally (including Enter on menu)
         event.Skip()
+
+    def _send_keybind(
+        self,
+        key_name: str,
+        has_control: bool = False,
+        has_alt: bool = False,
+        has_shift: bool = False,
+    ) -> bool:
+        """Send a keybind packet to the server if connected."""
+        if not self.connected or not key_name:
+            return False
+
+        menu_selection = self.menu_list.GetSelection()
+        if menu_selection == wx.NOT_FOUND:
+            menu_index = None
+            menu_item_id = None
+        else:
+            menu_index = menu_selection + 1  # Convert to 1-based index for server
+            if 0 <= menu_selection < len(self.current_menu_item_ids):
+                menu_item_id = self.current_menu_item_ids[menu_selection]
+            else:
+                menu_item_id = None
+
+        self.network.send_packet(
+            {
+                "type": "keybind",
+                "key": key_name,
+                "control": has_control,
+                "alt": has_alt,
+                "shift": has_shift,
+                "menu_id": self.current_menu_id,
+                "menu_index": menu_index,  # 1-based index, or None if nothing selected
+                "menu_item_id": menu_item_id,  # Item ID, or None if not available
+            }
+        )
+        return True
+
+    def trigger_escape(
+        self, allow_main_menu_exit: bool = True, from_gamepad: bool = False
+    ):
+        """Handle Escape / Back navigation honoring current menu escape_behavior."""
+        self.silence_speech()
+
+        if getattr(self, "current_mode", "list") == "edit":
+            if hasattr(self, "cancel_edit_mode"):
+                self.cancel_edit_mode()
+            if from_gamepad and hasattr(self, "gamepad_manager") and hasattr(self.gamepad_manager, "rumble"):
+                self.gamepad_manager.rumble(0.15, 0.15, 40)
+            return
+
+        if not allow_main_menu_exit and getattr(self, "current_menu_id", None) == "main_menu":
+            return
+
+        escape_behavior = getattr(self, "escape_behavior", "keybind")
+        if escape_behavior == "select_last_option":
+            if getattr(self, "current_mode", "list") == "list" and getattr(self, "connected", False):
+                menu_list = getattr(self, "menu_list", None)
+                item_count = menu_list.GetCount() if menu_list and hasattr(menu_list, "GetCount") else 0
+                if item_count > 0:
+                    sound_manager = getattr(self, "sound_manager", None)
+                    if sound_manager and hasattr(sound_manager, "play_menuenter"):
+                        sound_manager.play_menuenter()
+                    packet = {
+                        "type": "menu",
+                        "menu_id": getattr(self, "current_menu_id", None),
+                        "selection": item_count,
+                    }
+                    last_index = item_count - 1
+                    current_menu_item_ids = getattr(self, "current_menu_item_ids", [])
+                    if 0 <= last_index < len(current_menu_item_ids):
+                        item_id = current_menu_item_ids[last_index]
+                        if item_id is not None:
+                            packet["selection_id"] = item_id
+                    network = getattr(self, "network", None)
+                    if network and hasattr(network, "send_packet"):
+                        network.send_packet(packet)
+                    if from_gamepad and hasattr(self, "gamepad_manager") and hasattr(self.gamepad_manager, "rumble"):
+                        self.gamepad_manager.rumble(0.12, 0.12, 35)
+                    return
+
+        elif escape_behavior == "escape_event":
+            if getattr(self, "connected", False):
+                network = getattr(self, "network", None)
+                if network and hasattr(network, "send_packet"):
+                    network.send_packet(
+                        {"type": "escape", "menu_id": getattr(self, "current_menu_id", None)}
+                    )
+                if from_gamepad and hasattr(self, "gamepad_manager") and hasattr(self.gamepad_manager, "rumble"):
+                    self.gamepad_manager.rumble(0.12, 0.12, 35)
+                return
+
+        # Default fallback: send keybind escape
+        if hasattr(self, "_send_keybind"):
+            self._send_keybind("escape")
+        if from_gamepad and hasattr(self, "gamepad_manager") and hasattr(self.gamepad_manager, "rumble"):
+            self.gamepad_manager.rumble(0.12, 0.12, 35)
 
     @staticmethod
     def _typing_key_from_event(event):
@@ -2282,6 +2967,20 @@ class MainWindow(wx.Frame):
             self._pending_voice_volume = vol / 100.0
         elif key == "audio/input_device_id" and not value:
             self.config_manager.set_client_option("audio/input_device_name", "", create_mode=True)
+        elif key == "interface/gamepad_vibration":
+            if hasattr(self, "gamepad_manager"):
+                self.gamepad_manager.vibration_enabled = bool(value)
+        elif key == "interface/gamepad_vibration_strength":
+            try:
+                strength = max(10, min(100, int(value)))
+            except (TypeError, ValueError):
+                strength = 100
+            if hasattr(self, "gamepad_manager"):
+                self.gamepad_manager.vibration_strength = strength
+                self.gamepad_manager.rumble(0.5, 0.5, 180)
+        elif key == "interface/gamepad_device_id":
+            if hasattr(self, "gamepad_manager"):
+                self.gamepad_manager.preferred_controller_id = str(value or "")
 
         # Reload full options to be safe
         self.client_options = self.config_manager.get_client_options()
@@ -2493,6 +3192,16 @@ class MainWindow(wx.Frame):
                 self.config_manager.set_client_option("interface/play_typing_sounds", preferences["play_typing_sounds"], create_mode=True)
             if "invert_multiline_enter_behavior" in preferences:
                 self.config_manager.set_client_option("interface/invert_multiline_enter_behavior", preferences["invert_multiline_enter_behavior"], create_mode=True)
+            if "desktop_gamepad_device_id" in preferences:
+                self.config_manager.set_client_option("interface/gamepad_device_id", preferences["desktop_gamepad_device_id"], create_mode=True)
+            if "desktop_gamepad_vibration" in preferences:
+                self.config_manager.set_client_option("interface/gamepad_vibration", preferences["desktop_gamepad_vibration"], create_mode=True)
+            if "desktop_gamepad_vibration_strength" in preferences:
+                try:
+                    str_val = max(10, min(100, int(preferences["desktop_gamepad_vibration_strength"])))
+                except (TypeError, ValueError):
+                    str_val = 100
+                self.config_manager.set_client_option("interface/gamepad_vibration_strength", str_val, create_mode=True)
             
             # Dice (Game specific options often handled by server state, but good to store)
             if "clear_kept_on_roll" in preferences:
@@ -2501,6 +3210,8 @@ class MainWindow(wx.Frame):
 
         self.client_options = self.config_manager.get_client_options()
         self._refresh_audio_input_devices(sync_server=True)
+        self._apply_client_gamepad_options()
+        self._send_gamepad_devices_to_server()
 
         # Verify if we need to reload localization (though UI is already built)
         # For now, it will apply on next restart, which is what the user asked for.
@@ -2897,6 +3608,8 @@ class MainWindow(wx.Frame):
         dlg.Destroy()
         # Send updated client options to server only when the user confirmed.
         if result == wx.ID_OK:
+            self.client_options = self.config_manager.get_client_options()
+            self._apply_client_gamepad_options()
             self.send_client_options_to_server()
 
     def on_server_speak(self, packet):
@@ -2946,11 +3659,119 @@ class MainWindow(wx.Frame):
                 self.sound_manager.play(sound + ".ogg")
         self.add_history(message, buffer_name, should_alert)
 
+    def _trigger_game_audio_haptics(self, packet: dict) -> None:
+        """Trigger semantic haptic vibrations for in-game audio cues."""
+        if not hasattr(self, "gamepad_manager") or not getattr(
+            self.gamepad_manager, "vibration_enabled", False
+        ):
+            return
+
+        command = packet.get("command")
+        if command != "play":
+            return
+
+        asset = str(packet.get("asset") or "").lower()
+        family = str(packet.get("family") or "").lower()
+        segments = packet.get("segments") or []
+        segment_assets = [
+            str(s.get("asset") or "").lower()
+            for s in segments
+            if isinstance(s, dict) and s.get("asset")
+        ]
+
+        all_assets = [asset] if asset else []
+        all_assets.extend(segment_assets)
+        if family:
+            all_assets.append(family)
+
+        for a in all_assets:
+            # 1. Breach Point (tactical combat & objectives)
+            if "bomb_explode" in a:
+                self.gamepad_manager.rumble(0.8, 0.8, 500)
+                return
+            if "he_grenade/detonate" in a:
+                self.gamepad_manager.rumble(0.65, 0.65, 300)
+                return
+            if "burn_damage" in a:
+                self.gamepad_manager.rumble(0.45, 0.45, 160)
+                return
+            if "flash_tinnitus" in a:
+                self.gamepad_manager.rumble(0.2, 0.5, 280)
+                return
+            if "weapons" in a and "fire_close" in a:
+                self.gamepad_manager.rumble(0.35, 0.35, 75)
+                return
+            if "bomb_planted" in a or "bomb_defused" in a:
+                self.gamepad_manager.rumble(0.4, 0.4, 200)
+                return
+
+            # 2. Mile by Mile (Mil Millas / Mille Bornes hazards & safeties)
+            if "game_milebymile/crash" in a:
+                self.gamepad_manager.rumble(0.65, 0.65, 320)
+                return
+            if "game_milebymile/flat" in a:
+                self.gamepad_manager.rumble(0.45, 0.45, 180)
+                return
+            if "game_milebymile/outofgas" in a:
+                self.gamepad_manager.rumble(0.35, 0.35, 150)
+                return
+            if "game_milebymile/stop" in a:
+                self.gamepad_manager.rumble(0.4, 0.4, 160)
+                return
+            if "game_milebymile/speedlimit" in a:
+                self.gamepad_manager.rumble(0.25, 0.25, 90)
+                return
+            if any(s in a for s in ("drivingace", "extratank", "punctureproof", "rightofway")):
+                self.gamepad_manager.rumble(0.4, 0.4, 200)
+                return
+            if "game_milebymile/winround" in a:
+                self.gamepad_manager.rumble(0.5, 0.5, 350)
+                return
+
+            # 3. Farkle (penalties, hot dice, banking)
+            if "game_farkle/farkle" in a:
+                self.gamepad_manager.rumble(0.55, 0.55, 300)
+                return
+            if "game_farkle/hotdice" in a:
+                self.gamepad_manager.rumble(0.45, 0.45, 200)
+                return
+            if "game_farkle/takepoint" in a or "game_farkle/bank" in a:
+                self.gamepad_manager.rumble(0.2, 0.2, 80)
+                return
+
+            # 4. Sorry & Board Games (captures / bumped pawns)
+            if "game_chess/capture" in a:
+                self.gamepad_manager.rumble(0.5, 0.5, 220)
+                return
+
+            # 5. Uno & Card Specials
+            if "game_uno/buzzerpress" in a or "game_uno/intercept" in a:
+                self.gamepad_manager.rumble(0.35, 0.35, 120)
+                return
+            if "game_uno/wild4" in a:
+                self.gamepad_manager.rumble(0.4, 0.4, 150)
+                return
+            if "game_uno/loseround" in a:
+                self.gamepad_manager.rumble(0.35, 0.35, 200)
+                return
+
+            # 6. Global Victories, Turn Notifications & Dice
+            if "wingame" in a or "match_victory" in a:
+                self.gamepad_manager.rumble(0.55, 0.55, 400)
+                return
+            if a.endswith("turn.ogg"):
+                self.gamepad_manager.rumble(0.2, 0.2, 90)
+                return
+            if "diethrow" in a:
+                self.gamepad_manager.rumble(0.12, 0.12, 50)
+                return
+
     def on_server_audio(self, packet):
         """Route one validated lifecycle command into the audio engine."""
         buffer_name = packet.get("buffer")
         if buffer_name and self.buffer_system.is_effectively_muted(buffer_name):
             return
+        self._trigger_game_audio_haptics(packet)
         self.sound_manager.handle_audio_command(packet)
 
     def on_table_create(self, packet):

@@ -217,6 +217,9 @@ OPTIONS_MENU_IDS = frozenset(
         "speech_rate_selection_menu",
         "voice_selection_menu",
         "audio_input_device_menu",
+        "gamepad_options_submenu",
+        "gamepad_device_menu",
+        "gamepad_vibration_strength_menu",
         "mobile_speech_settings_menu",
         "mobile_tts_engine_menu",
         "mobile_voice_selection_menu",
@@ -408,6 +411,7 @@ class Server:
             tuple[str, str, str], asyncio.Task
         ] = {}
         self._audio_input_devices_by_user: dict[str, list[dict[str, str]]] = {}
+        self._gamepad_devices_by_user: dict[str, list[dict[str, str]]] = {}
 
         # Initialize admin manager
         self.admin_manager = AdministrationManager(self)
@@ -813,6 +817,7 @@ PlayAural Server
             self._deferred_navigation.pop(username, None)
             self._clear_voice_join_authorization(username)
             self._audio_input_devices_by_user.pop(username, None)
+            self._gamepad_devices_by_user.pop(username, None)
 
             if username in self._pending_invites:
                 self._cancel_invite(username)
@@ -896,6 +901,7 @@ PlayAural Server
         self._deferred_navigation.pop(username, None)
         self._clear_voice_join_authorization(username)
         self._audio_input_devices_by_user.pop(username, None)
+        self._gamepad_devices_by_user.pop(username, None)
         if username in self._pending_invites:
             self._cancel_invite(username)
 
@@ -1320,6 +1326,8 @@ PlayAural Server
             await self._handle_set_preference(client, packet)
         elif packet_type == "audio_input_devices":
             await self._handle_audio_input_devices(client, packet)
+        elif packet_type == "gamepad_devices":
+            await self._handle_gamepad_devices(client, packet)
         elif packet_type == "voice_join":
             await self._handle_voice_join(client, packet)
         elif packet_type == "voice_presence":
@@ -1528,6 +1536,7 @@ PlayAural Server
                 table=table,
             )
             self._audio_input_devices_by_user.pop(canonical_username, None)
+            self._gamepad_devices_by_user.pop(canonical_username, None)
             old_disconnect_packet = {
                 "type": "disconnect",
                 "reason": Localization.get(
@@ -1696,6 +1705,11 @@ PlayAural Server
 
         if menu == "audio_input_device_menu" and not is_desktop:
             return {"menu": "options_audio_submenu"}
+        if (
+            menu in {"gamepad_options_submenu", "gamepad_device_menu", "gamepad_vibration_strength_menu"}
+            and not is_desktop
+        ):
+            return {"menu": "options_menu"}
 
         web_only = {
             "speech_settings_menu",
@@ -3133,8 +3147,16 @@ PlayAural Server
                 id="options_notifications",
                 description_key="general-desc-notifications",
             ),
-            MenuItem(text=Localization.get(user.locale, "back"), id="back"),
         ]
+        if not is_web_client_type(user.client_type) and not is_mobile_client_type(user.client_type):
+            items.append(
+                MenuItem(
+                    text=Localization.get(user.locale, "gamepad-options"),
+                    id="gamepad_options",
+                    description_key="general-desc-gamepad-options",
+                )
+            )
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
 
         user.show_menu(
             "options_menu",
@@ -3729,6 +3751,160 @@ PlayAural Server
         )
         self._user_states[user.username] = {"menu": "audio_input_device_menu"}
 
+    def _show_gamepad_options_submenu(self, user: NetworkUser) -> None:
+        """Gamepad options submenu for desktop clients."""
+        if is_web_client_type(user.client_type) or is_mobile_client_type(
+            user.client_type
+        ):
+            self._show_options_menu(user)
+            return
+
+        prefs = user.preferences
+        gamepad_device_name = (
+            prefs.desktop_gamepad_device_name
+            or Localization.get(user.locale, "gamepad-device-auto")
+        )
+        status_key = "option-on" if prefs.desktop_gamepad_vibration else "option-off"
+        status_text = Localization.get(user.locale, status_key)
+        strength_pct = f"{prefs.desktop_gamepad_vibration_strength}%"
+
+        items = [
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "gamepad-device-option",
+                    device=gamepad_device_name,
+                ),
+                id="gamepad_device",
+                description_key="general-desc-gamepad-device",
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "gamepad-vibration-option",
+                    status=status_text,
+                ),
+                id="gamepad_vibration",
+                description_key="general-desc-gamepad-vibration",
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "gamepad-vibration-strength-option",
+                    value=strength_pct,
+                ),
+                id="gamepad_vibration_strength",
+                description_key="general-desc-gamepad-vibration-strength",
+            ),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back"),
+        ]
+
+        user.show_menu(
+            "gamepad_options_submenu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "gamepad_options_submenu"}
+
+    def _show_gamepad_device_menu(self, user: NetworkUser) -> None:
+        """Show the gamepad device selection menu."""
+        if is_web_client_type(user.client_type) or is_mobile_client_type(
+            user.client_type
+        ):
+            self._show_gamepad_options_submenu(user)
+            return
+
+        devices = self._get_gamepad_devices_for_user(user.username)
+        current_device_id = str(user.preferences.desktop_gamepad_device_id or "").strip()
+        selected_position = 1
+
+        auto_label = Localization.get(user.locale, "gamepad-device-auto")
+        if not current_device_id:
+            auto_text = Localization.get(
+                user.locale, "volume-choice-current", label=auto_label
+            )
+        else:
+            auto_text = auto_label
+
+        items = [
+            MenuItem(
+                text=auto_text,
+                id="gamepad_device_auto",
+            )
+        ]
+
+        for index, device in enumerate(devices, start=2):
+            dev_name = device["name"]
+            if current_device_id and device["id"] == current_device_id:
+                dev_text = Localization.get(
+                    user.locale, "volume-choice-current", label=dev_name
+                )
+                selected_position = index
+            else:
+                dev_text = dev_name
+            items.append(
+                MenuItem(
+                    text=dev_text,
+                    id=f"gamepad_device::{device['id']}",
+                )
+            )
+
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        user.show_menu(
+            "gamepad_device_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+            position=selected_position,
+        )
+        self._user_states[user.username] = {"menu": "gamepad_device_menu"}
+
+    def _show_gamepad_vibration_strength_menu(self, user: NetworkUser) -> None:
+        """Show the gamepad vibration strength selection menu."""
+        if is_web_client_type(user.client_type) or is_mobile_client_type(
+            user.client_type
+        ):
+            self._show_gamepad_options_submenu(user)
+            return
+
+        current_strength = user.preferences.desktop_gamepad_vibration_strength
+        strengths = [10, 25, 50, 75, 100]
+        selected_position = 1
+
+        items = []
+        for index, strength in enumerate(strengths, start=1):
+            percent_text = Localization.get(
+                user.locale,
+                "volume-choice-percent",
+                value=strength,
+            )
+            if strength == current_strength:
+                text = Localization.get(
+                    user.locale,
+                    "volume-choice-current",
+                    label=percent_text,
+                )
+                selected_position = index
+            else:
+                text = percent_text
+            items.append(
+                MenuItem(
+                    text=text,
+                    id=f"gamepad_strength_{strength}",
+                )
+            )
+
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        user.show_menu(
+            "gamepad_vibration_strength_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+            position=selected_position,
+        )
+        self._user_states[user.username] = {"menu": "gamepad_vibration_strength_menu"}
+
     def _format_language_menu_entry(
         self,
         user: NetworkUser,
@@ -4136,6 +4312,54 @@ PlayAural Server
                 user, match.get("id", ""), match.get("name", "")
             )
 
+    def _get_gamepad_devices_for_user(self, username: str) -> list[dict[str, str]]:
+        return list(self._gamepad_devices_by_user.get(username, []))
+
+    def _find_gamepad_device_for_user(
+        self, username: str, device_id: str
+    ) -> dict[str, str] | None:
+        normalized_id = str(device_id or "").strip()
+        if not normalized_id:
+            return None
+        for device in self._get_gamepad_devices_for_user(username):
+            if device.get("id") == normalized_id:
+                return device
+        return None
+
+    def _set_desktop_gamepad_device_preference(
+        self, user: NetworkUser, device_id: str, device_name: str
+    ) -> None:
+        normalized_id = str(device_id or "").strip()
+        normalized_name = str(device_name or "").strip()
+        prefs = user.preferences
+        if (
+            prefs.desktop_gamepad_device_id == normalized_id
+            and prefs.desktop_gamepad_device_name == normalized_name
+        ):
+            return
+        prefs.desktop_gamepad_device_id = normalized_id
+        prefs.desktop_gamepad_device_name = normalized_name
+        self._save_user_preferences(user)
+        self._sync_pref_to_client(user, "interface/gamepad_device_id", normalized_id)
+        self._sync_pref_to_client(user, "interface/gamepad_device_name", normalized_name)
+
+    def _sync_desktop_gamepad_device_fallback(self, user: NetworkUser) -> None:
+        prefs = user.preferences
+        current_id = str(prefs.desktop_gamepad_device_id or "").strip()
+        current_name = str(prefs.desktop_gamepad_device_name or "").strip()
+        if not current_id:
+            if current_name:
+                self._set_desktop_gamepad_device_preference(user, "", "")
+            return
+        match = self._find_gamepad_device_for_user(user.username, current_id)
+        if not match:
+            self._set_desktop_gamepad_device_preference(user, "", "")
+            return
+        if current_name != match.get("name", ""):
+            self._set_desktop_gamepad_device_preference(
+                user, match.get("id", ""), match.get("name", "")
+            )
+
     async def _handle_options_input(
         self, user: NetworkUser, packet: dict, state: dict
     ) -> bool:
@@ -4228,6 +4452,19 @@ PlayAural Server
             prefs.desktop_audio_input_device_id = str(value or "").strip()
         elif key == "audio/input_device_name":
             prefs.desktop_audio_input_device_name = str(value or "").strip()
+        elif key == "interface/gamepad_device_id":
+            prefs.desktop_gamepad_device_id = str(value or "").strip()
+        elif key == "interface/gamepad_device_name":
+            prefs.desktop_gamepad_device_name = str(value or "").strip()
+        elif key == "interface/gamepad_vibration":
+            prefs.desktop_gamepad_vibration = bool(value)
+        elif key == "interface/gamepad_vibration_strength":
+            try:
+                strength = max(10, min(100, int(value)))
+            except (TypeError, ValueError):
+                strength = 100
+            prefs.desktop_gamepad_vibration_strength = strength
+            value = strength
         elif key == "interface/invert_multiline_enter_behavior":
             prefs.invert_multiline_enter_behavior = bool(value)
         elif key == "interface/play_typing_sounds":
@@ -4284,6 +4521,31 @@ PlayAural Server
             seen_ids.add(device_id)
         self._audio_input_devices_by_user[username] = normalized_devices
         self._sync_desktop_audio_input_device_fallback(user)
+
+    async def _handle_gamepad_devices(
+        self, client: ClientConnection, packet: dict
+    ) -> None:
+        """Track the current desktop client's available gamepad devices."""
+        username = client.username
+        if not username:
+            return
+        user = self._users.get(username)
+        if not user or user.client_type != "python":
+            return
+
+        normalized_devices: list[dict[str, str]] = []
+        seen_ids: set[str] = set()
+        for raw_device in packet.get("devices", []):
+            if not isinstance(raw_device, dict):
+                continue
+            device_id = str(raw_device.get("id") or "").strip()
+            device_name = str(raw_device.get("name") or "").strip()
+            if not device_id or not device_name or device_id in seen_ids:
+                continue
+            normalized_devices.append({"id": device_id, "name": device_name})
+            seen_ids.add(device_id)
+        self._gamepad_devices_by_user[username] = normalized_devices
+        self._sync_desktop_gamepad_device_fallback(user)
 
     def _resolve_table_voice_context(self, user: NetworkUser, packet: dict) -> VoiceContext:
         table_id = str(packet.get("context_id") or "").strip()
@@ -5387,6 +5649,12 @@ PlayAural Server
             await self._handle_voice_selection(user, selection_id, packet)
         elif current_menu == "audio_input_device_menu":
             await self._handle_audio_input_device_selection(user, selection_id)
+        elif current_menu == "gamepad_options_submenu":
+            await self._handle_gamepad_options_selection(user, selection_id)
+        elif current_menu == "gamepad_device_menu":
+            await self._handle_gamepad_device_selection(user, selection_id)
+        elif current_menu == "gamepad_vibration_strength_menu":
+            await self._handle_gamepad_vibration_strength_selection(user, selection_id)
         elif current_menu == "mobile_speech_settings_menu":
             await self._handle_mobile_speech_settings_selection(user, selection_id)
         elif current_menu == "mobile_tts_engine_menu":
@@ -7135,6 +7403,8 @@ PlayAural Server
             self._nav_push(user, self._show_accessibility_submenu)
         elif selection_id == "options_notifications":
             self._nav_push(user, self._show_notifications_submenu)
+        elif selection_id == "gamepad_options":
+            self._nav_push(user, self._show_gamepad_options_submenu)
         elif selection_id == "back":
             self._nav_back(user)
 
@@ -7464,8 +7734,71 @@ PlayAural Server
                     user, device["id"], device["name"]
                 )
                 self._nav_back(user)
-                return
         self._nav_refresh(user, self._show_audio_input_device_menu)
+
+    async def _handle_gamepad_options_selection(
+        self, user: NetworkUser, selection_id: str
+    ) -> None:
+        """Handle gamepad options submenu selection."""
+        prefs = user.preferences
+        if selection_id == "back":
+            self._nav_back(user)
+        elif selection_id == "gamepad_device":
+            self._nav_push(user, self._show_gamepad_device_menu)
+        elif selection_id == "gamepad_vibration":
+            new_val = not prefs.desktop_gamepad_vibration
+            prefs.desktop_gamepad_vibration = new_val
+            self._save_user_preferences(user)
+            self._sync_pref_to_client(user, "interface/gamepad_vibration", new_val)
+            self._nav_refresh(user, self._show_gamepad_options_submenu)
+        elif selection_id == "gamepad_vibration_strength":
+            self._nav_push(user, self._show_gamepad_vibration_strength_menu)
+
+    async def _handle_gamepad_device_selection(
+        self, user: NetworkUser, selection_id: str
+    ) -> None:
+        """Handle the gamepad device selection menu."""
+        if selection_id == "back":
+            self._nav_back(user)
+            return
+        if selection_id == "gamepad_device_auto":
+            self._set_desktop_gamepad_device_preference(user, "", "")
+            self._nav_back(user)
+            return
+        if selection_id.startswith("gamepad_device::"):
+            device_id = selection_id.removeprefix("gamepad_device::").strip()
+            device = self._find_gamepad_device_for_user(user.username, device_id)
+            if device:
+                self._set_desktop_gamepad_device_preference(
+                    user, device["id"], device["name"]
+                )
+                self._nav_back(user)
+                return
+        self._nav_refresh(user, self._show_gamepad_device_menu)
+
+    async def _handle_gamepad_vibration_strength_selection(
+        self, user: NetworkUser, selection_id: str
+    ) -> None:
+        """Handle the gamepad vibration strength selection menu."""
+        if selection_id == "back":
+            self._nav_back(user)
+            return
+        if selection_id.startswith("gamepad_strength_"):
+            try:
+                strength = max(
+                    10,
+                    min(100, int(selection_id.removeprefix("gamepad_strength_"))),
+                )
+            except ValueError:
+                strength = 100
+            user.preferences.desktop_gamepad_vibration_strength = strength
+            self._save_user_preferences(user)
+            self._sync_pref_to_client(
+                user, "interface/gamepad_vibration_strength", strength
+            )
+            self._nav_back(user)
+            return
+        self._nav_refresh(user, self._show_gamepad_vibration_strength_menu)
 
     def _save_user_preferences(self, user: NetworkUser) -> None:
         """Save user preferences to database."""
@@ -7478,12 +7811,20 @@ PlayAural Server
         if is_web_client_type(user.client_type):
             prefs.pop("desktop_audio_input_device_id", None)
             prefs.pop("desktop_audio_input_device_name", None)
+            prefs.pop("desktop_gamepad_device_id", None)
+            prefs.pop("desktop_gamepad_device_name", None)
+            prefs.pop("desktop_gamepad_vibration", None)
+            prefs.pop("desktop_gamepad_vibration_strength", None)
             prefs.pop("mobile_tts_engine", None)
             prefs.pop("mobile_tts_rate", None)
             prefs.pop("mobile_tts_voice", None)
         elif is_mobile_client_type(user.client_type):
             prefs.pop("desktop_audio_input_device_id", None)
             prefs.pop("desktop_audio_input_device_name", None)
+            prefs.pop("desktop_gamepad_device_id", None)
+            prefs.pop("desktop_gamepad_device_name", None)
+            prefs.pop("desktop_gamepad_vibration", None)
+            prefs.pop("desktop_gamepad_vibration_strength", None)
             prefs.pop("speech_mode", None)
             prefs.pop("speech_rate", None)
             prefs.pop("speech_voice", None)
@@ -11866,6 +12207,12 @@ PlayAural Server
             )
         elif menu == "audio_input_device_menu":
             self._show_audio_input_device_menu(user)
+        elif menu == "gamepad_options_submenu":
+            self._show_gamepad_options_submenu(user)
+        elif menu == "gamepad_device_menu":
+            self._show_gamepad_device_menu(user)
+        elif menu == "gamepad_vibration_strength_menu":
+            self._show_gamepad_vibration_strength_menu(user)
         elif menu == "mobile_speech_settings_menu":
             self._show_mobile_speech_settings_menu(user)
         elif menu == "mobile_tts_engine_menu":

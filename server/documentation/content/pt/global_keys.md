@@ -1,6 +1,6 @@
 # **Controles Globais**
 
-Este guia explica os controles que funcionam em todo o PlayAural. Jogadores de computador usam principalmente atalhos de teclado. Jogadores de dispositivos móveis usam principalmente gestos embutidos. Ambos os métodos alcançam os mesmos recursos.
+Este guia explica os controles que funcionam em todo o PlayAural. Jogadores de computador usam principalmente atalhos de teclado ou controles de jogo. Jogadores de dispositivos móveis usam principalmente gestos embutidos. Todos os métodos alcançam os mesmos recursos.
 
 # **Dicas de Menu**
 
@@ -48,6 +48,72 @@ O PlayAural agrupa mensagens em buffers separados para que você possa revisar m
 * **Escape:** Volta ou abre o menu de ação.
 * **Home / End:** Vai para o primeiro ou último item na lista atual.
 * **Teclas de letras A-Z:** Saltam rapidamente para itens que começam com essa letra.
+
+# **Suporte para Controles (Gamepads)**
+
+O PlayAural é totalmente compatível com controles padrão no cliente de computador, incluindo controles de PlayStation (DualShock 4, DualSense), Xbox (Xbox One, Series X/S), Nintendo Switch Pro e controles genéricos USB ou Bluetooth.
+
+# **Equivalência de Botões por Controle**
+
+* **Botão Sul / Inferior (Cruz no PlayStation / A no Xbox / B no Switch / Botão 0 em genéricos):** Confirmar, ativar o item em foco ou jogar a carta/peça selecionada (equivalente ao Enter).
+* **Botão Leste / Direito (Círculo no PlayStation / B no Xbox / A no Switch / Botão 1 em genéricos):** Cancelar, voltar, fechar o menu atual ou abrir o menu de ações do jogo (equivalente ao Escape). Segurar pressionado dentro de uma mesa sai da mesa (Ctrl + Q).
+* **Botão Oeste / Esquerdo (Quadrado no PlayStation / X no Xbox / Y no Switch / Botão 2 em genéricos):** Ação principal ou Espaço. Executa a ação padrão ou lê a descrição de ajuda do item em foco. Pressionado simultaneamente com o botão Sul (Cruz / A): adiciona um bot à mesa (B). Quando combinado com R3: consulta pontuações ou alterna entre espectador e jogador na sala de espera (F3).
+* **Botão Norte / Superior (Triângulo no PlayStation / Y no Xbox / X no Switch / Botão 3 em genéricos):** Tab: alterna entre campos de texto e painéis.
+* **Direcional (D-Pad) e Alavanca Esquerda:** Navegam por menus, listas e posições no tabuleiro.
+* **Clique da Alavanca Esquerda (L3 / LS):** Lê o item em foco ou a mensagem ativa. Pressionado simultaneamente com R3 em uma mesa: salva a mesa (Ctrl + S).
+* **Options / Menu / Start / +:** Cancelar, voltar, fechar o menu atual ou abrir o menu de ações do jogo (equivalente ao Escape).
+* **Share / Create / View / Select / Back / -:** Abre as Opções da mesa / Gerenciamento de host (Ctrl + M) se você for o host da mesa.
+* **Botão Guia (PS / Xbox / Home):** Retorna o foco para o menu principal (Alt + M).
+
+# **Buffers de Mensagens e Chat**
+
+* **Botão Superior Esquerdo (L1 / LB / L):** Move para o buffer de mensagens anterior.
+* **Botão Superior Direito (R1 / RB / R):** Move para o buffer de mensagens seguinte.
+* **Gatilho Esquerdo (L2 / LT / ZL):** Lê a mensagem anterior no buffer atual.
+* **Gatilho Direito (R2 / RT / ZR):** Lê a mensagem seguinte no buffer atual.
+
+# **Atalhos da Alavanca Direita (Informações e Ações de Mesa)**
+
+Incline a alavanca analógica direita em qualquer uma das quatro direções para abrir rapidamente informações importantes ou realizar ações na mesa:
+
+* **Alavanca Direita para Cima:** Abre Como Jogar (Ctrl + F1).
+* **Alavanca Direita para Baixo:** Abre Gerenciamento de host se você for o anfitrião da mesa (Ctrl + M).
+* **Alavanca Direita para a Esquerda:** Abre as Informações do Jogo (Ctrl + I).
+* **Alavanca Direita para a Direita:** Abre Quem está na mesa (Ctrl + U).
+
+# **Modificador R3 e Combinações de Mesa (Navegação e Controles de Mesa)**
+
+Pressionar e segurar o clique da alavanca direita (R3 / RS) funciona como a tecla Shift para saltar diretamente ao início ou ao fim de listas e buffers. Além disso, controles oferecem combinações rápidas para a mesa:
+
+* **L3 + R3 (clique simultâneo):** Salva a mesa atual (Ctrl + S).
+* **Cruz + Quadrado / Sul + Oeste (pressionamento simultâneo):** Adiciona um bot à mesa (B).
+* **Segurar Círculo / Leste (0.7 segundos):** Sai da mesa atual (Ctrl + Q).
+* **R3 + L1 / LB / L:** Vai para o primeiro buffer de mensagens (Shift + `[`).
+* **R3 + R1 / RB / R:** Vai para o último buffer de mensagens (Shift + `]`).
+* **R3 + L2 / LT / ZL:** Vai para a mensagem mais antiga no buffer atual (Shift + `,`).
+* **R3 + R2 / RT / ZR:** Vai para a mensagem mais recente no buffer atual (Shift + `.`).
+* **R3 + D-Pad para Cima / Alavanca Esquerda para Cima:** Vai para o primeiro item no menu ou lista atual (Home).
+* **R3 + D-Pad para Baixo / Alavanca Esquerda para Baixo:** Vai para o último item no menu ou lista atual (End).
+* **R3 + Botão Oeste (Quadrado / X / Y):** Alterna modo espectador ou jogador na sala de espera, ou consulta pontuações na partida (F3).
+* **Clique individual do R3:** Alterna entre saltar para o primeiro e o último item da lista atual.
+
+# **Botão de Microfone e Chat de Voz**
+
+Em controles com botão de microfone ou compartilhamento dedicado (como o botão de microfone do DualSense de PlayStation ou o botão Share do Xbox Series):
+
+* **Pressionar Brevemente (Toque):** Se não estiver no chat de voz da mesa, entra no chat. Se já estiver conectado, ativa ou desativa o som do seu microfone.
+* **Pressionar e Segurar (0,5 segundos):** Sai do chat de voz da mesa.
+
+# **Gestos do Touchpad (DualSense / DualShock 4)**
+
+Controles com touchpad capacitivo suportam cliques físicos, toques leves e gestos de deslizamento:
+
+* **Clique Físico no Painel:** Abre a lista completa de usuários online com suas atividades (Shift + F2).
+* **Toque Leve (Tap):** Anuncia de quem é a vez ou o tempo restante (T).
+* **Deslizar 1 dedo para cima:** Lê o resumo de usuários online (F2).
+* **Deslizar 1 dedo para baixo:** Alterna modo espectador ou jogador na sala de espera, ou consulta pontuações na partida (F3).
+* **Deslizar 1 dedo para a esquerda:** Silencia ou ativa o som do buffer de mensagens atual (F4).
+* **Deslizar 1 dedo para a direita:** Silencia ou ativa o som do chat da mesa (F6).
 
 # **Controles Móveis**
 

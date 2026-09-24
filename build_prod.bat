@@ -12,7 +12,7 @@ set "PYTHON_EXE="
 set "PYTHON_ARGS="
 set "PREFERRED_PYTHON_EXE="
 set "PREFERRED_PYTHON_ARGS="
-set "BUILD_DEPS_CHECK=import PyInstaller, wx, accessible_output2, cosmos, keyring, requests, psutil, websockets, fluent.runtime, numpy, sounddevice; from livekit import rtc; assert callable(cosmos.SoundManager); assert callable(rtc.Room)"
+set "BUILD_DEPS_CHECK=import PyInstaller, wx, accessible_output2, cosmos, keyring, requests, psutil, websockets, fluent.runtime, numpy, sounddevice, pygame; from livekit import rtc; from pygame._sdl2 import controller; assert callable(cosmos.SoundManager); assert callable(rtc.Room)"
 set "DIST_ROOT=dist\PlayAural"
 set "CONTENTS_DIR="
 

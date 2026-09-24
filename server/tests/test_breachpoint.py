@@ -64,6 +64,7 @@ from ..games.breachpoint.audio import (
     CASING_FAMILIES_BY_CALIBER_AND_SURFACE,
     DEATH_VOICE_ASSETS,
     DISTANT_ATTENUATION,
+    DISTANT_LAYER_VOLUME,
     FINAL_ROUND_STINGER_ASSET,
     FIRE_ATTENUATION,
     FIRE_DAMAGE_FAMILY,
@@ -111,6 +112,7 @@ from ..games.breachpoint.audio import (
     UTILITY_SOURCE_HEIGHT_METERS,
     WEAPON_AUDIO_PROFILES,
     WEAPON_AUDIO_SEQUENCE_TAG,
+    WEAPON_FIRE_LAYER_GAINS_BY_CLIENT,
     WEAPON_PROJECTILE_PRIORITY,
     WEAPON_SOURCE_HEIGHT_METERS,
     bomb_detonation_warning_ticks,
@@ -3447,7 +3449,7 @@ def test_restored_movement_replays_its_finite_spatial_audio() -> None:
     assert restored_mover.position_id == "mid"
 
 
-def test_weapon_reports_select_close_and_distant_assets_per_listener() -> None:
+def test_weapon_reports_select_assets_and_mobile_headroom_per_listener() -> None:
     game = make_game(start=True)
     shooter = tactical_player(game, 0)
     target = tactical_player(game, 1)
@@ -3464,6 +3466,7 @@ def test_weapon_reports_select_close_and_distant_assets_per_listener() -> None:
     far_user = game.get_user(far_listener)
     assert isinstance(shooter_user, MockUser)
     assert isinstance(far_user, MockUser)
+    shooter_user.client_type = "mobile"
     shooter_user.clear_messages()
     far_user.clear_messages()
 
@@ -3499,7 +3502,21 @@ def test_weapon_reports_select_close_and_distant_assets_per_listener() -> None:
     )
     assert shooter_chain.data["segments"][0]["asset"] in profile.fire_close_assets
     assert shooter_chain.data["segments"][1]["asset"] == profile.fire_distant
+    mobile_gain = WEAPON_FIRE_LAYER_GAINS_BY_CLIENT["mobile"]
+    assert shooter_chain.data["segments"][0]["gain"] == mobile_gain
+    assert shooter_chain.data["segments"][1]["gain"] == (
+        DISTANT_LAYER_VOLUME / 100
+    ) * mobile_gain
+    assert all(
+        segment["gain"] == mobile_gain
+        for segment in shooter_chain.data["segments"][2:]
+    )
     assert far_chain.data["segments"][0]["asset"] == profile.fire_distant
+    assert far_chain.data["segments"][0]["gain"] == DISTANT_LAYER_VOLUME / 100
+    assert all(
+        segment["gain"] == 1.0
+        for segment in far_chain.data["segments"][1:]
+    )
     assert far_chain.data["segments"][0]["attenuation"] == (
         DISTANT_ATTENUATION.to_packet()
     )
@@ -3689,6 +3706,7 @@ def test_only_the_final_lethal_bullet_starts_headshot_and_death_audio() -> None:
     target_user = game.get_user(target)
     assert isinstance(shooter_user, MockUser)
     assert isinstance(target_user, MockUser)
+    target_user.client_type = "mobile"
     shooter_user.clear_messages()
     target_user.clear_messages()
 
@@ -3794,11 +3812,16 @@ def test_only_the_final_lethal_bullet_starts_headshot_and_death_audio() -> None:
         target_segments[death_index - 1]["asset"]
         in HEADSHOT_ASSETS_BY_ARMOR[False]
     )
+    assert target_segments[death_index - 1]["gain"] == (
+        WEAPON_FIRE_LAYER_GAINS_BY_CLIENT["mobile"]
+    )
     assert target_segments[death_index - 1]["next_start_ratio"] == 0.0
     assert (
         target_segments[death_index + 1]["asset"]
         in BODY_FALL_ASSETS_BY_SURFACE["sand"]
     )
+    assert target_segments[death_index]["gain"] == 1.0
+    assert target_segments[death_index + 1]["gain"] == 1.0
     assert target_segments[death_index]["position"] is None
     assert target_segments[death_index + 1]["position"] is None
 

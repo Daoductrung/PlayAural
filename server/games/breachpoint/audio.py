@@ -14,6 +14,7 @@ from ...audio import (
     distance_attenuation_gain,
 )
 from ...game_utils.audio_duration import measure_audio_duration_ticks
+from ...game_utils.client_types import get_client_type
 from .arsenal import EQUIPMENT, UTILITIES, WEAPONS, get_utility
 from .maps import DEFAULT_MAP_ID, TACTICAL_MAPS, GridPoint, TacticalNode
 
@@ -61,6 +62,11 @@ UTILITY_SOURCE_HEIGHT_METERS = 1.15
 FOOTSTEP_SOURCE_HEIGHT_METERS = 0.05
 DISTANT_REPORT_THRESHOLD_METERS = 24.0
 DISTANT_LAYER_VOLUME = 72
+# Each bullet deliberately overlaps its close report, distant body, projectile,
+# and impact. The shipped assets peak near full scale, so leave enough authored
+# headroom on renderers that need it while retaining the established mix on
+# other clients. New client-specific calibration belongs in this data table.
+WEAPON_FIRE_LAYER_GAINS_BY_CLIENT = {"mobile": 0.4}
 WEAPON_PROJECTILE_PRIORITY = 82
 FOOTSTEP_STRIDE_METERS = 2.5
 MINIMUM_FOOTSTEPS = 2
@@ -1498,6 +1504,10 @@ class BreachPointAudioMixin:
         death_assets = self._death_audio_assets(target) if terminal_lethal_hit else None
 
         for listener, user in self._audio_listeners():
+            fire_layer_gain = WEAPON_FIRE_LAYER_GAINS_BY_CLIENT.get(
+                get_client_type(user),
+                1.0,
+            )
             listener_point, _ = self._audio_listener_frame(listener)
             distance = world_distance_meters(
                 listener_point,
@@ -1523,6 +1533,7 @@ class BreachPointAudioMixin:
                         close_report_asset,
                         position=report_position,
                         attenuation=close_curve,
+                        gain=fire_layer_gain,
                         next_start_ratio=0.0,
                     )
                 )
@@ -1531,7 +1542,7 @@ class BreachPointAudioMixin:
                     profile.fire_distant,
                     position=report_position,
                     attenuation=distant_curve,
-                    gain=DISTANT_LAYER_VOLUME / 100,
+                    gain=(DISTANT_LAYER_VOLUME / 100) * fire_layer_gain,
                     next_start_ratio=0.0,
                 )
             )
@@ -1551,6 +1562,7 @@ class BreachPointAudioMixin:
                     position=trajectory_start,
                     destination_position=trajectory_end,
                     attenuation=POSITIONAL_ATTENUATION,
+                    gain=fire_layer_gain,
                     # CS resolves the bullet trace, impact, and tracer/whiz as
                     # one shot event. The authored flyby tail is presentation,
                     # not ballistic travel time, so it must not delay impact.
@@ -1568,6 +1580,7 @@ class BreachPointAudioMixin:
                             source_height_meters=WEAPON_SOURCE_HEIGHT_METERS,
                         ),
                         attenuation=POSITIONAL_ATTENUATION,
+                        gain=fire_layer_gain,
                         next_start_ratio=0.0 if death_assets else 1.0,
                     )
                 )

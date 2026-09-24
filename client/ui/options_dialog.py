@@ -207,6 +207,16 @@ class ClientOptionsDialog(wx.Dialog, uisound.SoundBindingsMixin):
         )
         self.play_typing_sounds_check.SetValue(interface.get("play_typing_sounds", True))
         sizer.Add(self.play_typing_sounds_check, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        self.enable_gamepad_check = wx.CheckBox(
+            panel, label=Localization.get("options-enable-gamepad")
+        )
+        self.enable_gamepad_check.SetValue(interface.get("enable_gamepad", True))
+        sizer.Add(self.enable_gamepad_check, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        self.gamepad_vibration_check = wx.CheckBox(
+            panel, label=Localization.get("options-gamepad-vibration")
+        )
+        self.gamepad_vibration_check.SetValue(interface.get("gamepad_vibration", True))
+        sizer.Add(self.gamepad_vibration_check, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
         panel.SetSizer(sizer)
         return panel
 
@@ -275,6 +285,8 @@ class ClientOptionsDialog(wx.Dialog, uisound.SoundBindingsMixin):
             interface = data_source.get("interface", {})
             self.invert_multiline_enter_check.SetValue(interface.get("invert_multiline_enter_behavior", False))
             self.play_typing_sounds_check.SetValue(interface.get("play_typing_sounds", True))
+            self.enable_gamepad_check.SetValue(interface.get("enable_gamepad", True))
+            self.gamepad_vibration_check.SetValue(interface.get("gamepad_vibration", True))
 
     def on_reset_to_last_used(self, event):
         """Reset fields in current tab to last saved values."""
@@ -311,8 +323,12 @@ class ClientOptionsDialog(wx.Dialog, uisound.SoundBindingsMixin):
 
         invert_multiline_enter = self.invert_multiline_enter_check.GetValue()
         play_typing_sounds = self.play_typing_sounds_check.GetValue()
+        enable_gamepad = self.enable_gamepad_check.GetValue()
+        gamepad_vibration = self.gamepad_vibration_check.GetValue()
         self.config_manager.set_client_option("interface/invert_multiline_enter_behavior", invert_multiline_enter, create_mode=True)
         self.config_manager.set_client_option("interface/play_typing_sounds", play_typing_sounds, create_mode=True)
+        self.config_manager.set_client_option("interface/enable_gamepad", enable_gamepad, create_mode=True)
+        self.config_manager.set_client_option("interface/gamepad_vibration", gamepad_vibration, create_mode=True)
 
         self.EndModal(wx.ID_OK)
 

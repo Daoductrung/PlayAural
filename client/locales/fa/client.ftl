@@ -134,6 +134,10 @@ options-mute-global-chat = بی‌صدا کردن &چت عمومی
 options-mute-table-chat = بی‌صدا کردن &چت میز
 options-invert-multiline-enter = معکوس کردن عملکرد &اینتر در متن چندخطی
 options-play-typing-sounds = پخش صدای &تایپ هنگام ویرایش
+options-enable-gamepad = فعال‌سازی پشتیبانی از دسته‌های &بازی
+options-gamepad-vibration = فعال‌سازی &لرزش دسته بازی
+gamepad-connected = دسته بازی متصل شد: { $name }
+gamepad-disconnected = دسته بازی قطع شد: { $name }
 options-reset-confirm-title = تأیید بازنشانی
 options-reset-confirm-message = تنظیمات { $tab } به مقادیر ذخیره‌شده بازگردانده شوند؟
 

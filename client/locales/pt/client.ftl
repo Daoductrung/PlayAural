@@ -144,6 +144,10 @@ options-mute-global-chat = Silenciar bate-papo &global
 options-mute-table-chat = Silenciar bate-papo da &mesa
 options-invert-multiline-enter = Inverter comportamento do &Enter multilinha
 options-play-typing-sounds = Reproduzir sons de &digitação durante a edição
+options-enable-gamepad = Habilitar suporte a &controle (gamepad)
+options-gamepad-vibration = Habilitar &vibração do controle
+gamepad-connected = Controle conectado: { $name }
+gamepad-disconnected = Controle desconectado: { $name }
 options-reset-confirm-title = Confirmar redefinição
 options-reset-confirm-message = Redefinir as configurações de { $tab } para os valores salvos?
 

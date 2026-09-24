@@ -61,7 +61,7 @@ O PlayAural é totalmente compatível com controles padrão no cliente de comput
 * **Botão Norte / Superior (Triângulo no PlayStation / Y no Xbox / X no Switch / Botão 3 em genéricos):** Tab: alterna entre campos de texto e painéis.
 * **Direcional (D-Pad) e Alavanca Esquerda:** Navegam por menus, listas e posições no tabuleiro.
 * **Clique da Alavanca Esquerda (L3 / LS):** Lê o item em foco ou a mensagem ativa. Pressionado simultaneamente com R3 em uma mesa: salva a mesa (Ctrl + S).
-* **Options / Menu / Start / +:** Abre o menu de Opções (Alt + O).
+* **Options / Menu / Start / +:** Cancelar, voltar, fechar o menu atual ou abrir o menu de ações do jogo (equivalente ao Escape).
 * **Share / Create / View / Select / Back / -:** Abre as Opções da mesa / Gerenciamento de host (Ctrl + M) se você for o host da mesa.
 * **Botão Guia (PS / Xbox / Home):** Retorna o foco para o menu principal (Alt + M).
 

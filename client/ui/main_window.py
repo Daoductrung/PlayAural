@@ -312,7 +312,10 @@ class MainWindow(wx.Frame):
         interface = self.client_options.get("interface", {})
         gamepad_enabled = interface.get("enable_gamepad", True)
         vibration_enabled = interface.get("gamepad_vibration", True)
-        vibration_strength = interface.get("gamepad_vibration_strength", 100)
+        try:
+            vibration_strength = max(10, min(100, int(interface.get("gamepad_vibration_strength", 100))))
+        except (ValueError, TypeError):
+            vibration_strength = 100
         device_id = interface.get("gamepad_device_id", "")
         self.gamepad_manager.enabled = gamepad_enabled
         self.gamepad_manager.vibration_enabled = vibration_enabled
@@ -327,10 +330,55 @@ class MainWindow(wx.Frame):
                 if self._gamepad_timer.IsRunning():
                     self._gamepad_timer.Stop()
 
+    def _schedule_pending_gamepad_action(self, action_name: str, delay: float = 0.075) -> None:
+        self._pending_gamepad_action = (action_name, time.monotonic() + delay)
+
+    def _cancel_pending_gamepad_action(self) -> None:
+        self._pending_gamepad_action = None
+
+    def _has_pending_gamepad_action(self, action_name: str) -> bool:
+        pending = getattr(self, "_pending_gamepad_action", None)
+        return pending is not None and pending[0] == action_name
+
+    def _dispatch_deferred_gamepad_action(self, action_name: str) -> None:
+        if action_name == "south":
+            if not getattr(self, "_west_combo_used", False):
+                self._execute_standalone_south()
+        elif action_name == "west":
+            if not getattr(self, "_west_combo_used", False):
+                self._execute_standalone_west()
+        elif action_name == "left_stick":
+            if not getattr(self, "_l3_combo_used", False):
+                self._execute_standalone_left_stick()
+
+    def _execute_standalone_south(self) -> None:
+        self.silence_speech()
+        count = self.menu_list.GetCount()
+        if count > 0:
+            self.menu_list._on_activation()
+            self.gamepad_manager.rumble(0.18, 0.18, 45)
+        else:
+            self._send_keybind("enter")
+
+    def _execute_standalone_west(self) -> None:
+        self.silence_speech()
+        self._send_keybind("space")
+        self.gamepad_manager.rumble(0.15, 0.15, 40)
+
+    def _execute_standalone_left_stick(self) -> None:
+        self._read_current_item_or_message()
+        self.gamepad_manager.rumble(0.12, 0.12, 40)
+
     def _on_gamepad_tick(self, event):
         """Periodic timer event to poll gamepad inputs and detect holds."""
         if hasattr(self, "gamepad_manager"):
             self.gamepad_manager.poll()
+        pending = getattr(self, "_pending_gamepad_action", None)
+        if pending is not None:
+            action_name, fire_time = pending
+            if time.monotonic() >= fire_time:
+                self._pending_gamepad_action = None
+                self._dispatch_deferred_gamepad_action(action_name)
         if getattr(self, "_misc1_press_time", None) is not None:
             if not getattr(self, "_misc1_hold_triggered", False) and (
                 time.monotonic() - self._misc1_press_time >= 0.5
@@ -555,12 +603,14 @@ class MainWindow(wx.Frame):
             self._l3_is_down = True
             if getattr(self, "_r3_is_down", False):
                 self._r3_modifier_used = True
+                self._l3_combo_used = True
+                self._cancel_pending_gamepad_action()
                 self.silence_speech()
                 self._send_keybind("s", has_control=True)
                 self.gamepad_manager.rumble(0.25, 0.25, 60)
                 return
-            self._read_current_item_or_message()
-            self.gamepad_manager.rumble(0.12, 0.12, 40)
+            self._l3_combo_used = False
+            self._schedule_pending_gamepad_action("left_stick", 0.075)
             return
 
         if btn_name == "right_stick":
@@ -568,6 +618,8 @@ class MainWindow(wx.Frame):
             self._r3_modifier_used = False
             if getattr(self, "_l3_is_down", False):
                 self._r3_modifier_used = True
+                self._l3_combo_used = True
+                self._cancel_pending_gamepad_action()
                 self.silence_speech()
                 self._send_keybind("s", has_control=True)
                 self.gamepad_manager.rumble(0.25, 0.25, 60)
@@ -648,30 +700,27 @@ class MainWindow(wx.Frame):
             self._south_is_down = True
             if getattr(self, "_west_is_down", False):
                 self._west_combo_used = True
+                self._cancel_pending_gamepad_action()
                 self.silence_speech()
                 self._send_keybind("b")
                 self.gamepad_manager.rumble(0.25, 0.25, 60)
                 return
-            self.silence_speech()
-            count = self.menu_list.GetCount()
-            if count > 0:
-                self.menu_list._on_activation()
-                self.gamepad_manager.rumble(0.18, 0.18, 45)
-            else:
-                self._send_keybind("enter")
+            self._west_combo_used = False
+            self._schedule_pending_gamepad_action("south", 0.075)
+            return
 
         elif btn_name == "west":  # Square / X -> Primary Game Action / Space (or Combo with South -> Add bot B)
             self._west_is_down = True
-            self._west_combo_used = False
             if getattr(self, "_south_is_down", False):
                 self._west_combo_used = True
+                self._cancel_pending_gamepad_action()
                 self.silence_speech()
                 self._send_keybind("b")
                 self.gamepad_manager.rumble(0.25, 0.25, 60)
                 return
-            self.silence_speech()
-            self._send_keybind("space")
-            self.gamepad_manager.rumble(0.15, 0.15, 40)
+            self._west_combo_used = False
+            self._schedule_pending_gamepad_action("west", 0.075)
+            return
 
         elif btn_name == "north":  # Triangle / Y -> Turn / Table Status ("t")
             self.silence_speech()
@@ -717,6 +766,11 @@ class MainWindow(wx.Frame):
             self.silence_speech()
             self._send_keybind("u", has_control=True)
             self.gamepad_manager.rumble(0.12, 0.12, 40)
+
+        elif btn_name == "guide":  # Guide / Home / PS button -> Focus Main Menu (Alt + M)
+            self.silence_speech()
+            self.on_focus_menu(wx.CommandEvent())
+            self.gamepad_manager.rumble(0.15, 0.15, 45)
 
         elif btn_name == "start":  # Start / Options -> Escape / Table Actions / Back
             self.trigger_escape(allow_main_menu_exit=True, from_gamepad=True)
@@ -779,6 +833,10 @@ class MainWindow(wx.Frame):
         """Process semantic gamepad button release."""
         if btn_name == "left_stick":
             self._l3_is_down = False
+            if self._has_pending_gamepad_action("left_stick"):
+                self._cancel_pending_gamepad_action()
+                if not getattr(self, "_l3_combo_used", False):
+                    self._execute_standalone_left_stick()
 
         elif btn_name == "right_stick":
             was_down = getattr(self, "_r3_is_down", False)
@@ -790,9 +848,17 @@ class MainWindow(wx.Frame):
 
         elif btn_name == "south":
             self._south_is_down = False
+            if self._has_pending_gamepad_action("south"):
+                self._cancel_pending_gamepad_action()
+                if not getattr(self, "_west_combo_used", False):
+                    self._execute_standalone_south()
 
         elif btn_name == "west":
             self._west_is_down = False
+            if self._has_pending_gamepad_action("west"):
+                self._cancel_pending_gamepad_action()
+                if not getattr(self, "_west_combo_used", False):
+                    self._execute_standalone_west()
 
         elif btn_name == "east":
             if getattr(self, "_east_press_time", None) is not None:
@@ -3131,7 +3197,11 @@ class MainWindow(wx.Frame):
             if "desktop_gamepad_vibration" in preferences:
                 self.config_manager.set_client_option("interface/gamepad_vibration", preferences["desktop_gamepad_vibration"], create_mode=True)
             if "desktop_gamepad_vibration_strength" in preferences:
-                self.config_manager.set_client_option("interface/gamepad_vibration_strength", preferences["desktop_gamepad_vibration_strength"], create_mode=True)
+                try:
+                    str_val = max(10, min(100, int(preferences["desktop_gamepad_vibration_strength"])))
+                except (TypeError, ValueError):
+                    str_val = 100
+                self.config_manager.set_client_option("interface/gamepad_vibration_strength", str_val, create_mode=True)
             
             # Dice (Game specific options often handled by server state, but good to store)
             if "clear_kept_on_roll" in preferences:

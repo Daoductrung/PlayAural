@@ -61,7 +61,7 @@ PlayAural supports standard game controllers on the desktop client, including Pl
 \* \*\*North Button (PlayStation Triangle / Xbox Y / Switch X / Generic Button 3):\*\* Tab: cycles between input fields and panels.
 \* \*\*D-Pad and Left Stick:\*\* Move through menus, lists, and game board directions.
 \* \*\*Left Stick Click (L3 / LS):\*\* Read the currently focused item or active message. Pressed simultaneously with R3 while in a table: saves the table (Ctrl + S).
-\* \*\*Options / Menu / Start / +:\*\* Open Options (Alt + O).
+\* \*\*Options / Menu / Start / +:\*\* Cancel, go back, close the current menu, or open the in-game action menu (equivalent to Escape / Back).
 \* \*\*Share / Create / View / Select / Back / -:\*\* Open Table Options / Host Management (Ctrl + M) if you are the table host.
 \* \*\*Guide Button (PS / Xbox / Home):\*\* Return focus to the main menu (Alt + M).
 

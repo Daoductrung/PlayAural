@@ -1248,6 +1248,7 @@ async def test_gamepad_device_and_strength_selection(tmp_path) -> None:
         server._show_gamepad_vibration_strength_menu(user)
         assert _current_menu(server, user.username) == "gamepad_vibration_strength_menu"
         assert _menu_ids(user, "gamepad_vibration_strength_menu") == [
+            "gamepad_strength_10",
             "gamepad_strength_25",
             "gamepad_strength_50",
             "gamepad_strength_75",
@@ -1255,10 +1256,19 @@ async def test_gamepad_device_and_strength_selection(tmp_path) -> None:
             "back",
         ]
 
+        # Select 10%
+        await server._handle_gamepad_vibration_strength_selection(user, "gamepad_strength_10")
+        assert user.preferences.desktop_gamepad_vibration_strength == 10
+        assert ("interface/gamepad_vibration_strength", 10) in synced_prefs
+
         # Select 50%
         await server._handle_gamepad_vibration_strength_selection(user, "gamepad_strength_50")
         assert user.preferences.desktop_gamepad_vibration_strength == 50
         assert ("interface/gamepad_vibration_strength", 50) in synced_prefs
+
+        # Verify set_preference clamps to minimum 10%
+        await server._handle_set_preference(user, {"key": "interface/gamepad_vibration_strength", "value": 0})
+        assert user.preferences.desktop_gamepad_vibration_strength == 10
     finally:
         server._db.close()
 

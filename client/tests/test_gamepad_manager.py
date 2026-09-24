@@ -280,17 +280,26 @@ def test_main_window_gamepad_mappings():
         _misc1_press_time=None,
         _misc1_hold_triggered=False,
         _east_press_time=None,
-        _east_hold_triggered=False,
         _l3_is_down=False,
+        _l3_combo_used=False,
         _r3_is_down=False,
         _r3_modifier_used=False,
         _south_is_down=False,
         _west_is_down=False,
         _west_combo_used=False,
+        _pending_gamepad_action=None,
+        on_focus_menu=lambda evt: called_actions.append("on_focus_menu"),
     )
 
     dummy._handle_gamepad_mic_tap = MainWindow._handle_gamepad_mic_tap.__get__(dummy)
     dummy._handle_gamepad_mic_hold = MainWindow._handle_gamepad_mic_hold.__get__(dummy)
+    dummy._schedule_pending_gamepad_action = MainWindow._schedule_pending_gamepad_action.__get__(dummy)
+    dummy._cancel_pending_gamepad_action = MainWindow._cancel_pending_gamepad_action.__get__(dummy)
+    dummy._has_pending_gamepad_action = MainWindow._has_pending_gamepad_action.__get__(dummy)
+    dummy._dispatch_deferred_gamepad_action = MainWindow._dispatch_deferred_gamepad_action.__get__(dummy)
+    dummy._execute_standalone_south = MainWindow._execute_standalone_south.__get__(dummy)
+    dummy._execute_standalone_west = MainWindow._execute_standalone_west.__get__(dummy)
+    dummy._execute_standalone_left_stick = MainWindow._execute_standalone_left_stick.__get__(dummy)
     dummy._on_gamepad_button_down = MainWindow._on_gamepad_button_down.__get__(dummy)
     dummy._on_gamepad_button_up = MainWindow._on_gamepad_button_up.__get__(dummy)
     dummy.trigger_escape = MainWindow.trigger_escape.__get__(dummy)
@@ -343,9 +352,10 @@ def test_main_window_gamepad_mappings():
     dummy._on_gamepad_button_down("touchpad_tap", 0)
     assert "keybind:t:False:False" in called_actions
 
-    # 10. Square (west) -> Space: Action
+    # 10. Square (west) -> Space: Action on release
     called_actions.clear()
     dummy._on_gamepad_button_down("west", 0)
+    dummy._on_gamepad_button_up("west", 0)
     assert "keybind:space:False:False" in called_actions
 
     # 11. Right stick directions:
@@ -488,21 +498,70 @@ def test_main_window_gamepad_mappings():
     assert "keybind:q:True:False" in called_actions
     assert "keybind:escape:False:False" not in called_actions
 
-    # 18. L3 + R3 combo -> Save table (Ctrl + S)
+    # 18. Guide / Home / PS button -> Focus Main Menu (Alt + M)
+    called_actions.clear()
+    dummy._on_gamepad_button_down("guide", 0)
+    assert "on_focus_menu" in called_actions
+
+    # 19. L3 + R3 combo (L3 first, then R3) -> Save table (Ctrl + S)
     called_actions.clear()
     dummy._on_gamepad_button_down("left_stick", 0)
     dummy._on_gamepad_button_down("right_stick", 0)
     dummy._on_gamepad_button_up("left_stick", 0)
     dummy._on_gamepad_button_up("right_stick", 0)
     assert "keybind:s:True:False" in called_actions
+    assert "_read_current_item_or_message" not in called_actions
 
-    # 19. South (Cross) + West (Square) combo -> Add bot (B)
+    # 20. R3 + L3 combo (R3 first, then L3) -> Save table (Ctrl + S)
+    called_actions.clear()
+    dummy._on_gamepad_button_down("right_stick", 0)
+    dummy._on_gamepad_button_down("left_stick", 0)
+    dummy._on_gamepad_button_up("right_stick", 0)
+    dummy._on_gamepad_button_up("left_stick", 0)
+    assert "keybind:s:True:False" in called_actions
+    assert "_read_current_item_or_message" not in called_actions
+
+    # 21. L3 alone -> Read current item or message on release
+    called_actions.clear()
+    dummy._on_gamepad_button_down("left_stick", 0)
+    dummy._on_gamepad_button_up("left_stick", 0)
+    assert "_read_current_item_or_message" in called_actions
+    assert "keybind:s:True:False" not in called_actions
+
+    # 22. South (Cross) + West (Square) combo (South first, then West) -> Add bot (B)
     called_actions.clear()
     dummy._on_gamepad_button_down("south", 0)
     dummy._on_gamepad_button_down("west", 0)
     dummy._on_gamepad_button_up("south", 0)
     dummy._on_gamepad_button_up("west", 0)
     assert "keybind:b:False:False" in called_actions
+    assert "keybind:enter:False:False" not in called_actions
+    assert "keybind:space:False:False" not in called_actions
+
+    # 23. West (Square) + South (Cross) combo (West first, then South) -> Add bot (B)
+    called_actions.clear()
+    dummy._on_gamepad_button_down("west", 0)
+    dummy._on_gamepad_button_down("south", 0)
+    dummy._on_gamepad_button_up("west", 0)
+    dummy._on_gamepad_button_up("south", 0)
+    assert "keybind:b:False:False" in called_actions
+    assert "keybind:enter:False:False" not in called_actions
+    assert "keybind:space:False:False" not in called_actions
+
+    # 24. South alone -> Enter / activation on release
+    called_actions.clear()
+    dummy.menu_list.GetCount.return_value = 0
+    dummy._on_gamepad_button_down("south", 0)
+    dummy._on_gamepad_button_up("south", 0)
+    assert "keybind:enter:False:False" in called_actions
+    assert "keybind:b:False:False" not in called_actions
+
+    # 25. West alone -> Space on release
+    called_actions.clear()
+    dummy._on_gamepad_button_down("west", 0)
+    dummy._on_gamepad_button_up("west", 0)
+    assert "keybind:space:False:False" in called_actions
+    assert "keybind:b:False:False" not in called_actions
 
 
 def test_game_audio_haptic_vibration_triggers():
@@ -584,4 +643,63 @@ def test_game_audio_haptic_vibration_triggers():
     gm_mock.rumble.reset_mock()
     dummy._trigger_game_audio_haptics({"command": "play", "asset": "game_farkle/farkle.ogg"})
     gm_mock.rumble.assert_not_called()
+
+
+def test_gamepad_stable_device_identity_and_duplicates():
+    """Verify stable hardware GUID generation, duplicate disambiguation, and routing."""
+    gm = GamepadManager(enabled=False)
+    gm.enabled = True
+    gm._initialized = True
+
+    # Create two mock controllers with the same hardware GUID and name
+    guid = "030000004c050000e60c000000000000"
+    mock_joy1 = MagicMock()
+    mock_joy1.get_guid.return_value = guid
+    mock_c1 = MagicMock()
+    mock_c1.id = 10
+    mock_c1.name = "PS5 DualSense Controller"
+    mock_c1.as_joystick.return_value = mock_joy1
+    mock_c1.rumble.return_value = True
+
+    mock_joy2 = MagicMock()
+    mock_joy2.get_guid.return_value = guid
+    mock_c2 = MagicMock()
+    mock_c2.id = 20
+    mock_c2.name = "PS5 DualSense Controller"
+    mock_c2.as_joystick.return_value = mock_joy2
+    mock_c2.rumble.return_value = True
+
+    gm._controllers[10] = mock_c1
+    gm._controllers[20] = mock_c2
+
+    info = gm.get_controller_info_list()
+    assert len(info) == 2
+    assert info[0]["id"] == guid
+    assert info[0]["name"] == "PS5 DualSense Controller (1)"
+    assert info[1]["id"] == f"{guid}#2"
+    assert info[1]["name"] == "PS5 DualSense Controller (2)"
+
+    # Test routing to controller 2
+    gm.preferred_controller_id = f"{guid}#2"
+    assert not gm._is_controller_active(10)
+    assert gm._is_controller_active(20)
+
+    # Test rumble targeting only controller 2
+    mock_c1.rumble.reset_mock()
+    mock_c2.rumble.reset_mock()
+    res = gm.rumble(0.5, 0.5, 100)
+    assert res is True
+    mock_c1.rumble.assert_not_called()
+    mock_c2.rumble.assert_called_once()
+
+    # Test routing to controller 1 with base GUID
+    gm.preferred_controller_id = guid
+    assert gm._is_controller_active(10)
+    assert not gm._is_controller_active(20)
+
+    # Clean shutdown clears mappings
+    gm.shutdown()
+    assert len(gm._instance_to_stable_id) == 0
+    assert len(gm._stable_to_instance_id) == 0
+
 

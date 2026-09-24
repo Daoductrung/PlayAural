@@ -93,6 +93,8 @@ class GamepadManager:
         self.enabled = enabled
 
         self._controllers: Dict[int, Any] = {}
+        self._instance_to_stable_id: Dict[int, str] = {}
+        self._stable_to_instance_id: Dict[str, int] = {}
         self._initialized = False
 
         # Stick direction tracking for D-pad simulation and history navigation with pacing
@@ -152,9 +154,44 @@ class GamepadManager:
                         logger.info("Found attached controller: %s (id=%s)", c.name, c.id)
                     except Exception as err:
                         logger.warning("Could not initialize controller %d: %s", index, err)
+            self._rebuild_device_identities()
         except Exception as e:
             logger.warning("Failed to initialize SDL Controller subsystem: %s", e)
             self._initialized = False
+
+    @staticmethod
+    def _get_controller_guid(controller: Any) -> str:
+        """Extract a stable hardware GUID string from a controller object."""
+        try:
+            if hasattr(controller, "as_joystick"):
+                joy = controller.as_joystick()
+                if hasattr(joy, "get_guid"):
+                    guid = joy.get_guid()
+                    if guid:
+                        return str(guid).strip()
+        except Exception:
+            pass
+        name = getattr(controller, "name", "")
+        if name:
+            return f"name:{str(name).strip()}"
+        return f"controller:{getattr(controller, 'id', 0)}"
+
+    def _rebuild_device_identities(self) -> None:
+        """Rebuild mapping between SDL runtime instance IDs and stable persistent device IDs."""
+        self._instance_to_stable_id.clear()
+        self._stable_to_instance_id.clear()
+        guid_counts: Dict[str, int] = {}
+
+        for cid in sorted(self._controllers.keys()):
+            c = self._controllers[cid]
+            guid = self._get_controller_guid(c)
+            guid_counts[guid] = guid_counts.get(guid, 0) + 1
+            occ = guid_counts[guid]
+            stable_id = f"{guid}#{occ}" if occ > 1 else guid
+            self._instance_to_stable_id[cid] = stable_id
+            self._stable_to_instance_id[stable_id] = cid
+            if occ == 1:
+                self._stable_to_instance_id[f"{guid}#1"] = cid
 
     @property
     def is_available(self) -> bool:
@@ -171,18 +208,45 @@ class GamepadManager:
         return [c.name for c in self._controllers.values() if hasattr(c, "name")]
 
     def get_controller_info_list(self) -> List[Dict[str, str]]:
-        """Return a list of dicts with id and name for all connected controllers."""
+        """Return a list of dicts with stable id and name for all connected controllers."""
+        self._rebuild_device_identities()
+        name_counts: Dict[str, int] = {}
+        total_names: Dict[str, int] = {}
+        for cid in sorted(self._controllers.keys()):
+            c = self._controllers[cid]
+            base_name = getattr(c, "name", f"Controller {cid}")
+            total_names[base_name] = total_names.get(base_name, 0) + 1
+
         res = []
-        for cid, c in self._controllers.items():
-            name = getattr(c, "name", f"Controller {cid}")
-            res.append({"id": str(cid), "name": name})
+        for cid in sorted(self._controllers.keys()):
+            c = self._controllers[cid]
+            base_name = getattr(c, "name", f"Controller {cid}")
+            stable_id = self._instance_to_stable_id.get(cid, str(cid))
+            if total_names.get(base_name, 0) > 1:
+                name_counts[base_name] = name_counts.get(base_name, 0) + 1
+                display_name = f"{base_name} ({name_counts[base_name]})"
+            else:
+                display_name = base_name
+            res.append({"id": stable_id, "name": display_name})
         return res
 
     def _is_controller_active(self, cid: int) -> bool:
         """Check if controller with instance_id cid is accepted based on preferred_controller_id."""
-        if not self.preferred_controller_id:
+        pref = str(self.preferred_controller_id or "").strip()
+        if not pref:
             return True
-        return str(cid) == str(self.preferred_controller_id)
+        stable_id = self._instance_to_stable_id.get(cid)
+        if not stable_id:
+            self._rebuild_device_identities()
+            stable_id = self._instance_to_stable_id.get(cid)
+        if stable_id and (
+            stable_id == pref
+            or pref == f"{stable_id}#1"
+            or stable_id == f"{pref}#1"
+        ):
+            return True
+        # Backward compatibility fallback if preferred_controller_id was a raw instance ID
+        return str(cid) == pref
 
     def poll(self) -> None:
         """Process pending SDL controller events. Non-blocking."""
@@ -208,6 +272,7 @@ class GamepadManager:
                     c.init()
                     cid = c.id
                     self._controllers[cid] = c
+                    self._rebuild_device_identities()
                     logger.info("Controller connected: %s (id=%s)", c.name, cid)
                     if self.on_controller_connected:
                         self.on_controller_connected(c.name)
@@ -218,6 +283,7 @@ class GamepadManager:
             instance_id = getattr(event, "instance_id", None)
             if instance_id is not None and instance_id in self._controllers:
                 c = self._controllers.pop(instance_id)
+                self._rebuild_device_identities()
                 name = getattr(c, "name", "Controller")
                 try:
                     c.quit()
@@ -489,14 +555,21 @@ class GamepadManager:
         clamped_duration = max(10, min(5000, int(duration_ms)))
 
         target_controllers = []
-        pref_id = getattr(self, "preferred_controller_id", "")
+        pref_id = str(getattr(self, "preferred_controller_id", "") or "").strip()
         if pref_id:
-            try:
-                target_cid = int(pref_id)
-                if target_cid in self._controllers:
-                    target_controllers = [self._controllers[target_cid]]
-            except (ValueError, TypeError):
-                pass
+            target_cid = self._stable_to_instance_id.get(pref_id)
+            if target_cid is None:
+                self._rebuild_device_identities()
+                target_cid = self._stable_to_instance_id.get(pref_id)
+            if target_cid is not None and target_cid in self._controllers:
+                target_controllers = [self._controllers[target_cid]]
+            else:
+                try:
+                    int_cid = int(pref_id)
+                    if int_cid in self._controllers:
+                        target_controllers = [self._controllers[int_cid]]
+                except (ValueError, TypeError):
+                    pass
 
         if not target_controllers:
             target_controllers = list(self._controllers.values())
@@ -521,6 +594,8 @@ class GamepadManager:
             except Exception:
                 pass
         self._controllers.clear()
+        self._instance_to_stable_id.clear()
+        self._stable_to_instance_id.clear()
         self._touch_data.clear()
         try:
             if PYGAME_CONTROLLER_AVAILABLE and sdl_controller and sdl_controller.get_init():

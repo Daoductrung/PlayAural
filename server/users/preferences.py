@@ -233,8 +233,14 @@ class UserPreferences:
             desktop_gamepad_device_id=data.get("desktop_gamepad_device_id", ""),
             desktop_gamepad_device_name=data.get("desktop_gamepad_device_name", ""),
             desktop_gamepad_vibration=data.get("desktop_gamepad_vibration", True),
-            desktop_gamepad_vibration_strength=data.get(
-                "desktop_gamepad_vibration_strength", 100
+            desktop_gamepad_vibration_strength=max(
+                10,
+                min(
+                    100,
+                    data.get("desktop_gamepad_vibration_strength", 100)
+                    if isinstance(data.get("desktop_gamepad_vibration_strength"), int)
+                    else 100,
+                ),
             ),
             speech_mode=data.get("speech_mode", "aria"),
             speech_rate=data.get("speech_rate", 100),

@@ -3869,7 +3869,7 @@ PlayAural Server
             return
 
         current_strength = user.preferences.desktop_gamepad_vibration_strength
-        strengths = [25, 50, 75, 100]
+        strengths = [10, 25, 50, 75, 100]
         selected_position = 1
 
         items = []
@@ -4460,7 +4460,7 @@ PlayAural Server
             prefs.desktop_gamepad_vibration = bool(value)
         elif key == "interface/gamepad_vibration_strength":
             try:
-                strength = max(0, min(100, int(value)))
+                strength = max(10, min(100, int(value)))
             except (TypeError, ValueError):
                 strength = 100
             prefs.desktop_gamepad_vibration_strength = strength
@@ -7785,7 +7785,10 @@ PlayAural Server
             return
         if selection_id.startswith("gamepad_strength_"):
             try:
-                strength = int(selection_id.removeprefix("gamepad_strength_"))
+                strength = max(
+                    10,
+                    min(100, int(selection_id.removeprefix("gamepad_strength_"))),
+                )
             except ValueError:
                 strength = 100
             user.preferences.desktop_gamepad_vibration_strength = strength

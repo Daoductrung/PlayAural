@@ -61,7 +61,7 @@ PlayAural hỗ trợ đầy đủ các loại tay cầm tiêu chuẩn trên ứn
 \* \*\*Nút trên / North (PlayStation Tam giác / Xbox Y / Switch X / Nút 3 trên tay cầm chung):\*\* Phím Tab: chuyển đổi qua lại giữa các ô nhập liệu và khu vực chức năng.
 \* \*\*Phím điều hướng (D-Pad) và cần gạt trái:\*\* Di chuyển trong menu, danh sách và vị trí ô cờ trên bàn.
 \* \*\*Nhấn cần gạt trái (L3 / LS):\*\* Đọc mục đang được chọn hoặc tin nhắn hiện tại. Nhấn đồng thời với R3 khi ở trong bàn: lưu bàn (Ctrl + S).
-\* \*\*Options / Menu / Start / +:\*\* Mở mục Tùy chỉnh (Alt + O).
+\* \*\*Options / Menu / Start / +:\*\* Hủy, quay lại, đóng menu hiện tại hoặc mở menu hành động trong ván chơi (tương đương phím Escape).
 \* \*\*Share / Create / View / Select / Back / -:\*\* Mở phần Tùy chọn bàn / Quản lý bàn (Ctrl + M) nếu bạn là chủ bàn.
 \* \*\*Nút Home / Guide (PS / Xbox / Home):\*\* Đưa tiêu điểm về menu chính (Alt + M).
 

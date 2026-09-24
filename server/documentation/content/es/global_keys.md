@@ -55,7 +55,7 @@ PlayAural es totalmente compatible con mandos estándar en el cliente de escrito
 \* \*\*Botón superior / Norte (Triángulo en PlayStation / Y en Xbox / X en Switch / Botón 3 en genérico):\*\* Tabulador (Tab): cambia entre campos de texto y paneles.
 \* \*\*Cruceta (D-Pad) y Stick izquierdo:\*\* Navegan por menús, listas y posiciones de cuadrícula del tablero.
 \* \*\*Pulsación del Stick izquierdo (L3 / LS):\*\* Lee el elemento actual enfocado o el mensaje activo. Pulsado simultáneamente con R3 dentro de una mesa: guarda la mesa (Ctrl + S).
-\* \*\*Options / Menu / Start / +:\*\* Abre el menú de Opciones (Alt + O).
+\* \*\*Options / Menu / Start / +:\*\* Cancelar, retroceder, cerrar el menú actual o abrir el menú de acciones del juego (equivalente a Escape).
 \* \*\*Share / Create / View / Select / Back / -:\*\* Abre las Opciones de la mesa / Gestión del anfitrión (Ctrl + M) si eres el anfitrión de la mesa.
 \* \*\*Botón Guía (PS / Xbox / Home):\*\* Devuelve el foco al menú principal (Alt + M).
 

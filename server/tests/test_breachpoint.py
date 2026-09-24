@@ -6181,6 +6181,62 @@ def test_halftime_and_overtime_start_fresh_side_appropriate_economies() -> None:
     )
 
 
+def test_mr7_halftime_keeps_mobile_footstep_and_gunfire_chains_available() -> None:
+    game = make_game(start=True, match_format="mr7")
+    listener = tactical_player(game, 0)
+    target = tactical_player(game, 1)
+    listener_user = game.get_user(listener)
+    assert isinstance(listener_user, MockUser)
+    listener_user.client_type = "mobile"
+    original_side = listener.team_index
+    game.round = game.match_format.rounds_per_half
+
+    game._finish_combat_round(TEAM_TERRORISTS, WIN_ELIMINATION)
+    complete_round_transition(game)
+
+    assert listener.team_index != original_side
+    listener_user.clear_messages()
+    origin = game._node(listener.position_id).anchor
+    destination = GridPoint(origin.x + 2, origin.y)
+    footsteps = FOOTSTEP_ASSETS_BY_SURFACE["sand"][:2]
+    game._play_movement_audio_for_listener(
+        listener,
+        listener_user,
+        listener,
+        origin,
+        destination,
+        footsteps,
+        2 / 3,
+    )
+    game._play_weapon_bullet_audio(
+        listener,
+        target,
+        GLOCK,
+        shot_index=0,
+        rounds_on_target=1,
+        rounds_evaded=0,
+        health_damage=30,
+        armor_absorbed=0,
+    )
+
+    finite_chains = [
+        message.data["segments"]
+        for message in listener_user.messages
+        if message.type == "play_sound" and message.data.get("segments")
+    ]
+    assert any(
+        [segment["asset"] for segment in segments] == list(footsteps)
+        for segments in finite_chains
+    )
+    weapon_profile = WEAPON_AUDIO_PROFILES[GLOCK.id]
+    assert any(
+        segments[0]["asset"] in weapon_profile.fire_close_assets
+        and weapon_profile.fire_distant
+        in {segment["asset"] for segment in segments}
+        for segments in finite_chains
+    )
+
+
 def test_elimination_rules_change_after_bomb_is_planted() -> None:
     game = make_game(start=True)
     terrorist_one = tactical_player(game, 0)

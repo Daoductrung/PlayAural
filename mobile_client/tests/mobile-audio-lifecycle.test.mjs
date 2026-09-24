@@ -193,7 +193,7 @@ test("async source creation reserves bounded mixer capacity", async () => {
   assert.match(source, /shutdown\(\)[\s\S]*?sourceLoadReservations\.clear\(\)/);
 });
 
-test("finite SFX preload concurrently and launch in command order", async () => {
+test("finite SFX preload concurrently and recover a stalled launch", async () => {
   const source = await readFile(
     new URL("../src/audio/MobileAudioManager.ts", import.meta.url),
     "utf8",
@@ -216,9 +216,42 @@ test("finite SFX preload concurrently and launch in command order", async () => 
     source,
     /await preload[\s\S]*?this\.playManagedSequence\(queuedPacket, generation\)[\s\S]*?this\.playManagedEffect\(queuedPacket, generation\)/,
   );
+  assert.match(source, /FINITE_SFX_LAUNCH_TIMEOUT_MS = 5000/);
+  assert.match(
+    source,
+    /Promise\.race[\s\S]*?playback[\s\S]*?timedOut/,
+  );
+  assert.match(
+    source,
+    /this\.commandGenerations\.get\(handle\) === generation[\s\S]*?this\.nextGeneration\(handle\)/,
+  );
   assert.match(
     source,
     /expectedGeneration \?\? this\.nextGeneration\(handle\)/,
+  );
+});
+
+test("native finite sequences have a post-tail completion guard", async () => {
+  const source = await readFile(
+    new URL("../src/audio/MobileAudioManager.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    source,
+    /NATIVE_SPATIAL_COMPLETION_GRACE_MS = WEB_AUDIO_TAIL_TIMEOUT_MS/,
+  );
+  assert.match(
+    source,
+    /completionAtMilliseconds = tracks\.reduce[\s\S]*?track\.startsAtMilliseconds \+ track\.durationMilliseconds/,
+  );
+  assert.match(
+    source,
+    /source\.nativeSpatialCompletionTimer = setTimeout[\s\S]*?source\.nativeSpatialId === sourceId[\s\S]*?this\.dispose\(key\)/,
+  );
+  assert.match(
+    source,
+    /if \(source\.nativeSpatialCompletionTimer\)[\s\S]*?clearTimeout\(source\.nativeSpatialCompletionTimer\)/,
   );
 });
 

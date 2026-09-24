@@ -69,6 +69,7 @@ type CommandAudioSource = {
   kind: AudioKind;
   nativePlayer: ExpoAudio.Sound | null;
   nativeSpatialId: string | null;
+  nativeSpatialCompletionTimer: ReturnType<typeof setTimeout> | null;
   nativeSpatialSequence: boolean;
   nativeSpatialStem: boolean;
   nativeSpatialBlend: number;
@@ -209,6 +210,8 @@ const WEB_AUDIO_TAIL_FFT_SIZE = 256;
 const WEB_AUDIO_TAIL_POLL_MS = 16;
 const WEB_AUDIO_TAIL_SILENCE_POLLS = 2;
 const WEB_AUDIO_TAIL_TIMEOUT_MS = 2000;
+const FINITE_SFX_LAUNCH_TIMEOUT_MS = 5000;
+const NATIVE_SPATIAL_COMPLETION_GRACE_MS = WEB_AUDIO_TAIL_TIMEOUT_MS;
 
 function isHrtfPanner(node: AudioNode | null | undefined): boolean {
   return Boolean(
@@ -854,6 +857,7 @@ export class MobileAudioManager {
       kind,
       nativePlayer: null,
       nativeSpatialId: null,
+      nativeSpatialCompletionTimer: null,
       nativeSpatialSequence: false,
       nativeSpatialStem: false,
       nativeSpatialBlend: 1,
@@ -1337,6 +1341,10 @@ export class MobileAudioManager {
       this.disposeNativeSound(source.nativePlayer);
     }
     if (source.nativeSpatialId) {
+      if (source.nativeSpatialCompletionTimer) {
+        clearTimeout(source.nativeSpatialCompletionTimer);
+        source.nativeSpatialCompletionTimer = null;
+      }
       if (this.nativeSpatialSources.get(source.nativeSpatialId) === key) {
         this.nativeSpatialSources.delete(source.nativeSpatialId);
       }
@@ -2691,6 +2699,32 @@ export class MobileAudioManager {
       update();
       source.sequenceTimer = setInterval(update, SOURCE_AUTOMATION_INTERVAL_MS);
     }
+    const completionAtMilliseconds = tracks.reduce(
+      (latest, track) => Math.max(
+        latest,
+        track.startsAtMilliseconds + track.durationMilliseconds,
+      ),
+      startsAtMilliseconds,
+    );
+    source.nativeSpatialCompletionTimer = setTimeout(() => {
+      source.nativeSpatialCompletionTimer = null;
+      if (
+        source.active
+        && source.nativeSpatialId === sourceId
+        && this.commandSources.get(key) === source
+      ) {
+        // Native completion polling normally retires the source as soon as
+        // every decoded segment and HRTF tail has drained. This guard only
+        // runs well after that boundary, preventing a missed native callback
+        // from retaining renderers until later finite SFX can no longer start.
+        this.dispose(key);
+      }
+    }, Math.max(
+      0,
+      completionAtMilliseconds
+        - this.audioClockMs()
+        + NATIVE_SPATIAL_COMPLETION_GRACE_MS,
+    ));
     this.scheduleSequenceFade(source, startsAtMilliseconds, packet.fade_in_ms ?? 0);
     return source;
   }
@@ -2843,17 +2877,44 @@ export class MobileAudioManager {
     const queuedPacket = { ...packet, handle };
     // Asset resolution begins concurrently, while source creation remains in
     // packet order so a cached report cannot overtake a projectile or impact.
+    // A failed native allocation or asset load must not own that queue forever:
+    // invalidate its generation after a bounded cold-load window so later SFX
+    // can continue and any late completion tears itself down as stale.
     const preload = this.primeFiniteSfx(queuedPacket);
     const launch = this.finiteSfxLaunchQueue
       .catch(() => undefined)
       .then(async () => {
-        await preload;
-        if (this.commandGenerations.get(handle) !== generation) {
+        let timeout: ReturnType<typeof setTimeout> | null = null;
+        const timedOut = new Promise<boolean>((resolve) => {
+          timeout = setTimeout(() => {
+            if (this.commandGenerations.get(handle) === generation) {
+              this.nextGeneration(handle);
+            }
+            resolve(false);
+          }, FINITE_SFX_LAUNCH_TIMEOUT_MS);
+        });
+        const playback = (async () => {
+          await preload;
+          if (this.commandGenerations.get(handle) !== generation) {
+            return false;
+          }
+          return sequence
+            ? this.playManagedSequence(queuedPacket, generation)
+            : this.playManagedEffect(queuedPacket, generation);
+        })();
+        try {
+          return await Promise.race([
+            playback,
+            timedOut,
+          ]);
+        } catch (error) {
+          console.warn("Finite SFX launch failed.", error);
           return false;
+        } finally {
+          if (timeout) {
+            clearTimeout(timeout);
+          }
         }
-        return sequence
-          ? this.playManagedSequence(queuedPacket, generation)
-          : this.playManagedEffect(queuedPacket, generation);
       });
     this.finiteSfxLaunchQueue = launch.then(
       () => undefined,

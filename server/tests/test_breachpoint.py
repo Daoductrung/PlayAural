@@ -6281,6 +6281,106 @@ def test_mr7_halftime_rebuilds_objective_controls_for_each_new_side() -> None:
     assert "pick_up_bomb" not in counter_terrorist_controls
 
 
+def test_mr7_side_mapping_survives_replacement_sync_and_round_nine() -> None:
+    game = make_game(start=True, match_format="mr7")
+
+    for winning_squad in (1, 1, 1, 1, 1, 1, 0):
+        game._finish_combat_round(
+            game._side_for_squad(winning_squad),
+            WIN_ELIMINATION,
+        )
+        complete_round_transition(game)
+
+    assert game.round == 8
+    assert game.side_squad_indexes == [1, 0]
+    assert [game._squad_score(index) for index in (0, 1)] == [1, 6]
+    round_eight_carrier = game._breach_player_by_id(game.bomb_carrier_id)
+    assert round_eight_carrier is not None
+    assert round_eight_carrier.squad_index == 1
+
+    replaced_defender = next(
+        player
+        for player in game.players
+        if isinstance(player, BreachPointPlayer) and player.squad_index == 0
+    )
+    assert game._replace_with_bot(replaced_defender)
+
+    for player in game.get_active_players():
+        assert isinstance(player, BreachPointPlayer)
+        assert player.team_index == game._side_for_squad(player.squad_index)
+    assert round_eight_carrier.team_index == TEAM_TERRORISTS
+
+    game._finish_combat_round(game._side_for_squad(0), WIN_ELIMINATION)
+    complete_round_transition(game)
+
+    assert game.round == 9
+    assert [game._squad_score(index) for index in (0, 1)] == [2, 6]
+    round_nine_carrier = game._breach_player_by_id(game.bomb_carrier_id)
+    assert round_nine_carrier is not None
+    assert round_nine_carrier.squad_index == 1
+    assert round_nine_carrier.team_index == TEAM_TERRORISTS
+
+    viewer = next(
+        player
+        for player in game.players
+        if isinstance(player, BreachPointPlayer)
+        and player.squad_index == 1
+        and not player.is_bot
+    )
+    viewer_user = game.get_user(viewer)
+    assert isinstance(viewer_user, MockUser)
+    assert "carries the bomb" in game._bomb_status_line(viewer, "en")
+    teammate_items = game._build_teammate_status(viewer, viewer_user)
+    assert teammate_items
+    assert "currently T" in teammate_items[0].text
+
+    complete_buy_phase(game)
+    round_nine_carrier.position_id = "a_site"
+    start_activation(game, round_nine_carrier)
+    assert game._is_plant_enabled(round_nine_carrier) is None
+
+
+def test_reclaimed_seat_preserves_current_side_after_halftime() -> None:
+    game = make_game(start=True, match_format="mr7")
+    game._swap_sides()
+    original_player = tactical_player(game, 0)
+    human_name = original_player.name
+    assert original_player.team_index == TEAM_COUNTER_TERRORISTS
+
+    assert game._replace_with_bot(original_player)
+    bot_name = original_player.name
+    original_player.name = human_name
+    original_player.is_bot = False
+    original_player.replaced_human = False
+    original_player.replaced_human_name = ""
+    original_player.replacement_bot_name = ""
+    game._on_replacement_slot_reclaimed(bot_name, human_name)
+
+    assert original_player.squad_index == 0
+    assert original_player.team_index == TEAM_COUNTER_TERRORISTS
+    assert game._team_manager.get_team(human_name).index == 0
+
+
+def test_round_preparation_repairs_stale_cached_sides_before_setup() -> None:
+    game = make_game(start=True, match_format="mr7")
+    game._swap_sides()
+    for player in game.players:
+        tactical = game._breach_player(player)
+        assert tactical is not None
+        tactical.team_index = tactical.squad_index
+
+    game._prepare_combat_round()
+
+    for player in game.players:
+        tactical = game._breach_player(player)
+        assert tactical is not None
+        assert tactical.team_index == game._side_for_squad(tactical.squad_index)
+        assert tactical.position_id == game._spawn_for_team(tactical.team_index)
+    carrier = game._breach_player_by_id(game.bomb_carrier_id)
+    assert carrier is not None
+    assert carrier.squad_index == game._squad_for_side(TEAM_TERRORISTS)
+
+
 def test_regulation_tie_can_end_as_draw() -> None:
     game = make_game(
         start=True,

@@ -543,6 +543,37 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         for player in active_players:
             player.team_index = self._side_for_squad(player.squad_index)
 
+    def _apply_team_indexes_from_manager(
+        self,
+        active_players: list[Player] | None = None,
+    ) -> None:
+        """Synchronize permanent squads without losing the current T/CT sides.
+
+        The shared team manager owns each player's permanent match squad, while
+        Breach Point's ``team_index`` represents the side that squad currently
+        plays. Replacement-bot renames and reclaimed seats invoke the shared
+        synchronizer during a match, so restore the current side mapping after
+        recording the manager's authoritative squad assignment.
+        """
+
+        active_players = (
+            active_players if active_players is not None else self.get_active_players()
+        )
+        super()._apply_team_indexes_from_manager(active_players)
+        tactical_players = [
+            player
+            for player in active_players
+            if isinstance(player, BreachPointPlayer)
+        ]
+        for player in tactical_players:
+            managed_team = self._team_manager.get_team(player.name)
+            if managed_team:
+                player.squad_index = managed_team.index
+        if self.status != "waiting" and sorted(self.side_squad_indexes) == list(
+            TEAM_INDEXES
+        ):
+            self._apply_current_sides(tactical_players)
+
     def _swap_sides(self) -> None:
         self.side_squad_indexes.reverse()
         active_players = [
@@ -1593,8 +1624,6 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         ]
         team_mode = self._configured_team_mode()
         self._setup_team_manager_for_start(team_mode, active_players)
-        for player in active_players:
-            player.squad_index = player.team_index
         self._team_manager.reset_all_scores()
         self.side_squad_indexes = [TEAM_TERRORISTS, TEAM_COUNTER_TERRORISTS]
 
@@ -1638,6 +1667,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             for player in self.get_active_players()
             if isinstance(player, BreachPointPlayer)
         ]
+        self._apply_current_sides(active_players)
         self.tactical_round = 1
         self.round_acted_player_ids = []
         self.bomb_state = BOMB_CARRIED

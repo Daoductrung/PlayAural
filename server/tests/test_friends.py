@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import MagicMock
 from server.auth.auth import AuthManager
 from server.persistence.database import Database
+from server.core import server as server_module
 from server.core.server import (
     FRIEND_REMOVE_CONFIRM_MENU,
     MAX_CHAT_MESSAGE_LENGTH,
@@ -747,7 +748,16 @@ class TestFriendsSystem:
         assert "unblock" in [item["id"] for item in profile_menu["items"]]
 
     @pytest.mark.asyncio
-    async def test_block_prevents_private_messages_and_filters_shared_chat_both_ways(self):
+    async def test_block_prevents_private_messages_and_filters_shared_chat_both_ways(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        monkeypatch.setattr(server_module, "GLOBAL_CHAT_SENDING_ENABLED", True)
+        monkeypatch.setattr(
+            server_module,
+            "MAIN_MENU_LOCAL_CHAT_SENDING_ENABLED",
+            True,
+        )
         alice, bob = self._create_friendship()
         self.db.create_user("Cara", "hash")
         cara = self.db.get_user("Cara")
@@ -840,7 +850,11 @@ class TestFriendsSystem:
         )
 
     @pytest.mark.asyncio
-    async def test_mid_broadcast_block_suppresses_later_recipients(self):
+    async def test_mid_broadcast_block_suppresses_later_recipients(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        monkeypatch.setattr(server_module, "GLOBAL_CHAT_SENDING_ENABLED", True)
         self.db.create_user("Alice", "hash")
         self.db.create_user("Bob", "hash")
         self.db.create_user("Cara", "hash")

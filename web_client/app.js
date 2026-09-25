@@ -16,7 +16,7 @@ import {
   BUFFER_ITEM_NAVIGATION_ASSET,
   createHistoryView,
 } from "./ui/history.js";
-import { createMenuView } from "./ui/menus.js";
+import { createMenuView, isMenuItemActionable } from "./ui/menus.js";
 import { resolveMenuFocusIndex, stableMenuItemId } from "./ui/menuFocus.js";
 import {
   TYPING_EXACT_ASSETS,
@@ -1859,6 +1859,7 @@ class PlayAuralWebApp {
       username_ambiguous: "auth-error-username-ambiguous",
       version_mismatch: "auth-error-version-mismatch",
       rate_limit: "auth-error-rate-limit",
+      server_maintenance: "auth-error-server-maintenance",
       captcha_missing: "auth-error-captcha-unavailable",
       captcha_failed: "auth-error-captcha-execute-failed",
       username_taken: "auth-username-taken",
@@ -2887,7 +2888,7 @@ class PlayAuralWebApp {
   }
 
   activateMenuItem(item, index) {
-    if (!item || item.id === null || item.id === undefined) {
+    if (!isMenuItemActionable(item)) {
       return;
     }
     this.focusMenuOnNextPacket = true;
@@ -2944,7 +2945,7 @@ class PlayAuralWebApp {
     if (behavior === "select_last_option" || behavior === "select_first_option") {
       const index = behavior === "select_last_option" ? menu.items.length - 1 : 0;
       const item = menu.items[index];
-      if (item) {
+      if (isMenuItemActionable(item)) {
         this.focusMenuOnNextPacket = true;
         this.audio.playSound({ asset: "menuenter.ogg", volume: 50 });
         this.send({

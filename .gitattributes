@@ -4,3 +4,7 @@ cosmos/steamaudio-sys/phonon/THIRDPARTY.md -text whitespace=-blank-at-eol
 cosmos/steamaudio-sys/phonon/TRADEMARK_RIGHTS.md -text whitespace=-blank-at-eol
 cosmos/steamaudio-sys/phonon/phonon.h -text whitespace=-blank-at-eol
 cosmos/steamaudio-sys/phonon/phonon_version.h -text whitespace=-blank-at-eol
+
+# The Web compatibility test compares this vendored decoder byte-for-byte
+# with its pinned npm package, so Windows checkouts must preserve LF endings.
+web_client/vendor/stb-vorbis.js text eol=lf

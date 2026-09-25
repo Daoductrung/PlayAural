@@ -204,6 +204,14 @@ async def test_host_restart_cancel_keeps_current_game() -> None:
         "restart_game",
         {"table_id": table.table_id},
     )
+    summary = alice.get_current_menu_items(HOST_RESTART_CONFIRM_MENU)[0]
+    assert summary.read_only is True
+    await server._handle_host_restart_confirm_selection(
+        alice,
+        "",
+        {"table_id": table.table_id},
+    )
+    assert server._user_states[alice.username]["menu"] == HOST_RESTART_CONFIRM_MENU
     await server._handle_host_restart_confirm_selection(
         alice,
         "no",

@@ -7,7 +7,7 @@ import pytest
 from ..core.server import Server
 from ..cli import CapturingBot, SpectatorUser
 from ..messages.localization import Localization
-from ..users.base import MenuItem
+from ..users.base import MenuItem, menu_selection_targets_read_only
 from ..users.network_user import NetworkUser
 
 
@@ -114,6 +114,44 @@ def test_restoring_a_rendered_menu_does_not_duplicate_its_hint() -> None:
 
     assert restored_packet["text"] == "Play card: Deal one damage."
     assert restored_packet["text"].count("Deal one damage.") == 1
+
+
+def test_read_only_menu_item_survives_network_render_and_restoration() -> None:
+    item = MenuItem(
+        text="Confirmation details",
+        id="confirmation_summary",
+        read_only=True,
+    )
+
+    stored = item.to_dict(locale="en", show_description=False)
+    restored = Server._restoreable_menu_items([stored])[0]
+
+    assert stored["read_only"] is True
+    assert isinstance(restored, MenuItem)
+    assert restored.read_only is True
+
+
+def test_menu_item_without_action_id_uses_explicit_read_only_semantics() -> None:
+    item = MenuItem(text="Informational text", id="")
+
+    assert item.read_only is True
+    assert item.to_dict() == {
+        "text": "Informational text",
+        "id": "",
+        "read_only": True,
+    }
+
+
+def test_shared_read_only_guard_supports_stable_ids_and_legacy_indexes() -> None:
+    items = [
+        MenuItem(text="Information", id="summary", read_only=True),
+        MenuItem(text="Continue", id="continue"),
+    ]
+
+    assert menu_selection_targets_read_only(items, selection_id="summary")
+    assert menu_selection_targets_read_only(items, selection=1)
+    assert not menu_selection_targets_read_only(items, selection_id="continue")
+    assert not menu_selection_targets_read_only(items, selection=2)
 
 
 def test_restoring_a_mock_style_menu_item_does_not_duplicate_its_hint() -> None:

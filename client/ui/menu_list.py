@@ -178,10 +178,6 @@ class MenuList(wx.ListBox):
 
     def _on_activation(self):
         """Handle menu item activation (Enter/Space/Double-click)."""
-        # Play menuenter sound
-        if self.sound_manager:
-            self.sound_manager.play_menuenter()
-
         # Call the parent's activation handler directly
         parent = self.GetParent()
         while parent:

@@ -196,6 +196,7 @@ class MainWindow(wx.Frame):
         self.edit_mode_callback = None  # Callback for when edit mode submits
         self.current_menu_id = None  # Track which menu is currently displayed
         self.current_menu_item_ids = []  # Track item IDs for current menu (parallel to menu items)
+        self.current_menu_item_read_only = []  # Focusable informational rows cannot activate
         self.current_edit_multiline = False  # Track if current editbox is multiline
         self.current_edit_read_only = False  # Track if current editbox is read-only
         self.current_edit_input_id = None  # Track server input ID for Escape cancellation
@@ -1525,6 +1526,12 @@ class MainWindow(wx.Frame):
                 if self.current_mode == "list" and self.connected:
                     item_count = self.menu_list.GetCount()
                     if item_count > 0:
+                        last_index = item_count - 1  # 0-based for array access
+                        if (
+                            0 <= last_index < len(self.current_menu_item_read_only)
+                            and self.current_menu_item_read_only[last_index]
+                        ):
+                            return
                         # Play menuenter sound like a normal activation
                         if self.sound_manager:
                             self.sound_manager.play_menuenter()
@@ -1535,7 +1542,6 @@ class MainWindow(wx.Frame):
                             "selection": item_count,
                         }
                         # Include selection_id for the last item if available
-                        last_index = item_count - 1  # 0-based for array access
                         if 0 <= last_index < len(self.current_menu_item_ids):
                             item_id = self.current_menu_item_ids[last_index]
                             if item_id is not None:
@@ -1618,7 +1624,14 @@ class MainWindow(wx.Frame):
                 menu_index = menu_selection + 1  # Convert to 1-based index for server
                 # Get item ID if available
                 if 0 <= menu_selection < len(self.current_menu_item_ids):
-                    menu_item_id = self.current_menu_item_ids[menu_selection]
+                    menu_item_id = (
+                        None
+                        if (
+                            menu_selection < len(self.current_menu_item_read_only)
+                            and self.current_menu_item_read_only[menu_selection]
+                        )
+                        else self.current_menu_item_ids[menu_selection]
+                    )
                 else:
                     menu_item_id = None
 
@@ -1729,6 +1742,14 @@ class MainWindow(wx.Frame):
         selection = self.menu_list.GetSelection()
         if selection == wx.NOT_FOUND:
             return
+        if (
+            0 <= selection < len(self.current_menu_item_read_only)
+            and self.current_menu_item_read_only[selection]
+        ):
+            return
+
+        if self.sound_manager:
+            self.sound_manager.play_menuenter()
 
         # Send menu event to server with selection index and ID
         if self.connected:
@@ -3142,21 +3163,27 @@ class MainWindow(wx.Frame):
         items = []
         item_ids = []
         item_sounds = []
+        item_read_only = []
         for item in items_raw:
             if isinstance(item, dict):
                 items.append(item.get("text", ""))
                 item_ids.append(item.get("id"))
                 item_sounds.append(item.get("sound"))
+                item_read_only.append(
+                    item.get("read_only") is True or not item.get("id")
+                )
             else:
                 items.append(str(item))
                 item_ids.append(None)
                 item_sounds.append(None)
+                item_read_only.append(True)
 
         # Save old item IDs before updating (for diff algorithm)
         old_item_ids = getattr(self, 'current_menu_item_ids', [])
 
         # Store item IDs for later use
         self.current_menu_item_ids = item_ids
+        self.current_menu_item_read_only = item_read_only
 
         # Convert selection_id to position if provided
         if selection_id is not None and position is None:

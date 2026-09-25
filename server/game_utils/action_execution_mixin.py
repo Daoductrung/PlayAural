@@ -248,7 +248,10 @@ class ActionExecutionMixin:
             )
             if initial_selection_method:
                 selection_id = initial_selection_method(player, options)
-                if selection_id not in options:
+                if (
+                    selection_id not in options
+                    or selection_id in request.read_only_options
+                ):
                     selection_id = None
 
         user.show_menu(
@@ -316,6 +319,7 @@ class ActionExecutionMixin:
                     text=display_text,
                     id=option,
                     description=description,
+                    read_only=option in request.read_only_options,
                 )
             )
 

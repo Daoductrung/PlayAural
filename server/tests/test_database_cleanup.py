@@ -151,6 +151,152 @@ def test_connect_can_skip_pruning_for_short_cli_operations(tmp_path):
     database.close()
 
 
+def test_database_compaction_reclaims_free_pages_and_preserves_live_data(tmp_path):
+    database = Database(tmp_path / "compact.sqlite")
+    database.connect()
+    try:
+        user = database.create_user("Retained", "hash")
+        for index in range(750):
+            database.add_global_chat_message(
+                user.uuid,
+                user.username,
+                "en",
+                f"{index}:" + ("x" * 450),
+            )
+        assert database.clear_global_chat_messages() == 750
+        free_pages = database._conn.execute(
+            "PRAGMA freelist_count"
+        ).fetchone()[0]
+        assert free_pages > 0
+
+        result = database.compact_database()
+
+        assert result.before_free_pages == free_pages
+        assert result.after_free_pages == 0
+        assert result.after_bytes < result.before_bytes
+        assert result.reclaimed_bytes == result.before_bytes - result.after_bytes
+        assert database.get_user("Retained").uuid == user.uuid
+    finally:
+        database.close()
+
+
+def test_database_compaction_rejects_an_active_transaction(tmp_path):
+    database = Database(tmp_path / "compact-transaction.sqlite")
+    database.connect()
+    try:
+        database._conn.execute("BEGIN")
+        with pytest.raises(RuntimeError, match="during a transaction"):
+            database.compact_database()
+        database._conn.rollback()
+    finally:
+        database.close()
+
+
+def test_database_connection_uses_explicit_crash_durability_settings(tmp_path):
+    database = Database(tmp_path / "durable.sqlite")
+    database.connect()
+    try:
+        assert database._conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+        assert database._conn.execute("PRAGMA synchronous").fetchone()[0] == 2
+        assert database._conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+    finally:
+        database.close()
+
+
+def test_database_backup_is_unique_valid_and_preserves_live_data(tmp_path):
+    source_path = tmp_path / "source.sqlite"
+    backup_dir = tmp_path / "backups"
+    database = Database(source_path)
+    database.connect()
+    try:
+        user = database.create_user("Retained Backup User", "hash")
+        first = database.backup_database(backup_dir, purpose="manual")
+        second = database.backup_database(backup_dir, purpose="manual")
+
+        assert first.path != second.path
+        assert first.path.parent == backup_dir.resolve()
+        assert first.size_bytes == first.path.stat().st_size
+        assert first.page_count > 0
+        assert not list(backup_dir.glob("*.partial"))
+
+        restored = Database(first.path)
+        restored.connect(prune=False, recover_corrupt=False)
+        try:
+            assert restored.get_user("Retained Backup User").uuid == user.uuid
+            assert restored._conn.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+        finally:
+            restored.close()
+    finally:
+        database.close()
+
+
+def test_database_backup_rejects_active_transaction_without_partial_file(tmp_path):
+    backup_dir = tmp_path / "backups"
+    database = Database(tmp_path / "source.sqlite")
+    database.connect()
+    try:
+        database._conn.execute("BEGIN")
+        with pytest.raises(RuntimeError, match="during a transaction"):
+            database.backup_database(backup_dir)
+        database._conn.rollback()
+        assert not backup_dir.exists()
+    finally:
+        database.close()
+
+
+def test_database_backup_rejects_foreign_key_corruption(tmp_path):
+    backup_dir = tmp_path / "backups"
+    database = Database(tmp_path / "source.sqlite")
+    database.connect()
+    try:
+        database._conn.execute("PRAGMA foreign_keys = OFF")
+        database._conn.execute(
+            "CREATE TABLE integrity_parent (id INTEGER PRIMARY KEY)"
+        )
+        database._conn.execute(
+            """
+            CREATE TABLE integrity_child (
+                parent_id INTEGER REFERENCES integrity_parent(id)
+            )
+            """
+        )
+        database._conn.execute(
+            "INSERT INTO integrity_child (parent_id) VALUES (1)"
+        )
+        database._conn.execute("PRAGMA foreign_keys = ON")
+
+        with pytest.raises(sqlite3.DatabaseError, match="foreign key check"):
+            database.backup_database(backup_dir)
+        assert not list(backup_dir.glob("*.sqlite3"))
+        assert not list(backup_dir.glob("*.partial"))
+    finally:
+        database.close()
+
+
+def test_database_backup_removes_only_unpublished_backup_fragments(tmp_path):
+    backup_dir = tmp_path / "backups"
+    backup_dir.mkdir()
+    stale_main = backup_dir / ".PlayAural-manual-old.sqlite3.partial"
+    stale_wal = backup_dir / ".PlayAural-manual-old.sqlite3.partial-wal"
+    retained_backup = backup_dir / "PlayAural-manual-old.sqlite3"
+    unrelated_partial = backup_dir / ".unrelated.sqlite3.partial"
+    for path in (stale_main, stale_wal, retained_backup, unrelated_partial):
+        path.write_bytes(b"test")
+
+    database = Database(tmp_path / "source.sqlite")
+    database.connect()
+    try:
+        result = database.backup_database(backup_dir)
+
+        assert result.path.exists()
+        assert not stale_main.exists()
+        assert not stale_wal.exists()
+        assert retained_backup.read_bytes() == b"test"
+        assert unrelated_partial.read_bytes() == b"test"
+    finally:
+        database.close()
+
+
 def test_connect_quarantines_corrupt_database_and_rebuilds(tmp_path, capsys):
     db_path = tmp_path / "PlayAural.db"
     wal_path = tmp_path / "PlayAural.db-wal"

@@ -2,11 +2,13 @@
 
 import json
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 
 from babel import Locale
 from babel.core import UnknownLocaleError
+from babel.dates import format_datetime
 from fluent.runtime import FluentBundle, FluentResource
 from babel.lists import format_list
 
@@ -324,6 +326,27 @@ class Localization:
         return message_id
 
     @classmethod
+    def format_utc_datetime(cls, locale: str, value: datetime) -> str:
+        """Render an aware instant as a readable, locale-aware UTC timestamp."""
+        if not isinstance(value, datetime) or value.tzinfo is None:
+            raise ValueError("Localized timestamps require an aware datetime")
+        normalized = value.astimezone(timezone.utc).replace(microsecond=0)
+        try:
+            return format_datetime(
+                normalized,
+                format="long",
+                tzinfo=timezone.utc,
+                locale=cls._babel_locale(locale),
+            )
+        except (UnknownLocaleError, ValueError):
+            return format_datetime(
+                normalized,
+                format="long",
+                tzinfo=timezone.utc,
+                locale=DEFAULT_LOCALE,
+            )
+
+    @classmethod
     def has_message(cls, locale: str, message_id: str) -> bool:
         """Return whether a message exists in the resolved locale or English fallback."""
         try:
@@ -416,6 +439,24 @@ class Localization:
             return language.get_display_name(display_locale)
         except (UnknownLocaleError, ValueError):
             return locale_code
+
+    @classmethod
+    def get_language_display_name(
+        cls, locale_code: str, display_language: str
+    ) -> str:
+        """Return a localized name for any valid language code.
+
+        Unlike ``get_available_languages()``, this is not limited to installed
+        PlayAural UI locales. It is used by data-driven features such as global
+        chat language channels.
+        """
+        normalized = cls.normalize_locale_code(locale_code)
+        if not normalized:
+            return ""
+        return cls._language_display_name(
+            normalized,
+            cls.resolve_locale(display_language),
+        )
 
     @classmethod
     def get_available_languages(

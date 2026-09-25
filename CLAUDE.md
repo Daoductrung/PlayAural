@@ -517,13 +517,21 @@ Consequences that still matter when designing a menu:
 - Where the action list legitimately changes shape and a fixed landing spot
   is preferable, jump focus deliberately with `request_menu_focus` at the
   start of the user's turn — choose one, don't leave focus to chance.
+- Focusable informational rows in server-owned menus must use
+  `MenuItem(read_only=True)` when they have stable ids. A `MenuItem` without an
+  action id is normalized to explicit read-only protocol data automatically;
+  do not duplicate that rule with no-op selection-handler branches. Static and
+  live status boxes are the deliberate exception: activating any status row is
+  their standard close action, so those rows are not read-only controls.
 - `NetworkUser` content-diffs repaints: an identical same-menu repaint with
   no focus directive sends no packet at all, and the per-flush coalescer
   collapses same-tick duplicates. Bandwidth is not a reason to avoid
   `refresh_menus()`.
 - Open `MenuInput` selectors repaint in place from their current options,
   labels, and descriptions when their player is marked dirty; keep option ids
-  semantic and stable so this live update preserves focus. Pending
+  semantic and stable so this live update preserves focus. Context-only rows
+  use `MenuInput.read_only_options`; the shared builder renders them inert and
+  the game event boundary rejects forged activation. Pending
   `EditboxInput` prompts never repaint passively because that would destroy
   typed text. When choosing from a selector must freeze public mutation, set
   `MenuInput(locks_gameplay=True)` and consult `_gameplay_input_lock_owner()`
@@ -715,6 +723,43 @@ chat-command reboot/shutdown paths or per-game shutdown hooks.
   restored tables get a grace window, then missing active players are replaced
   with bots only when at least one human has returned; tables with no returning
   humans eventually close through abandoned-table cleanup.
+
+#### Database Maintenance
+Database backup and compaction are framework-owned reversible maintenance, not
+server-power finalization. Route both through `ServerMaintenanceManager` and
+the developer-only Database Management menu.
+
+- The manager activates one fail-fast exclusive barrier, stops authoritative
+  ticks so game clocks, bots, and sequences do not advance, rejects new
+  gameplay/account packets while keeping current menus rendered, and drains
+  already-tracked handlers before closing the event-loop SQLite connection.
+  Ping remains responsive. Login, registration, and password-reset attempts
+  must be rejected before database access with a localized maintenance reason.
+- Perform blocking SQLite work on a worker thread whose connection is created,
+  used, and closed on that same thread. Do not share the event-loop connection
+  across threads. Shutdown waits for the worker to release storage before it
+  closes transports or touches persistence.
+- Announce each start and terminal outcome directly to every online user with a
+  localized `system`-buffer message and notify family sound. Ongoing matches
+  remain in memory and resume unchanged after success or a recoverable failure.
+- Reopen the live connection with automatic corruption quarantine disabled,
+  then require SQLite structural and foreign-key validation before clearing the
+  barrier or restarting ticks. If reopening or validation fails, remain frozen
+  and disconnected from SQLite so no gameplay can continue against uncertain
+  storage; operator recovery is required.
+- Backups use SQLite's online-backup API, unique hidden partial files, full
+  source/destination integrity checks, file flush, and same-directory atomic
+  rename. The default destination is `server/backups/`, which is excluded from
+  source control. A failed backup must not publish a partial snapshot, and the
+  next exclusive backup removes fragments left by an abrupt process loss.
+- Compaction first creates and retains a verified safety backup, then runs
+  `VACUUM` only after a conservative free-space check. Both paths reject an
+  active transaction and concurrent maintenance or power operations.
+- A backup captures persistent SQLite state only; active runtime tables are not
+  added solely for backup. Backup files are disaster-recovery artifacts kept
+  until an operator explicitly removes them. Later account deletion does not
+  rewrite historical snapshots, so deployments must restrict access, define an
+  operational rotation policy, and keep tested off-host copies.
 
 #### TTS Buffer Categorization
 Every `user.speak_l()` and `broadcast_l()` call must include an explicit `buffer=`:

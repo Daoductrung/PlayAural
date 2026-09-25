@@ -300,4 +300,5 @@ error-email-invalid = Vui lòng nhập địa chỉ email hợp lệ.
 error-email-taken = Email này đã được sử dụng bởi một tài khoản khác.
 
 auth-error-rate-limit = Quá nhiều lần đăng nhập thất bại. Vui lòng thử lại sau 15 phút.
+auth-error-server-maintenance = Máy chủ đang bảo trì cơ sở dữ liệu. Đăng nhập, đăng ký và thay đổi mật khẩu đang tạm thời không khả dụng. Vui lòng thử lại sau khi bảo trì hoàn tất.
 auth-auto-login-disabled = Tự động đăng nhập đã bị tắt cho tài khoản này. Vui lòng đăng nhập thủ công và cập nhật thông tin đăng nhập nếu cần.

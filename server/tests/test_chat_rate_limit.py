@@ -1,318 +1,259 @@
-"""Tests for the token bucket chat rate limiter with auto-moderation."""
+"""Tests for the bounded account chat limiter and auto-moderation."""
+
+from unittest.mock import patch
 
 import pytest
-from unittest.mock import patch
-from server.auth.chat_rate_limit import ChatRateLimiter, _UserBucket
+
+from server.auth.chat_rate_limit import ChatRateLimiter, normalize_chat_content
+
+
+def _exhaust_burst(limiter: ChatRateLimiter, account_id: str = "account-a") -> None:
+    for _ in range(limiter.BUCKET_CAPACITY):
+        assert limiter.try_consume(account_id)[0]
 
 
 class TestTokenBucket:
-    """Test basic token bucket consumption and refill."""
-
-    def test_initial_burst_allowed(self):
+    def test_initial_burst_allowed_and_sixth_message_denied(self) -> None:
         limiter = ChatRateLimiter()
-        for _ in range(5):
-            allowed, reason = limiter.try_consume("alice")
-            assert allowed is True
-            assert reason is None
+        _exhaust_burst(limiter)
 
-    def test_sixth_message_denied(self):
-        limiter = ChatRateLimiter()
-        for _ in range(5):
-            limiter.try_consume("alice")
-        allowed, reason = limiter.try_consume("alice")
-        assert allowed is False
-        assert reason == "chat-rate-limited"
+        allowed, rejection = limiter.try_consume("account-a")
+
+        assert not allowed
+        assert rejection is not None
+        assert rejection.kind == "rate_limited"
+        assert rejection.seconds == 0
 
     @patch("server.auth.chat_rate_limit.time.monotonic")
-    def test_token_refill(self, mock_time):
-        mock_time.return_value = 1000.0
+    def test_token_refill_is_capped_at_capacity(self, mock_time) -> None:
+        mock_time.return_value = 1_000.0
         limiter = ChatRateLimiter()
-        # Consume all 5 tokens
-        for _ in range(5):
-            limiter.try_consume("alice")
+        assert limiter.try_consume("account-a")[0]
 
-        # Advance 4 seconds → 2 tokens refilled (0.5/sec)
-        mock_time.return_value = 1004.0
-        allowed, reason = limiter.try_consume("alice")
-        assert allowed is True
+        mock_time.return_value = 2_000.0
+        assert limiter.try_consume("account-a")[0]
+
+        assert limiter.get_bucket("account-a").tokens == (
+            ChatRateLimiter.BUCKET_CAPACITY - 1
+        )
 
     @patch("server.auth.chat_rate_limit.time.monotonic")
-    def test_refill_capped_at_capacity(self, mock_time):
-        mock_time.return_value = 1000.0
+    def test_clock_rollback_does_not_create_refill_capacity(self, mock_time) -> None:
+        mock_time.return_value = 1_000.0
         limiter = ChatRateLimiter()
-        # Consume 1 token
-        limiter.try_consume("alice")
+        bucket = limiter.get_bucket("account-a")
+        bucket.tokens = 0.0
 
-        # Wait a very long time — tokens should cap at 5
-        mock_time.return_value = 2000.0
-        bucket = limiter.get_bucket("alice")
-        # Trigger refill via try_consume
-        limiter.try_consume("alice")
-        # Bucket should have 5 - 1 = 4 tokens (capped at 5 then consumed 1)
-        assert bucket.tokens <= ChatRateLimiter.BUCKET_CAPACITY
+        mock_time.return_value = 900.0
+        assert not limiter.try_consume("account-a")[0]
+        assert bucket.last_refill == 1_000.0
 
-    def test_separate_users_independent(self):
+        mock_time.return_value = 901.0
+        assert not limiter.try_consume("account-a")[0]
+        assert bucket.tokens == 0.0
+
+    def test_accounts_have_independent_capacity(self) -> None:
         limiter = ChatRateLimiter()
-        for _ in range(5):
-            limiter.try_consume("alice")
+        _exhaust_burst(limiter, "account-a")
 
-        # Alice is exhausted, Bob should still be fine
-        allowed, _ = limiter.try_consume("bob")
-        assert allowed is True
+        assert limiter.try_consume("account-b")[0]
+        assert not limiter.try_consume("account-a")[0]
 
-        # Alice is denied
-        allowed, _ = limiter.try_consume("alice")
-        assert allowed is False
+    @pytest.mark.parametrize("account_id", ["", "   ", None])
+    def test_account_identity_is_required(self, account_id) -> None:
+        limiter = ChatRateLimiter()
+
+        with pytest.raises(ValueError):
+            limiter.try_consume(account_id)
+
+
+class TestContentProtection:
+    def test_duplicate_fingerprint_normalizes_case_spacing_and_format_controls(
+        self,
+    ) -> None:
+        limiter = ChatRateLimiter()
+
+        assert limiter.try_consume("account-a", "Hello\u200b world")[0]
+        assert limiter.try_consume("account-a", "  HELLO   WORLD  ")[0]
+        allowed, rejection = limiter.try_consume("account-a", "hello world")
+
+        assert not allowed
+        assert rejection is not None
+        assert rejection.kind == "repeated_message"
+        assert limiter.get_bucket("account-a").strikes == 1
+        assert len(limiter.get_bucket("account-a").recent_messages) == 2
+
+    def test_unicode_compatibility_forms_share_a_fingerprint(self) -> None:
+        assert normalize_chat_content("ＴＥＳＴ") == normalize_chat_content("test")
+
+    @patch("server.auth.chat_rate_limit.time.monotonic")
+    def test_duplicate_window_expires(self, mock_time) -> None:
+        mock_time.return_value = 1_000.0
+        limiter = ChatRateLimiter()
+        assert limiter.try_consume("account-a", "same")[0]
+        assert limiter.try_consume("account-a", "same")[0]
+
+        mock_time.return_value = 1_031.0
+        assert limiter.try_consume("account-a", "same")[0]
+
+    @patch("server.auth.chat_rate_limit.time.monotonic")
+    def test_sustained_window_caps_alternating_messages(self, mock_time) -> None:
+        mock_time.return_value = 1_000.0
+        limiter = ChatRateLimiter()
+
+        for index in range(ChatRateLimiter.SUSTAINED_MESSAGE_LIMIT):
+            mock_time.return_value = 1_000.0 + index * 2.1
+            assert limiter.try_consume("account-a", f"message {index}")[0]
+
+        mock_time.return_value = 1_042.0
+        allowed, rejection = limiter.try_consume("account-a", "one too many")
+
+        assert not allowed
+        assert rejection is not None
+        assert rejection.kind == "rate_limited"
+        assert len(limiter.get_bucket("account-a").recent_messages) == 20
+
+        mock_time.return_value = 1_060.1
+        assert limiter.try_consume("account-a", "oldest expired")[0]
 
 
 class TestStrikeEscalation:
-    """Test auto-moderation strike counting and escalation."""
-
-    def test_strikes_accumulate(self):
+    def test_rejections_accumulate_strikes(self) -> None:
         limiter = ChatRateLimiter()
-        # Exhaust tokens
-        for _ in range(5):
-            limiter.try_consume("alice")
+        _exhaust_burst(limiter)
 
-        # Each denied message adds a strike
-        limiter.try_consume("alice")
-        assert limiter.get_bucket("alice").strikes == 1
+        for expected_strikes in range(1, 4):
+            allowed, rejection = limiter.try_consume("account-a")
+            assert not allowed
+            assert rejection is not None
+            assert rejection.kind == "rate_limited"
+            assert limiter.get_bucket("account-a").strikes == expected_strikes
 
-        limiter.try_consume("alice")
-        assert limiter.get_bucket("alice").strikes == 2
-
-    def test_warning_before_mute(self):
+    @pytest.mark.parametrize(
+        ("initial_strikes", "expected_seconds"),
+        [
+            (3, 30),
+            (4, 120),
+            (5, 300),
+            (12, 300),
+        ],
+    )
+    def test_auto_mute_duration_escalates(
+        self, initial_strikes: int, expected_seconds: int
+    ) -> None:
         limiter = ChatRateLimiter()
-        # Exhaust tokens
-        for _ in range(5):
-            limiter.try_consume("alice")
+        bucket = limiter.get_bucket("account-a")
+        bucket.tokens = 0.0
+        bucket.strikes = initial_strikes
 
-        # Strikes 1-3 should return warning
-        for i in range(3):
-            allowed, reason = limiter.try_consume("alice")
-            assert allowed is False
-            assert reason == "chat-rate-limited"
+        allowed, rejection = limiter.try_consume("account-a")
 
-    def test_first_auto_mute_at_strike_4(self):
-        limiter = ChatRateLimiter()
-        # Exhaust tokens
-        for _ in range(5):
-            limiter.try_consume("alice")
-
-        # Accumulate 3 strikes (warnings)
-        for _ in range(3):
-            limiter.try_consume("alice")
-
-        # Strike 4 → auto-mute 30 seconds
-        allowed, reason = limiter.try_consume("alice")
-        assert allowed is False
-        assert reason == "__auto_muted_seconds:30"
-
-    def test_second_auto_mute_at_strike_5(self):
-        limiter = ChatRateLimiter()
-        for _ in range(5):
-            limiter.try_consume("alice")
-
-        # Accumulate 3 strikes
-        for _ in range(3):
-            limiter.try_consume("alice")
-
-        # Strike 4 → mute 30s
-        limiter.try_consume("alice")
-
-        # Clear mute to allow next strike
-        bucket = limiter.get_bucket("alice")
-        bucket.muted_until = None
-
-        # Strike 5 → mute 2 minutes
-        allowed, reason = limiter.try_consume("alice")
-        assert allowed is False
-        assert reason == "__auto_muted_minutes:2"
-
-    def test_severe_auto_mute_at_strike_6(self):
-        limiter = ChatRateLimiter()
-        for _ in range(5):
-            limiter.try_consume("alice")
-
-        for _ in range(3):
-            limiter.try_consume("alice")
-
-        # Strike 4
-        limiter.try_consume("alice")
-        bucket = limiter.get_bucket("alice")
-        bucket.muted_until = None
-
-        # Strike 5
-        limiter.try_consume("alice")
-        bucket.muted_until = None
-
-        # Strike 6 → 5 minutes
-        allowed, reason = limiter.try_consume("alice")
-        assert allowed is False
-        assert reason == "__auto_muted_minutes:5"
-
-
-class TestAutoMuteBlocking:
-    """Test that auto-muted users are blocked until mute expires."""
+        assert not allowed
+        assert rejection is not None
+        assert rejection.kind == "auto_mute_applied"
+        assert rejection.seconds == expected_seconds
 
     @patch("server.auth.chat_rate_limit.time.monotonic")
-    def test_muted_user_blocked(self, mock_time):
-        mock_time.return_value = 1000.0
+    def test_active_auto_mute_reports_exact_rounded_remaining_time(
+        self, mock_time
+    ) -> None:
+        mock_time.return_value = 1_000.25
         limiter = ChatRateLimiter()
-        bucket = limiter.get_bucket("alice")
-        bucket.muted_until = 1030.0  # Muted for 30 seconds
+        bucket = limiter.get_bucket("account-a")
+        bucket.muted_until = 1_030.0
 
-        allowed, reason = limiter.try_consume("alice")
-        assert allowed is False
-        assert reason == "__auto_muted:31"
+        allowed, rejection = limiter.try_consume("account-a")
+
+        assert not allowed
+        assert rejection is not None
+        assert rejection.kind == "auto_muted"
+        assert rejection.seconds == 30
 
     @patch("server.auth.chat_rate_limit.time.monotonic")
-    def test_mute_expires(self, mock_time):
-        mock_time.return_value = 1000.0
+    def test_strikes_do_not_decay_during_forced_silence(self, mock_time) -> None:
+        mock_time.return_value = 1_000.0
         limiter = ChatRateLimiter()
-        bucket = limiter.get_bucket("alice")
-        bucket.muted_until = 1030.0
-        bucket.tokens = 5.0  # Ensure tokens available
+        bucket = limiter.get_bucket("account-a")
+        bucket.strikes = 4
+        bucket.muted_until = 1_030.0
+        bucket.last_strike_time = bucket.muted_until
 
-        # Still muted
-        mock_time.return_value = 1029.0
-        allowed, _ = limiter.try_consume("alice")
-        assert allowed is False
+        mock_time.return_value = 1_030.0
+        assert limiter.try_consume("account-a", "allowed again")[0]
+        assert bucket.strikes == 4
 
-        # Mute expired
-        mock_time.return_value = 1031.0
-        allowed, _ = limiter.try_consume("alice")
-        assert allowed is True
-
-
-class TestStrikeDecay:
-    """Test that strikes decay over time."""
+        mock_time.return_value = 1_090.0
+        assert limiter.try_consume("account-a", "later")[0]
+        assert bucket.strikes == 3
 
     @patch("server.auth.chat_rate_limit.time.monotonic")
-    def test_single_strike_decay(self, mock_time):
-        mock_time.return_value = 1000.0
+    def test_strike_decay_preserves_partial_interval(self, mock_time) -> None:
+        mock_time.return_value = 1_000.0
         limiter = ChatRateLimiter()
-
-        # Exhaust tokens and get 1 strike
-        for _ in range(5):
-            limiter.try_consume("alice")
-        limiter.try_consume("alice")
-        assert limiter.get_bucket("alice").strikes == 1
-
-        # Wait 60 seconds → 1 strike decays
-        mock_time.return_value = 1061.0
-        # Refill tokens to allow the try_consume to reach decay logic
-        limiter.get_bucket("alice").tokens = 5.0
-        limiter.try_consume("alice")
-        assert limiter.get_bucket("alice").strikes == 0
-
-    @patch("server.auth.chat_rate_limit.time.monotonic")
-    def test_multiple_strikes_decay(self, mock_time):
-        mock_time.return_value = 1000.0
-        limiter = ChatRateLimiter()
-
-        # Set up 3 strikes directly
-        bucket = limiter.get_bucket("alice")
+        bucket = limiter.get_bucket("account-a")
         bucket.strikes = 3
-        bucket.last_strike_time = 1000.0
-        bucket.tokens = 5.0
+        bucket.last_strike_time = 1_000.0
 
-        # Wait 120 seconds → 2 strikes decay
-        mock_time.return_value = 1121.0
-        limiter.try_consume("alice")
+        mock_time.return_value = 1_119.0
+        assert limiter.try_consume("account-a", "first")[0]
+        assert bucket.strikes == 2
+        assert bucket.last_strike_time == 1_060.0
+
+        mock_time.return_value = 1_121.0
+        assert limiter.try_consume("account-a", "second")[0]
         assert bucket.strikes == 1
+        assert bucket.last_strike_time == 1_120.0
 
     @patch("server.auth.chat_rate_limit.time.monotonic")
-    def test_strikes_dont_go_negative(self, mock_time):
-        mock_time.return_value = 1000.0
+    def test_long_decay_clamps_at_zero(self, mock_time) -> None:
+        mock_time.return_value = 1_000.0
         limiter = ChatRateLimiter()
-
-        bucket = limiter.get_bucket("alice")
+        bucket = limiter.get_bucket("account-a")
         bucket.strikes = 1
-        bucket.last_strike_time = 1000.0
-        bucket.tokens = 5.0
+        bucket.last_strike_time = 1_000.0
 
-        # Wait way too long — should clamp at 0, not go negative
-        mock_time.return_value = 2000.0
-        limiter.try_consume("alice")
+        mock_time.return_value = 2_000.0
+        assert limiter.try_consume("account-a", "message")[0]
         assert bucket.strikes == 0
+        assert bucket.last_strike_time is None
 
 
-class TestIsMuted:
-    """Test the is_muted query method."""
+class TestQueriesAndCleanup:
+    @patch("server.auth.chat_rate_limit.time.monotonic")
+    def test_is_muted_does_not_create_unknown_account_state(self, mock_time) -> None:
+        mock_time.return_value = 1_000.0
+        limiter = ChatRateLimiter()
+
+        assert limiter.is_muted("unknown") == (False, 0)
+        assert "unknown" not in limiter._buckets
 
     @patch("server.auth.chat_rate_limit.time.monotonic")
-    def test_not_muted(self, mock_time):
-        mock_time.return_value = 1000.0
+    def test_expired_mute_is_cleared(self, mock_time) -> None:
+        mock_time.return_value = 1_000.0
         limiter = ChatRateLimiter()
-        muted, remaining = limiter.is_muted("alice")
-        assert muted is False
-        assert remaining == 0
-
-    @patch("server.auth.chat_rate_limit.time.monotonic")
-    def test_is_muted(self, mock_time):
-        mock_time.return_value = 1000.0
-        limiter = ChatRateLimiter()
-        bucket = limiter.get_bucket("alice")
-        bucket.muted_until = 1030.0
-
-        muted, remaining = limiter.is_muted("alice")
-        assert muted is True
-        assert remaining == 31  # int(30) + 1
-
-    @patch("server.auth.chat_rate_limit.time.monotonic")
-    def test_mute_expired_clears(self, mock_time):
-        mock_time.return_value = 1000.0
-        limiter = ChatRateLimiter()
-        bucket = limiter.get_bucket("alice")
+        bucket = limiter.get_bucket("account-a")
         bucket.muted_until = 999.0
 
-        muted, remaining = limiter.is_muted("alice")
-        assert muted is False
-        assert remaining == 0
+        assert limiter.is_muted("account-a") == (False, 0)
         assert bucket.muted_until is None
 
-
-class TestAdminNotification:
-    """Test admin notification flags."""
-
-    def test_notify_at_6_strikes(self):
+    def test_admin_notification_is_one_shot_until_decay(self) -> None:
         limiter = ChatRateLimiter()
-        bucket = limiter.get_bucket("alice")
-        bucket.strikes = 6
-        assert limiter.should_notify_admins("alice") is True
+        bucket = limiter.get_bucket("account-a")
+        bucket.strikes = limiter.ADMIN_NOTIFY_STRIKE_THRESHOLD
 
-    def test_no_notify_below_6(self):
+        assert limiter.should_notify_admins("account-a")
+        limiter.mark_admin_notified("account-a")
+        assert not limiter.should_notify_admins("account-a")
+
+    def test_remove_account_discards_all_runtime_state(self) -> None:
         limiter = ChatRateLimiter()
-        bucket = limiter.get_bucket("alice")
-        bucket.strikes = 5
-        assert limiter.should_notify_admins("alice") is False
+        limiter.try_consume("account-a", "message")
 
-    def test_no_notify_after_marked(self):
-        limiter = ChatRateLimiter()
-        bucket = limiter.get_bucket("alice")
-        bucket.strikes = 6
-        limiter.mark_admin_notified("alice")
-        assert limiter.should_notify_admins("alice") is False
+        limiter.remove_user("account-a")
 
-    def test_no_notify_unknown_user(self):
-        limiter = ChatRateLimiter()
-        assert limiter.should_notify_admins("unknown") is False
-
-
-class TestCleanup:
-    """Test user removal."""
-
-    def test_remove_user(self):
-        limiter = ChatRateLimiter()
-        limiter.try_consume("alice")
-        limiter.remove_user("alice")
-        # After removal, user gets a fresh bucket
-        bucket = limiter.get_bucket("alice")
-        assert bucket.tokens == ChatRateLimiter.BUCKET_CAPACITY
-        assert bucket.strikes == 0
-
-    def test_remove_nonexistent_user(self):
-        limiter = ChatRateLimiter()
-        # Should not raise
-        limiter.remove_user("nobody")
+        assert "account-a" not in limiter._buckets
+        fresh = limiter.get_bucket("account-a")
+        assert fresh.tokens == limiter.BUCKET_CAPACITY
+        assert fresh.strikes == 0
+        assert fresh.recent_messages == []

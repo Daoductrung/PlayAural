@@ -1,8 +1,9 @@
 """Administration functionality for the PlayAural server."""
 
 import functools
+import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
 
 from ..users.network_user import NetworkUser
@@ -16,11 +17,33 @@ from ..messages.localized_content import (
     normalize_localized_text,
     normalize_localized_value,
 )
-from ..persistence.database import BanRecord, MuteRecord
+from ..persistence.database import (
+    BanRecord,
+    GlobalChatMessageRecord,
+    ModerationReportRecord,
+    MuteRecord,
+)
+from ..chat_channels import GLOBAL_CHAT_CHANNELS
+from ..moderation.chat_history import (
+    GLOBAL_CHAT_HISTORY_PERIODS,
+    GlobalChatHistoryFilter,
+)
+from ..moderation.reports import (
+    CLOSED_REPORT_STATUSES,
+    MODERATION_REVIEW_PAGE_SIZE,
+    REPORT_CONTEXT_MESSAGES_AFTER,
+    REPORT_CONTEXT_MESSAGES_BEFORE,
+    REPORT_STATUS_SET,
+    report_reason_localization_key,
+)
 from ..core.power import (
     POWER_MAX_CUSTOM_DELAY_MINUTES,
     PowerAction,
     ServerPowerManager,
+)
+from ..core.maintenance import (
+    DatabaseMaintenanceBusyError,
+    DatabaseMaintenanceUnavailableError,
 )
 from ..menu_pagination import (
     DEFAULT_MENU_PAGE_SIZE,
@@ -41,6 +64,20 @@ ADMIN_TARGET_PAGE_SIZE = DEFAULT_MENU_PAGE_SIZE
 ADMIN_TARGET_SEARCH_INPUT = "admin_target_search_input"
 ADMIN_LOCALIZED_TEXT_MENU = "admin_localized_text_menu"
 ADMIN_LOCALIZED_TEXT_INPUT = "admin_localized_text_input"
+ADMIN_MODERATION_MENU = "admin_moderation_menu"
+ADMIN_MODERATION_REPORTS_MENU = "admin_moderation_reports_menu"
+ADMIN_MODERATION_REPORT_DETAIL_MENU = "admin_moderation_report_detail_menu"
+ADMIN_MODERATION_CONTEXT_MENU = "admin_moderation_context_menu"
+ADMIN_MODERATION_SENDER_RESULTS_MENU = "admin_moderation_sender_results_menu"
+ADMIN_MODERATION_HISTORY_MENU = "admin_moderation_history_menu"
+ADMIN_MODERATION_MESSAGES_MENU = "admin_moderation_messages_menu"
+ADMIN_MODERATION_MESSAGE_LANGUAGE_MENU = "admin_moderation_message_language_menu"
+ADMIN_MODERATION_MESSAGE_PERIOD_MENU = "admin_moderation_message_period_menu"
+ADMIN_MODERATION_CLEAR_CONFIRM_MENU = "admin_moderation_clear_confirm_menu"
+ADMIN_MODERATION_HISTORY_INPUT = "admin_moderation_history_input"
+ADMIN_DATABASE_MENU = "admin_database_menu"
+ADMIN_DATABASE_BACKUP_CONFIRM_MENU = "admin_database_backup_confirm_menu"
+ADMIN_DATABASE_COMPACT_CONFIRM_MENU = "admin_database_compact_confirm_menu"
 
 
 @dataclass(frozen=True)
@@ -84,6 +121,19 @@ ADMIN_LOCALIZED_TEXT_SPECS = {
 
 ADMIN_MENU_IDS = {
     "admin_menu",
+    ADMIN_MODERATION_MENU,
+    ADMIN_MODERATION_REPORTS_MENU,
+    ADMIN_MODERATION_REPORT_DETAIL_MENU,
+    ADMIN_MODERATION_CONTEXT_MENU,
+    ADMIN_MODERATION_SENDER_RESULTS_MENU,
+    ADMIN_MODERATION_HISTORY_MENU,
+    ADMIN_MODERATION_MESSAGES_MENU,
+    ADMIN_MODERATION_MESSAGE_LANGUAGE_MENU,
+    ADMIN_MODERATION_MESSAGE_PERIOD_MENU,
+    ADMIN_MODERATION_CLEAR_CONFIRM_MENU,
+    ADMIN_DATABASE_MENU,
+    ADMIN_DATABASE_BACKUP_CONFIRM_MENU,
+    ADMIN_DATABASE_COMPACT_CONFIRM_MENU,
     "account_approval_menu",
     "pending_user_actions_menu",
     "promote_admin_menu",
@@ -115,6 +165,7 @@ ADMIN_MENU_IDS = {
     ADMIN_LOCALIZED_TEXT_INPUT,
     "server_power_custom_delay_input",
     ADMIN_TARGET_SEARCH_INPUT,
+    ADMIN_MODERATION_HISTORY_INPUT,
 }
 
 
@@ -581,6 +632,7 @@ class AdministrationManager:
                             pages=targets.total_pages,
                         ),
                         id="page_summary",
+                        read_only=True,
                     )
                 )
 
@@ -932,11 +984,1297 @@ class AdministrationManager:
             page_size=ADMIN_TARGET_PAGE_SIZE,
         )
 
+    # ==================== Manual Moderation Review ====================
+
+    @staticmethod
+    def _format_moderation_timestamp(locale: str, value: str) -> str:
+        """Format a stored instant as a human-readable localized UTC value."""
+        try:
+            parsed = datetime.fromisoformat(str(value))
+            if parsed.tzinfo is None:
+                raise ValueError
+            return Localization.format_utc_datetime(locale, parsed)
+        except (TypeError, ValueError):
+            return Localization.get(locale, "admin-moderation-value-unknown")
+
+    def _moderation_reason_name(self, locale: str, reason_code: str) -> str:
+        try:
+            key = report_reason_localization_key(reason_code)
+        except ValueError:
+            return Localization.get(locale, "admin-moderation-value-unknown")
+        return Localization.get(locale, key)
+
+    @staticmethod
+    def _moderation_status_name(locale: str, status: str) -> str:
+        if status not in REPORT_STATUS_SET:
+            status = "unknown"
+        return Localization.get(locale, f"admin-moderation-status-{status}")
+
+    def _moderation_channel_name(
+        self, locale: str, channel_code: str | None
+    ) -> str:
+        if channel_code is None:
+            return Localization.get(locale, "report-channel-unspecified")
+        return self.server._get_global_chat_channel_name(locale, channel_code)
+
+    def _require_developer_moderation_access(self, user: NetworkUser) -> bool:
+        """Protect irreversible evidence cleanup at display and action time."""
+        if user.trust_level >= 3:
+            return True
+        user.speak_l("dev-only-action", buffer="system")
+        self._return_to_admin_root(user, "moderation")
+        return False
+
+    def _show_moderation_menu(self, user: NetworkUser) -> None:
+        """Show report review, history lookup, and explicit retention controls."""
+        open_reports = self.server.db.count_moderation_reports(status="open")
+        all_reports = self.server.db.count_moderation_reports()
+        message_count = self.server.db.count_global_chat_messages()
+        closed_reports = self.server.db.count_moderation_reports(
+            statuses=CLOSED_REPORT_STATUSES
+        )
+        global_chat_enabled = self.server.global_chat_sending_enabled
+        items = [
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-moderation-global-chat-toggle",
+                    status=Localization.get(
+                        user.locale,
+                        "option-on" if global_chat_enabled else "option-off",
+                    ),
+                ),
+                id="toggle_global_chat",
+                description_key=(
+                    "admin-moderation-global-chat-toggle-description"
+                    if user.trust_level >= 3
+                    else "admin-moderation-global-chat-status-description"
+                ),
+                read_only=user.trust_level < 3,
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-moderation-section-reports",
+                ),
+                id="reports_heading",
+                read_only=True,
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-moderation-open-reports",
+                    count=open_reports,
+                ),
+                id="reports_open",
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-moderation-closed-reports",
+                    count=closed_reports,
+                ),
+                id="reports_closed",
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-moderation-all-reports",
+                    count=all_reports,
+                ),
+                id="reports_all",
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-moderation-section-messages",
+                ),
+                id="messages_heading",
+                read_only=True,
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-moderation-browse-messages",
+                ),
+                id="browse_messages",
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-moderation-find-history",
+                ),
+                id="find_history",
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-moderation-retained-summary",
+                    messages=message_count,
+                    closed=closed_reports,
+                ),
+                id="retained_summary",
+                read_only=True,
+            ),
+        ]
+        if user.trust_level >= 3:
+            items.extend(
+                [
+                    MenuItem(
+                        text=Localization.get(
+                            user.locale,
+                            "admin-moderation-section-retention",
+                        ),
+                        id="retention_heading",
+                        read_only=True,
+                    ),
+                    MenuItem(
+                        text=Localization.get(
+                            user.locale,
+                            "admin-moderation-clear-history",
+                            count=message_count,
+                        ),
+                        id="clear_history",
+                    ),
+                    MenuItem(
+                        text=Localization.get(
+                            user.locale,
+                            "admin-moderation-clear-closed-reports",
+                            count=closed_reports,
+                        ),
+                        id="clear_closed_reports",
+                    ),
+                ]
+            )
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        user.show_menu(
+            ADMIN_MODERATION_MENU,
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self.server.user_states[user.username] = {"menu": ADMIN_MODERATION_MENU}
+
+    def _moderation_reports_page(
+        self, report_filter: str, page: int
+    ) -> PaginatedMenuPage[ModerationReportRecord]:
+        status = "open" if report_filter == "open" else None
+        statuses = (
+            CLOSED_REPORT_STATUSES
+            if report_filter == "closed"
+            else None
+        )
+        total = self.server.db.count_moderation_reports(
+            status=status,
+            statuses=statuses,
+        )
+        safe_page = clamp_page(page, total, MODERATION_REVIEW_PAGE_SIZE)
+        offset = (safe_page - 1) * MODERATION_REVIEW_PAGE_SIZE
+        return PaginatedMenuPage(
+            items=self.server.db.list_moderation_reports(
+                status=status,
+                statuses=statuses,
+                limit=MODERATION_REVIEW_PAGE_SIZE,
+                offset=offset,
+            ),
+            total=total,
+            page=safe_page,
+            page_size=MODERATION_REVIEW_PAGE_SIZE,
+        )
+
+    def _report_list_row(
+        self, user: NetworkUser, report: ModerationReportRecord
+    ) -> str:
+        return Localization.get(
+            user.locale,
+            "admin-moderation-report-row",
+            id=report.id,
+            time=self._format_moderation_timestamp(
+                user.locale,
+                report.reported_at_utc,
+            ),
+            target=report.reported_username,
+            target_id=report.reported_uuid,
+            reason=self._moderation_reason_name(user.locale, report.reason_code),
+            reporter=report.reporter_username,
+            status=self._moderation_status_name(user.locale, report.status),
+        )
+
+    def _show_moderation_reports_menu(
+        self,
+        user: NetworkUser,
+        report_filter: str = "open",
+        page: int = 1,
+        *,
+        focus_page_start: bool = False,
+    ) -> None:
+        """Show a paginated report queue using stable report IDs."""
+        if report_filter not in {"open", "closed", "all"}:
+            report_filter = "open"
+        reports = self._moderation_reports_page(report_filter, page)
+        items: list[MenuItem] = [
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    {
+                        "open": "admin-moderation-open-report-list",
+                        "closed": "admin-moderation-closed-report-list",
+                        "all": "admin-moderation-all-report-list",
+                    }[report_filter],
+                ),
+                id="report_list_heading",
+                read_only=True,
+            )
+        ]
+        focus_position: int | None = None
+        if reports.items:
+            if reports.total_pages > 1:
+                items.append(
+                    MenuItem(
+                        text=Localization.get(
+                            user.locale,
+                            "menu-page-summary",
+                            start=reports.start_index,
+                            end=reports.end_index,
+                            total=reports.total,
+                            page=reports.page,
+                            pages=reports.total_pages,
+                        ),
+                        id="page_summary",
+                        read_only=True,
+                    )
+                )
+            if focus_page_start:
+                focus_position = len(items) + 1
+            items.extend(
+                MenuItem(
+                    text=self._report_list_row(user, report),
+                    id=f"moderation_report_{report.id}",
+                )
+                for report in reports.items
+            )
+            items.extend(
+                pagination_menu_items(user.locale, reports, include_refresh=True)
+            )
+        else:
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale, "admin-moderation-no-reports"
+                    ),
+                    id="no_reports",
+                    read_only=True,
+                )
+            )
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        user.show_menu(
+            ADMIN_MODERATION_REPORTS_MENU,
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+            position=focus_position,
+        )
+        self.server.user_states[user.username] = {
+            "menu": ADMIN_MODERATION_REPORTS_MENU,
+            "report_filter": report_filter,
+            "moderation_page": reports.page,
+            "moderation_page_count": reports.total_pages,
+        }
+
+    def _show_moderation_report_detail_menu(
+        self, user: NetworkUser, report_id: int
+    ) -> None:
+        """Show every immutable identity and review field for one report."""
+        report = self.server.db.get_moderation_report(report_id)
+        if report is None:
+            items = [
+                MenuItem(
+                    text=Localization.get(
+                        user.locale, "admin-moderation-report-unavailable"
+                    ),
+                    id="report_unavailable",
+                    read_only=True,
+                ),
+                MenuItem(text=Localization.get(user.locale, "back"), id="back"),
+            ]
+        else:
+            items = [
+                MenuItem(
+                    text=Localization.get(
+                        user.locale, "admin-moderation-report-id", id=report.id
+                    ),
+                    id="report_id",
+                    read_only=True,
+                ),
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "admin-moderation-report-time",
+                        time=self._format_moderation_timestamp(
+                            user.locale,
+                            report.reported_at_utc
+                        ),
+                    ),
+                    id="report_time",
+                    read_only=True,
+                ),
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "admin-moderation-report-status",
+                        status=self._moderation_status_name(
+                            user.locale, report.status
+                        ),
+                    ),
+                    id="report_status",
+                    read_only=True,
+                ),
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "admin-moderation-report-reporter",
+                        username=report.reporter_username,
+                        uuid=report.reporter_uuid,
+                    ),
+                    id="reporter_identity",
+                    read_only=True,
+                ),
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "admin-moderation-report-target",
+                        username=report.reported_username,
+                        uuid=report.reported_uuid,
+                    ),
+                    id="target_identity",
+                    read_only=True,
+                ),
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "admin-moderation-report-reason",
+                        reason=self._moderation_reason_name(
+                            user.locale, report.reason_code
+                        ),
+                    ),
+                    id="report_reason",
+                    read_only=True,
+                ),
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "admin-moderation-report-channel",
+                        channel=self._moderation_channel_name(
+                            user.locale, report.channel_code
+                        ),
+                    ),
+                    id="report_channel",
+                    read_only=True,
+                ),
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        (
+                            "admin-moderation-report-anchor"
+                            if report.context_anchor_message_id is not None
+                            else "admin-moderation-report-anchor-unavailable"
+                        ),
+                        id=report.context_anchor_message_id,
+                    ),
+                    id="report_anchor",
+                    read_only=True,
+                ),
+            ]
+            if report.details:
+                items.append(
+                    MenuItem(
+                        text=Localization.get(
+                            user.locale,
+                            "admin-moderation-report-details",
+                            details=report.details,
+                        ),
+                        id="report_details",
+                        read_only=True,
+                    )
+                )
+            if report.reviewed_at_utc:
+                items.append(
+                    MenuItem(
+                        text=Localization.get(
+                            user.locale,
+                            "admin-moderation-report-review",
+                            reviewer=(
+                                report.reviewed_by_username
+                                or Localization.get(
+                                    user.locale,
+                                    "admin-moderation-value-unknown",
+                                )
+                            ),
+                            reviewer_id=(
+                                report.reviewed_by_uuid
+                                or Localization.get(
+                                    user.locale,
+                                    "admin-moderation-value-unknown",
+                                )
+                            ),
+                            time=self._format_moderation_timestamp(
+                                user.locale,
+                                report.reviewed_at_utc
+                            ),
+                        ),
+                        id="report_review",
+                        read_only=True,
+                    )
+                )
+            items.extend(
+                [
+                    MenuItem(
+                        text=Localization.get(
+                            user.locale, "admin-moderation-view-context"
+                        ),
+                        id="view_context",
+                    ),
+                    MenuItem(
+                        text=Localization.get(
+                            user.locale, "admin-moderation-view-target-history"
+                        ),
+                        id="view_target_history",
+                    ),
+                ]
+            )
+            if report.status == "open":
+                items.extend(
+                    [
+                        MenuItem(
+                            text=Localization.get(
+                                user.locale, "admin-moderation-mark-reviewed"
+                            ),
+                            id="set_status_reviewed",
+                        ),
+                        MenuItem(
+                            text=Localization.get(
+                                user.locale, "admin-moderation-dismiss-report"
+                            ),
+                            id="set_status_dismissed",
+                        ),
+                        MenuItem(
+                            text=Localization.get(
+                                user.locale, "admin-moderation-mark-actioned"
+                            ),
+                            id="set_status_actioned",
+                        ),
+                    ]
+                )
+            items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        user.show_menu(
+            ADMIN_MODERATION_REPORT_DETAIL_MENU,
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self.server.user_states[user.username] = {
+            "menu": ADMIN_MODERATION_REPORT_DETAIL_MENU,
+            "report_id": int(report_id),
+        }
+
+    def _context_message_row(
+        self,
+        user: NetworkUser,
+        message: GlobalChatMessageRecord,
+        target_uuid: str,
+        anchor_message_id: int | None,
+    ) -> str:
+        if message.id == anchor_message_id:
+            key = "admin-moderation-context-anchor-message"
+        elif message.sender_uuid == target_uuid:
+            key = "admin-moderation-context-target-message"
+        else:
+            key = "admin-moderation-context-message"
+        return Localization.get(
+            user.locale,
+            key,
+            id=message.id,
+            time=self._format_moderation_timestamp(
+                user.locale,
+                message.sent_at_utc,
+            ),
+            username=message.sender_username,
+            uuid=message.sender_uuid,
+            channel=self._moderation_channel_name(
+                user.locale, message.channel_code
+            ),
+            message=message.message,
+        )
+
+    def _show_moderation_context_menu(
+        self, user: NetworkUser, report_id: int
+    ) -> None:
+        """Show bounded chronological chat context around a report instant."""
+        report = self.server.db.get_moderation_report(report_id)
+        items: list[MenuItem] = []
+        if report is None:
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale, "admin-moderation-report-unavailable"
+                    ),
+                    id="report_unavailable",
+                    read_only=True,
+                )
+            )
+        else:
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "admin-moderation-context-heading",
+                        id=report.id,
+                        time=self._format_moderation_timestamp(
+                            user.locale,
+                            report.reported_at_utc
+                        ),
+                        channel=self._moderation_channel_name(
+                            user.locale, report.channel_code
+                        ),
+                    ),
+                    id="context_heading",
+                    read_only=True,
+                )
+            )
+            messages = self.server.db.get_global_chat_context(
+                report.reported_at_utc,
+                channel_code=report.channel_code,
+                before_count=REPORT_CONTEXT_MESSAGES_BEFORE,
+                after_count=REPORT_CONTEXT_MESSAGES_AFTER,
+            )
+            if messages:
+                items.extend(
+                    MenuItem(
+                        text=self._context_message_row(
+                            user,
+                            message,
+                            report.reported_uuid,
+                            report.context_anchor_message_id,
+                        ),
+                        id=f"context_message_{message.id}",
+                        read_only=True,
+                    )
+                    for message in messages
+                )
+            else:
+                items.append(
+                    MenuItem(
+                        text=Localization.get(
+                            user.locale, "admin-moderation-context-empty"
+                        ),
+                        id="context_empty",
+                        read_only=True,
+                    )
+                )
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        user.show_menu(
+            ADMIN_MODERATION_CONTEXT_MENU,
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self.server.user_states[user.username] = {
+            "menu": ADMIN_MODERATION_CONTEXT_MENU,
+            "report_id": int(report_id),
+        }
+
+    def _show_moderation_history_input(self, user: NetworkUser) -> None:
+        user.show_editbox(
+            ADMIN_MODERATION_HISTORY_INPUT,
+            Localization.get(user.locale, "admin-moderation-history-prompt"),
+            multiline=False,
+        )
+        self.server.enter_input_state(user, ADMIN_MODERATION_HISTORY_INPUT)
+
+    def _moderation_sender_results_page(
+        self, username: str, page: int
+    ) -> PaginatedMenuPage[Any]:
+        total = self.server.db.count_global_chat_sender_identities(username)
+        safe_page = clamp_page(page, total, MODERATION_REVIEW_PAGE_SIZE)
+        offset = (safe_page - 1) * MODERATION_REVIEW_PAGE_SIZE
+        return PaginatedMenuPage(
+            items=self.server.db.find_global_chat_sender_summaries(
+                username,
+                limit=MODERATION_REVIEW_PAGE_SIZE,
+                offset=offset,
+            ),
+            total=total,
+            page=safe_page,
+            page_size=MODERATION_REVIEW_PAGE_SIZE,
+        )
+
+    def _show_moderation_sender_results_menu(
+        self,
+        user: NetworkUser,
+        username: str,
+        page: int = 1,
+        *,
+        focus_page_start: bool = False,
+    ) -> None:
+        """Disambiguate historical identities before showing their messages."""
+        sender_results = self._moderation_sender_results_page(username, page)
+        items = [
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-moderation-sender-results-heading",
+                    username=username,
+                ),
+                id="sender_results_heading",
+                read_only=True,
+            )
+        ]
+        focus_position: int | None = None
+        if sender_results.items:
+            if sender_results.total_pages > 1:
+                items.append(
+                    MenuItem(
+                        text=Localization.get(
+                            user.locale,
+                            "menu-page-summary",
+                            start=sender_results.start_index,
+                            end=sender_results.end_index,
+                            total=sender_results.total,
+                            page=sender_results.page,
+                            pages=sender_results.total_pages,
+                        ),
+                        id="page_summary",
+                        read_only=True,
+                    )
+                )
+            if focus_page_start:
+                focus_position = len(items) + 1
+            items.extend(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "admin-moderation-sender-result",
+                        username=summary.sender_username,
+                        uuid=summary.sender_uuid,
+                        count=summary.message_count,
+                        first=self._format_moderation_timestamp(
+                            user.locale,
+                            summary.first_sent_at_utc
+                        ),
+                        last=self._format_moderation_timestamp(
+                            user.locale,
+                            summary.last_sent_at_utc
+                        ),
+                    ),
+                    id=f"history_sender_{summary.sender_uuid}",
+                )
+                for summary in sender_results.items
+            )
+            items.extend(
+                pagination_menu_items(
+                    user.locale, sender_results, include_refresh=True
+                )
+            )
+        else:
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "admin-moderation-no-sender-history",
+                        username=username,
+                    ),
+                    id="no_sender_history",
+                    read_only=True,
+                )
+            )
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        user.show_menu(
+            ADMIN_MODERATION_SENDER_RESULTS_MENU,
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+            position=focus_position,
+        )
+        self.server.user_states[user.username] = {
+            "menu": ADMIN_MODERATION_SENDER_RESULTS_MENU,
+            "history_username": username,
+            "moderation_page": sender_results.page,
+            "moderation_page_count": sender_results.total_pages,
+        }
+
+    def _moderation_history_page(
+        self, sender_uuid: str, page: int
+    ) -> PaginatedMenuPage[GlobalChatMessageRecord]:
+        total = self.server.db.count_global_chat_messages(sender_uuid=sender_uuid)
+        safe_page = clamp_page(page, total, MODERATION_REVIEW_PAGE_SIZE)
+        offset = (safe_page - 1) * MODERATION_REVIEW_PAGE_SIZE
+        return PaginatedMenuPage(
+            items=self.server.db.list_global_chat_messages(
+                sender_uuid=sender_uuid,
+                limit=MODERATION_REVIEW_PAGE_SIZE,
+                offset=offset,
+            ),
+            total=total,
+            page=safe_page,
+            page_size=MODERATION_REVIEW_PAGE_SIZE,
+        )
+
+    def _show_moderation_history_menu(
+        self,
+        user: NetworkUser,
+        sender_uuid: str,
+        page: int = 1,
+        *,
+        focus_page_start: bool = False,
+    ) -> None:
+        """Show one immutable sender identity's retained global messages."""
+        history = self._moderation_history_page(sender_uuid, page)
+        sender_name = (
+            history.items[0].sender_username
+            if history.items
+            else Localization.get(
+                user.locale, "admin-moderation-value-unknown"
+            )
+        )
+        items = [
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-moderation-history-heading",
+                    username=sender_name,
+                    uuid=sender_uuid,
+                    count=history.total,
+                ),
+                id="history_heading",
+                read_only=True,
+            )
+        ]
+        focus_position: int | None = None
+        if history.items:
+            if history.total_pages > 1:
+                items.append(
+                    MenuItem(
+                        text=Localization.get(
+                            user.locale,
+                            "menu-page-summary",
+                            start=history.start_index,
+                            end=history.end_index,
+                            total=history.total,
+                            page=history.page,
+                            pages=history.total_pages,
+                        ),
+                        id="page_summary",
+                        read_only=True,
+                    )
+                )
+            if focus_page_start:
+                focus_position = len(items) + 1
+            items.extend(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "admin-moderation-history-message",
+                        id=message.id,
+                        time=self._format_moderation_timestamp(
+                            user.locale,
+                            message.sent_at_utc
+                        ),
+                        username=message.sender_username,
+                        channel=self._moderation_channel_name(
+                            user.locale, message.channel_code
+                        ),
+                        message=message.message,
+                    ),
+                    id=f"history_message_{message.id}",
+                    read_only=True,
+                )
+                for message in history.items
+            )
+            items.extend(
+                pagination_menu_items(user.locale, history, include_refresh=True)
+            )
+        else:
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale, "admin-moderation-history-empty"
+                    ),
+                    id="history_empty",
+                    read_only=True,
+                )
+            )
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        user.show_menu(
+            ADMIN_MODERATION_HISTORY_MENU,
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+            position=focus_position,
+        )
+        self.server.user_states[user.username] = {
+            "menu": ADMIN_MODERATION_HISTORY_MENU,
+            "history_sender_uuid": sender_uuid,
+            "moderation_page": history.page,
+            "moderation_page_count": history.total_pages,
+        }
+
+    def _moderation_message_sort_name(
+        self,
+        locale: str,
+        sort_order: str,
+    ) -> str:
+        return Localization.get(
+            locale,
+            f"admin-moderation-message-sort-{sort_order}",
+        )
+
+    def _moderation_message_period_name(
+        self,
+        locale: str,
+        period: str,
+    ) -> str:
+        return Localization.get(
+            locale,
+            f"admin-moderation-message-period-{period.replace('_', '-')}",
+        )
+
+    def _moderation_message_channel_name(
+        self,
+        locale: str,
+        channel_code: str | None,
+    ) -> str:
+        if channel_code is None:
+            return Localization.get(
+                locale,
+                "admin-moderation-message-language-all",
+            )
+        return self._moderation_channel_name(locale, channel_code)
+
+    @staticmethod
+    def _moderation_message_filter_from_state(
+        state: dict[str, Any],
+    ) -> GlobalChatHistoryFilter:
+        return GlobalChatHistoryFilter.from_values(
+            channel_code=state.get("message_channel"),
+            period=state.get("message_period"),
+            sort_order=state.get("message_sort"),
+        )
+
+    def _moderation_messages_page(
+        self,
+        history_filter: GlobalChatHistoryFilter,
+        page: int,
+    ) -> PaginatedMenuPage[GlobalChatMessageRecord]:
+        started_at, ended_before = history_filter.utc_bounds()
+        started_text = (
+            started_at.isoformat(timespec="microseconds")
+            if started_at is not None
+            else None
+        )
+        ended_text = (
+            ended_before.isoformat(timespec="microseconds")
+            if ended_before is not None
+            else None
+        )
+        total = self.server.db.count_global_chat_messages(
+            channel_code=history_filter.channel_code,
+            started_at_utc=started_text,
+            ended_before_utc=ended_text,
+        )
+        safe_page = clamp_page(page, total, MODERATION_REVIEW_PAGE_SIZE)
+        offset = (safe_page - 1) * MODERATION_REVIEW_PAGE_SIZE
+        return PaginatedMenuPage(
+            items=self.server.db.list_global_chat_messages(
+                channel_code=history_filter.channel_code,
+                started_at_utc=started_text,
+                ended_before_utc=ended_text,
+                sort_order=history_filter.sort_order,
+                limit=MODERATION_REVIEW_PAGE_SIZE,
+                offset=offset,
+            ),
+            total=total,
+            page=safe_page,
+            page_size=MODERATION_REVIEW_PAGE_SIZE,
+        )
+
+    def _show_moderation_messages_menu(
+        self,
+        user: NetworkUser,
+        channel_code: str | None = None,
+        period: str = "all",
+        sort_order: str = "newest",
+        page: int = 1,
+        *,
+        focus_page_start: bool = False,
+    ) -> None:
+        """Show all retained global messages with exposed, composable filters."""
+        history_filter = GlobalChatHistoryFilter.from_values(
+            channel_code=channel_code,
+            period=period,
+            sort_order=sort_order,
+        )
+        messages = self._moderation_messages_page(history_filter, page)
+        channel_name = self._moderation_message_channel_name(
+            user.locale,
+            history_filter.channel_code,
+        )
+        period_name = self._moderation_message_period_name(
+            user.locale,
+            history_filter.period,
+        )
+        sort_name = self._moderation_message_sort_name(
+            user.locale,
+            history_filter.sort_order,
+        )
+        items: list[MenuItem] = [
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-moderation-message-list-heading",
+                    count=messages.total,
+                    sort=sort_name,
+                    channel=channel_name,
+                    period=period_name,
+                ),
+                id="message_list_heading",
+                read_only=True,
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-moderation-message-filter-sort",
+                    sort=sort_name,
+                ),
+                id="message_filter_sort",
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-moderation-message-filter-language",
+                    channel=channel_name,
+                ),
+                id="message_filter_language",
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-moderation-message-filter-period",
+                    period=period_name,
+                ),
+                id="message_filter_period",
+            ),
+        ]
+        if not history_filter.is_default:
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "admin-moderation-message-filter-reset",
+                    ),
+                    id="message_filter_reset",
+                )
+            )
+
+        focus_position: int | None = None
+        if messages.items:
+            if messages.total_pages > 1:
+                items.append(
+                    MenuItem(
+                        text=Localization.get(
+                            user.locale,
+                            "menu-page-summary",
+                            start=messages.start_index,
+                            end=messages.end_index,
+                            total=messages.total,
+                            page=messages.page,
+                            pages=messages.total_pages,
+                        ),
+                        id="page_summary",
+                        read_only=True,
+                    )
+                )
+            if focus_page_start:
+                focus_position = len(items) + 1
+            items.extend(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "admin-moderation-message-row",
+                        id=message.id,
+                        time=self._format_moderation_timestamp(
+                            user.locale,
+                            message.sent_at_utc,
+                        ),
+                        username=message.sender_username,
+                        uuid=message.sender_uuid,
+                        channel=self._moderation_channel_name(
+                            user.locale,
+                            message.channel_code,
+                        ),
+                        message=message.message,
+                    ),
+                    id=f"moderation_message_{message.id}",
+                    read_only=True,
+                )
+                for message in messages.items
+            )
+            items.extend(
+                pagination_menu_items(
+                    user.locale,
+                    messages,
+                    include_refresh=True,
+                )
+            )
+        else:
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "admin-moderation-message-list-empty",
+                    ),
+                    id="message_list_empty",
+                    read_only=True,
+                )
+            )
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        user.show_menu(
+            ADMIN_MODERATION_MESSAGES_MENU,
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+            position=focus_position,
+        )
+        self.server.user_states[user.username] = {
+            "menu": ADMIN_MODERATION_MESSAGES_MENU,
+            "message_channel": history_filter.channel_code,
+            "message_period": history_filter.period,
+            "message_sort": history_filter.sort_order,
+            "moderation_page": messages.page,
+            "moderation_page_count": messages.total_pages,
+        }
+
+    def _show_moderation_message_language_menu(
+        self,
+        user: NetworkUser,
+        channel_code: str | None = None,
+        period: str = "all",
+        sort_order: str = "newest",
+    ) -> None:
+        """Show the language facet for the global message browser."""
+        history_filter = GlobalChatHistoryFilter.from_values(
+            channel_code=channel_code,
+            period=period,
+            sort_order=sort_order,
+        )
+        current_name = self._moderation_message_channel_name(
+            user.locale,
+            history_filter.channel_code,
+        )
+        items = [
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-moderation-message-language-menu",
+                    channel=current_name,
+                ),
+                id="message_language_heading",
+                read_only=True,
+            )
+        ]
+        all_languages = Localization.get(
+            user.locale,
+            "admin-moderation-message-language-all",
+        )
+        items.append(
+            MenuItem(
+                text=(
+                    Localization.get(
+                        user.locale,
+                        "admin-moderation-message-filter-current",
+                        value=all_languages,
+                    )
+                    if history_filter.channel_code is None
+                    else all_languages
+                ),
+                id="message_language_all",
+            )
+        )
+        for channel in GLOBAL_CHAT_CHANNELS:
+            channel_name = self._moderation_channel_name(
+                user.locale,
+                channel.code,
+            )
+            items.append(
+                MenuItem(
+                    text=(
+                        Localization.get(
+                            user.locale,
+                            "admin-moderation-message-filter-current",
+                            value=channel_name,
+                        )
+                        if history_filter.channel_code == channel.code
+                        else channel_name
+                    ),
+                    id=f"message_language_{channel.code}",
+                )
+            )
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        user.show_menu(
+            ADMIN_MODERATION_MESSAGE_LANGUAGE_MENU,
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self.server.user_states[user.username] = {
+            "menu": ADMIN_MODERATION_MESSAGE_LANGUAGE_MENU,
+            "message_channel": history_filter.channel_code,
+            "message_period": history_filter.period,
+            "message_sort": history_filter.sort_order,
+        }
+
+    def _show_moderation_message_period_menu(
+        self,
+        user: NetworkUser,
+        channel_code: str | None = None,
+        period: str = "all",
+        sort_order: str = "newest",
+    ) -> None:
+        """Show the UTC time facet for the global message browser."""
+        history_filter = GlobalChatHistoryFilter.from_values(
+            channel_code=channel_code,
+            period=period,
+            sort_order=sort_order,
+        )
+        current_name = self._moderation_message_period_name(
+            user.locale,
+            history_filter.period,
+        )
+        items = [
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-moderation-message-period-menu",
+                    period=current_name,
+                ),
+                id="message_period_heading",
+                read_only=True,
+            )
+        ]
+        for period_code in GLOBAL_CHAT_HISTORY_PERIODS:
+            period_name = self._moderation_message_period_name(
+                user.locale,
+                period_code,
+            )
+            items.append(
+                MenuItem(
+                    text=(
+                        Localization.get(
+                            user.locale,
+                            "admin-moderation-message-filter-current",
+                            value=period_name,
+                        )
+                        if history_filter.period == period_code
+                        else period_name
+                    ),
+                    id=f"message_period_{period_code}",
+                )
+            )
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        user.show_menu(
+            ADMIN_MODERATION_MESSAGE_PERIOD_MENU,
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self.server.user_states[user.username] = {
+            "menu": ADMIN_MODERATION_MESSAGE_PERIOD_MENU,
+            "message_channel": history_filter.channel_code,
+            "message_period": history_filter.period,
+            "message_sort": history_filter.sort_order,
+        }
+
+    def _apply_moderation_message_filter(
+        self,
+        user: NetworkUser,
+        history_filter: GlobalChatHistoryFilter,
+    ) -> None:
+        """Apply a child selector value and restore its message-list parent."""
+        state = self.server.user_states.get(user.username, {})
+        stack = list(state.get("_stack", []))
+        if not stack or stack[-1].get("menu") != ADMIN_MODERATION_MESSAGES_MENU:
+            self._return_to_admin_root(user, "moderation")
+            return
+        parent = dict(stack[-1])
+        parent.update(
+            {
+                "message_channel": history_filter.channel_code,
+                "message_period": history_filter.period,
+                "message_sort": history_filter.sort_order,
+                "moderation_page": 1,
+            }
+        )
+        stack[-1] = parent
+        state["_stack"] = stack
+        self.server._nav_back(user)
+
+    def _show_moderation_clear_confirm_menu(
+        self, user: NetworkUser, clear_kind: str
+    ) -> None:
+        """Require a developer-only confirmation before deleting evidence."""
+        if not self._require_developer_moderation_access(user):
+            return
+        if clear_kind == "history":
+            count = self.server.db.count_global_chat_messages()
+            open_reports = self.server.db.count_moderation_reports(status="open")
+            summary = Localization.get(
+                user.locale,
+                "admin-moderation-clear-history-confirm",
+                count=count,
+                open=open_reports,
+            )
+        elif clear_kind == "closed_reports":
+            count = self.server.db.count_moderation_reports(
+                statuses=CLOSED_REPORT_STATUSES
+            )
+            summary = Localization.get(
+                user.locale,
+                "admin-moderation-clear-closed-confirm",
+                count=count,
+            )
+        else:
+            self._return_to_admin_root(user, "moderation")
+            return
+        items = [
+            MenuItem(text=summary, id="clear_summary", read_only=True),
+            MenuItem(
+                text=Localization.get(user.locale, "confirm-yes"),
+                id="confirm",
+            ),
+            MenuItem(
+                text=Localization.get(user.locale, "confirm-no"),
+                id="back",
+            ),
+        ]
+        user.show_menu(
+            ADMIN_MODERATION_CLEAR_CONFIRM_MENU,
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self.server.user_states[user.username] = {
+            "menu": ADMIN_MODERATION_CLEAR_CONFIRM_MENU,
+            "moderation_clear_kind": clear_kind,
+        }
+
     # ==================== Menu Display Functions ====================
 
     def _show_admin_menu(self, user: NetworkUser) -> None:
         """Show administration menu."""
         items = [
+            MenuItem(
+                text=Localization.get(user.locale, "admin-moderation"),
+                id="moderation",
+            ),
             MenuItem(
                 text=Localization.get(user.locale, "account-approval"),
                 id="account_approval",
@@ -983,6 +2321,15 @@ class AdministrationManager:
                 MenuItem(
                     text=Localization.get(user.locale, "server-power-management"),
                     id="server_power",
+                )
+            )
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "admin-database-management",
+                    ),
+                    id="database_management",
                 )
             )
             items.append(
@@ -1059,6 +2406,7 @@ class AdministrationManager:
                             pages=pending.total_pages,
                         ),
                         id="page_summary",
+                        read_only=True,
                     )
                 )
             items.extend(
@@ -1201,6 +2549,55 @@ class AdministrationManager:
         """Main entry point for handling admin-related menu selections."""
         if current_menu == "admin_menu":
             await self._handle_admin_menu_selection(user, selection_id)
+        elif current_menu == ADMIN_MODERATION_MENU:
+            await self._handle_moderation_selection(user, selection_id)
+        elif current_menu == ADMIN_MODERATION_REPORTS_MENU:
+            await self._handle_moderation_reports_selection(
+                user, selection_id, state
+            )
+        elif current_menu == ADMIN_MODERATION_REPORT_DETAIL_MENU:
+            await self._handle_moderation_report_detail_selection(
+                user, selection_id, state
+            )
+        elif current_menu == ADMIN_MODERATION_CONTEXT_MENU:
+            if selection_id == "back":
+                self.server._nav_back(user)
+        elif current_menu == ADMIN_MODERATION_SENDER_RESULTS_MENU:
+            await self._handle_moderation_sender_results_selection(
+                user, selection_id, state
+            )
+        elif current_menu == ADMIN_MODERATION_HISTORY_MENU:
+            await self._handle_moderation_history_selection(
+                user, selection_id, state
+            )
+        elif current_menu == ADMIN_MODERATION_MESSAGES_MENU:
+            await self._handle_moderation_messages_selection(
+                user, selection_id, state
+            )
+        elif current_menu == ADMIN_MODERATION_MESSAGE_LANGUAGE_MENU:
+            await self._handle_moderation_message_language_selection(
+                user, selection_id, state
+            )
+        elif current_menu == ADMIN_MODERATION_MESSAGE_PERIOD_MENU:
+            await self._handle_moderation_message_period_selection(
+                user, selection_id, state
+            )
+        elif current_menu == ADMIN_MODERATION_CLEAR_CONFIRM_MENU:
+            await self._handle_moderation_clear_confirm_selection(
+                user, selection_id, state
+            )
+        elif current_menu == ADMIN_DATABASE_MENU:
+            await self._handle_database_management_selection(
+                user, selection_id
+            )
+        elif current_menu == ADMIN_DATABASE_BACKUP_CONFIRM_MENU:
+            await self._handle_database_backup_confirm_selection(
+                user, selection_id
+            )
+        elif current_menu == ADMIN_DATABASE_COMPACT_CONFIRM_MENU:
+            await self._handle_database_compact_confirm_selection(
+                user, selection_id
+            )
         elif current_menu == "account_approval_menu":
             await self._handle_account_approval_selection(user, selection_id, state)
         elif current_menu == "pending_user_actions_menu":
@@ -1261,6 +2658,8 @@ class AdministrationManager:
         """Handle admin menu selection."""
         if selection_id == "account_approval":
             self.server._nav_push(user, self._show_account_approval_menu)
+        elif selection_id == "moderation":
+            self.server._nav_push(user, self._show_moderation_menu)
         elif selection_id == "promote_admin":
             self.server._nav_push(user, self._show_promote_admin_menu)
         elif selection_id == "demote_admin":
@@ -1285,6 +2684,15 @@ class AdministrationManager:
             else:
                 user.speak_l("dev-only-action", buffer="system")
                 self.server._nav_refresh(user, self._show_admin_menu)
+        elif selection_id == "database_management":
+            if user.trust_level >= 3:
+                self.server._nav_push(
+                    user,
+                    self._show_database_management_menu,
+                )
+            else:
+                user.speak_l("dev-only-action", buffer="system")
+                self.server._nav_refresh(user, self._show_admin_menu)
         elif selection_id == "smtp_settings":
             if user.trust_level >= 3:
                 self.server._nav_push(user, self._show_smtp_settings_menu)
@@ -1293,6 +2701,617 @@ class AdministrationManager:
                 self.server._nav_refresh(user, self._show_admin_menu)
         elif selection_id == "back":
             self.server._nav_back(user)
+
+    def _require_developer_database_access(self, user: NetworkUser) -> bool:
+        """Protect database maintenance at display and action time."""
+        if user.trust_level >= 3:
+            return True
+        user.speak_l("dev-only-action", buffer="system")
+        self._return_to_admin_root(user, "database_management")
+        return False
+
+    def _show_database_management_menu(self, user: NetworkUser) -> None:
+        """Show the extensible developer-only database maintenance section."""
+        if not self._require_developer_database_access(user):
+            return
+        items = [
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-database-management-summary",
+                ),
+                id="database_management_summary",
+                read_only=True,
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-database-backup",
+                ),
+                id="backup_database",
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-database-compact",
+                ),
+                id="compact_database",
+            ),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back"),
+        ]
+        user.show_menu(
+            ADMIN_DATABASE_MENU,
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self.server.user_states[user.username] = {"menu": ADMIN_DATABASE_MENU}
+
+    def _show_database_backup_confirm_menu(self, user: NetworkUser) -> None:
+        """Confirm an exclusive, validated SQLite backup operation."""
+        if not self._require_developer_database_access(user):
+            return
+        items = [
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-database-backup-confirm",
+                ),
+                id="database_backup_summary",
+                read_only=True,
+            ),
+            MenuItem(
+                text=Localization.get(user.locale, "confirm-yes"),
+                id="confirm",
+            ),
+            MenuItem(
+                text=Localization.get(user.locale, "confirm-no"),
+                id="back",
+            ),
+        ]
+        user.show_menu(
+            ADMIN_DATABASE_BACKUP_CONFIRM_MENU,
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self.server.user_states[user.username] = {
+            "menu": ADMIN_DATABASE_BACKUP_CONFIRM_MENU
+        }
+
+    def _show_database_compact_confirm_menu(self, user: NetworkUser) -> None:
+        """Confirm an exclusive SQLite compaction operation."""
+        if not self._require_developer_database_access(user):
+            return
+        items = [
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-database-compact-confirm",
+                ),
+                id="database_compact_summary",
+                read_only=True,
+            ),
+            MenuItem(
+                text=Localization.get(user.locale, "confirm-yes"),
+                id="confirm",
+            ),
+            MenuItem(
+                text=Localization.get(user.locale, "confirm-no"),
+                id="back",
+            ),
+        ]
+        user.show_menu(
+            ADMIN_DATABASE_COMPACT_CONFIRM_MENU,
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self.server.user_states[user.username] = {
+            "menu": ADMIN_DATABASE_COMPACT_CONFIRM_MENU
+        }
+
+    async def _handle_database_management_selection(
+        self,
+        user: NetworkUser,
+        selection_id: str,
+    ) -> None:
+        if not self._require_developer_database_access(user):
+            return
+        if selection_id == "backup_database":
+            self.server._nav_push(
+                user,
+                self._show_database_backup_confirm_menu,
+            )
+        elif selection_id == "compact_database":
+            self.server._nav_push(
+                user,
+                self._show_database_compact_confirm_menu,
+            )
+        elif selection_id == "back":
+            self.server._nav_back(user)
+
+    async def _handle_database_backup_confirm_selection(
+        self,
+        user: NetworkUser,
+        selection_id: str,
+    ) -> None:
+        if not self._require_developer_database_access(user):
+            return
+        if selection_id == "back":
+            self.server._nav_back(user)
+            return
+        if selection_id != "confirm":
+            return
+
+        try:
+            result = await self.server.maintenance_manager.back_up_database(
+                requested_by=user.username,
+            )
+        except DatabaseMaintenanceBusyError:
+            user.speak_l(
+                "admin-database-maintenance-busy",
+                buffer="system",
+            )
+        except DatabaseMaintenanceUnavailableError:
+            # The manager already delivered an immediate critical notice and
+            # intentionally keeps all queued output frozen.
+            pass
+        except Exception:
+            logging.getLogger("playaural").exception(
+                "Developer-requested database backup failed"
+            )
+            user.speak_l(
+                "admin-database-backup-failed",
+                buffer="system",
+            )
+        else:
+            user.speak_l(
+                "admin-database-backup-success",
+                buffer="system",
+                filename=result.path.name,
+                size=result.size_bytes,
+            )
+        if not self.server.maintenance_manager.is_active:
+            self.server._nav_back(user)
+
+    async def _handle_database_compact_confirm_selection(
+        self,
+        user: NetworkUser,
+        selection_id: str,
+    ) -> None:
+        if not self._require_developer_database_access(user):
+            return
+        if selection_id == "back":
+            self.server._nav_back(user)
+            return
+        if selection_id != "confirm":
+            return
+
+        try:
+            operation_result = await self.server.maintenance_manager.compact_database(
+                requested_by=user.username,
+            )
+        except DatabaseMaintenanceBusyError:
+            user.speak_l(
+                "admin-database-maintenance-busy",
+                buffer="system",
+            )
+        except DatabaseMaintenanceUnavailableError:
+            # The manager already delivered an immediate critical notice and
+            # intentionally keeps all queued output frozen.
+            pass
+        except Exception:
+            logging.getLogger("playaural").exception(
+                "Developer-requested database compaction failed"
+            )
+            user.speak_l(
+                "admin-database-compact-failed",
+                buffer="system",
+            )
+        else:
+            result = operation_result.compaction
+            user.speak_l(
+                "admin-database-compact-success",
+                buffer="system",
+                before=result.before_bytes,
+                after=result.after_bytes,
+                reclaimed=result.reclaimed_bytes,
+                filename=operation_result.safety_backup.path.name,
+            )
+        if not self.server.maintenance_manager.is_active:
+            self.server._nav_back(user)
+
+    async def _handle_moderation_selection(
+        self, user: NetworkUser, selection_id: str
+    ) -> None:
+        if selection_id == "toggle_global_chat":
+            if user.trust_level < 3:
+                user.speak_l("dev-only-action", buffer="system")
+                self.server._nav_refresh(user, self._show_moderation_menu)
+                return
+            enabled = not self.server.global_chat_sending_enabled
+            try:
+                self.server.set_global_chat_sending_enabled(enabled)
+            except Exception:
+                logging.getLogger("playaural").exception(
+                    "Failed to persist the global-chat availability setting"
+                )
+                user.speak_l(
+                    "admin-moderation-global-chat-update-failed",
+                    buffer="system",
+                )
+                return
+            announcement_key = (
+                "global-chat-availability-enabled"
+                if enabled
+                else "global-chat-availability-disabled"
+            )
+            for recipient in tuple(self.server.users.values()):
+                recipient.play_sound_family("notify", buffer="system")
+                recipient.speak_l(announcement_key, buffer="system")
+                recipient_state = self.server.user_states.get(
+                    recipient.username,
+                    {},
+                )
+                if recipient_state.get("menu") == ADMIN_MODERATION_MENU:
+                    self.server._nav_refresh(
+                        recipient,
+                        self._show_moderation_menu,
+                    )
+        elif selection_id == "reports_open":
+            self.server._nav_push(
+                user, self._show_moderation_reports_menu, "open"
+            )
+        elif selection_id == "reports_closed":
+            self.server._nav_push(
+                user, self._show_moderation_reports_menu, "closed"
+            )
+        elif selection_id == "reports_all":
+            self.server._nav_push(
+                user, self._show_moderation_reports_menu, "all"
+            )
+        elif selection_id == "browse_messages":
+            self.server._nav_push(user, self._show_moderation_messages_menu)
+        elif selection_id == "find_history":
+            self._show_moderation_history_input(user)
+        elif selection_id == "clear_history":
+            if user.trust_level >= 3:
+                self.server._nav_push(
+                    user,
+                    self._show_moderation_clear_confirm_menu,
+                    "history",
+                )
+            else:
+                user.speak_l("dev-only-action", buffer="system")
+                self.server._nav_refresh(user, self._show_moderation_menu)
+        elif selection_id == "clear_closed_reports":
+            if user.trust_level >= 3:
+                self.server._nav_push(
+                    user,
+                    self._show_moderation_clear_confirm_menu,
+                    "closed_reports",
+                )
+            else:
+                user.speak_l("dev-only-action", buffer="system")
+                self.server._nav_refresh(user, self._show_moderation_menu)
+        elif selection_id == "back":
+            self.server._nav_back(user)
+
+    async def _handle_moderation_reports_selection(
+        self, user: NetworkUser, selection_id: str, state: dict[str, Any]
+    ) -> None:
+        if selection_id == "back":
+            self.server._nav_back(user)
+            return
+        report_filter = str(state.get("report_filter", "open"))
+        if report_filter not in {"open", "closed", "all"}:
+            report_filter = "open"
+        if selection_id in MENU_PAGE_IDS:
+            current_page = int(state.get("moderation_page", 1) or 1)
+            page_count = max(
+                1, int(state.get("moderation_page_count", 1) or 1)
+            )
+            next_page = page_for_selection(
+                selection_id, current_page, page_count
+            )
+            if next_page is None:
+                return
+            if is_page_refresh(selection_id):
+                user.speak_l("menu-list-refreshed", buffer="system")
+            self.server._nav_refresh(
+                user,
+                self._show_moderation_reports_menu,
+                report_filter,
+                next_page,
+                focus_page_start=is_page_navigation(selection_id),
+            )
+            return
+        prefix = "moderation_report_"
+        if not selection_id.startswith(prefix):
+            return
+        try:
+            report_id = int(selection_id[len(prefix):])
+        except ValueError:
+            return
+        if self.server.db.get_moderation_report(report_id) is None:
+            user.speak_l(
+                "admin-moderation-report-unavailable", buffer="system"
+            )
+            self.server._nav_refresh(
+                user,
+                self._show_moderation_reports_menu,
+                report_filter,
+                int(state.get("moderation_page", 1) or 1),
+            )
+            return
+        self.server._nav_push(
+            user, self._show_moderation_report_detail_menu, report_id
+        )
+
+    async def _handle_moderation_report_detail_selection(
+        self, user: NetworkUser, selection_id: str, state: dict[str, Any]
+    ) -> None:
+        if selection_id == "back":
+            self.server._nav_back(user)
+            return
+        try:
+            report_id = int(state.get("report_id", 0) or 0)
+        except (TypeError, ValueError):
+            report_id = 0
+        report = self.server.db.get_moderation_report(report_id)
+        if report is None:
+            user.speak_l(
+                "admin-moderation-report-unavailable", buffer="system"
+            )
+            self.server._nav_back(user)
+            return
+        if selection_id == "view_context":
+            self.server._nav_push(
+                user, self._show_moderation_context_menu, report.id
+            )
+            return
+        if selection_id == "view_target_history":
+            self.server._nav_push(
+                user,
+                self._show_moderation_history_menu,
+                report.reported_uuid,
+            )
+            return
+        prefix = "set_status_"
+        if not selection_id.startswith(prefix):
+            return
+        status = selection_id[len(prefix):]
+        if status not in CLOSED_REPORT_STATUSES:
+            return
+        if report.status != "open":
+            user.speak_l(
+                "admin-moderation-report-already-closed", buffer="system"
+            )
+            self.server._nav_refresh(
+                user, self._show_moderation_report_detail_menu, report.id
+            )
+            return
+        updated = self.server.db.set_moderation_report_status(
+            report.id,
+            status,
+            reviewer_uuid=user.uuid,
+            reviewer_username=user.username,
+        )
+        if updated:
+            user.speak_l(
+                "admin-moderation-report-status-updated",
+                buffer="system",
+                id=report.id,
+                status=self._moderation_status_name(user.locale, status),
+            )
+        else:
+            user.speak_l(
+                "admin-moderation-report-already-closed", buffer="system"
+            )
+        self.server._nav_refresh(
+            user, self._show_moderation_report_detail_menu, report.id
+        )
+
+    async def _handle_moderation_sender_results_selection(
+        self, user: NetworkUser, selection_id: str, state: dict[str, Any]
+    ) -> None:
+        if selection_id == "back":
+            self.server._nav_back(user)
+            return
+        username = str(state.get("history_username", ""))
+        if selection_id in MENU_PAGE_IDS:
+            current_page = int(state.get("moderation_page", 1) or 1)
+            page_count = max(
+                1, int(state.get("moderation_page_count", 1) or 1)
+            )
+            next_page = page_for_selection(
+                selection_id, current_page, page_count
+            )
+            if next_page is None:
+                return
+            if is_page_refresh(selection_id):
+                user.speak_l("menu-list-refreshed", buffer="system")
+            self.server._nav_refresh(
+                user,
+                self._show_moderation_sender_results_menu,
+                username,
+                next_page,
+                focus_page_start=is_page_navigation(selection_id),
+            )
+            return
+        prefix = "history_sender_"
+        if selection_id.startswith(prefix):
+            sender_uuid = selection_id[len(prefix):]
+            if not sender_uuid:
+                return
+            self.server._nav_push(
+                user, self._show_moderation_history_menu, sender_uuid
+            )
+
+    async def _handle_moderation_history_selection(
+        self, user: NetworkUser, selection_id: str, state: dict[str, Any]
+    ) -> None:
+        if selection_id == "back":
+            self.server._nav_back(user)
+            return
+        if selection_id not in MENU_PAGE_IDS:
+            return
+        sender_uuid = str(state.get("history_sender_uuid", ""))
+        if not sender_uuid:
+            self.server._nav_back(user)
+            return
+        current_page = int(state.get("moderation_page", 1) or 1)
+        page_count = max(1, int(state.get("moderation_page_count", 1) or 1))
+        next_page = page_for_selection(selection_id, current_page, page_count)
+        if next_page is None:
+            return
+        if is_page_refresh(selection_id):
+            user.speak_l("menu-list-refreshed", buffer="system")
+        self.server._nav_refresh(
+            user,
+            self._show_moderation_history_menu,
+            sender_uuid,
+            next_page,
+            focus_page_start=is_page_navigation(selection_id),
+        )
+
+    async def _handle_moderation_messages_selection(
+        self, user: NetworkUser, selection_id: str, state: dict[str, Any]
+    ) -> None:
+        """Handle the paginated message browser and its exposed filters."""
+        if selection_id == "back":
+            self.server._nav_back(user)
+            return
+        history_filter = self._moderation_message_filter_from_state(state)
+        if selection_id == "message_filter_sort":
+            next_sort = (
+                "oldest"
+                if history_filter.sort_order == "newest"
+                else "newest"
+            )
+            self.server._nav_refresh(
+                user,
+                self._show_moderation_messages_menu,
+                history_filter.channel_code,
+                history_filter.period,
+                next_sort,
+                1,
+            )
+            return
+        if selection_id == "message_filter_language":
+            self.server._nav_push(
+                user,
+                self._show_moderation_message_language_menu,
+                history_filter.channel_code,
+                history_filter.period,
+                history_filter.sort_order,
+            )
+            return
+        if selection_id == "message_filter_period":
+            self.server._nav_push(
+                user,
+                self._show_moderation_message_period_menu,
+                history_filter.channel_code,
+                history_filter.period,
+                history_filter.sort_order,
+            )
+            return
+        if selection_id == "message_filter_reset":
+            self.server._nav_refresh(
+                user,
+                self._show_moderation_messages_menu,
+            )
+            return
+        if selection_id not in MENU_PAGE_IDS:
+            return
+        current_page = int(state.get("moderation_page", 1) or 1)
+        page_count = max(1, int(state.get("moderation_page_count", 1) or 1))
+        next_page = page_for_selection(selection_id, current_page, page_count)
+        if next_page is None:
+            return
+        if is_page_refresh(selection_id):
+            user.speak_l("menu-list-refreshed", buffer="system")
+        self.server._nav_refresh(
+            user,
+            self._show_moderation_messages_menu,
+            history_filter.channel_code,
+            history_filter.period,
+            history_filter.sort_order,
+            next_page,
+            focus_page_start=is_page_navigation(selection_id),
+        )
+
+    async def _handle_moderation_message_language_selection(
+        self, user: NetworkUser, selection_id: str, state: dict[str, Any]
+    ) -> None:
+        """Apply one language facet without adding redundant stack frames."""
+        if selection_id == "back":
+            self.server._nav_back(user)
+            return
+        prefix = "message_language_"
+        if not selection_id.startswith(prefix):
+            return
+        selected = selection_id[len(prefix):]
+        channel_code = None if selected == "all" else selected
+        history_filter = GlobalChatHistoryFilter.from_values(
+            channel_code=channel_code,
+            period=state.get("message_period"),
+            sort_order=state.get("message_sort"),
+        )
+        if selected != "all" and history_filter.channel_code != selected:
+            return
+        self._apply_moderation_message_filter(user, history_filter)
+
+    async def _handle_moderation_message_period_selection(
+        self, user: NetworkUser, selection_id: str, state: dict[str, Any]
+    ) -> None:
+        """Apply one UTC date facet without adding redundant stack frames."""
+        if selection_id == "back":
+            self.server._nav_back(user)
+            return
+        prefix = "message_period_"
+        if not selection_id.startswith(prefix):
+            return
+        period = selection_id[len(prefix):]
+        if period not in GLOBAL_CHAT_HISTORY_PERIODS:
+            return
+        history_filter = GlobalChatHistoryFilter.from_values(
+            channel_code=state.get("message_channel"),
+            period=period,
+            sort_order=state.get("message_sort"),
+        )
+        self._apply_moderation_message_filter(user, history_filter)
+
+    async def _handle_moderation_clear_confirm_selection(
+        self, user: NetworkUser, selection_id: str, state: dict[str, Any]
+    ) -> None:
+        if selection_id == "back":
+            self.server._nav_back(user)
+            return
+        if selection_id != "confirm":
+            return
+        if not self._require_developer_moderation_access(user):
+            return
+        clear_kind = str(state.get("moderation_clear_kind", ""))
+        if clear_kind == "history":
+            count = self.server.db.clear_global_chat_messages()
+            user.speak_l(
+                "admin-moderation-history-cleared",
+                buffer="system",
+                count=count,
+            )
+        elif clear_kind == "closed_reports":
+            count = self.server.db.clear_closed_moderation_reports()
+            user.speak_l(
+                "admin-moderation-closed-reports-cleared",
+                buffer="system",
+                count=count,
+            )
+        else:
+            self._return_to_admin_root(user, "moderation")
+            return
+        self.server._nav_back(user)
 
     async def _handle_account_approval_selection(
         self, user: NetworkUser, selection_id: str, state: dict[str, Any]
@@ -1683,6 +3702,24 @@ class AdministrationManager:
                 self.server.db.update_smtp_config(host, port, username, password, from_email, from_name, encryption_type)
                 user.speak_l("admin-smtp-updated-success", buffer="system")
             self.server._restore_input_parent(user, state)
+            return True
+        elif menu_id == ADMIN_MODERATION_HISTORY_INPUT:
+            if input_id != ADMIN_MODERATION_HISTORY_INPUT:
+                self.server._restore_input_parent(user, state)
+                return True
+            username = str(value or "").strip()
+            if not username:
+                self.server._restore_input_parent(user, state)
+                return True
+            self.server._nav_push_from_input(
+                user,
+                self._show_moderation_sender_results_menu,
+                username,
+                fallback_parent={
+                    "menu": ADMIN_MODERATION_MENU,
+                    "_last_selection_id": "find_history",
+                },
+            )
             return True
         elif menu_id == ADMIN_TARGET_SEARCH_INPUT and input_id == ADMIN_TARGET_SEARCH_INPUT:
             mode = state.get("target_mode")
@@ -2259,6 +4296,10 @@ class AdministrationManager:
             user.speak_l("server-power-already-scheduled", buffer="system")
             self._return_to_admin_root(user, "server_power")
             return
+        if self.server.maintenance_manager.is_active:
+            user.speak_l("server-power-maintenance-active", buffer="system")
+            self._return_to_admin_root(user, "server_power")
+            return
         try:
             action = PowerAction(str(state.get("power_action") or ""))
         except ValueError:
@@ -2267,13 +4308,18 @@ class AdministrationManager:
         delay_seconds = int(state.get("power_delay_seconds") or 0)
         reason_id = str(state.get("power_reason_id") or "unspecified")
         custom_reasons = dict(state.get("power_custom_reasons") or {})
-        operation = self.server.power_manager.schedule(
-            action=action,
-            delay_seconds=delay_seconds,
-            requested_by=user.username,
-            reason_id=reason_id,
-            custom_reasons=custom_reasons,
-        )
+        try:
+            operation = self.server.power_manager.schedule(
+                action=action,
+                delay_seconds=delay_seconds,
+                requested_by=user.username,
+                reason_id=reason_id,
+                custom_reasons=custom_reasons,
+            )
+        except RuntimeError:
+            user.speak_l("server-power-maintenance-active", buffer="system")
+            self._return_to_admin_root(user, "server_power")
+            return
         user.speak_l(
             "server-power-scheduled",
             buffer="system",

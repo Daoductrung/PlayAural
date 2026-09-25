@@ -6,6 +6,22 @@ from types import SimpleNamespace
 import pytest
 
 from ..core.server import Server
+from ..administration.manager import (
+    ADMIN_DATABASE_BACKUP_CONFIRM_MENU,
+    ADMIN_DATABASE_COMPACT_CONFIRM_MENU,
+    ADMIN_DATABASE_MENU,
+    ADMIN_MODERATION_CLEAR_CONFIRM_MENU,
+    ADMIN_MODERATION_CONTEXT_MENU,
+    ADMIN_MODERATION_HISTORY_INPUT,
+    ADMIN_MODERATION_HISTORY_MENU,
+    ADMIN_MODERATION_MESSAGES_MENU,
+    ADMIN_MODERATION_MESSAGE_LANGUAGE_MENU,
+    ADMIN_MODERATION_MESSAGE_PERIOD_MENU,
+    ADMIN_MODERATION_MENU,
+    ADMIN_MODERATION_REPORT_DETAIL_MENU,
+    ADMIN_MODERATION_REPORTS_MENU,
+    ADMIN_MODERATION_SENDER_RESULTS_MENU,
+)
 from ..users.test_user import MockUser
 
 
@@ -14,7 +30,10 @@ def _current_menu(server: Server, username: str) -> str:
 
 
 def _make_admin_server(tmp_path):
-    server = Server(db_path=tmp_path / "admin_nav.sqlite")
+    server = Server(
+        db_path=tmp_path / "admin_nav.sqlite",
+        database_backup_dir=tmp_path / "backups",
+    )
     server._db.connect()
     record = server._db.create_user("Admin", "hash", trust_level=3)
     server._db.approve_user("Admin")
@@ -51,6 +70,212 @@ def _menu_item_text(user: MockUser, menu_id: str, item_id: str) -> str:
         if item.id == item_id:
             return item.text
     raise AssertionError(f"{item_id!r} not found in {menu_id!r}")
+
+
+@pytest.mark.asyncio
+async def test_database_management_compacts_with_confirmation_and_restores_focus(
+    tmp_path,
+) -> None:
+    server, developer = _make_admin_server(tmp_path)
+    try:
+        retained = _create_approved_user(server, "Retained")
+        for index in range(350):
+            server._db.add_global_chat_message(
+                retained.uuid,
+                retained.username,
+                "en",
+                f"{index}:" + ("x" * 450),
+            )
+        server._db.clear_global_chat_messages()
+
+        await _select(server, developer, "main_menu", "administration")
+        assert "database_management" in _menu_item_ids(developer, "admin_menu")
+        await _select(
+            server,
+            developer,
+            "admin_menu",
+            "database_management",
+        )
+        assert _current_menu(server, developer.username) == ADMIN_DATABASE_MENU
+        summary = next(
+            item
+            for item in developer.get_current_menu_items(ADMIN_DATABASE_MENU)
+            if item.id == "database_management_summary"
+        )
+        assert summary.read_only is True
+
+        await _select(
+            server,
+            developer,
+            ADMIN_DATABASE_MENU,
+            "compact_database",
+        )
+        assert (
+            _current_menu(server, developer.username)
+            == ADMIN_DATABASE_COMPACT_CONFIRM_MENU
+        )
+        await _select(
+            server,
+            developer,
+            ADMIN_DATABASE_COMPACT_CONFIRM_MENU,
+            "database_compact_summary",
+        )
+        assert (
+            _current_menu(server, developer.username)
+            == ADMIN_DATABASE_COMPACT_CONFIRM_MENU
+        )
+
+        await _select(
+            server,
+            developer,
+            ADMIN_DATABASE_COMPACT_CONFIRM_MENU,
+            "confirm",
+        )
+
+        assert _current_menu(server, developer.username) == ADMIN_DATABASE_MENU
+        assert "Database compaction completed" in developer.get_last_spoken()
+        assert server._db.get_user("Retained") is not None
+        assert server._db._conn.execute(
+            "PRAGMA freelist_count"
+        ).fetchone()[0] == 0
+        safety_backups = list((tmp_path / "backups").glob("*-pre-compaction-*.sqlite3"))
+        assert len(safety_backups) == 1
+
+        await _select(server, developer, ADMIN_DATABASE_MENU, "back")
+        assert _current_menu(server, developer.username) == "admin_menu"
+        assert (
+            developer.menus["admin_menu"]["selection_id"]
+            == "database_management"
+        )
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_database_management_is_hidden_and_forged_access_is_rejected(
+    tmp_path,
+) -> None:
+    server, developer = _make_admin_server(tmp_path)
+    try:
+        admin_record = _create_approved_user(server, "Moderator", 2)
+        admin = MockUser("Moderator", uuid=admin_record.uuid)
+        admin.trust_level = 2
+        server._users[admin.username] = admin
+        server.admin_manager._show_admin_menu(admin)
+
+        assert "database_management" not in _menu_item_ids(admin, "admin_menu")
+        await server.admin_manager._handle_admin_menu_selection(
+            admin,
+            "database_management",
+        )
+        assert _current_menu(server, admin.username) == "admin_menu"
+        assert admin.get_last_spoken() == (
+            "This action is restricted to Developers only."
+        )
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_database_compaction_failure_returns_to_maintenance_menu(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    server, developer = _make_admin_server(tmp_path)
+    try:
+        def fail_compaction(self):
+            raise RuntimeError("simulated compaction failure")
+
+        monkeypatch.setattr(
+            "server.core.maintenance.Database.compact_database",
+            fail_compaction,
+        )
+        await _select(server, developer, "main_menu", "administration")
+        await _select(
+            server,
+            developer,
+            "admin_menu",
+            "database_management",
+        )
+        await _select(
+            server,
+            developer,
+            ADMIN_DATABASE_MENU,
+            "compact_database",
+        )
+        await _select(
+            server,
+            developer,
+            ADMIN_DATABASE_COMPACT_CONFIRM_MENU,
+            "confirm",
+        )
+
+        assert _current_menu(server, developer.username) == ADMIN_DATABASE_MENU
+        assert developer.get_last_spoken().startswith(
+            "Database compaction failed"
+        )
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_database_backup_uses_confirmation_and_publishes_verified_snapshot(
+    tmp_path,
+) -> None:
+    server, developer = _make_admin_server(tmp_path)
+    try:
+        retained = _create_approved_user(server, "Backup Retained")
+        await _select(server, developer, "main_menu", "administration")
+        await _select(
+            server,
+            developer,
+            "admin_menu",
+            "database_management",
+        )
+        assert "backup_database" in _menu_item_ids(developer, ADMIN_DATABASE_MENU)
+
+        await _select(
+            server,
+            developer,
+            ADMIN_DATABASE_MENU,
+            "backup_database",
+        )
+        assert (
+            _current_menu(server, developer.username)
+            == ADMIN_DATABASE_BACKUP_CONFIRM_MENU
+        )
+        summary = next(
+            item
+            for item in developer.get_current_menu_items(
+                ADMIN_DATABASE_BACKUP_CONFIRM_MENU
+            )
+            if item.id == "database_backup_summary"
+        )
+        assert summary.read_only is True
+
+        await _select(
+            server,
+            developer,
+            ADMIN_DATABASE_BACKUP_CONFIRM_MENU,
+            "confirm",
+        )
+
+        assert _current_menu(server, developer.username) == ADMIN_DATABASE_MENU
+        assert developer.get_last_spoken().startswith("Database backup completed")
+        backups = list((tmp_path / "backups").glob("*-manual-*.sqlite3"))
+        assert len(backups) == 1
+        backup_db = server._db.__class__(backups[0])
+        backup_db.connect(prune=False, recover_corrupt=False)
+        try:
+            assert backup_db.get_user("Backup Retained").uuid == retained.uuid
+        finally:
+            backup_db.close()
+        assert not list((tmp_path / "backups").glob("*.partial"))
+        spoken = developer.get_spoken_messages()
+        assert any("backing up the server database" in text for text in spoken)
+        assert any("backup is complete" in text for text in spoken)
+    finally:
+        server._db.close()
 
 
 @pytest.mark.asyncio
@@ -98,6 +323,508 @@ async def test_admin_editbox_input_is_permission_checked(tmp_path) -> None:
         assert player.get_last_spoken() == (
             "You are no longer an admin and cannot perform this action."
         )
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_manual_moderation_review_exposes_identity_time_and_context(
+    tmp_path,
+) -> None:
+    server, admin = _make_admin_server(tmp_path)
+    try:
+        reporter = _create_approved_user(server, "Reporter")
+        target = _create_approved_user(server, "Target")
+        other = _create_approved_user(server, "Other")
+        before = server._db.add_global_chat_message(
+            other.uuid, other.username, "en", "before message"
+        )
+        target_message = server._db.add_global_chat_message(
+            target.uuid, target.username, "en", "reported message"
+        )
+        submission = server._db.submit_moderation_report(
+            reporter_uuid=reporter.uuid,
+            reporter_username=reporter.username,
+            reported_uuid=target.uuid,
+            reported_username=target.username,
+            reason_code="harassment",
+            channel_code="en",
+        )
+        after = server._db.add_global_chat_message(
+            other.uuid, other.username, "en", "after message"
+        )
+
+        await _select(server, admin, "main_menu", "administration")
+        assert "moderation" in _menu_item_ids(admin, "admin_menu")
+        await _select(server, admin, "admin_menu", "moderation")
+        assert _current_menu(server, admin.username) == ADMIN_MODERATION_MENU
+        await _select(server, admin, ADMIN_MODERATION_MENU, "reports_open")
+        assert _current_menu(server, admin.username) == ADMIN_MODERATION_REPORTS_MENU
+
+        report_item = f"moderation_report_{submission.report_id}"
+        row = _menu_item_text(admin, ADMIN_MODERATION_REPORTS_MENU, report_item)
+        assert target.uuid in row
+        assert reporter.username in row
+        assert "UTC" in row
+        report = server._db.get_moderation_report(submission.report_id)
+        assert report.reported_at_utc not in row
+
+        await _select(
+            server, admin, ADMIN_MODERATION_REPORTS_MENU, report_item
+        )
+        assert _current_menu(server, admin.username) == ADMIN_MODERATION_REPORT_DETAIL_MENU
+        detail_text = " ".join(
+            item.text
+            for item in admin.get_current_menu_items(
+                ADMIN_MODERATION_REPORT_DETAIL_MENU
+            )
+        )
+        assert target.uuid in detail_text
+        assert reporter.uuid in detail_text
+        assert "UTC" in detail_text
+
+        await _select(
+            server,
+            admin,
+            ADMIN_MODERATION_REPORT_DETAIL_MENU,
+            "view_context",
+        )
+        assert _current_menu(server, admin.username) == ADMIN_MODERATION_CONTEXT_MENU
+        context_ids = [
+            item_id
+            for item_id in _menu_item_ids(admin, ADMIN_MODERATION_CONTEXT_MENU)
+            if item_id.startswith("context_message_")
+        ]
+        assert context_ids == [
+            f"context_message_{before.id}",
+            f"context_message_{target_message.id}",
+            f"context_message_{after.id}",
+        ]
+        target_context = _menu_item_text(
+            admin,
+            ADMIN_MODERATION_CONTEXT_MENU,
+            f"context_message_{target_message.id}",
+        )
+        assert "Anchored reported user message" in target_context
+        assert target.uuid in target_context
+
+        await _select(server, admin, ADMIN_MODERATION_CONTEXT_MENU, "back")
+        await _select(
+            server,
+            admin,
+            ADMIN_MODERATION_REPORT_DETAIL_MENU,
+            "set_status_dismissed",
+        )
+        report = server._db.get_moderation_report(submission.report_id)
+        assert report.status == "dismissed"
+        assert report.reviewed_by_uuid == admin.uuid
+        assert report.reviewed_at_utc is not None
+        assert "No automatic penalty was applied" in admin.get_last_spoken()
+        assert server._db.get_active_mute(target.username) is None
+
+        await _select(
+            server,
+            admin,
+            ADMIN_MODERATION_REPORT_DETAIL_MENU,
+            "back",
+        )
+        await _select(server, admin, ADMIN_MODERATION_REPORTS_MENU, "back")
+        await _select(server, admin, ADMIN_MODERATION_MENU, "reports_closed")
+        assert _current_menu(server, admin.username) == ADMIN_MODERATION_REPORTS_MENU
+        assert report_item in _menu_item_ids(admin, ADMIN_MODERATION_REPORTS_MENU)
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_developer_can_persistently_toggle_global_chat_from_moderation(
+    tmp_path,
+) -> None:
+    server, admin = _make_admin_server(tmp_path)
+    database_path = server._db.db_path
+    try:
+        observer_record = _create_approved_user(server, "Observer")
+        observer = MockUser("Observer", locale="vi", uuid=observer_record.uuid)
+        observer.trust_level = 2
+        server._users[observer.username] = observer
+        server.admin_manager._show_moderation_menu(observer)
+        await _select(server, admin, "main_menu", "administration")
+        await _select(server, admin, "admin_menu", "moderation")
+
+        toggle = next(
+            item
+            for item in admin.get_current_menu_items(ADMIN_MODERATION_MENU)
+            if item.id == "toggle_global_chat"
+        )
+        assert toggle.read_only is False
+        assert "On" in toggle.text
+
+        await _select(
+            server,
+            admin,
+            ADMIN_MODERATION_MENU,
+            "toggle_global_chat",
+        )
+
+        assert server.global_chat_sending_enabled is False
+        assert server._db.get_boolean_server_setting(
+            "global_chat_enabled",
+            default=True,
+        ) is False
+        assert "Off" in _menu_item_text(
+            admin,
+            ADMIN_MODERATION_MENU,
+            "toggle_global_chat",
+        )
+        assert admin.get_last_spoken() == (
+            "Global chat has been temporarily disabled by the developer."
+        )
+        assert observer.get_last_spoken() == (
+            "Nhà phát triển đã tạm thời tắt trò chuyện chung."
+        )
+        assert "Tắt" in _menu_item_text(
+            observer,
+            ADMIN_MODERATION_MENU,
+            "toggle_global_chat",
+        )
+        for recipient in (admin, observer):
+            notification = next(
+                message
+                for message in reversed(recipient.messages)
+                if message.type == "play_sound"
+            )
+            assert notification.data["family"] == "notify"
+            assert notification.data["buffer"] == "system"
+
+        await _select(
+            server,
+            admin,
+            ADMIN_MODERATION_MENU,
+            "toggle_global_chat",
+        )
+        assert server.global_chat_sending_enabled is True
+        assert admin.get_last_spoken().startswith("Global chat has been enabled")
+        assert observer.get_last_spoken().startswith(
+            "Nhà phát triển đã bật trò chuyện chung"
+        )
+
+        await _select(
+            server,
+            admin,
+            ADMIN_MODERATION_MENU,
+            "toggle_global_chat",
+        )
+        assert server.global_chat_sending_enabled is False
+    finally:
+        server._db.close()
+
+    restarted = Server(db_path=database_path)
+    try:
+        restarted._db.connect()
+        restarted._load_persistent_server_settings()
+        assert restarted.global_chat_sending_enabled is False
+    finally:
+        restarted._db.close()
+
+
+@pytest.mark.asyncio
+async def test_admin_global_chat_status_is_read_only(tmp_path) -> None:
+    server, developer = _make_admin_server(tmp_path)
+    try:
+        admin_record = _create_approved_user(server, "Moderator", 2)
+        admin = MockUser("Moderator", uuid=admin_record.uuid)
+        admin.trust_level = 2
+        server._users[admin.username] = admin
+        server.admin_manager._show_moderation_menu(admin)
+        status = next(
+            item
+            for item in admin.get_current_menu_items(ADMIN_MODERATION_MENU)
+            if item.id == "toggle_global_chat"
+        )
+        assert status.read_only is True
+
+        await _select(
+            server,
+            admin,
+            ADMIN_MODERATION_MENU,
+            "toggle_global_chat",
+        )
+
+        assert server.global_chat_sending_enabled is True
+        assert _current_menu(server, admin.username) == ADMIN_MODERATION_MENU
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_global_chat_toggle_keeps_live_state_when_persistence_fails(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    server, admin = _make_admin_server(tmp_path)
+    try:
+        await _select(server, admin, "main_menu", "administration")
+        await _select(server, admin, "admin_menu", "moderation")
+
+        def fail_write(_setting_key: str, _value: bool) -> None:
+            raise RuntimeError("simulated write failure")
+
+        monkeypatch.setattr(
+            server._db,
+            "set_boolean_server_setting",
+            fail_write,
+        )
+        await _select(
+            server,
+            admin,
+            ADMIN_MODERATION_MENU,
+            "toggle_global_chat",
+        )
+
+        assert server.global_chat_sending_enabled is True
+        assert "no change was made" in admin.get_last_spoken()
+        assert _current_menu(server, admin.username) == ADMIN_MODERATION_MENU
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_history_lookup_separates_reused_username_account_ids(tmp_path) -> None:
+    server, admin = _make_admin_server(tmp_path)
+    try:
+        original = _create_approved_user(server, "Repeated Name")
+        old_message = server._db.add_global_chat_message(
+            original.uuid, original.username, "en", "old account message"
+        )
+        assert server._db.delete_user(original.username)
+        replacement = _create_approved_user(server, "Repeated Name")
+        server._db.add_global_chat_message(
+            replacement.uuid,
+            replacement.username,
+            "en",
+            "new account message",
+        )
+
+        await _select(server, admin, "main_menu", "administration")
+        await _select(server, admin, "admin_menu", "moderation")
+        await _select(server, admin, ADMIN_MODERATION_MENU, "find_history")
+        assert _current_menu(server, admin.username) == ADMIN_MODERATION_HISTORY_INPUT
+
+        await server._handle_editbox(
+            SimpleNamespace(username=admin.username),
+            {
+                "type": "editbox",
+                "input_id": ADMIN_MODERATION_HISTORY_INPUT,
+                "text": "repeated name",
+            },
+        )
+        assert _current_menu(server, admin.username) == ADMIN_MODERATION_SENDER_RESULTS_MENU
+        result_ids = _menu_item_ids(admin, ADMIN_MODERATION_SENDER_RESULTS_MENU)
+        assert f"history_sender_{original.uuid}" in result_ids
+        assert f"history_sender_{replacement.uuid}" in result_ids
+
+        await _select(
+            server,
+            admin,
+            ADMIN_MODERATION_SENDER_RESULTS_MENU,
+            f"history_sender_{original.uuid}",
+        )
+        assert _current_menu(server, admin.username) == ADMIN_MODERATION_HISTORY_MENU
+        assert f"history_message_{old_message.id}" in _menu_item_ids(
+            admin, ADMIN_MODERATION_HISTORY_MENU
+        )
+        heading = _menu_item_text(
+            admin, ADMIN_MODERATION_HISTORY_MENU, "history_heading"
+        )
+        assert original.uuid in heading
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_global_message_browser_filters_pages_and_restores_parent(
+    tmp_path,
+) -> None:
+    server, admin = _make_admin_server(tmp_path)
+    try:
+        sender = _create_approved_user(server, "Sender")
+        english_messages = [
+            server._db.add_global_chat_message(
+                sender.uuid,
+                sender.username,
+                "en",
+                f"English message {index:02d}",
+            )
+            for index in range(51)
+        ]
+        vietnamese_message = server._db.add_global_chat_message(
+            sender.uuid,
+            sender.username,
+            "vi",
+            "Vietnamese archived message",
+        )
+        server._db._conn.execute(
+            "UPDATE global_chat_messages SET sent_at_utc = ? WHERE id = ?",
+            ("2020-01-01T00:00:00.000000+00:00", vietnamese_message.id),
+        )
+
+        await _select(server, admin, "main_menu", "administration")
+        await _select(server, admin, "admin_menu", "moderation")
+        await _select(server, admin, ADMIN_MODERATION_MENU, "browse_messages")
+        assert _current_menu(server, admin.username) == ADMIN_MODERATION_MESSAGES_MENU
+        message_ids = _menu_item_ids(admin, ADMIN_MODERATION_MESSAGES_MENU)
+        assert "page_next" in message_ids
+        assert f"moderation_message_{english_messages[-1].id}" in message_ids
+        assert f"moderation_message_{vietnamese_message.id}" not in message_ids
+
+        await _select(
+            server,
+            admin,
+            ADMIN_MODERATION_MESSAGES_MENU,
+            "message_filter_sort",
+        )
+        assert server._user_states[admin.username]["message_sort"] == "oldest"
+        assert f"moderation_message_{vietnamese_message.id}" in _menu_item_ids(
+            admin,
+            ADMIN_MODERATION_MESSAGES_MENU,
+        )
+        old_row = _menu_item_text(
+            admin,
+            ADMIN_MODERATION_MESSAGES_MENU,
+            f"moderation_message_{vietnamese_message.id}",
+        )
+        assert old_row.startswith("Sender: Vietnamese archived message")
+        assert old_row.index("Vietnamese archived message") < old_row.index(
+            f"Message #{vietnamese_message.id}"
+        )
+
+        await _select(
+            server,
+            admin,
+            ADMIN_MODERATION_MESSAGES_MENU,
+            "message_filter_language",
+        )
+        assert _current_menu(
+            server, admin.username
+        ) == ADMIN_MODERATION_MESSAGE_LANGUAGE_MENU
+        await _select(
+            server,
+            admin,
+            ADMIN_MODERATION_MESSAGE_LANGUAGE_MENU,
+            "message_language_vi",
+        )
+        assert _current_menu(server, admin.username) == ADMIN_MODERATION_MESSAGES_MENU
+        assert server._user_states[admin.username]["message_channel"] == "vi"
+        filtered_ids = _menu_item_ids(admin, ADMIN_MODERATION_MESSAGES_MENU)
+        assert f"moderation_message_{vietnamese_message.id}" in filtered_ids
+        assert not any(
+            f"moderation_message_{message.id}" in filtered_ids
+            for message in english_messages
+        )
+
+        await _select(
+            server,
+            admin,
+            ADMIN_MODERATION_MESSAGES_MENU,
+            "message_filter_period",
+        )
+        assert _current_menu(
+            server, admin.username
+        ) == ADMIN_MODERATION_MESSAGE_PERIOD_MENU
+        await _select(
+            server,
+            admin,
+            ADMIN_MODERATION_MESSAGE_PERIOD_MENU,
+            "message_period_today",
+        )
+        assert _current_menu(server, admin.username) == ADMIN_MODERATION_MESSAGES_MENU
+        assert server._user_states[admin.username]["message_period"] == "today"
+        assert "message_list_empty" in _menu_item_ids(
+            admin,
+            ADMIN_MODERATION_MESSAGES_MENU,
+        )
+
+        await _select(
+            server,
+            admin,
+            ADMIN_MODERATION_MESSAGES_MENU,
+            "message_filter_reset",
+        )
+        state = server._user_states[admin.username]
+        assert state["message_channel"] is None
+        assert state["message_period"] == "all"
+        assert state["message_sort"] == "newest"
+        assert state["moderation_page"] == 1
+        await _select(server, admin, ADMIN_MODERATION_MESSAGES_MENU, "page_next")
+        assert server._user_states[admin.username]["moderation_page"] == 2
+        assert admin.menus[ADMIN_MODERATION_MESSAGES_MENU]["position"] == 6
+
+        await _select(server, admin, ADMIN_MODERATION_MESSAGES_MENU, "back")
+        assert _current_menu(server, admin.username) == ADMIN_MODERATION_MENU
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_developer_cleanup_is_confirmed_and_preserves_open_reports(
+    tmp_path,
+) -> None:
+    server, admin = _make_admin_server(tmp_path)
+    try:
+        reporter = _create_approved_user(server, "Reporter")
+        target = _create_approved_user(server, "Target")
+        message = server._db.add_global_chat_message(
+            target.uuid, target.username, "en", "evidence"
+        )
+        submission = server._db.submit_moderation_report(
+            reporter_uuid=reporter.uuid,
+            reporter_username=reporter.username,
+            reported_uuid=target.uuid,
+            reported_username=target.username,
+            reason_code="spam",
+            channel_code="en",
+        )
+        report = server._db.get_moderation_report(submission.report_id)
+        assert report.context_anchor_message_id == message.id
+
+        await _select(server, admin, "main_menu", "administration")
+        await _select(server, admin, "admin_menu", "moderation")
+        await _select(server, admin, ADMIN_MODERATION_MENU, "clear_history")
+        assert _current_menu(server, admin.username) == ADMIN_MODERATION_CLEAR_CONFIRM_MENU
+        summary = next(
+            item
+            for item in admin.get_current_menu_items(
+                ADMIN_MODERATION_CLEAR_CONFIRM_MENU
+            )
+            if item.id == "clear_summary"
+        )
+        assert summary.read_only is True
+        await _select(
+            server,
+            admin,
+            ADMIN_MODERATION_CLEAR_CONFIRM_MENU,
+            "clear_summary",
+        )
+        assert _current_menu(server, admin.username) == ADMIN_MODERATION_CLEAR_CONFIRM_MENU
+        assert server._db.count_global_chat_messages() == 1
+        await _select(
+            server, admin, ADMIN_MODERATION_CLEAR_CONFIRM_MENU, "confirm"
+        )
+
+        assert server._db.count_global_chat_messages() == 0
+        retained = server._db.get_moderation_report(submission.report_id)
+        assert retained is not None
+        assert retained.status == "open"
+        assert retained.context_anchor_message_id is None
+
+        ordinary_admin = _create_approved_user(server, "Ordinary Admin", 2)
+        ordinary_user = MockUser("Ordinary Admin", uuid=ordinary_admin.uuid)
+        ordinary_user.trust_level = 2
+        server._users[ordinary_user.username] = ordinary_user
+        server.admin_manager._show_moderation_menu(ordinary_user)
+        ids = _menu_item_ids(ordinary_user, ADMIN_MODERATION_MENU)
+        assert "clear_history" not in ids
+        assert "clear_closed_reports" not in ids
     finally:
         server._db.close()
 

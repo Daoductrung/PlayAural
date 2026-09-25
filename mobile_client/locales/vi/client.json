@@ -194,6 +194,7 @@
   "auth-error-username-invalid-chars": "Tên đăng nhập chỉ được chứa chữ cái, chữ số và dấu cách. Không dùng nhiều dấu cách liên tiếp hoặc ký tự đặc biệt.",
   "auth-error-password-weak": "Mật khẩu phải dài ít nhất 8 ký tự và bao gồm cả chữ và số.",
   "auth-error-rate-limit": "Quá nhiều lần đăng nhập thất bại. Vui lòng thử lại sau 15 phút.",
+  "auth-error-server-maintenance": "Máy chủ đang bảo trì cơ sở dữ liệu. Đăng nhập, đăng ký và thay đổi mật khẩu đang tạm thời không khả dụng. Vui lòng thử lại sau khi bảo trì hoàn tất.",
   "reg-error-email": "Email là bắt buộc để đăng ký.",
   "error-email-empty": "Email là bắt buộc và không được để trống.",
   "error-email-invalid": "Vui lòng nhập địa chỉ email hợp lệ.",

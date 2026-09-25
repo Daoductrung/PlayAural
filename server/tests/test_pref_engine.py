@@ -12,7 +12,7 @@ EXPECTED_TO_DICT_KEYS = {
     "desktop_audio_input_device_id", "desktop_audio_input_device_name",
     "speech_mode", "speech_rate", "speech_voice",
     "mobile_tts_engine", "mobile_tts_rate", "mobile_tts_voice",
-    "mute_global_chat", "mute_table_chat", "notify_table_created",
+    "mute_global_chat", "global_chat_channel", "mute_table_chat", "notify_table_created",
     "notify_user_presence", "notify_friend_presence",
     "show_menu_hints", "invert_multiline_enter_behavior", "play_typing_sounds",
     "active_tables_filter", "game_category_filter",

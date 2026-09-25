@@ -10,8 +10,9 @@ PlayAural hướng tới một môi trường thân thiện, công bằng và d�
 
 \*\*2. Giữ cho phần trò chuyện ở mức hợp lý\*\*
 
-\* Bạn có thể dùng ngôn ngữ của mình trong phần trò chuyện chung.
-\* Nếu phần trò chuyện chung làm bạn mất tập trung, hãy tắt nó trong mục Tùy chỉnh thay vì tranh cãi với người khác về ngôn ngữ họ sử dụng.
+\* Hãy dùng đúng ngôn ngữ của kênh trò chuyện chung bạn đã chọn. Khi muốn trò chuyện bằng ngôn ngữ khác, hãy chọn kênh khác trong mục Tùy chỉnh.
+\* Nếu trò chuyện chung làm bạn mất tập trung, hãy tắt nó trong mục Tùy chỉnh. Nếu người dùng khác có lời lẽ xúc phạm, hãy chặn họ thay vì tranh cãi.
+\* Tin nhắn trò chuyện chung được lưu cùng ID tài khoản của người gửi và thời điểm chính xác để xem xét thủ công. Tin nhắn sẽ được giữ lại cho đến khi nhà phát triển xóa lịch sử.
 \* Không làm ngập phần trò chuyện bằng tin nhắn lặp lại, quảng bá không được yêu cầu hoặc nội dung gây phiền.
 \* Tin nhắn riêng cũng phải tuân theo cùng chuẩn mực như trò chuyện công khai.
 

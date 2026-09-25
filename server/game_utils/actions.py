@@ -50,7 +50,8 @@ class MenuInput(DataClassJSONMixin):
     raw option value and return localized row content. ``locks_gameplay``
     declares public mutation should pause while the prompt is pending; the
     game enforces that through ``_gameplay_input_lock_owner()`` in its actor or
-    permission checks.
+    permission checks. ``read_only_options`` lists raw option values that are
+    rendered for context but can never be submitted.
     """
 
     prompt: str  # Localization key for menu title/prompt
@@ -60,6 +61,7 @@ class MenuInput(DataClassJSONMixin):
     option_label: str | None = None  # Optional method name for localized option labels
     option_description: str | None = None  # Optional localized help callback
     initial_selection: str | None = None  # Optional method name returning option id to focus
+    read_only_options: list[str] = field(default_factory=list)
     locks_gameplay: bool = False  # Game may suspend mutations while this prompt is open
 
 

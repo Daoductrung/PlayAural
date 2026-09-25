@@ -597,6 +597,44 @@ test("Back routes server escape contracts like desktop and never selects an empt
   }
 });
 
+test("server read-only menu rows stay readable but never send selections", () => {
+  const normalize = app.statements.find((node) => ts.isFunctionDeclaration(node) && node.name.text === "normalizeMenuItems");
+  const normalizeMenuItems = compile(`module.exports = ${normalize.getText(app)};`);
+  const items = normalizeMenuItems([
+    { id: "summary", read_only: true, text: "Summary" },
+    { id: "confirm", text: "Confirm" },
+    { text: "Legacy information" },
+    "Legacy text",
+  ]);
+  assert.deepEqual(items.map((item) => item.readOnly), [true, false, true, true]);
+
+  const sent = [];
+  let focusRequests = 0;
+  const menuStateRef = {
+    current: { focusIndex: 0, items, menuId: "confirmation" },
+  };
+  const select = handler("sendMenuSelection", {
+    connection: { send: (packet) => sent.push(packet) },
+    isProtectedTransientMenu: () => false,
+    menuStateRef,
+    requestNativeMenuFocusOnNextPacket: () => { focusRequests += 1; },
+    transientTurnMenuAllowanceRef: { current: null },
+  });
+  select();
+  assert.deepEqual(sent, []);
+  assert.equal(focusRequests, 0);
+
+  menuStateRef.current.focusIndex = 1;
+  select();
+  assert.deepEqual(sent, [{
+    menu_id: "confirmation",
+    selection: 2,
+    selection_id: "confirm",
+    type: "menu",
+  }]);
+  assert.equal(focusRequests, 1);
+});
+
 test("Back from the landing screen exits locally and cannot send a server action", () => {
   let exited = false;
   handler("handleSystemSwipe", {

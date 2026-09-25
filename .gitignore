@@ -30,6 +30,16 @@ config/*.json
 !config/default_*.json
 identities.json
 PlayAural.db
+*.db-wal
+*.db-shm
+*.db-journal
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
+*.sqlite3-wal
+*.sqlite3-shm
+*.sqlite3-journal
+server/backups/
 errors.log
 .vscode/
 .idea/

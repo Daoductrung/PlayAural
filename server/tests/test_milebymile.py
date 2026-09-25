@@ -1681,6 +1681,7 @@ class TestMileByMileUnplayableCardMenu:
             "discard_unplayable_card",
             "_cancel",
         ]
+        assert items[0].read_only is True
         reason_text = getattr(items[0], "text", "")
         assert "You cannot play 100 miles because you need a Green Light" in reason_text
         assert "Do you want to discard it?" in reason_text

@@ -176,6 +176,7 @@ export default {
   "auth-error-username-length": "Tên đăng nhập phải dài từ 3 đến 30 ký tự.",
   "auth-error-password-weak": "Mật khẩu phải dài ít nhất 8 ký tự và bao gồm cả chữ lẫn số.",
   "auth-error-rate-limit": "Quá nhiều lần đăng nhập thất bại. Vui lòng thử lại sau 15 phút.",
+  "auth-error-server-maintenance": "Máy chủ đang bảo trì cơ sở dữ liệu. Đăng nhập, đăng ký và thay đổi mật khẩu đang tạm thời không khả dụng. Vui lòng thử lại sau khi bảo trì hoàn tất.",
   "reg-error-password-match": "Mật khẩu không khớp.",
   "error-password-mismatch": "Mật khẩu không khớp.",
   "error-email-empty": "Email là bắt buộc.",

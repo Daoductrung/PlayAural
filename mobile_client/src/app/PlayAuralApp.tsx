@@ -132,6 +132,7 @@ const SERVER_AUTH_RESPONSE_KEYS: Record<ServerAuthResponseContext, Record<string
     captcha_failed: "error-captcha-failed",
     captcha_missing: "error-captcha-failed",
     rate_limit: "auth-error-rate-limit",
+    server_maintenance: "auth-error-server-maintenance",
     user_not_found: "auth-error-user-not-found",
     username_ambiguous: "auth-error-username-ambiguous",
     version_mismatch: "auth-error-version-mismatch",
@@ -142,6 +143,7 @@ const SERVER_AUTH_RESPONSE_KEYS: Record<ServerAuthResponseContext, Record<string
     captcha_missing: "error-captcha-failed",
     email_empty: "error-email-empty",
     rate_limit: "error-rate-limit-login",
+    server_maintenance: "auth-error-server-maintenance",
     smtp_error: "error-smtp-send-failed",
     smtp_not_configured: "error-smtp-not-configured",
   },
@@ -154,6 +156,7 @@ const SERVER_AUTH_RESPONSE_KEYS: Record<ServerAuthResponseContext, Record<string
     password_weak: "auth-error-password-weak",
     rate_limit: "error-rate-limit-register",
     server_error: "auth-registration-error",
+    server_maintenance: "auth-error-server-maintenance",
     username_invalid_chars: "auth-error-username-invalid-chars",
     username_length: "auth-error-username-length",
     username_reserved_bot: "auth-username-reserved-bot",
@@ -166,6 +169,7 @@ const SERVER_AUTH_RESPONSE_KEYS: Record<ServerAuthResponseContext, Record<string
     missing_fields: "auth-username-password-required",
     password_weak: "auth-error-password-weak",
     rate_limit: "error-rate-limit-login",
+    server_maintenance: "auth-error-server-maintenance",
     user_not_found: "error-invalid-reset-code",
   },
 };
@@ -187,6 +191,7 @@ const AccessibilityOrderedView = View as ComponentType<AccessibilityOrderedViewP
 
 type FocusableMenuItem = {
   id?: string;
+  readOnly: boolean;
   selectionValue?: string | null;
   text: string;
   sound?: string;
@@ -351,10 +356,11 @@ function clamp(value: number, min: number, max: number): number {
 function normalizeMenuItems(items: Array<string | MenuItemData>): FocusableMenuItem[] {
   return items.map((item) => {
     if (typeof item === "string") {
-      return { text: item };
+      return { readOnly: true, text: item };
     }
     return {
       id: item.id,
+      readOnly: item.read_only === true || !item.id,
       selectionValue: item.selection_value ?? null,
       sound: item.sound,
       text: item.text,
@@ -3566,7 +3572,7 @@ export function PlayAuralApp() {
   const sendMenuSelection = (itemOverride?: FocusableMenuItem | null, indexOverride?: number) => {
     const currentMenuState = menuStateRef.current;
     const item = itemOverride ?? currentMenuState.items[currentMenuState.focusIndex];
-    if (!item) {
+    if (!item || item.readOnly) {
       return;
     }
     if (isProtectedTransientMenu(currentMenuState.menuId)) {
@@ -3596,6 +3602,7 @@ export function PlayAuralApp() {
     const selectionIndex = escapeBehavior === "select_last_option" ? items.length - 1
       : escapeBehavior === "select_first_option" ? 0 : null;
     if (selectionIndex !== null && !items[selectionIndex]) return;
+    if (selectionIndex !== null && items[selectionIndex].readOnly) return;
     requestNativeMenuFocusOnNextPacket();
     if (selectionIndex !== null) {
       connection?.send({
@@ -3625,6 +3632,9 @@ export function PlayAuralApp() {
   const sendShiftEnter = (itemOverride?: FocusableMenuItem | null) => {
     const currentMenuState = menuStateRef.current;
     const item = itemOverride ?? currentMenuState.items[currentMenuState.focusIndex];
+    if (item?.readOnly) {
+      return;
+    }
     requestNativeMenuFocusOnNextPacket();
     connection?.send({
       key: "shift+enter",
@@ -3638,7 +3648,7 @@ export function PlayAuralApp() {
     `${menuStateRef.current.menuId}:${index}:${item.id ?? "text"}`;
 
   const handleMenuItemLongPress = (item: FocusableMenuItem, index: number) => {
-    if (selfVoicingEnabled) {
+    if (selfVoicingEnabled || item.readOnly) {
       return;
     }
     void audio.handleUserInteraction();
@@ -3661,6 +3671,9 @@ export function PlayAuralApp() {
   const handleMenuItemPress = (item: FocusableMenuItem, index: number) => {
     void audio.handleUserInteraction();
     focusMenuItemAt(index);
+    if (item.readOnly) {
+      return;
+    }
     const token = getLongPressToken(item, index);
     if (longPressConsumedRef.current === token) {
       longPressConsumedRef.current = null;
@@ -4056,6 +4069,9 @@ export function PlayAuralApp() {
         return;
       }
       submitInputOverlay();
+      return;
+    }
+    if (focusedMenuItem?.readOnly) {
       return;
     }
     playMenuActivateSound();
@@ -4912,12 +4928,12 @@ export function PlayAuralApp() {
 
   const renderGridCell = (item: FocusableMenuItem, index: number) => (
     <Pressable
-      accessibilityActions={[
+      accessibilityActions={item.readOnly ? [] : [
         { name: "activate" },
         { name: "longpress" },
       ]}
       accessibilityLabel={item.text}
-      accessibilityRole="button"
+      accessibilityRole={item.readOnly ? "text" : "button"}
       accessible
       delayLongPress={350}
       key={menuItemAccessibilityKey(menuState.menuId, item, index)}
@@ -4925,6 +4941,9 @@ export function PlayAuralApp() {
       onAccessibilityAction={(event) => {
         void audio.handleUserInteraction();
         focusMenuItemAt(index);
+        if (item.readOnly) {
+          return;
+        }
         if (event.nativeEvent.actionName === "longpress") {
           playMenuActivateSound();
           sendShiftEnter(item);
@@ -4936,7 +4955,7 @@ export function PlayAuralApp() {
       onFocus={() => {
         if (!selfVoicingEnabledRef.current) focusMenuItemAt(index);
       }}
-      onLongPress={() => {
+      onLongPress={item.readOnly ? undefined : () => {
         handleMenuItemLongPress(item, index);
       }}
       onPress={() => {
@@ -4987,18 +5006,21 @@ export function PlayAuralApp() {
         <ScrollView {...menuScroll} style={styles.scrollArea}>
           {menuState.items.map((item, index) => (
             <Pressable
-              accessibilityActions={[
+              accessibilityActions={item.readOnly ? [] : [
                 { name: "activate" },
                 { name: "longpress" },
               ]}
               accessibilityLabel={item.text}
-              accessibilityRole="button"
+              accessibilityRole={item.readOnly ? "text" : "button"}
               accessible
               delayLongPress={350}
               key={menuItemAccessibilityKey(menuState.menuId, item, index)}
               onAccessibilityAction={(event) => {
                 void audio.handleUserInteraction();
                 focusMenuItemAt(index);
+                if (item.readOnly) {
+                  return;
+                }
                 if (event.nativeEvent.actionName === "longpress") {
                   playMenuActivateSound();
                   sendShiftEnter(item);
@@ -5010,7 +5032,7 @@ export function PlayAuralApp() {
               onFocus={() => {
                 focusMenuItemAt(index);
               }}
-              onLongPress={() => {
+              onLongPress={item.readOnly ? undefined : () => {
                 handleMenuItemLongPress(item, index);
               }}
               onPress={() => {

@@ -4,6 +4,7 @@ export type OutputBuffer = Exclude<SpeechBuffer, "all">;
 export type MenuItemData = {
   id?: string;
   text: string;
+  read_only?: boolean;
   label?: string;
   description?: string;
   sound?: string;
@@ -93,23 +94,29 @@ export type RegisterResponsePacket = {
   type: "register_response";
   status: "success" | "error";
   error?: string;
+  reason?: string;
   text?: string;
   locale?: string;
+  reconnect?: boolean;
 };
 
 export type RequestPasswordResetResponsePacket = {
   type: "request_password_reset_response";
   status: "success" | "error";
   error?: string;
+  reason?: string;
   text?: string;
+  reconnect?: boolean;
 };
 
 export type SubmitResetCodeResponsePacket = {
   type: "submit_reset_code_response";
   status: "success" | "error";
   error?: string;
+  reason?: string;
   text?: string;
   username?: string;
+  reconnect?: boolean;
 };
 
 export type DisconnectPacket = {
@@ -204,7 +211,9 @@ export type ClearUiPacket = {
 
 export type LoginFailedPacket = {
   type: "login_failed";
+  error?: string;
   reason?: string;
+  status?: "error";
   text?: string;
   reconnect?: boolean;
 };

@@ -8,6 +8,8 @@ from server.core.server import (
     MAX_CHAT_MESSAGE_LENGTH,
     Server,
     USER_BLOCK_CONFIRM_MENU,
+    USER_REPORT_CONFIRM_MENU,
+    USER_REPORT_REASON_MENU,
     VERSION,
 )
 from server.users.network_user import NetworkUser
@@ -366,6 +368,7 @@ class TestFriendsSystem:
             and packet.get("buffer") == "system"
             for packet in alice_user.get_queued_messages()
         )
+        assert alice.uuid not in self.server._chat_rate_limiter._buckets
 
     @pytest.mark.asyncio
     async def test_private_message_resolves_friend_case_variant_canonically(self):
@@ -705,7 +708,7 @@ class TestFriendsSystem:
             for message in bob_user.get_queued_messages()
         )
 
-    def test_block_controls_cover_request_profile_and_management_menus(self):
+    def test_block_and_report_controls_cover_account_management_menus(self):
         self.db.create_user("Alice", "hash")
         self.db.create_user("Bob", "hash")
         alice = self.db.get_user("Alice")
@@ -724,6 +727,7 @@ class TestFriendsSystem:
             "accept",
             "decline",
             "block",
+            "report",
             "back",
         ]
 
@@ -732,11 +736,26 @@ class TestFriendsSystem:
             item.id for item in self.server._get_friends_hub_menu_items(alice_user)
         ]
         assert "blocked_users" in hub_ids
+        assert "report_user" in hub_ids
         blocked_items, blocked_page = self.server._get_blocked_users_menu_items(
             alice_user
         )
         assert blocked_page.total == 1
         assert [item.id for item in blocked_items] == ["blocked_Bob", "back"]
+
+        self.server._show_blocked_user_actions_menu(alice_user, bob.username)
+        blocked_actions = next(
+            message
+            for message in reversed(alice_user.get_queued_messages())
+            if message.get("type") == "menu"
+            and message.get("menu_id") == "blocked_user_actions_menu"
+        )
+        assert [item["id"] for item in blocked_actions["items"]] == [
+            "view_profile",
+            "unblock",
+            "report",
+            "back",
+        ]
 
         self.server._show_public_profile(alice_user, bob.username)
         profile_menu = next(
@@ -746,13 +765,116 @@ class TestFriendsSystem:
             and message.get("menu_id") == "public_profile_menu"
         )
         assert "unblock" in [item["id"] for item in profile_menu["items"]]
+        assert "report" in [item["id"] for item in profile_menu["items"]]
+
+    @pytest.mark.asyncio
+    async def test_report_flow_records_exact_target_context_without_notifying_target(
+        self,
+    ):
+        self.db.create_user("Alice", "hash")
+        self.db.create_user("Nguyễn Văn An", "hash")
+        alice = self.db.get_user("Alice")
+        target = self.db.get_user("Nguyễn Văn An")
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+        target_user = self._make_network_user(target.username, target.uuid)
+        alice_user.connection.username = alice.username
+        alice_user.preferences.global_chat_channel = "vi"
+        target_message = self.db.add_global_chat_message(
+            target.uuid,
+            target.username,
+            "vi",
+            "Nội dung cần xem xét",
+        )
+        self.server._show_friends_hub_menu(alice_user)
+
+        await self.server._handle_friends_hub_selection(alice_user, "report_user")
+        assert self.server._user_states[alice.username]["menu"] == "report_user_input"
+
+        await self.server._handle_editbox(
+            alice_user.connection,
+            {"text": "nguyễn văn an"},
+        )
+        state = self.server._user_states[alice.username]
+        assert state["menu"] == USER_REPORT_REASON_MENU
+        assert state["target_uuid"] == target.uuid
+
+        await self.server._handle_menu(
+            alice_user.connection,
+            {
+                "menu_id": USER_REPORT_REASON_MENU,
+                "selection_id": "report_reason_harassment",
+            },
+        )
+        state = self.server._user_states[alice.username]
+        assert state["menu"] == USER_REPORT_CONFIRM_MENU
+        assert state["report_reason"] == "harassment"
+        assert state["report_channel"] == "vi"
+
+        alice_user.get_queued_messages()
+        target_user.get_queued_messages()
+        await self.server._handle_menu(
+            alice_user.connection,
+            {
+                "menu_id": USER_REPORT_CONFIRM_MENU,
+                "selection_id": "submit",
+            },
+        )
+
+        assert self.db.count_moderation_reports(status="open") == 1
+        report = self.db.get_moderation_report(1)
+        assert report is not None
+        assert report.reporter_uuid == alice.uuid
+        assert report.reported_uuid == target.uuid
+        assert report.reported_username == target.username
+        assert report.channel_code == "vi"
+        assert report.context_anchor_message_id == target_message.id
+        assert not self.db.has_block_between(alice.uuid, target.uuid)
+        assert self.server._user_states[alice.username]["menu"] == "friends_hub_menu"
+        assert any(
+            message.get("key") == "report-submitted"
+            and message.get("buffer") == "system"
+            for message in alice_user.get_queued_messages()
+        )
+        assert not any(
+            message.get("type") == "speak"
+            for message in target_user.get_queued_messages()
+        )
+
+    @pytest.mark.asyncio
+    async def test_report_target_uuid_prevents_username_reuse_misattribution(self):
+        self.db.create_user("Alice", "hash")
+        self.db.create_user("Target", "hash")
+        alice = self.db.get_user("Alice")
+        original_target = self.db.get_user("Target")
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+        self.server._user_states[alice.username] = {"menu": "friends_hub_menu"}
+
+        assert self.server._open_user_report(alice_user, original_target.username)
+        state = self.server._user_states[alice.username]
+        assert state["target_uuid"] == original_target.uuid
+
+        assert self.db.delete_user(original_target.username)
+        replacement = self.db.create_user("Target", "hash")
+        assert replacement.uuid != original_target.uuid
+
+        alice_user.get_queued_messages()
+        await self.server._handle_user_report_reason_selection(
+            alice_user,
+            "report_reason_spam",
+            state,
+        )
+
+        assert self.db.count_moderation_reports() == 0
+        assert any(
+            message.get("key") == "user-account-unavailable"
+            for message in alice_user.get_queued_messages()
+        )
 
     @pytest.mark.asyncio
     async def test_block_prevents_private_messages_and_filters_shared_chat_both_ways(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ):
-        monkeypatch.setattr(server_module, "GLOBAL_CHAT_SENDING_ENABLED", True)
         monkeypatch.setattr(
             server_module,
             "MAIN_MENU_LOCAL_CHAT_SENDING_ENABLED",
@@ -764,6 +886,8 @@ class TestFriendsSystem:
         alice_user = self._make_network_user(alice.username, alice.uuid)
         bob_user = self._make_network_user(bob.username, bob.uuid)
         cara_user = self._make_network_user(cara.username, cara.uuid)
+        for user in (alice_user, bob_user, cara_user):
+            user.preferences.global_chat_channel = "en"
         alice_user.connection.username = alice.username
         bob_user.connection.username = bob.username
         cara_user.connection.username = cara.username
@@ -849,12 +973,30 @@ class TestFriendsSystem:
             for message in alice_user.get_queued_messages()
         )
 
+        self.server._user_states[alice.username] = {
+            "menu": "send_pm_input",
+            "target_username": bob.username,
+            "_transient": True,
+        }
+        await self.server._handle_editbox(
+            alice_user.connection,
+            {"text": "\u200b\u2060"},
+        )
+        assert any(
+            message.get("key") == "chat-invalid-message"
+            and message.get("buffer") == "system"
+            for message in alice_user.get_queued_messages()
+        )
+        assert alice.uuid not in self.server._chat_rate_limiter._buckets
+        assert not any(
+            message.get("key") == "pm-received"
+            for message in bob_user.get_queued_messages()
+        )
+
     @pytest.mark.asyncio
     async def test_mid_broadcast_block_suppresses_later_recipients(
         self,
-        monkeypatch: pytest.MonkeyPatch,
     ):
-        monkeypatch.setattr(server_module, "GLOBAL_CHAT_SENDING_ENABLED", True)
         self.db.create_user("Alice", "hash")
         self.db.create_user("Bob", "hash")
         self.db.create_user("Cara", "hash")
@@ -864,6 +1006,8 @@ class TestFriendsSystem:
         alice_user = self._make_network_user(alice.username, alice.uuid)
         bob_user = self._make_network_user(bob.username, bob.uuid)
         cara_user = self._make_network_user(cara.username, cara.uuid)
+        for user in (alice_user, bob_user, cara_user):
+            user.preferences.global_chat_channel = "en"
 
         server = self.server
 

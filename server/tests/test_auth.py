@@ -1041,6 +1041,8 @@ class TestAuthSecurity:
     @pytest.mark.asyncio
     async def test_disconnect_does_not_reset_account_rate_limits(self):
         self.server._auth.register("Alice", "Password123")
+        account = self.server._db.get_user("Alice")
+        assert account is not None
         client = MockClient()
         self.server._ws_server.bind_client(client)
         await self.server._handle_authorize(
@@ -1055,15 +1057,15 @@ class TestAuthSecurity:
         )
 
         for _ in range(self.server._chat_rate_limiter.BUCKET_CAPACITY):
-            assert self.server._chat_rate_limiter.try_consume("Alice")[0]
-        assert not self.server._chat_rate_limiter.try_consume("Alice")[0]
+            assert self.server._chat_rate_limiter.try_consume(account.uuid)[0]
+        assert not self.server._chat_rate_limiter.try_consume(account.uuid)[0]
         assert self.server._voice_rate_limiter.try_consume("Alice")
         assert self.server._voice_rate_limiter.try_consume("Alice")
         assert not self.server._voice_rate_limiter.try_consume("Alice")
 
         await self.server._on_client_disconnect(client)
 
-        assert not self.server._chat_rate_limiter.try_consume("Alice")[0]
+        assert not self.server._chat_rate_limiter.try_consume(account.uuid)[0]
         assert not self.server._voice_rate_limiter.try_consume("Alice")
         for task in self.server._pending_disconnects.values():
             task.cancel()
@@ -1102,6 +1104,10 @@ class TestAuthSecurity:
     @pytest.mark.asyncio
     async def test_account_deletion_invalidates_login_waiting_on_session_lock(self):
         self.server._auth.register("Alice", "Password123")
+        account = self.server._db.get_user("Alice")
+        assert account is not None
+        self.server._chat_rate_limiter.try_consume(account.uuid, "message")
+        assert account.uuid in self.server._chat_rate_limiter._buckets
         client = MockClient()
         self.server._ws_server.bind_client(client)
         packet = {
@@ -1136,6 +1142,7 @@ class TestAuthSecurity:
         assert deleted is True
         assert self.db.get_user("Alice") is None
         assert "Alice" not in self.server._users
+        assert account.uuid not in self.server._chat_rate_limiter._buckets
         assert client.authenticated is False
         assert client.sent_messages[-1]["type"] == "login_failed"
         assert client.sent_messages[-1]["reason"] == "user_not_found"

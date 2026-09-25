@@ -18,7 +18,6 @@ from ...game_utils.round_timer import RoundTimer
 from ...game_utils.teams import TeamManager
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
-from ...users.base import MenuItem
 
 from .bot import MileByMileBotStrategy
 from .cards import (
@@ -532,6 +531,7 @@ class MileByMileGame(Game):
                     pre_input_check="_pre_input_check_unplayable_card",
                     option_label="_unplayable_card_option_label",
                     initial_selection="_unplayable_card_initial_selection",
+                    read_only_options=[UNPLAYABLE_REASON_OPTION],
                 )
             elif card.card_type == CardType.HAZARD:
                 targets = self._get_valid_hazard_targets(player, card.value)
@@ -734,38 +734,6 @@ class MileByMileGame(Game):
             return player.hand[slot]
         return None
 
-    def _build_action_menu_input_items(
-        self,
-        action: Action,
-        player: Player,
-        user,
-        options: list[str],
-    ) -> list[MenuItem]:
-        """Keep the unplayable-card reason as a read-only prompt row."""
-        if not self._is_unplayable_card_prompt_action(player, action.id):
-            return super()._build_action_menu_input_items(
-                action,
-                player,
-                user,
-                options,
-            )
-
-        reason_text = self._unplayable_card_reason_text(
-            player,
-            action.id,
-            user.locale,
-        )
-        if reason_text is None:
-            return []
-        return [
-            MenuItem(text=reason_text, id=UNPLAYABLE_REASON_OPTION),
-            MenuItem(
-                text=Localization.get(user.locale, "milebymile-discard-card"),
-                id=UNPLAYABLE_DISCARD_OPTION,
-            ),
-            MenuItem(text=Localization.get(user.locale, "cancel"), id="_cancel"),
-        ]
-
     def _on_action_menu_input_opened(
         self,
         action: Action,
@@ -804,18 +772,6 @@ class MileByMileGame(Game):
             card=self._get_localized_card_name(card, locale),
             reason=self._get_unplayable_reason(player, card, locale),
         )
-
-    def _handle_menu_event(self, player: Player, event: dict) -> None:
-        """Keep static rows in the unplayable-card prompt read-only."""
-        if event.get("menu_id") == "action_input_menu":
-            selection_id = event.get("selection_id", "")
-            action_id = self._pending_actions.get(player.id)
-            if (
-                selection_id in ("", None, UNPLAYABLE_REASON_OPTION)
-                and self._is_unplayable_card_prompt_action(player, action_id)
-            ):
-                return
-        super()._handle_menu_event(player, event)
 
     def _is_card_action_hidden(self, player: Player) -> Visibility:
         """Card actions are visible during play."""

@@ -176,6 +176,7 @@ export default {
   "auth-error-username-length": "Username must be between 3 and 30 characters.",
   "auth-error-password-weak": "Password must be at least 8 characters long and contain both letters and numbers.",
   "auth-error-rate-limit": "Too many failed login attempts. Please try again in 15 minutes.",
+  "auth-error-server-maintenance": "Server database maintenance is in progress. Login, registration, and password changes are temporarily unavailable. Please try again after maintenance finishes.",
   "reg-error-password-match": "Passwords do not match.",
   "error-password-mismatch": "Passwords do not match.",
   "error-email-empty": "Email is required.",

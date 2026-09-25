@@ -4,6 +4,7 @@ import test from "node:test";
 
 import { installKeybinds } from "../keybinds.js";
 import { createCollapsiblePanel, installCollapsiblePanels } from "../ui/collapsiblePanels.js";
+import { isMenuItemActionable } from "../ui/menus.js";
 
 class FakeElement {
   constructor({ expanded = "true", hidden = false } = {}) {
@@ -37,6 +38,13 @@ class FakeElement {
     this.attributes.set(name, String(value));
   }
 }
+
+test("read-only and legacy text menu rows are never actionable", () => {
+  assert.equal(isMenuItemActionable({ id: "confirm", text: "Confirm" }), true);
+  assert.equal(isMenuItemActionable({ id: "summary", read_only: true, text: "Summary" }), false);
+  assert.equal(isMenuItemActionable({ text: "Legacy information" }), false);
+  assert.equal(isMenuItemActionable("Legacy information"), false);
+});
 
 test("collapsible panels honor markup defaults and keep state synchronized", () => {
   globalThis.document = { activeElement: null };

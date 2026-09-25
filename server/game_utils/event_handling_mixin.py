@@ -7,6 +7,7 @@ if TYPE_CHECKING:
 
 from .action_context import ActionContext
 from .actions import EditboxInput, MenuInput
+from ..users.base import menu_selection_targets_read_only
 
 
 class EventHandlingMixin:
@@ -269,6 +270,24 @@ class EventHandlingMixin:
                     index = selection - 1
                     if 0 <= index < len(indexed_choices):
                         choice = indexed_choices[index]
+
+            user = self.get_user(player)
+            if options is not None and choice and user is not None:
+                # The builder is explicitly idempotent and is the authoritative
+                # source for specialized menu-row semantics. Re-evaluate it at
+                # dispatch so a forged client cannot activate any row rendered
+                # read-only by either the declarative request or a game hook.
+                items = self._build_action_menu_input_items(
+                    action,
+                    player,
+                    user,
+                    options,
+                )
+                if menu_selection_targets_read_only(
+                    items,
+                    selection_id=choice,
+                ):
+                    return
 
             cancelled = choice in ("_cancel", "back")
             if options is None or (not cancelled and choice not in options):

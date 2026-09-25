@@ -44,11 +44,11 @@ async def _press_space_on(
     )
 
 
-def _make_server(tmp_path):
+def _make_server(tmp_path, *, locale: str = "en"):
     server = Server(db_path=tmp_path / "options_nav.sqlite")
     server._db.connect()
     record = server._db.create_user("NavTester", "hash", trust_level=1)
-    user = MockUser("NavTester", uuid=record.uuid)
+    user = MockUser("NavTester", uuid=record.uuid, locale=locale)
     # MockUser defaults to client_type="python" (desktop-like, non-web/mobile).
     server._users[user.username] = user
     server._sync_pref_to_client = lambda *args, **kwargs: None
@@ -296,6 +296,85 @@ async def test_options_notifications_toggle_stays_in_notifications_submenu(tmp_p
 
         await server._handle_notifications_submenu_selection(user, "back")
         assert _current_menu(server, user.username) == "options_menu"
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_global_chat_channel_menu_recommends_locale_and_persists_selection(
+    tmp_path,
+) -> None:
+    server, user = _make_server(tmp_path, locale="vi")
+    try:
+        server._show_options_menu(user)
+        server._nav_push(user, server._show_notifications_submenu)
+
+        await server._handle_menu(
+            SimpleNamespace(username=user.username),
+            {
+                "type": "menu",
+                "menu_id": "options_notifications_submenu",
+                "selection_id": "global_chat_channel",
+            },
+        )
+
+        assert _current_menu(server, user.username) == "global_chat_channel_menu"
+        items = user.get_current_menu_items("global_chat_channel_menu")
+        assert [item.id for item in items[:3]] == [
+            "global_chat_channel_vi",
+            "global_chat_channel_en",
+            "global_chat_channel_es",
+        ]
+        assert "được đề xuất" in items[0].text
+        assert items[-2].id == "global_chat_channel_none"
+        assert user.menus["global_chat_channel_menu"]["selection_id"] == (
+            "global_chat_channel_vi"
+        )
+
+        await server._handle_menu(
+            SimpleNamespace(username=user.username),
+            {
+                "type": "menu",
+                "menu_id": "global_chat_channel_menu",
+                "selection_id": "global_chat_channel_es",
+            },
+        )
+
+        assert _current_menu(server, user.username) == "options_notifications_submenu"
+        assert user.preferences.global_chat_channel == "es"
+        saved = json.loads(server._db.get_user(user.username).preferences_json)
+        assert saved["global_chat_channel"] == "es"
+        channel_item = next(
+            item
+            for item in user.get_current_menu_items("options_notifications_submenu")
+            if item.id == "global_chat_channel"
+        )
+        assert "Tây Ban Nha" in channel_item.text
+        assert user.menus["options_notifications_submenu"]["selection_id"] == (
+            "global_chat_channel"
+        )
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_global_chat_channel_can_be_explicitly_cleared(tmp_path) -> None:
+    server, user = _make_server(tmp_path)
+    try:
+        user.preferences.global_chat_channel = "en"
+        server._show_options_menu(user)
+        server._nav_push(user, server._show_notifications_submenu)
+        server._nav_push(user, server._show_global_chat_channel_menu)
+
+        await server._handle_global_chat_channel_selection(
+            user,
+            "global_chat_channel_none",
+        )
+
+        assert user.preferences.global_chat_channel is None
+        saved = json.loads(server._db.get_user(user.username).preferences_json)
+        assert saved["global_chat_channel"] is None
+        assert _current_menu(server, user.username) == "options_notifications_submenu"
     finally:
         server._db.close()
 

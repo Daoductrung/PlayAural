@@ -1,3 +1,5 @@
+import { isMenuItemActionable } from "./ui/menus.js";
+
 function keyFromEvent(event) {
   if (event.key === " ") {
     return "space";
@@ -23,6 +25,10 @@ function keyFromEvent(event) {
     return lower.replace("arrow", "");
   }
   return null;
+}
+
+function actionableMenuItemId(item) {
+  return isMenuItemActionable(item) ? item.id : null;
 }
 
 function isTypingTarget(element) {
@@ -180,7 +186,7 @@ export function installKeybinds({
         shift: false,
         menu_id: menu.menuId,
         menu_index: menu.items.length ? menu.selection + 1 : null,
-        menu_item_id: menu.items[menu.selection]?.id ?? null,
+        menu_item_id: actionableMenuItemId(menu.items[menu.selection]),
       });
       return;
     }
@@ -261,7 +267,7 @@ export function installKeybinds({
         shift: event.shiftKey,
         menu_id: menu.menuId,
         menu_index: menuIndex,
-        menu_item_id: currentItem?.id ?? null,
+        menu_item_id: actionableMenuItemId(currentItem),
       });
       return;
     }
@@ -434,7 +440,7 @@ export function installKeybinds({
         shift: event.shiftKey,
         menu_id: menu.menuId,
         menu_index: menuIndex,
-        menu_item_id: currentItem?.id ?? null,
+        menu_item_id: actionableMenuItemId(currentItem),
       });
       return;
     }
@@ -485,7 +491,7 @@ export function installKeybinds({
       shift: event.shiftKey,
       menu_id: menu.menuId,
       menu_index: menuIndex,
-      menu_item_id: currentItem?.id ?? null,
+      menu_item_id: actionableMenuItemId(currentItem),
     });
   });
 }

@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import math
 import re
 import signal
 import sys
@@ -19,6 +20,7 @@ from .power import (
     ScheduledPowerOperation,
     ServerPowerManager,
 )
+from .maintenance import ServerMaintenanceManager
 from .release_artifacts import (
     RELEASE_DELIVERY_BROWSER,
     RELEASE_DELIVERY_WINDOWS_ZIP,
@@ -31,8 +33,21 @@ from .release_artifacts import (
 )
 from .tick import TickScheduler
 from ..administration.manager import (
+    ADMIN_DATABASE_BACKUP_CONFIRM_MENU,
+    ADMIN_DATABASE_COMPACT_CONFIRM_MENU,
+    ADMIN_DATABASE_MENU,
     ADMIN_LOCALIZED_TEXT_MENU,
     ADMIN_MENU_IDS,
+    ADMIN_MODERATION_CLEAR_CONFIRM_MENU,
+    ADMIN_MODERATION_CONTEXT_MENU,
+    ADMIN_MODERATION_HISTORY_MENU,
+    ADMIN_MODERATION_MESSAGES_MENU,
+    ADMIN_MODERATION_MESSAGE_LANGUAGE_MENU,
+    ADMIN_MODERATION_MESSAGE_PERIOD_MENU,
+    ADMIN_MODERATION_MENU,
+    ADMIN_MODERATION_REPORT_DETAIL_MENU,
+    ADMIN_MODERATION_REPORTS_MENU,
+    ADMIN_MODERATION_SENDER_RESULTS_MENU,
     AdministrationManager,
 )
 from ..network.websocket_server import WebSocketServer, ClientConnection
@@ -40,14 +55,24 @@ from ..persistence.database import Database
 from ..auth.auth import AuthManager, is_valid_email
 from ..auth.captcha import verify_captcha
 from ..auth.rate_limit import RateLimiter
-from ..auth.chat_rate_limit import ChatRateLimiter
+from ..auth.chat_rate_limit import ChatRateLimiter, normalize_chat_content
 from ..auth.voice_rate_limit import VoiceRateLimiter
 from ..tables.manager import TableManager
 from ..tables.table import Table
 from ..users.network_user import NetworkUser
-from ..users.base import MenuItem, EscapeBehavior
+from ..users.base import (
+    EscapeBehavior,
+    MenuItem,
+    menu_selection_targets_read_only,
+)
 from ..users.identity import find_username_prefix, normalize_username, username_key
 from ..users.preferences import UserPreferences, DiceKeepingStyle, PREF_CATEGORIES
+from ..chat_channels import (
+    MAX_CHAT_MESSAGE_LENGTH,
+    normalize_global_chat_channel,
+    ordered_global_chat_channels,
+    recommended_global_chat_channel,
+)
 from ..games.registry import GameRegistry, get_game_class
 from ..games.categories import (
     CATEGORY_FILTER_ALL,
@@ -57,6 +82,11 @@ from ..games.categories import (
 )
 from ..messages.localization import Localization
 from ..messages.localized_content import localized_penalty_reason_for_locale
+from ..moderation.reports import (
+    REPORT_REASON_CODE_SET,
+    REPORT_REASON_CODES,
+    report_reason_localization_key,
+)
 from ..menu_pagination import (
     DEFAULT_MENU_PAGE_SIZE,
     MENU_PAGE_IDS,
@@ -145,12 +175,12 @@ ONLINE_USERS_SPOKEN_NAME_LIMIT = 20
 # Display order and classification shared by online summaries, menus and presence.
 USER_ROLE_MINIMUM_TRUST = {"dev": 3, "admin": 2, "user": 1}
 ACTIVE_TABLE_SPECTATOR_PREVIEW_LIMIT = 3
-MAX_CHAT_MESSAGE_LENGTH = 500
 TABLE_CHAT_CONVERSATIONS = frozenset({"local", "table", "game"})
 SUPPORTED_CHAT_CONVERSATIONS = frozenset({"global", *TABLE_CHAT_CONVERSATIONS})
-# Temporary product switches. Keep the underlying delivery paths intact so each
-# feature can be restored independently without changing the chat protocol.
-GLOBAL_CHAT_SENDING_ENABLED = False
+# Global chat starts enabled and is controlled persistently from Chat
+# Moderation. Main-menu local chat remains a temporary code-level switch.
+GLOBAL_CHAT_ENABLED_SETTING_KEY = "global_chat_enabled"
+DEFAULT_GLOBAL_CHAT_SENDING_ENABLED = True
 MAIN_MENU_LOCAL_CHAT_SENDING_ENABLED = False
 VOICE_JOIN_AUTHORIZATION_WINDOW_SECONDS = 120
 SESSION_STATE_RETENTION_SECONDS = 300
@@ -183,6 +213,8 @@ PRESENCE_EVENT_SPECS = {
 HOST_RESTART_CONFIRM_MENU = "host_restart_confirm_menu"
 FRIEND_REMOVE_CONFIRM_MENU = "friend_remove_confirm_menu"
 USER_BLOCK_CONFIRM_MENU = "user_block_confirm_menu"
+USER_REPORT_REASON_MENU = "user_report_reason_menu"
+USER_REPORT_CONFIRM_MENU = "user_report_confirm_menu"
 TABLE_MEMBERS_MENU = "table_members_menu"
 TABLE_MEMBER_ACTIONS_MENU = "table_member_actions_menu"
 NON_RESUMABLE_ACTION_MENUS = frozenset(
@@ -192,6 +224,9 @@ NON_RESUMABLE_ACTION_MENUS = frozenset(
         "email_confirm_menu",
         FRIEND_REMOVE_CONFIRM_MENU,
         USER_BLOCK_CONFIRM_MENU,
+        USER_REPORT_REASON_MENU,
+        USER_REPORT_CONFIRM_MENU,
+        ADMIN_MODERATION_CLEAR_CONFIRM_MENU,
         HOST_RESTART_CONFIRM_MENU,
         "kick_confirm_menu",
         "logout_confirm_menu",
@@ -212,6 +247,7 @@ OPTIONS_MENU_IDS = frozenset(
         "volume_selection_menu",
         "options_accessibility_submenu",
         "options_notifications_submenu",
+        "global_chat_channel_menu",
         "game_options_menu",
         "pref_category_menu",
         "pref_detail_menu",
@@ -321,12 +357,13 @@ class Server:
         "friends_list_menu", "friend_actions_menu", "friend_requests_menu",
         "friend_request_actions_menu", "blocked_users_menu",
         "blocked_user_actions_menu", FRIEND_REMOVE_CONFIRM_MENU,
-        USER_BLOCK_CONFIRM_MENU,
+        USER_BLOCK_CONFIRM_MENU, USER_REPORT_REASON_MENU,
+        USER_REPORT_CONFIRM_MENU,
         "public_profile_menu", "online_users",
         *ADMIN_MENU_IDS, "logout_confirm_menu",
         "documentation_menu", "doc_games_menu", "doc_viewer", "email_input",
         "bio_input", "send_friend_request_input", "block_user_input",
-        "send_pm_input",
+        "report_user_input", "send_pm_input",
         "speech_rate_input", "mobile_tts_rate_input", "waiting_for_approval",
         "host_management_menu", "host_invite_menu", "host_pass_menu",
         "host_kick_menu", "host_kick_ban_menu", HOST_RESTART_CONFIRM_MENU,
@@ -359,6 +396,7 @@ class Server:
         host: str = "0.0.0.0",
         port: int = 8000,
         db_path: str = "PlayAural.db",
+        database_backup_dir: str | Path | None = None,
         locales_dir: str | Path | None = None,
         ssl_cert: str | Path | None = None,
         ssl_key: str | Path | None = None,
@@ -398,6 +436,10 @@ class Server:
             tuple[Callable[..., None], tuple[Any, ...], dict[str, Any]],
         ] = {}
         self.power_manager = ServerPowerManager(self)
+        self.maintenance_manager = ServerMaintenanceManager(
+            self,
+            backup_dir=database_backup_dir,
+        )
         self._stopping = False
         self._serve_stop_event: asyncio.Event | None = None
         self._requested_exit_code = 0
@@ -412,6 +454,10 @@ class Server:
             tuple[str, str, str], asyncio.Task
         ] = {}
         self._audio_input_devices_by_user: dict[str, list[dict[str, str]]] = {}
+        # The database-backed value replaces this default immediately after
+        # startup connects. Keeping a local copy makes the chat hot path
+        # synchronous and avoids a settings query for every message.
+        self._global_chat_sending_enabled = DEFAULT_GLOBAL_CHAT_SENDING_ENABLED
 
         # Initialize admin manager
         self.admin_manager = AdministrationManager(self)
@@ -439,6 +485,41 @@ class Server:
     def user_states(self) -> dict[str, dict]:
         return self._user_states
 
+    @property
+    def global_chat_sending_enabled(self) -> bool:
+        """Return the live server-wide global-chat availability state."""
+        return bool(
+            getattr(
+                self,
+                "_global_chat_sending_enabled",
+                DEFAULT_GLOBAL_CHAT_SENDING_ENABLED,
+            )
+        )
+
+    def _load_persistent_server_settings(self) -> None:
+        """Load server-wide controls after the database is connected."""
+        try:
+            enabled = self._db.get_boolean_server_setting(
+                GLOBAL_CHAT_ENABLED_SETTING_KEY,
+                default=DEFAULT_GLOBAL_CHAT_SENDING_ENABLED,
+            )
+        except ValueError:
+            logging.getLogger("playaural").exception(
+                "Invalid persisted global-chat setting; global chat is disabled"
+            )
+            enabled = False
+        self._global_chat_sending_enabled = enabled
+
+    def set_global_chat_sending_enabled(self, enabled: bool) -> None:
+        """Persist and apply the server-wide global-chat availability state."""
+        if type(enabled) is not bool:
+            raise TypeError("Global-chat availability requires a bool value")
+        self._db.set_boolean_server_setting(
+            GLOBAL_CHAT_ENABLED_SETTING_KEY,
+            enabled,
+        )
+        self._global_chat_sending_enabled = enabled
+
     async def start(self) -> None:
         """
 PlayAural Server
@@ -451,6 +532,7 @@ PlayAural Server
         # Connect to database. Server startup owns guarded corruption recovery:
         # a malformed SQLite file is quarantined before a fresh schema is built.
         self._db.connect(recover_corrupt=True)
+        self._load_persistent_server_settings()
         self._db.prune_unregistered_game_data(
             {game_class.get_type() for game_class in GameRegistry.get_all()}
         )
@@ -544,12 +626,18 @@ PlayAural Server
         self._stopping = True
         print("Stopping server...")
 
+        # A worker-thread backup or VACUUM cannot be cancelled safely. Wait for
+        # its SQLite handle to close before shutdown touches the live database.
+        await self.maintenance_manager.wait_until_storage_idle()
+        self.maintenance_manager.wake_blocked_work_for_shutdown()
+
         # Stop tick scheduler first so no more game ticks fire during shutdown.
         if self._tick_scheduler:
             await self._tick_scheduler.stop()
             self._tick_scheduler = None
 
-        if preserve_tables and save_before_disconnect:
+        database_connected = self._db._conn is not None
+        if preserve_tables and save_before_disconnect and database_connected:
             self._save_tables(
                 checkpoint_kind=checkpoint_kind,
                 checkpoint_expires_at=checkpoint_expires_at,
@@ -582,9 +670,10 @@ PlayAural Server
         self._pending_voice_context_closures.clear()
         self._presence_audio_batcher.cancel()
 
-        if clear_table_checkpoints:
+        database_connected = self._db._conn is not None
+        if clear_table_checkpoints and database_connected:
             self._db.delete_all_tables()
-        elif preserve_tables and not save_before_disconnect:
+        elif preserve_tables and not save_before_disconnect and database_connected:
             # Save all tables after all connections have been processed.
             self._save_tables(
                 checkpoint_kind=checkpoint_kind,
@@ -724,6 +813,8 @@ PlayAural Server
 
     def _on_tick(self) -> None:
         """Called every tick (50ms)."""
+        if self.maintenance_manager.is_active:
+            return
         # Tick all tables
         self._tables.on_tick()
 
@@ -732,6 +823,19 @@ PlayAural Server
 
         # Flush queued messages for all users
         self._flush_user_messages()
+
+    async def _pause_ticks_for_database_maintenance(self) -> None:
+        """Pause authoritative game time before an exclusive SQLite operation."""
+        if self._tick_scheduler:
+            await self._tick_scheduler.stop()
+            self._tick_scheduler = None
+
+    async def _resume_ticks_after_database_maintenance(self) -> None:
+        """Resume authoritative game time after SQLite has reopened safely."""
+        if self._tick_scheduler is not None or self._stopping:
+            return
+        self._tick_scheduler = TickScheduler(self._on_tick)
+        await self._tick_scheduler.start()
 
     def _flush_user_messages(self) -> None:
         """Send all queued messages for all users."""
@@ -796,58 +900,69 @@ PlayAural Server
         username = client.username
         if not username:
             return
+        if self._stopping and self._db._conn is None:
+            # A fail-closed maintenance error can leave SQLite unavailable.
+            # Shutdown must still be able to close transports without trying
+            # to mutate runtime or persistent account state.
+            return
 
-        async with self._session_lock_for(username):
-            user = self._active_user_for_client(client)
-            if not user:
-                # A replaced socket's close callback must never mutate the new
-                # owner's table, voice, invitation, UI, or rate-limit state.
-                return
+        if not await self.maintenance_manager.begin_tracked_work_when_available():
+            return
 
-            active_ban = self._db.get_active_ban(username)
+        try:
+            async with self._session_lock_for(username):
+                user = self._active_user_for_client(client)
+                if not user:
+                    # A replaced socket's close callback must never mutate the new
+                    # owner's table, voice, invitation, UI, or rate-limit state.
+                    return
 
-            client.authenticated = False
-            client.retired = True
-            if self._ws_server:
-                self._ws_server.unregister_client_username(username, client)
-            deactivator = getattr(user, "deactivate", None)
-            if deactivator:
-                deactivator()
-            self._users.pop(username, None)
-            self._deferred_navigation.pop(username, None)
-            self._clear_voice_join_authorization(username)
-            self._audio_input_devices_by_user.pop(username, None)
+                active_ban = self._db.get_active_ban(username)
 
-            if username in self._pending_invites:
-                self._cancel_invite(username)
+                client.authenticated = False
+                client.retired = True
+                if self._ws_server:
+                    self._ws_server.unregister_client_username(username, client)
+                deactivator = getattr(user, "deactivate", None)
+                if deactivator:
+                    deactivator()
+                self._users.pop(username, None)
+                self._deferred_navigation.pop(username, None)
+                self._clear_voice_join_authorization(username)
+                self._audio_input_devices_by_user.pop(username, None)
 
-            table = self._tables.find_user_table(username)
-            await self._clear_voice_presence(
-                username,
-                "voice-status-connection-lost",
-                table=table,
-            )
-            self._handle_user_table_disconnect(user, table)
+                if username in self._pending_invites:
+                    self._cancel_invite(username)
 
-            cleanup = self._pending_session_state_cleanups.pop(username, None)
-            if cleanup:
-                cleanup.cancel()
-            self._pending_session_state_cleanups[username] = asyncio.create_task(
-                self._expire_disconnected_session_state(username)
-            )
-
-            if not self.power_manager.is_finalizing and not active_ban:
-                task = asyncio.create_task(
-                    self._delayed_offline_broadcast(
-                        username,
-                        user.uuid,
-                        user.trust_level,
-                    )
+                table = self._tables.find_user_table(username)
+                await self._clear_voice_presence(
+                    username,
+                    "voice-status-connection-lost",
+                    table=table,
                 )
-                previous = self._pending_disconnects.pop(username, None)
-                if previous:
-                    previous.cancel()
-                self._pending_disconnects[username] = task
+                self._handle_user_table_disconnect(user, table)
+
+                cleanup = self._pending_session_state_cleanups.pop(username, None)
+                if cleanup:
+                    cleanup.cancel()
+                self._pending_session_state_cleanups[username] = asyncio.create_task(
+                    self._expire_disconnected_session_state(username)
+                )
+
+                if not self.power_manager.is_finalizing and not active_ban:
+                    task = asyncio.create_task(
+                        self._delayed_offline_broadcast(
+                            username,
+                            user.uuid,
+                            user.trust_level,
+                        )
+                    )
+                    previous = self._pending_disconnects.pop(username, None)
+                    if previous:
+                        previous.cancel()
+                    self._pending_disconnects[username] = task
+        finally:
+            self.maintenance_manager.end_tracked_work()
 
     async def _expire_disconnected_session_state(self, username: str) -> None:
         """Prune resumable runtime UI state after its bounded grace period."""
@@ -973,7 +1088,7 @@ PlayAural Server
             )
             user, client = await self._retire_account_session_locked(username)
             self._remove_deleted_account_from_table(username, user)
-            self._chat_rate_limiter.remove_user(username)
+            self._chat_rate_limiter.remove_user(account.uuid)
             self._voice_rate_limiter.remove_user(username)
 
         await self._close_retired_session(client, packet)
@@ -1026,8 +1141,12 @@ PlayAural Server
     ) -> None:
         """Wait briefly then broadcast offline message if user hasn't reconnected."""
         task = asyncio.current_task()
+        work_tracked = False
         try:
             await asyncio.sleep(PRESENCE_OFFLINE_GRACE_SECONDS)
+            if not await self.maintenance_manager.begin_tracked_work_when_available():
+                return
+            work_tracked = True
             async with self._session_lock_for(username):
                 if (
                     username in self._users
@@ -1044,9 +1163,15 @@ PlayAural Server
         except asyncio.CancelledError:
             pass
         finally:
+            if work_tracked:
+                self.maintenance_manager.end_tracked_work()
             if self._pending_disconnects.get(username) is task:
                 self._pending_disconnects.pop(username, None)
-            self.on_user_presence_changed()
+            if (
+                not self.maintenance_manager.is_active
+                and self._db._conn is not None
+            ):
+                self.on_user_presence_changed()
 
     def _claim_presence_event(self, player_uuid: str, is_online: bool) -> bool:
         """Atomically debounce duplicate presence events for one account.
@@ -1222,47 +1347,61 @@ PlayAural Server
         """Handle incoming message from client."""
         packet_type = packet.get("type")
 
-        if packet_type == "authorize":
-            await self._handle_authorize(client, packet)
-        elif packet_type == "register":
-            if (
-                not client.authenticated
-                and not client.username
-                and not getattr(client, "retired", False)
-            ):
-                await self._handle_register(client, packet)
-        elif packet_type == "request_password_reset":
-            if (
-                not client.authenticated
-                and not client.username
-                and not getattr(client, "retired", False)
-            ):
-                await self._handle_request_password_reset(client, packet)
-        elif packet_type == "submit_reset_code":
-            if (
-                not client.authenticated
-                and not client.username
-                and not getattr(client, "retired", False)
-            ):
-                await self._handle_submit_reset_code(client, packet)
-        elif not client.authenticated:
-            # Ignore non-auth packets from unauthenticated clients
+        if self.maintenance_manager.is_active:
+            if packet_type == "ping" and client.authenticated:
+                await self._handle_ping(client)
+            else:
+                await self.maintenance_manager.reject_packet(client, packet)
             return
-        else:
-            username = client.username
-            if not username:
+
+        if not self.maintenance_manager.begin_tracked_work():
+            await self.maintenance_manager.reject_packet(client, packet)
+            return
+
+        try:
+            if packet_type == "authorize":
+                await self._handle_authorize(client, packet)
+            elif packet_type == "register":
+                if (
+                    not client.authenticated
+                    and not client.username
+                    and not getattr(client, "retired", False)
+                ):
+                    await self._handle_register(client, packet)
+            elif packet_type == "request_password_reset":
+                if (
+                    not client.authenticated
+                    and not client.username
+                    and not getattr(client, "retired", False)
+                ):
+                    await self._handle_request_password_reset(client, packet)
+            elif packet_type == "submit_reset_code":
+                if (
+                    not client.authenticated
+                    and not client.username
+                    and not getattr(client, "retired", False)
+                ):
+                    await self._handle_submit_reset_code(client, packet)
+            elif not client.authenticated:
+                # Ignore non-auth packets from unauthenticated clients
                 return
-            async with self._session_lock_for(username):
-                # Recheck after taking the account lock. A device takeover may
-                # have retired this socket while its packet was waiting.
-                user = self._active_user_for_client(client)
-                if not user:
+            else:
+                username = client.username
+                if not username:
                     return
-                await self._handle_authenticated_message(
-                    client,
-                    user,
-                    packet,
-                )
+                async with self._session_lock_for(username):
+                    # Recheck after taking the account lock. A device takeover may
+                    # have retired this socket while its packet was waiting.
+                    user = self._active_user_for_client(client)
+                    if not user:
+                        return
+                    await self._handle_authenticated_message(
+                        client,
+                        user,
+                        packet,
+                    )
+        finally:
+            self.maintenance_manager.end_tracked_work()
 
     async def _handle_authenticated_message(
         self,
@@ -2509,6 +2648,7 @@ PlayAural Server
                 MenuItem(
                     text=Localization.get(user.locale, "no-games-in-category"),
                     id="no_games_msg",
+                    read_only=True,
                 )
             )
 
@@ -2859,6 +2999,7 @@ PlayAural Server
                         pages=page_data.total_pages,
                     ),
                     id="page_summary",
+                    read_only=True,
                 )
             )
         items.extend(pagination_menu_items(user.locale, page_data))
@@ -2902,7 +3043,8 @@ PlayAural Server
             items.append(
                 MenuItem(
                     text=Localization.get(user.locale, empty_msg_key),
-                    id="no_tables_msg"
+                    id="no_tables_msg",
+                    read_only=True,
                 )
             )
 
@@ -2942,6 +3084,7 @@ PlayAural Server
                         pages=page_data.total_pages,
                     ),
                     id="page_summary",
+                    read_only=True,
                 )
             )
         items.extend(pagination_menu_items(user.locale, page_data))
@@ -3441,6 +3584,18 @@ PlayAural Server
             MenuItem(
                 text=Localization.get(
                     user.locale,
+                    "global-chat-channel-option",
+                    channel=self._get_global_chat_channel_name(
+                        user.locale,
+                        prefs.global_chat_channel,
+                    ),
+                ),
+                id="global_chat_channel",
+                description_key="general-desc-global-chat-channel",
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
                     "mute-table-chat-option",
                     status=Localization.get(
                         user.locale, "option-on" if prefs.mute_table_chat else "option-off"
@@ -3494,6 +3649,65 @@ PlayAural Server
             escape_behavior=EscapeBehavior.SELECT_LAST,
         )
         self._user_states[user.username] = {"menu": "options_notifications_submenu"}
+
+    @staticmethod
+    def _get_global_chat_channel_name(locale: str, channel_code: object) -> str:
+        """Return a localized channel name or the explicit unselected label."""
+        normalized = normalize_global_chat_channel(channel_code)
+        if normalized is None:
+            return Localization.get(locale, "global-chat-channel-none")
+        return Localization.get_language_display_name(normalized, locale)
+
+    def _show_global_chat_channel_menu(self, user: NetworkUser) -> None:
+        """Show the server-owned global-chat language channel selector."""
+        current = normalize_global_chat_channel(
+            user.preferences.global_chat_channel
+        )
+        recommended = recommended_global_chat_channel(user.locale)
+        items: list[MenuItem] = []
+        for channel in ordered_global_chat_channels(user.locale):
+            name = self._get_global_chat_channel_name(user.locale, channel.code)
+            if channel.code == current and channel.code == recommended:
+                label_key = "global-chat-channel-current-recommended"
+            elif channel.code == current:
+                label_key = "global-chat-channel-current"
+            elif channel.code == recommended:
+                label_key = "global-chat-channel-recommended"
+            else:
+                label_key = "global-chat-channel-name"
+            items.append(
+                MenuItem(
+                    text=Localization.get(user.locale, label_key, language=name),
+                    id=f"global_chat_channel_{channel.code}",
+                )
+            )
+        items.append(
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    (
+                        "global-chat-channel-none-current"
+                        if current is None
+                        else "global-chat-channel-none"
+                    ),
+                ),
+                id="global_chat_channel_none",
+            )
+        )
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        focus_id = (
+            f"global_chat_channel_{current or recommended}"
+            if current or recommended
+            else "global_chat_channel_none"
+        )
+        user.show_menu(
+            "global_chat_channel_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+            selection_id=focus_id,
+        )
+        self._user_states[user.username] = {"menu": "global_chat_channel_menu"}
 
     # ==================================================================
     # Game Options (declarative preferences with per-game overrides)
@@ -4014,6 +4228,7 @@ PlayAural Server
             MenuItem(
                 text=Localization.get(user.locale, "mobile-tts-engine-api-note"),
                 id="engine_note",
+                read_only=True,
             ),
             MenuItem(text=Localization.get(user.locale, "back"), id="back"),
         ]
@@ -5195,6 +5410,7 @@ PlayAural Server
                             pages=saved.total_pages,
                         ),
                         id="page_summary",
+                        read_only=True,
                     )
                 )
         items.extend(pagination_menu_items(user.locale, saved))
@@ -5262,6 +5478,14 @@ PlayAural Server
             packet,
         )
         state = self._user_states.get(username, {})
+
+        if self._selection_targets_read_only_item(
+            user,
+            current_menu,
+            selection_id,
+            packet,
+        ):
+            return
 
         if state.get("_transient") and selection_id == "back":
             self._cancel_input_state(user, state)
@@ -5373,6 +5597,8 @@ PlayAural Server
             await self._handle_accessibility_submenu_selection(user, selection_id)
         elif current_menu == "options_notifications_submenu":
             await self._handle_notifications_submenu_selection(user, selection_id)
+        elif current_menu == "global_chat_channel_menu":
+            await self._handle_global_chat_channel_selection(user, selection_id)
         elif current_menu == "game_options_menu":
             await self._handle_game_options_selection(user, selection_id)
         elif current_menu == "pref_category_menu":
@@ -5431,6 +5657,14 @@ PlayAural Server
             )
         elif current_menu == USER_BLOCK_CONFIRM_MENU:
             await self._handle_user_block_confirm_selection(
+                user, selection_id, state
+            )
+        elif current_menu == USER_REPORT_REASON_MENU:
+            await self._handle_user_report_reason_selection(
+                user, selection_id, state
+            )
+        elif current_menu == USER_REPORT_CONFIRM_MENU:
+            await self._handle_user_report_confirm_selection(
                 user, selection_id, state
             )
         elif current_menu == "friend_requests_menu":
@@ -5593,6 +5827,10 @@ PlayAural Server
                 id="block_user",
             ),
             MenuItem(
+                text=Localization.get(user.locale, "report-user"),
+                id="report_user",
+            ),
+            MenuItem(
                 text=Localization.get(
                     user.locale,
                     "friends-blocked-users",
@@ -5632,6 +5870,12 @@ PlayAural Server
                 Localization.get(user.locale, "enter-block-username"),
             )
             self._enter_input_state(user, "block_user_input")
+        elif selection_id == "report_user":
+            user.show_editbox(
+                "report_user_input",
+                Localization.get(user.locale, "enter-report-username"),
+            )
+            self._enter_input_state(user, "report_user_input")
         elif selection_id == "blocked_users":
             self._nav_push(user, self._show_blocked_users_menu)
         elif selection_id == "back":
@@ -5687,6 +5931,7 @@ PlayAural Server
                         pages=blocked.total_pages,
                     ),
                     id="page_summary",
+                    read_only=True,
                 )
             )
         items.extend(pagination_menu_items(user.locale, blocked))
@@ -5785,6 +6030,11 @@ PlayAural Server
                     ),
                 ]
             )
+            report_item = self._get_report_action_item(
+                user, target_record.username
+            )
+            if report_item:
+                items.append(report_item)
         else:
             items.append(
                 MenuItem(
@@ -5822,6 +6072,8 @@ PlayAural Server
                     self._show_blocked_user_actions_menu,
                     target_username,
                 )
+        elif selection_id == "report":
+            self._open_user_report(user, target_username)
 
     def _build_friends_list_menu_items(
         self, user: NetworkUser, page: int = 1
@@ -5883,6 +6135,7 @@ PlayAural Server
                             pages=page_data.total_pages,
                         ),
                         id="page_summary",
+                        read_only=True,
                     )
                 )
             items.extend(pagination_menu_items(user.locale, page_data))
@@ -5987,6 +6240,9 @@ PlayAural Server
 
         if self._find_current_friend_record(user, target_username):
             items.append(MenuItem(text=Localization.get(user.locale, "remove-friend"), id="remove_friend"))
+        report_item = self._get_report_action_item(user, target_username)
+        if report_item:
+            items.append(report_item)
         block_item = self._get_block_action_item(user, target_username)
         if block_item:
             items.append(block_item)
@@ -6008,6 +6264,18 @@ PlayAural Server
         return MenuItem(
             text=Localization.get(user.locale, "block-user"),
             id="block",
+        )
+
+    def _get_report_action_item(
+        self, user: NetworkUser, target_username: str
+    ) -> MenuItem | None:
+        """Return a report action for an existing account other than self."""
+        target_record = self._db.get_user(target_username)
+        if not target_record or target_record.uuid == user.uuid:
+            return None
+        return MenuItem(
+            text=Localization.get(user.locale, "report-user"),
+            id="report",
         )
 
     def _get_non_friend_user_actions_menu_items(
@@ -6035,6 +6303,9 @@ PlayAural Server
                     id="send_friend_request",
                 )
             )
+        report_item = self._get_report_action_item(user, target_username)
+        if report_item:
+            items.append(report_item)
         block_item = self._get_block_action_item(user, target_username)
         if block_item:
             items.append(block_item)
@@ -6051,6 +6322,7 @@ PlayAural Server
                 MenuItem(
                     text=Localization.get(user.locale, "user-account-unavailable"),
                     id="account_unavailable",
+                    read_only=True,
                 ),
                 MenuItem(text=Localization.get(user.locale, "back"), id="back"),
             ],
@@ -6164,6 +6436,9 @@ PlayAural Server
                 self._show_user_block_confirm_menu,
                 target_username,
             )
+
+        elif selection_id == "report":
+            self._open_user_report(user, target_username)
 
         elif selection_id == "unblock":
             self._perform_unblock_user(user, target_username)
@@ -6430,6 +6705,280 @@ PlayAural Server
                 self._user_states[user.username]["_stack"] = stack
         self._nav_back(user)
 
+    def _resolve_report_target(self, target_uuid: str):
+        """Resolve a report target by immutable account ID."""
+        normalized_uuid = str(target_uuid or "")
+        target_name = self._db.get_user_name_by_uuid(normalized_uuid)
+        if not target_name:
+            return None
+        target_record = self._db.get_user(target_name)
+        if not target_record or target_record.uuid != normalized_uuid:
+            return None
+        return target_record
+
+    def _open_user_report(
+        self, user: NetworkUser, target_username: str
+    ) -> bool:
+        """Validate an account and open the shared report-reason flow."""
+        target_record = self._db.get_user(target_username)
+        if not target_record:
+            user.speak_l("user-account-unavailable", buffer="system")
+            return False
+        if target_record.uuid == user.uuid:
+            user.speak_l("report-error-self", buffer="system")
+            return False
+        self._nav_push(
+            user,
+            self._show_user_report_reason_menu,
+            target_record.uuid,
+        )
+        return True
+
+    def _show_user_report_reason_menu(
+        self,
+        user: NetworkUser,
+        target_uuid: str,
+    ) -> None:
+        """Show the finite, localized reason list for a user report."""
+        target_record = self._resolve_report_target(target_uuid)
+        if not target_record or target_record.uuid == user.uuid:
+            items = [
+                MenuItem(
+                    text=Localization.get(
+                        user.locale, "user-account-unavailable"
+                    ),
+                    id="account_unavailable",
+                    read_only=True,
+                ),
+                MenuItem(text=Localization.get(user.locale, "back"), id="back"),
+            ]
+        else:
+            items = [
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "report-select-reason",
+                        username=target_record.username,
+                    ),
+                    id="report_prompt",
+                    read_only=True,
+                ),
+            ]
+            items.extend(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        report_reason_localization_key(reason_code),
+                    ),
+                    id=f"report_reason_{reason_code}",
+                )
+                for reason_code in REPORT_REASON_CODES
+            )
+            items.append(
+                MenuItem(text=Localization.get(user.locale, "back"), id="back")
+            )
+        user.show_menu(
+            USER_REPORT_REASON_MENU,
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {
+            "menu": USER_REPORT_REASON_MENU,
+            "target_uuid": target_uuid,
+        }
+
+    async def _handle_user_report_reason_selection(
+        self, user: NetworkUser, selection_id: str, state: dict
+    ) -> None:
+        """Validate one report reason and advance to explicit confirmation."""
+        if selection_id == "back":
+            self._nav_back(user)
+            return
+        prefix = "report_reason_"
+        if not selection_id.startswith(prefix):
+            return
+        reason_code = selection_id[len(prefix):]
+        if reason_code not in REPORT_REASON_CODE_SET:
+            return
+        target_uuid = str(state.get("target_uuid", ""))
+        target_record = self._resolve_report_target(target_uuid)
+        if not target_record or target_record.uuid == user.uuid:
+            user.speak_l("user-account-unavailable", buffer="system")
+            self._nav_back(user)
+            return
+        self._nav_refresh(
+            user,
+            self._show_user_report_confirm_menu,
+            target_record.uuid,
+            reason_code,
+        )
+
+    def _show_user_report_confirm_menu(
+        self,
+        user: NetworkUser,
+        target_uuid: str,
+        reason_code: str,
+    ) -> None:
+        """Show the immutable account and channel snapshot before submission."""
+        target_record = self._resolve_report_target(target_uuid)
+        if (
+            not target_record
+            or target_record.uuid == user.uuid
+            or reason_code not in REPORT_REASON_CODE_SET
+        ):
+            items = [
+                MenuItem(
+                    text=Localization.get(
+                        user.locale, "user-account-unavailable"
+                    ),
+                    id="account_unavailable",
+                    read_only=True,
+                ),
+                MenuItem(text=Localization.get(user.locale, "back"), id="back"),
+            ]
+            report_channel = None
+        else:
+            report_channel = normalize_global_chat_channel(
+                user.preferences.global_chat_channel
+            )
+            channel_name = (
+                self._get_global_chat_channel_name(user.locale, report_channel)
+                if report_channel
+                else Localization.get(user.locale, "report-channel-unspecified")
+            )
+            reason_name = Localization.get(
+                user.locale,
+                report_reason_localization_key(reason_code),
+            )
+            items = [
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "report-confirm-summary",
+                        username=target_record.username,
+                        reason=reason_name,
+                        channel=channel_name,
+                    ),
+                    id="report_summary",
+                    read_only=True,
+                ),
+                MenuItem(
+                    text=Localization.get(user.locale, "report-submit"),
+                    id="submit",
+                ),
+                MenuItem(
+                    text=Localization.get(user.locale, "report-change-reason"),
+                    id="change_reason",
+                ),
+                MenuItem(text=Localization.get(user.locale, "back"), id="back"),
+            ]
+        user.show_menu(
+            USER_REPORT_CONFIRM_MENU,
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {
+            "menu": USER_REPORT_CONFIRM_MENU,
+            "target_uuid": target_uuid,
+            "report_reason": reason_code,
+            "report_channel": report_channel,
+        }
+
+    async def _handle_user_report_confirm_selection(
+        self, user: NetworkUser, selection_id: str, state: dict
+    ) -> None:
+        """Persist a confirmed report without notifying or punishing its target."""
+        if selection_id == "back":
+            self._nav_back(user)
+            return
+
+        target_uuid = str(state.get("target_uuid", ""))
+        target_record = self._resolve_report_target(target_uuid)
+        reason_code = str(state.get("report_reason", ""))
+        if not target_record or target_record.uuid == user.uuid:
+            user.speak_l("user-account-unavailable", buffer="system")
+            self._nav_back(user)
+            return
+        if reason_code not in REPORT_REASON_CODE_SET:
+            self._nav_refresh(
+                user,
+                self._show_user_report_reason_menu,
+                target_record.uuid,
+            )
+            return
+        if selection_id == "change_reason":
+            self._nav_refresh(
+                user,
+                self._show_user_report_reason_menu,
+                target_record.uuid,
+            )
+            return
+        if selection_id != "submit":
+            return
+
+        report_channel = state.get("report_channel")
+        if report_channel is not None:
+            report_channel = normalize_global_chat_channel(report_channel)
+            if report_channel is None:
+                self._nav_refresh(
+                    user,
+                    self._show_user_report_confirm_menu,
+                    target_record.uuid,
+                    reason_code,
+                )
+                return
+        try:
+            result = self._db.submit_moderation_report(
+                reporter_uuid=user.uuid,
+                reporter_username=user.username,
+                reported_uuid=target_record.uuid,
+                reported_username=target_record.username,
+                reason_code=reason_code,
+                channel_code=report_channel,
+            )
+        except Exception:
+            logging.getLogger("playaural").exception(
+                "Failed to persist moderation report from %s about %s",
+                user.username,
+                target_record.username,
+            )
+            user.speak_l("report-failed", buffer="system")
+            return
+
+        if result.outcome == "created":
+            user.speak_l(
+                "report-submitted",
+                buffer="system",
+                username=target_record.username,
+            )
+        elif result.outcome == "target_cooldown":
+            user.speak_l(
+                "report-target-cooldown",
+                buffer="system",
+                username=target_record.username,
+                duration=ServerPowerManager.format_duration(
+                    user.locale, result.retry_after_seconds
+                ),
+            )
+        elif result.outcome == "reporter_limit":
+            user.speak_l(
+                "report-rate-limited",
+                buffer="system",
+                duration=ServerPowerManager.format_duration(
+                    user.locale, result.retry_after_seconds
+                ),
+            )
+        else:
+            logging.getLogger("playaural").error(
+                "Unexpected moderation report outcome %r",
+                result.outcome,
+            )
+            user.speak_l("report-failed", buffer="system")
+            return
+        self._nav_back(user)
+
     def _perform_block_user(
         self, user: NetworkUser, target_username: str
     ) -> bool:
@@ -6585,6 +7134,7 @@ PlayAural Server
                             pages=pending.total_pages,
                         ),
                         id="page_summary",
+                        read_only=True,
                     )
                 )
 
@@ -6675,6 +7225,11 @@ PlayAural Server
             block_item = self._get_block_action_item(user, target_record.username)
             if block_item:
                 items.append(block_item)
+            report_item = self._get_report_action_item(
+                user, target_record.username
+            )
+            if report_item:
+                items.append(report_item)
         else:
             items.append(
                 MenuItem(
@@ -6718,6 +7273,9 @@ PlayAural Server
                 self._show_user_block_confirm_menu,
                 target_record.username,
             )
+
+        elif selection_id == "report":
+            self._open_user_report(user, target_record.username)
 
         elif selection_id == "accept":
             # Attempt to accept
@@ -6800,6 +7358,12 @@ PlayAural Server
             requesting_user,
             target_record.username,
         )
+        report_item = self._get_report_action_item(
+            requesting_user,
+            target_record.username,
+        )
+        if report_item:
+            items.append(report_item)
         if block_item:
             items.append(block_item)
         items.append(MenuItem(text=Localization.get(requesting_user.locale, "back"), id="back"))
@@ -6823,6 +7387,11 @@ PlayAural Server
             self._nav_push(
                 user,
                 self._show_user_block_confirm_menu,
+                state.get("target_username", ""),
+            )
+        elif selection_id == "report":
+            self._open_user_report(
+                user,
                 state.get("target_username", ""),
             )
         elif selection_id == "unblock":
@@ -7262,6 +7831,8 @@ PlayAural Server
             self._save_user_preferences(user)
             self._sync_pref_to_client(user, "social/mute_global_chat", prefs.mute_global_chat)
             self._nav_refresh(user, self._show_notifications_submenu)
+        elif selection_id == "global_chat_channel":
+            self._nav_push(user, self._show_global_chat_channel_menu)
         elif selection_id == "mute_table_chat":
             prefs.mute_table_chat = not prefs.mute_table_chat
             self._save_user_preferences(user)
@@ -7282,6 +7853,40 @@ PlayAural Server
             self._save_user_preferences(user)
             self._sync_pref_to_client(user, "notifications/notify_table_created", prefs.notify_table_created)
             self._nav_refresh(user, self._show_notifications_submenu)
+
+    async def _handle_global_chat_channel_selection(
+        self, user: NetworkUser, selection_id: str
+    ) -> None:
+        """Persist a validated global-chat channel selected by server menu ID."""
+        if selection_id == "back":
+            self._nav_back(user)
+            return
+
+        prefix = "global_chat_channel_"
+        if not selection_id.startswith(prefix):
+            self._nav_refresh(user, self._show_global_chat_channel_menu)
+            return
+        raw_channel = selection_id.removeprefix(prefix)
+        channel = (
+            None
+            if raw_channel == "none"
+            else normalize_global_chat_channel(raw_channel)
+        )
+        if raw_channel != "none" and channel is None:
+            self._nav_refresh(user, self._show_global_chat_channel_menu)
+            return
+
+        user.preferences.global_chat_channel = channel
+        self._save_user_preferences(user)
+        if channel is None:
+            user.speak_l("global-chat-channel-cleared", buffer="system")
+        else:
+            user.speak_l(
+                "global-chat-channel-selected",
+                buffer="system",
+                language=self._get_global_chat_channel_name(user.locale, channel),
+            )
+        self._nav_back(user)
 
     def _apply_pref_global(self, user: NetworkUser, field_name: str, meta, value) -> None:
         """Set a global declarative pref value, persist, and sync to the client."""
@@ -7540,8 +8145,6 @@ PlayAural Server
         """Handle game selection."""
         if selection_id == "toggle_category_filter":
             self._nav_push(user, self._show_game_category_filter_menu)
-        elif selection_id == "no_games_msg":
-            return
         elif selection_id.startswith("game_"):
             game_type = selection_id[5:]  # Remove "game_" prefix
             self._nav_push(user, self._show_tables_menu, game_type)
@@ -7671,9 +8274,6 @@ PlayAural Server
         if selection_id == "toggle_filter":
             self._nav_push(user, self._show_active_tables_filter_menu)
             return
-
-        elif selection_id == "no_tables_msg":
-            return  # Do nothing if they click the empty message
 
         elif selection_id.startswith("table_"):
             table_id = selection_id[6:]
@@ -8224,7 +8824,10 @@ PlayAural Server
     def _show_host_restart_confirm_menu(self, user: NetworkUser, table: "Table") -> None:
         """Confirm a host-requested table restart."""
         items = [
-            MenuItem(text=Localization.get(user.locale, "host-restart-confirm"), id=""),
+            MenuItem(
+                text=Localization.get(user.locale, "host-restart-confirm"),
+                id="",
+            ),
             MenuItem(text=Localization.get(user.locale, "confirm-no"), id="no"),
             MenuItem(text=Localization.get(user.locale, "confirm-yes"), id="yes"),
         ]
@@ -8253,8 +8856,10 @@ PlayAural Server
             self._return_to_game(user, table)
             return
 
-        if selection_id != "yes":
+        if selection_id == "no":
             self._nav_back(user)
+            return
+        if selection_id != "yes":
             return
 
         if not table.game or table.game.status != "playing":
@@ -9034,6 +9639,7 @@ PlayAural Server
                     ),
                 ),
                 id="table_members_summary",
+                read_only=True,
             )
         ]
 
@@ -9042,6 +9648,7 @@ PlayAural Server
                 MenuItem(
                     text=Localization.get(locale, "table-members-empty"),
                     id="table_members_empty",
+                    read_only=True,
                 )
             )
         else:
@@ -9197,6 +9804,7 @@ PlayAural Server
                         player=target_name,
                     ),
                     id="table_member_no_actions",
+                    read_only=True,
                 )
             )
         items.append(MenuItem(text=Localization.get(locale, "back"), id="back"))
@@ -9889,6 +10497,7 @@ PlayAural Server
                 MenuItem(
                     text=Localization.get(user.locale, "leaderboard-no-data"),
                     id="no_data",
+                    read_only=True,
                 )
             )
 
@@ -9995,7 +10604,13 @@ PlayAural Server
         items = []
 
         if not top_wins:
-            items.append(MenuItem(text=Localization.get(user.locale, "leaderboard-no-data"), id="no_data"))
+            items.append(
+                MenuItem(
+                    text=Localization.get(user.locale, "leaderboard-no-data"),
+                    id="no_data",
+                    read_only=True,
+                )
+            )
 
         for rank, (player_id, player_name, wins, losses) in enumerate(top_wins, 1):
             total = wins + losses
@@ -10012,6 +10627,7 @@ PlayAural Server
                         percentage=int(percentage),
                     ),
                     id=f"entry_{rank}",
+                    read_only=True,
                 )
             )
 
@@ -10045,6 +10661,7 @@ PlayAural Server
                 MenuItem(
                     text=Localization.get(user.locale, "leaderboard-no-ratings"),
                     id="no_data",
+                    read_only=True,
                 )
             )
         else:
@@ -10061,6 +10678,7 @@ PlayAural Server
                             sigma=round(rating.sigma, 1),
                         ),
                         id=f"entry_{rank}",
+                        read_only=True,
                     )
                 )
 
@@ -10088,7 +10706,13 @@ PlayAural Server
         items = []
 
         if not top_scores:
-            items.append(MenuItem(text=Localization.get(user.locale, "leaderboard-no-data"), id="no_data"))
+            items.append(
+                MenuItem(
+                    text=Localization.get(user.locale, "leaderboard-no-data"),
+                    id="no_data",
+                    read_only=True,
+                )
+            )
 
         for rank, (player_id, player_name, total) in enumerate(top_scores, 1):
             items.append(
@@ -10101,6 +10725,7 @@ PlayAural Server
                         value=int(total),
                     ),
                     id=f"entry_{rank}",
+                    read_only=True,
                 )
             )
 
@@ -10128,7 +10753,13 @@ PlayAural Server
         items = []
 
         if not top_scores:
-            items.append(MenuItem(text=Localization.get(user.locale, "leaderboard-no-data"), id="no_data"))
+            items.append(
+                MenuItem(
+                    text=Localization.get(user.locale, "leaderboard-no-data"),
+                    id="no_data",
+                    read_only=True,
+                )
+            )
 
         for rank, (player_id, player_name, high) in enumerate(top_scores, 1):
             items.append(
@@ -10141,6 +10772,7 @@ PlayAural Server
                         value=int(high),
                     ),
                     id=f"entry_{rank}",
+                    read_only=True,
                 )
             )
 
@@ -10168,7 +10800,13 @@ PlayAural Server
         items = []
 
         if not top_games:
-            items.append(MenuItem(text=Localization.get(user.locale, "leaderboard-no-data"), id="no_data"))
+            items.append(
+                MenuItem(
+                    text=Localization.get(user.locale, "leaderboard-no-data"),
+                    id="no_data",
+                    read_only=True,
+                )
+            )
 
         for rank, (player_id, player_name, count) in enumerate(top_games, 1):
             items.append(
@@ -10181,6 +10819,7 @@ PlayAural Server
                         value=int(count),
                     ),
                     id=f"entry_{rank}",
+                    read_only=True,
                 )
             )
 
@@ -10283,7 +10922,13 @@ PlayAural Server
         entry_key = f"leaderboard-{format_key}-entry"
 
         if not player_scores:
-            items.append(MenuItem(text=Localization.get(user.locale, "leaderboard-no-data"), id="no_data"))
+            items.append(
+                MenuItem(
+                    text=Localization.get(user.locale, "leaderboard-no-data"),
+                    id="no_data",
+                    read_only=True,
+                )
+            )
 
         for rank, (player_id, name, value) in enumerate(player_scores, 1):
             display_value = round(value, decimals) if decimals > 0 else int(value)
@@ -10297,6 +10942,7 @@ PlayAural Server
                         value=display_value,
                     ),
                     id=f"entry_{rank}",
+                    read_only=True,
                 )
             )
 
@@ -10421,17 +11067,71 @@ PlayAural Server
 
             supported_types = game_class.get_supported_leaderboards()
 
-            items.append(MenuItem(text=Localization.get(user.locale, "my-stats-games-played", value=games_played), id="games_played"))
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "my-stats-games-played",
+                        value=games_played,
+                    ),
+                    id="games_played",
+                    read_only=True,
+                )
+            )
             if "wins" in supported_types:
-                items.append(MenuItem(text=Localization.get(user.locale, "my-stats-wins", value=wins), id="wins"))
-                items.append(MenuItem(text=Localization.get(user.locale, "my-stats-losses", value=losses), id="losses"))
-                items.append(MenuItem(text=Localization.get(user.locale, "my-stats-winrate", value=winrate), id="winrate"))
+                items.extend(
+                    [
+                        MenuItem(
+                            text=Localization.get(
+                                user.locale, "my-stats-wins", value=wins
+                            ),
+                            id="wins",
+                            read_only=True,
+                        ),
+                        MenuItem(
+                            text=Localization.get(
+                                user.locale, "my-stats-losses", value=losses
+                            ),
+                            id="losses",
+                            read_only=True,
+                        ),
+                        MenuItem(
+                            text=Localization.get(
+                                user.locale,
+                                "my-stats-winrate",
+                                value=winrate,
+                            ),
+                            id="winrate",
+                            read_only=True,
+                        ),
+                    ]
+                )
 
             # Score stats (if applicable)
             if total_score > 0 and "total_score" in supported_types:
-                items.append(MenuItem(text=Localization.get(user.locale, "my-stats-total-score", value=total_score), id="total_score"))
+                items.append(
+                    MenuItem(
+                        text=Localization.get(
+                            user.locale,
+                            "my-stats-total-score",
+                            value=total_score,
+                        ),
+                        id="total_score",
+                        read_only=True,
+                    )
+                )
             if high_score > 0 and "high_score" in supported_types:
-                items.append(MenuItem(text=Localization.get(user.locale, "my-stats-high-score", value=high_score), id="high_score"))
+                items.append(
+                    MenuItem(
+                        text=Localization.get(
+                            user.locale,
+                            "my-stats-high-score",
+                            value=high_score,
+                        ),
+                        id="high_score",
+                        read_only=True,
+                    )
+                )
 
             # Skill rating
             if "rating" in supported_types:
@@ -10448,10 +11148,19 @@ PlayAural Server
                                 sigma=round(rating.sigma, 1),
                             ),
                             id="rating",
+                            read_only=True,
                         )
                     )
                 else:
-                    items.append(MenuItem(text=Localization.get(user.locale, "my-stats-no-rating"), id="no_rating"))
+                    items.append(
+                        MenuItem(
+                            text=Localization.get(
+                                user.locale, "my-stats-no-rating"
+                            ),
+                            id="no_rating",
+                            read_only=True,
+                        )
+                    )
 
             # Game-specific stats from custom leaderboard configs
             self._add_custom_stats(user, game_class, stats, items)
@@ -10524,7 +11233,13 @@ PlayAural Server
                     type_name = Localization.get(user.locale, type_key)
                     text = f"{type_name}: {formatted_value}"
 
-                items.append(MenuItem(text=text, id=f"custom_{lb_id}"))
+                items.append(
+                    MenuItem(
+                        text=text,
+                        id=f"custom_{lb_id}",
+                        read_only=True,
+                    )
+                )
 
     async def _handle_my_stats_selection(
         self, user: NetworkUser, selection_id: str, state: dict
@@ -10899,6 +11614,40 @@ PlayAural Server
                 )
                 return
 
+            elif menu_id == "report_user_input":
+                value = str(value or "").strip()
+                if not value:
+                    self._restore_input_parent(user, user_state)
+                    return
+                resolution = self._db.resolve_user(value)
+                if resolution.ambiguous:
+                    user.speak_l(
+                        "username-ambiguous",
+                        buffer="system",
+                        username=value,
+                    )
+                    self._restore_input_parent(user, user_state)
+                    return
+                target_record = resolution.user
+                if not target_record:
+                    user.speak_l("unknown-user", buffer="system")
+                    self._restore_input_parent(user, user_state)
+                    return
+                if target_record.uuid == user.uuid:
+                    user.speak_l("report-error-self", buffer="system")
+                    self._restore_input_parent(user, user_state)
+                    return
+                self._nav_push_from_input(
+                    user,
+                    self._show_user_report_reason_menu,
+                    target_record.uuid,
+                    fallback_parent={
+                        "menu": "friends_hub_menu",
+                        "_last_selection_id": "report_user",
+                    },
+                )
+                return
+
             elif menu_id == "send_pm_input":
                 target_username = user_state.get("target_username")
                 value = str(value or "").strip()
@@ -10910,16 +11659,20 @@ PlayAural Server
                     )
                 elif not value:
                     user.speak_l("pm-error-message-required", buffer="system")
+                elif not normalize_chat_content(value):
+                    user.speak_l("chat-invalid-message", buffer="system")
                 elif (
                     target_username
-                    and self._check_chat_send_permission(user)
+                    and self._check_chat_send_permission(user, value)
                 ):
                     await self._deliver_private_message(user, target_username, value)
 
                 self._restore_input_parent(user, user_state)
                 return
 
-    async def _deliver_private_message(self, sender: NetworkUser, target_username: str, message: str) -> None:
+    async def _deliver_private_message(
+        self, sender: NetworkUser, target_username: str, message: str
+    ) -> None:
         """Deliver a bounded private message across an allowed social relationship."""
         if not isinstance(message, str):
             sender.speak_l("chat-invalid-message", buffer="system")
@@ -10934,6 +11687,9 @@ PlayAural Server
                 buffer="system",
                 limit=MAX_CHAT_MESSAGE_LENGTH,
             )
+            return
+        if not normalize_chat_content(message):
+            sender.speak_l("chat-invalid-message", buffer="system")
             return
 
         resolution = self._db.resolve_user(target_username)
@@ -11008,7 +11764,9 @@ PlayAural Server
         )
         sender.play_sound("pm.ogg", buffer="private")
 
-    def _check_chat_send_permission(self, user: NetworkUser) -> bool:
+    def _check_chat_send_permission(
+        self, user: NetworkUser, message: str | None = None
+    ) -> bool:
         """Apply persistent moderation and the shared runtime chat rate limit."""
         username = user.username
         active_mute = self._db.get_active_mute(username)
@@ -11024,23 +11782,25 @@ PlayAural Server
                     user.speak_l(
                         "muted-remaining-seconds",
                         buffer="system",
-                        seconds=str(int(remaining) + 1),
+                        seconds=str(math.ceil(remaining)),
                     )
                 else:
                     user.speak_l(
                         "muted-remaining-minutes",
                         buffer="system",
-                        minutes=str(int(remaining // 60) + 1),
+                        minutes=str(math.ceil(remaining / 60)),
                     )
                 return False
             self._db.unmute_user(username)
 
-        allowed, reason = self._chat_rate_limiter.try_consume(username)
+        allowed, rejection = self._chat_rate_limiter.try_consume(
+            user.uuid, message
+        )
         if allowed:
             return True
 
-        if reason and reason.startswith("__auto_muted:"):
-            remaining = int(reason.split(":")[1])
+        if rejection and rejection.kind == "auto_muted":
+            remaining = rejection.seconds
             if remaining < 60:
                 user.speak_l(
                     "auto-muted-seconds",
@@ -11051,25 +11811,28 @@ PlayAural Server
                 user.speak_l(
                     "auto-muted-minutes",
                     buffer="system",
-                    minutes=str(remaining // 60 + 1),
+                    minutes=str((remaining + 59) // 60),
                 )
-        elif reason and reason.startswith("__auto_muted_seconds:"):
-            user.speak_l(
-                "auto-muted-applied-seconds",
-                buffer="system",
-                seconds=reason.split(":")[1],
-            )
-        elif reason and reason.startswith("__auto_muted_minutes:"):
-            user.speak_l(
-                "auto-muted-applied-minutes",
-                buffer="system",
-                minutes=reason.split(":")[1],
-            )
+        elif rejection and rejection.kind == "auto_mute_applied":
+            if rejection.seconds < 60:
+                user.speak_l(
+                    "auto-muted-applied-seconds",
+                    buffer="system",
+                    seconds=str(rejection.seconds),
+                )
+            else:
+                user.speak_l(
+                    "auto-muted-applied-minutes",
+                    buffer="system",
+                    minutes=str((rejection.seconds + 59) // 60),
+                )
+        elif rejection and rejection.kind == "repeated_message":
+            user.speak_l("chat-repeated-message", buffer="system")
         else:
             user.speak_l("chat-rate-limited", buffer="system")
 
-        if self._chat_rate_limiter.should_notify_admins(username):
-            self._chat_rate_limiter.mark_admin_notified(username)
+        if self._chat_rate_limiter.should_notify_admins(user.uuid):
+            self._chat_rate_limiter.mark_admin_notified(user.uuid)
             for recipient in self._users.values():
                 if recipient.trust_level >= 2 and recipient.username != username:
                     recipient.speak_l(
@@ -11107,7 +11870,8 @@ PlayAural Server
                 limit=MAX_CHAT_MESSAGE_LENGTH,
             )
             return
-        if not self._check_chat_send_permission(user):
+        if not normalize_chat_content(message):
+            user.speak_l("chat-invalid-message", buffer="system")
             return
 
         if message.startswith("/reboot") or message.startswith("/stop"):
@@ -11164,6 +11928,11 @@ PlayAural Server
             if not target_username or not pm_content:
                 user.speak_l("pm-error-message-required", buffer="system")
                 return
+            if not normalize_chat_content(pm_content):
+                user.speak_l("chat-invalid-message", buffer="system")
+                return
+            if not self._check_chat_send_permission(user, pm_content):
+                return
             await self._deliver_private_message(user, target_username, pm_content)
 
             # Never allow a private-message command to fall through into chat.
@@ -11178,6 +11947,30 @@ PlayAural Server
             ):
                 return
 
+        if not self._check_chat_send_permission(user, message):
+            return
+
+        global_message = None
+        sender_channel = None
+        if convo == "global":
+            sender_channel = normalize_global_chat_channel(
+                user.preferences.global_chat_channel
+            )
+            try:
+                global_message = self._db.add_global_chat_message(
+                    user.uuid,
+                    user.username,
+                    sender_channel,
+                    message,
+                )
+            except Exception:
+                logging.getLogger("playaural").exception(
+                    "Could not persist accepted global chat message",
+                    extra={"username": user.username},
+                )
+                user.speak_l("chat-global-log-unavailable", buffer="system")
+                return
+
         chat_packet = {
             "type": "chat",
             "convo": convo,
@@ -11186,6 +11979,14 @@ PlayAural Server
             "buffer": "chat",
             # "language": language,
         }
+        if global_message is not None:
+            chat_packet.update(
+                {
+                    "message_id": global_message.id,
+                    "sent_at": global_message.sent_at_utc,
+                    "channel": global_message.channel_code,
+                }
+            )
 
         recipients: list[NetworkUser] = []
         if convo in TABLE_CHAT_CONVERSATIONS:
@@ -11210,13 +12011,17 @@ PlayAural Server
                         if not user_table and self._can_receive_chat(recipient, convo):
                             recipients.append(recipient)
         elif convo == "global":
-            # Broadcast to all approved users only
+            # Broadcast to approved users in the same selected language channel.
             for recipient in list(self._users.values()):
                 if self._users.get(recipient.username) is not recipient:
                     continue
                 if (
                     recipient.approved
-                    and self._can_receive_chat(recipient, convo)
+                    and self._can_receive_chat(
+                        recipient,
+                        convo,
+                        global_channel=sender_channel,
+                    )
                 ):
                     recipients.append(recipient)
 
@@ -11242,12 +12047,27 @@ PlayAural Server
         return None
 
     @staticmethod
+    def _get_unselected_chat_channel_key(
+        user: NetworkUser, convo: str
+    ) -> str | None:
+        """Return the warning used when global chat has no language partition."""
+        if (
+            convo == "global"
+            and normalize_global_chat_channel(
+                user.preferences.global_chat_channel
+            )
+            is None
+        ):
+            return "chat-global-channel-required-send"
+        return None
+
     def _get_unavailable_chat_send_key(
+        self,
         convo: str,
         table: Table | None,
     ) -> str | None:
         """Return the localized error key for a temporarily unavailable chat path."""
-        if convo == "global" and not GLOBAL_CHAT_SENDING_ENABLED:
+        if convo == "global" and not self.global_chat_sending_enabled:
             return "chat-global-temporarily-disabled-send"
         if (
             convo == "local"
@@ -11266,16 +12086,31 @@ PlayAural Server
         """Enforce personal settings before temporary channel availability."""
         rejection_key = self._get_disabled_chat_send_key(user, convo)
         if rejection_key is None:
+            rejection_key = self._get_unselected_chat_channel_key(user, convo)
+        if rejection_key is None:
             rejection_key = self._get_unavailable_chat_send_key(convo, table)
         if rejection_key is None:
             return True
         user.speak_l(rejection_key, buffer="system")
         return False
 
-    def _can_receive_chat(self, user: NetworkUser, convo: str) -> bool:
+    def _can_receive_chat(
+        self,
+        user: NetworkUser,
+        convo: str,
+        *,
+        global_channel: str | None = None,
+    ) -> bool:
         """Check per-user chat receive preferences for server-side delivery."""
         if convo == "global":
-            return not user.preferences.mute_global_chat
+            return (
+                not user.preferences.mute_global_chat
+                and global_channel is not None
+                and normalize_global_chat_channel(
+                    user.preferences.global_chat_channel
+                )
+                == global_channel
+            )
         if convo in TABLE_CHAT_CONVERSATIONS:
             return not user.preferences.mute_table_chat
         return True
@@ -11430,6 +12265,7 @@ PlayAural Server
                 MenuItem(
                     text=Localization.get(user.locale, "online-users-none"),
                     id="readonly_online_empty",
+                    read_only=True,
                 )
             )
         for username in page_data.items:
@@ -11439,7 +12275,11 @@ PlayAural Server
                 if username == user.username else f"online_{username}"
             )
             items.append(
-                MenuItem(text=self._format_online_user_line(user, username), id=item_id)
+                MenuItem(
+                    text=self._format_online_user_line(user, username),
+                    id=item_id,
+                    read_only=username == user.username,
+                )
             )
 
         if page_data.total_pages > 1:
@@ -11455,6 +12295,7 @@ PlayAural Server
                         pages=page_data.total_pages,
                     ),
                     id="page_summary",
+                    read_only=True,
                 )
             )
         items.extend(pagination_menu_items(user.locale, page_data))
@@ -11927,6 +12768,8 @@ PlayAural Server
             self._show_accessibility_submenu(user)
         elif menu == "options_notifications_submenu":
             self._show_notifications_submenu(user)
+        elif menu == "global_chat_channel_menu":
+            self._show_global_chat_channel_menu(user)
         elif menu == "game_options_menu":
             self._show_game_options_menu(user)
         elif menu == "pref_category_menu":
@@ -11950,6 +12793,17 @@ PlayAural Server
         elif menu == USER_BLOCK_CONFIRM_MENU:
             self._show_user_block_confirm_menu(
                 user, frame.get("target_username", "")
+            )
+        elif menu == USER_REPORT_REASON_MENU:
+            self._show_user_report_reason_menu(
+                user,
+                frame.get("target_uuid", ""),
+            )
+        elif menu == USER_REPORT_CONFIRM_MENU:
+            self._show_user_report_confirm_menu(
+                user,
+                frame.get("target_uuid", ""),
+                frame.get("report_reason", ""),
             )
         elif menu == "friend_requests_menu":
             self._show_friend_requests_menu(user, frame.get("friend_requests_page", 1))
@@ -12032,6 +12886,66 @@ PlayAural Server
         # Admin menus — delegate to admin_manager's show functions
         elif menu == "admin_menu":
             self.admin_manager._show_admin_menu(user)
+        elif menu == ADMIN_MODERATION_MENU:
+            self.admin_manager._show_moderation_menu(user)
+        elif menu == ADMIN_MODERATION_REPORTS_MENU:
+            self.admin_manager._show_moderation_reports_menu(
+                user,
+                frame.get("report_filter", "open"),
+                frame.get("moderation_page", 1),
+            )
+        elif menu == ADMIN_MODERATION_REPORT_DETAIL_MENU:
+            self.admin_manager._show_moderation_report_detail_menu(
+                user, int(frame.get("report_id", 0) or 0)
+            )
+        elif menu == ADMIN_MODERATION_CONTEXT_MENU:
+            self.admin_manager._show_moderation_context_menu(
+                user, int(frame.get("report_id", 0) or 0)
+            )
+        elif menu == ADMIN_MODERATION_SENDER_RESULTS_MENU:
+            self.admin_manager._show_moderation_sender_results_menu(
+                user,
+                frame.get("history_username", ""),
+                frame.get("moderation_page", 1),
+            )
+        elif menu == ADMIN_MODERATION_HISTORY_MENU:
+            self.admin_manager._show_moderation_history_menu(
+                user,
+                frame.get("history_sender_uuid", ""),
+                frame.get("moderation_page", 1),
+            )
+        elif menu == ADMIN_MODERATION_MESSAGES_MENU:
+            self.admin_manager._show_moderation_messages_menu(
+                user,
+                frame.get("message_channel"),
+                frame.get("message_period", "all"),
+                frame.get("message_sort", "newest"),
+                frame.get("moderation_page", 1),
+            )
+        elif menu == ADMIN_MODERATION_MESSAGE_LANGUAGE_MENU:
+            self.admin_manager._show_moderation_message_language_menu(
+                user,
+                frame.get("message_channel"),
+                frame.get("message_period", "all"),
+                frame.get("message_sort", "newest"),
+            )
+        elif menu == ADMIN_MODERATION_MESSAGE_PERIOD_MENU:
+            self.admin_manager._show_moderation_message_period_menu(
+                user,
+                frame.get("message_channel"),
+                frame.get("message_period", "all"),
+                frame.get("message_sort", "newest"),
+            )
+        elif menu == ADMIN_MODERATION_CLEAR_CONFIRM_MENU:
+            self.admin_manager._show_moderation_clear_confirm_menu(
+                user, frame.get("moderation_clear_kind", "")
+            )
+        elif menu == ADMIN_DATABASE_MENU:
+            self.admin_manager._show_database_management_menu(user)
+        elif menu == ADMIN_DATABASE_BACKUP_CONFIRM_MENU:
+            self.admin_manager._show_database_backup_confirm_menu(user)
+        elif menu == ADMIN_DATABASE_COMPACT_CONFIRM_MENU:
+            self.admin_manager._show_database_compact_confirm_menu(user)
         elif menu == "account_approval_menu":
             self.admin_manager._show_account_approval_menu(
                 user,
@@ -12301,6 +13215,28 @@ PlayAural Server
         item_ids = self._menu_item_ids(menu_state)
         return not item_ids or selection_id in item_ids
 
+    def _selection_targets_read_only_item(
+        self,
+        user: NetworkUser,
+        current_menu: str | None,
+        selection_id: str,
+        packet: dict,
+    ) -> bool:
+        """Reject activation of a focusable informational menu row."""
+        if not current_menu:
+            return False
+        packet_menu = packet.get("menu_id")
+        if packet_menu and packet_menu != current_menu:
+            return False
+        menu_state = self._current_menu_state(user, current_menu)
+        if not menu_state:
+            return False
+        return menu_selection_targets_read_only(
+            list(menu_state.get("items", [])),
+            selection_id=selection_id,
+            selection=packet.get("selection"),
+        )
+
     def _restore_menu_focus(self, user: NetworkUser, frame: dict) -> None:
         """Apply stored focus to a restored server menu as a one-shot directive."""
         username = user.username
@@ -12386,6 +13322,7 @@ PlayAural Server
                         sound=item.get("sound"),
                         description=item.get("description"),
                         label=item.get("label"),
+                        read_only=bool(item.get("read_only", False)),
                     )
                 )
             else:

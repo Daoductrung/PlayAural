@@ -1,8 +1,62 @@
 from pathlib import Path
 import tomllib
 
+from ui.main_window import MainWindow
+
 
 CLIENT_DIR = Path(__file__).resolve().parents[1]
+
+
+def test_read_only_menu_rows_never_send_desktop_selections():
+    sent_packets = []
+    activation_sounds = []
+
+    class MenuList:
+        @staticmethod
+        def GetSelection():
+            return 0
+
+    class Network:
+        @staticmethod
+        def send_packet(packet):
+            sent_packets.append(packet)
+
+    class SoundManager:
+        @staticmethod
+        def play_menuenter():
+            activation_sounds.append("menuenter")
+
+    window = type(
+        "WindowHarness",
+        (),
+        {
+            "connected": True,
+            "current_menu_id": "confirmation",
+            "current_menu_item_ids": ["summary"],
+            "current_menu_item_read_only": [True],
+            "menu_list": MenuList(),
+            "network": Network(),
+            "sound_manager": SoundManager(),
+        },
+    )()
+    event = type("EventHarness", (), {"Skip": staticmethod(lambda: None)})()
+
+    MainWindow.on_menu_activate(window, event)
+    assert sent_packets == []
+    assert activation_sounds == []
+
+    window.current_menu_item_ids = ["confirm"]
+    window.current_menu_item_read_only = [False]
+    MainWindow.on_menu_activate(window, event)
+    assert sent_packets == [
+        {
+            "menu_id": "confirmation",
+            "selection": 1,
+            "selection_id": "confirm",
+            "type": "menu",
+        }
+    ]
+    assert activation_sounds == ["menuenter"]
 
 
 def test_client_dev_extra_installs_test_tools():

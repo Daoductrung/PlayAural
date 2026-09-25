@@ -85,6 +85,11 @@ class ServerPowerManager:
         """Schedule a power transition and start its countdown task."""
         if self.is_scheduled:
             raise RuntimeError("A server power operation is already scheduled.")
+        maintenance_manager = getattr(self.server, "maintenance_manager", None)
+        if maintenance_manager is not None and maintenance_manager.is_active:
+            raise RuntimeError(
+                "A server power operation cannot start during database maintenance."
+            )
 
         safe_delay = max(10, int(delay_seconds))
         operation = ScheduledPowerOperation(

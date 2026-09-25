@@ -194,6 +194,7 @@
   "auth-error-username-invalid-chars": "Username may only contain letters, numbers, and spaces. Do not use consecutive spaces or special characters.",
   "auth-error-password-weak": "Password must be at least 8 characters long and contain both letters and numbers.",
   "auth-error-rate-limit": "Too many failed login attempts. Please try again in 15 minutes.",
+  "auth-error-server-maintenance": "Server database maintenance is in progress. Login, registration, and password changes are temporarily unavailable. Please try again after maintenance finishes.",
   "reg-error-email": "Email is required to register.",
   "error-email-empty": "Email is mandatory and cannot be empty.",
   "error-email-invalid": "Please enter a valid email address.",

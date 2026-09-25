@@ -15,6 +15,7 @@ def get_login_failure_message(reason: str) -> str:
         "user_not_found": Localization.get("auth-error-user-not-found"),
         "username_ambiguous": Localization.get("auth-error-username-ambiguous"),
         "rate_limit": Localization.get("auth-error-rate-limit"),
+        "server_maintenance": Localization.get("auth-error-server-maintenance"),
     }
     return reason_map.get(reason) or Localization.get("login-info-failed")
 

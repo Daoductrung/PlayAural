@@ -1,17 +1,33 @@
 """SQLite database for persistence."""
 
 import logging
+import math
+import os
+import shutil
 import sqlite3
 import time
 import uuid as uuid_module
 import json
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from dataclasses import dataclass
 
 from ..messages.localization import DEFAULT_LOCALE, Localization
+from ..chat_channels import MAX_CHAT_MESSAGE_LENGTH, normalize_global_chat_channel
+from ..moderation.chat_history import GLOBAL_CHAT_HISTORY_SORT_ORDERS
+from ..moderation.reports import (
+    CLOSED_REPORT_STATUSES,
+    MAX_MODERATION_QUERY_PAGE_SIZE,
+    MAX_REPORT_DETAILS_LENGTH,
+    MAX_REPORTS_PER_WINDOW,
+    REPORT_LIMIT_WINDOW_SECONDS,
+    REPORT_REASON_CODE_SET,
+    REPORT_STATUS_SET,
+    SAME_TARGET_REPORT_COOLDOWN_SECONDS,
+    ModerationReportSubmission,
+)
 from ..tables.table import Table
 from ..users.identity import normalize_username, username_key
 
@@ -75,6 +91,70 @@ class MuteRecord:
     expires_at: str | None
 
 
+@dataclass(frozen=True)
+class GlobalChatMessageRecord:
+    """An accepted global-chat message retained for manual moderation."""
+
+    id: int
+    sender_uuid: str
+    sender_username: str
+    channel_code: str
+    sent_at_utc: str
+    message: str
+
+
+@dataclass(frozen=True)
+class GlobalChatSenderSummary:
+    """One immutable sender identity represented in retained chat history."""
+
+    sender_uuid: str
+    sender_username: str
+    message_count: int
+    first_sent_at_utc: str
+    last_sent_at_utc: str
+
+
+@dataclass(frozen=True)
+class ModerationReportRecord:
+    """One persistent user report for later manual review."""
+
+    id: int
+    reporter_uuid: str
+    reporter_username: str
+    reported_uuid: str
+    reported_username: str
+    reported_at_utc: str
+    reason_code: str
+    details: str
+    channel_code: str | None
+    context_anchor_message_id: int | None
+    status: str
+    reviewed_by_uuid: str | None
+    reviewed_by_username: str | None
+    reviewed_at_utc: str | None
+
+
+@dataclass(frozen=True)
+class DatabaseCompactionResult:
+    """Storage statistics from one completed SQLite VACUUM operation."""
+
+    before_bytes: int
+    after_bytes: int
+    reclaimed_bytes: int
+    before_free_pages: int
+    after_free_pages: int
+
+
+@dataclass(frozen=True)
+class DatabaseBackupResult:
+    """Metadata for one fully validated, durable SQLite backup snapshot."""
+
+    path: Path
+    size_bytes: int
+    page_count: int
+    created_at_utc: str
+
+
 @dataclass
 class SmtpConfig:
     """SMTP configuration from the database."""
@@ -119,6 +199,17 @@ class Database:
     )
     SQLITE_SIDECAR_SUFFIXES = ("-wal", "-shm", "-journal")
     CORRUPT_FILE_SUFFIX = ".corrupt"
+    BACKUP_FILE_PREFIX = "PlayAural"
+    BACKUP_FILE_SUFFIX = ".sqlite3"
+    BACKUP_PAGE_BATCH_SIZE = 256
+    MINIMUM_MAINTENANCE_FREE_BYTES = 16 * 1024 * 1024
+    VACUUM_WORKING_SPACE_MULTIPLIER = 2
+    INCOMPLETE_BACKUP_SUFFIXES = (
+        f"{BACKUP_FILE_SUFFIX}.partial",
+        f"{BACKUP_FILE_SUFFIX}.partial-wal",
+        f"{BACKUP_FILE_SUFFIX}.partial-shm",
+        f"{BACKUP_FILE_SUFFIX}.partial-journal",
+    )
 
     def __init__(self, db_path: str | Path = "PlayAural.db"):
         self.db_path = Path(db_path)
@@ -188,6 +279,12 @@ class Database:
         )
         self._conn.execute(f"PRAGMA busy_timeout = {int(timeout * 1000)};")
         self._conn.execute("PRAGMA foreign_keys = ON;")
+        # Make the durability policy explicit rather than relying on SQLite's
+        # build-time defaults. WAL protects committed work from process crashes,
+        # while FULL synchronization asks the OS to flush commit-critical data
+        # before SQLite reports success.
+        self._conn.execute("PRAGMA journal_mode = WAL;")
+        self._conn.execute("PRAGMA synchronous = FULL;")
         self._verify_database_integrity()
         self._create_tables()
         if prune:
@@ -219,17 +316,240 @@ class Database:
             self._conn.close()
             self._conn = None
 
+    def compact_database(self) -> DatabaseCompactionResult:
+        """Rebuild the main SQLite file and return exact page-level results.
+
+        VACUUM cannot run inside a transaction. The server calls this from an
+        exclusive worker-owned connection only after event-loop database work
+        has drained and the live connection has closed.
+        """
+        if self._conn is None:
+            raise RuntimeError("Database is not connected")
+        if self._conn.in_transaction:
+            raise RuntimeError("Cannot compact the database during a transaction")
+
+        self._verify_connection_integrity(self._conn, full=True)
+
+        page_size_row = self._conn.execute("PRAGMA page_size").fetchone()
+        before_pages_row = self._conn.execute("PRAGMA page_count").fetchone()
+        before_free_row = self._conn.execute("PRAGMA freelist_count").fetchone()
+        page_size = int(page_size_row[0])
+        before_pages = int(before_pages_row[0])
+        before_free_pages = int(before_free_row[0])
+
+        if self._is_file_database():
+            required_bytes = max(
+                before_pages * page_size * self.VACUUM_WORKING_SPACE_MULTIPLIER,
+                self.MINIMUM_MAINTENANCE_FREE_BYTES,
+            )
+            self._require_free_space(self.db_path.parent, required_bytes)
+
+        self._conn.execute("VACUUM")
+        self._verify_connection_integrity(self._conn, full=True)
+
+        after_pages_row = self._conn.execute("PRAGMA page_count").fetchone()
+        after_free_row = self._conn.execute("PRAGMA freelist_count").fetchone()
+        after_pages = int(after_pages_row[0])
+        after_free_pages = int(after_free_row[0])
+        before_bytes = before_pages * page_size
+        after_bytes = after_pages * page_size
+        return DatabaseCompactionResult(
+            before_bytes=before_bytes,
+            after_bytes=after_bytes,
+            reclaimed_bytes=max(0, before_bytes - after_bytes),
+            before_free_pages=before_free_pages,
+            after_free_pages=after_free_pages,
+        )
+
+    def backup_database(
+        self,
+        backup_dir: str | Path,
+        *,
+        purpose: str = "manual",
+    ) -> DatabaseBackupResult:
+        """Create, validate, flush, and atomically publish a SQLite backup.
+
+        The SQLite online-backup API copies the logical database rather than
+        copying the main file and sidecars independently. The destination is
+        written under a unique temporary name, checked with SQLite's full
+        integrity checker, flushed to stable storage, and only then renamed to
+        its final name. A failed operation never publishes a partial backup.
+        """
+        if self._conn is None:
+            raise RuntimeError("Database is not connected")
+        if self._conn.in_transaction:
+            raise RuntimeError("Cannot back up the database during a transaction")
+        if not self._is_file_database():
+            raise RuntimeError("Database backups require a file-backed database")
+
+        safe_purpose = "".join(
+            character if character.isalnum() or character == "-" else "-"
+            for character in str(purpose).strip().lower()
+        ).strip("-")
+        if not safe_purpose:
+            raise ValueError("Backup purpose must contain at least one safe character")
+
+        self._verify_connection_integrity(self._conn, full=True)
+        page_size = int(self._conn.execute("PRAGMA page_size").fetchone()[0])
+        page_count = int(self._conn.execute("PRAGMA page_count").fetchone()[0])
+        required_bytes = max(
+            page_size * page_count,
+            self.MINIMUM_MAINTENANCE_FREE_BYTES,
+        )
+
+        directory = Path(backup_dir).resolve()
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        self._remove_incomplete_backups(directory)
+        self._require_free_space(directory, required_bytes)
+
+        created_at = datetime.now(timezone.utc)
+        timestamp = created_at.strftime("%Y%m%dT%H%M%S.%fZ")
+        unique_suffix = uuid_module.uuid4().hex[:12]
+        filename = (
+            f"{self.BACKUP_FILE_PREFIX}-{safe_purpose}-{timestamp}-"
+            f"{unique_suffix}{self.BACKUP_FILE_SUFFIX}"
+        )
+        final_path = directory / filename
+        temporary_path = directory / f".{filename}.partial"
+        destination: sqlite3.Connection | None = None
+
+        try:
+            destination = sqlite3.connect(
+                str(temporary_path),
+                timeout=30.0,
+                isolation_level=None,
+            )
+            destination.create_function(
+                "USERNAME_KEY",
+                1,
+                username_key,
+                deterministic=True,
+            )
+            destination.execute("PRAGMA synchronous = FULL;")
+            self._conn.backup(
+                destination,
+                pages=self.BACKUP_PAGE_BATCH_SIZE,
+                sleep=0.05,
+            )
+            # Publish one self-contained file. A backup must never depend on a
+            # temporary WAL sidecar that is not part of the atomic rename.
+            destination.execute("PRAGMA journal_mode = DELETE;")
+            self._verify_connection_integrity(destination, full=True)
+            destination.close()
+            destination = None
+
+            self._flush_file_to_disk(temporary_path)
+            temporary_path.replace(final_path)
+            try:
+                final_path.chmod(0o600)
+            except OSError:
+                logging.getLogger("playaural.db").warning(
+                    "Could not restrict backup file permissions for %s",
+                    final_path,
+                    exc_info=True,
+                )
+            self._flush_directory_to_disk(directory)
+            return DatabaseBackupResult(
+                path=final_path,
+                size_bytes=final_path.stat().st_size,
+                page_count=page_count,
+                created_at_utc=created_at.isoformat(),
+            )
+        except BaseException:
+            if destination is not None:
+                destination.close()
+            for suffix in ("", "-wal", "-shm", "-journal"):
+                partial_path = Path(f"{temporary_path}{suffix}")
+                try:
+                    partial_path.unlink(missing_ok=True)
+                except OSError:
+                    logging.getLogger("playaural.db").warning(
+                        "Could not remove incomplete database backup %s",
+                        partial_path,
+                        exc_info=True,
+                    )
+            raise
+
+    @classmethod
+    def _remove_incomplete_backups(cls, directory: Path) -> None:
+        """Remove unpublished fragments left by an interrupted prior backup.
+
+        The caller must own PlayAural's exclusive maintenance barrier. Final
+        backups never use these suffixes, so a completed recovery snapshot is
+        not eligible for cleanup.
+        """
+        prefix = f".{cls.BACKUP_FILE_PREFIX}-"
+        for candidate in directory.iterdir():
+            if not candidate.is_file() or not candidate.name.startswith(prefix):
+                continue
+            if not candidate.name.endswith(cls.INCOMPLETE_BACKUP_SUFFIXES):
+                continue
+            candidate.unlink()
+
+    @classmethod
+    def _verify_connection_integrity(
+        cls,
+        connection: sqlite3.Connection,
+        *,
+        full: bool,
+    ) -> None:
+        pragma = "integrity_check" if full else "quick_check(1)"
+        rows = connection.execute(f"PRAGMA {pragma}").fetchall()
+        results = [str(row[0]) for row in rows] if rows else ["no result"]
+        if results != ["ok"]:
+            raise sqlite3.DatabaseError(
+                "database integrity check failed: " + "; ".join(results)
+            )
+        foreign_key_error = connection.execute(
+            "PRAGMA foreign_key_check"
+        ).fetchone()
+        if foreign_key_error is not None:
+            details = ", ".join(str(value) for value in foreign_key_error)
+            raise sqlite3.DatabaseError(
+                f"database foreign key check failed: {details}"
+            )
+
+    @classmethod
+    def _require_free_space(cls, directory: Path, required_bytes: int) -> None:
+        available_bytes = shutil.disk_usage(directory).free
+        if available_bytes < required_bytes:
+            raise OSError(
+                "Insufficient free disk space for safe database maintenance: "
+                f"requires at least {required_bytes} bytes, "
+                f"but {available_bytes} bytes are available"
+            )
+
+    @staticmethod
+    def _flush_file_to_disk(path: Path) -> None:
+        # Windows requires a writable file descriptor for _commit()/fsync.
+        descriptor = os.open(path, os.O_RDWR)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+
+    @staticmethod
+    def _flush_directory_to_disk(path: Path) -> None:
+        """Persist an atomic rename where the platform supports directory fsync."""
+        try:
+            descriptor = os.open(path, os.O_RDONLY)
+        except OSError:
+            return
+        try:
+            os.fsync(descriptor)
+        except OSError:
+            # Windows does not expose directory fsync through os.open. The
+            # backup file itself has already been flushed with FileFlushBuffers.
+            pass
+        finally:
+            os.close(descriptor)
+
     def _verify_database_integrity(self) -> None:
         """Fail early if an existing SQLite file is corrupt."""
         if not self._is_file_database() or not self.db_path.exists():
             return
 
-        row = self._conn.execute("PRAGMA quick_check(1)").fetchone()
-        result = row[0] if row else "ok"
-        if result != "ok":
-            raise sqlite3.DatabaseError(
-                f"database integrity check failed: {result}"
-            )
+        self._verify_connection_integrity(self._conn, full=False)
 
     def _is_file_database(self) -> bool:
         return str(self.db_path) not in {":memory:", ""}
@@ -522,6 +842,62 @@ class Database:
             )
         """)
 
+        # Accepted global-chat messages are retained as immutable moderation
+        # evidence until a developer explicitly clears them. UUID and username
+        # snapshots deliberately do not reference users: account deletion must
+        # not turn historical evidence into a broken foreign-key relationship.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS global_chat_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sender_uuid TEXT NOT NULL,
+                sender_username TEXT NOT NULL,
+                channel_code TEXT NOT NULL,
+                sent_at_utc TEXT NOT NULL,
+                message TEXT NOT NULL,
+                CHECK (sender_uuid != ''),
+                CHECK (sender_username != ''),
+                CHECK (channel_code != ''),
+                CHECK (message != '')
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS moderation_reports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                reporter_uuid TEXT NOT NULL,
+                reporter_username TEXT NOT NULL,
+                reported_uuid TEXT NOT NULL,
+                reported_username TEXT NOT NULL,
+                reported_at_utc TEXT NOT NULL,
+                reason_code TEXT NOT NULL,
+                details TEXT NOT NULL DEFAULT '',
+                channel_code TEXT,
+                context_anchor_message_id INTEGER
+                    REFERENCES global_chat_messages(id) ON DELETE SET NULL,
+                status TEXT NOT NULL DEFAULT 'open',
+                reviewed_by_uuid TEXT,
+                reviewed_by_username TEXT,
+                reviewed_at_utc TEXT,
+                CHECK (reporter_uuid != ''),
+                CHECK (reported_uuid != ''),
+                CHECK (reporter_uuid != reported_uuid),
+                CHECK (status IN ('open', 'reviewed', 'dismissed', 'actioned'))
+            )
+        """)
+
+        # Small server-wide feature settings persist independently of any
+        # account. Rows live until explicitly changed or the database itself
+        # is removed, so account deletion requires no cleanup and cannot leave
+        # orphaned records.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS server_settings (
+                setting_key TEXT PRIMARY KEY,
+                value_json TEXT NOT NULL,
+                updated_at_utc TEXT NOT NULL,
+                CHECK (setting_key != '')
+            )
+        """)
+
         # SMTP Configuration table (single row expected)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS smtp_config (
@@ -571,6 +947,48 @@ class Database:
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_friendships_receiver_status_created
             ON friendships(receiver_id, status, created_at)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_global_chat_messages_sender_time
+            ON global_chat_messages(sender_uuid, sent_at_utc DESC, id DESC)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_global_chat_messages_sender_channel_time
+            ON global_chat_messages(
+                sender_uuid, channel_code, sent_at_utc DESC, id DESC
+            )
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_global_chat_messages_channel_time
+            ON global_chat_messages(channel_code, sent_at_utc DESC, id DESC)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_global_chat_messages_time
+            ON global_chat_messages(sent_at_utc DESC, id DESC)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_global_chat_messages_username_time
+            ON global_chat_messages(
+                USERNAME_KEY(sender_username), sent_at_utc DESC, id DESC
+            )
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_moderation_reports_status_time
+            ON moderation_reports(status, reported_at_utc DESC, id DESC)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_moderation_reports_reported_time
+            ON moderation_reports(reported_uuid, reported_at_utc DESC, id DESC)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_moderation_reports_reporter_time
+            ON moderation_reports(reporter_uuid, reported_at_utc DESC, id DESC)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_moderation_reports_reporter_target_time
+            ON moderation_reports(
+                reporter_uuid, reported_uuid, reported_at_utc DESC, id DESC
+            )
         """)
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_user_blocks_blocked
@@ -634,6 +1052,9 @@ class Database:
         - social relationships: Expired requests and orphaned rows.
         - mutes: Expired or orphaned.
         - password reset tokens: Expired.
+
+        Global-chat messages and moderation reports are intentionally excluded.
+        They are retained until an explicit developer clear operation.
         """
         now = datetime.now()
         thirty_days_ago = (now - timedelta(days=30)).isoformat()
@@ -1065,6 +1486,708 @@ class Database:
 
         return counts
 
+    # Global-chat moderation records
+
+    @staticmethod
+    def _global_chat_message_from_row(
+        row: sqlite3.Row,
+    ) -> GlobalChatMessageRecord:
+        return GlobalChatMessageRecord(
+            id=int(row["id"]),
+            sender_uuid=str(row["sender_uuid"]),
+            sender_username=str(row["sender_username"]),
+            channel_code=str(row["channel_code"]),
+            sent_at_utc=str(row["sent_at_utc"]),
+            message=str(row["message"]),
+        )
+
+    def add_global_chat_message(
+        self,
+        sender_uuid: str,
+        sender_username: str,
+        channel_code: str,
+        message: str,
+    ) -> GlobalChatMessageRecord:
+        """Persist one accepted global message before it is broadcast."""
+        normalized_uuid = str(sender_uuid or "").strip()
+        normalized_username = str(sender_username or "").strip()
+        normalized_channel = normalize_global_chat_channel(channel_code)
+        if not normalized_uuid or not normalized_username:
+            raise ValueError("Global chat messages require a sender identity")
+        if normalized_channel is None:
+            raise ValueError("Global chat messages require a supported channel")
+        if not isinstance(message, str) or not message or message != message.strip():
+            raise ValueError("Global chat messages must contain canonical text")
+        if len(message) > MAX_CHAT_MESSAGE_LENGTH:
+            raise ValueError("Global chat message exceeds the protocol limit")
+
+        sent_at_utc = datetime.now(timezone.utc).isoformat(timespec="microseconds")
+        cursor = self._conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO global_chat_messages (
+                sender_uuid,
+                sender_username,
+                channel_code,
+                sent_at_utc,
+                message
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                normalized_uuid,
+                normalized_username,
+                normalized_channel,
+                sent_at_utc,
+                message,
+            ),
+        )
+        return GlobalChatMessageRecord(
+            id=int(cursor.lastrowid),
+            sender_uuid=normalized_uuid,
+            sender_username=normalized_username,
+            channel_code=normalized_channel,
+            sent_at_utc=sent_at_utc,
+            message=message,
+        )
+
+    def get_global_chat_message(
+        self, message_id: int
+    ) -> GlobalChatMessageRecord | None:
+        """Return one retained global-chat message by stable ID."""
+        cursor = self._conn.cursor()
+        cursor.execute(
+            """
+            SELECT id, sender_uuid, sender_username, channel_code,
+                   sent_at_utc, message
+            FROM global_chat_messages
+            WHERE id = ?
+            """,
+            (int(message_id),),
+        )
+        row = cursor.fetchone()
+        return self._global_chat_message_from_row(row) if row else None
+
+    def count_global_chat_messages(
+        self,
+        *,
+        sender_uuid: str | None = None,
+        channel_code: str | None = None,
+        started_at_utc: str | None = None,
+        ended_before_utc: str | None = None,
+    ) -> int:
+        """Count retained global messages using indexed moderation filters."""
+        where, params = self._global_chat_message_filter(
+            sender_uuid=sender_uuid,
+            channel_code=channel_code,
+            started_at_utc=started_at_utc,
+            ended_before_utc=ended_before_utc,
+        )
+        query = "SELECT COUNT(*) AS count FROM global_chat_messages"
+        if where:
+            query += " WHERE " + " AND ".join(where)
+        row = self._conn.execute(query, params).fetchone()
+        return int(row["count"] if row else 0)
+
+    @staticmethod
+    def _normalize_moderation_utc_boundary(value: str, field_name: str) -> str:
+        """Validate one query boundary and return canonical UTC ISO text."""
+        try:
+            parsed = datetime.fromisoformat(str(value))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{field_name} must be an ISO timestamp") from exc
+        if parsed.tzinfo is None:
+            raise ValueError(f"{field_name} must include a timezone")
+        return parsed.astimezone(timezone.utc).isoformat(timespec="microseconds")
+
+    @classmethod
+    def _global_chat_message_filter(
+        cls,
+        *,
+        sender_uuid: str | None,
+        channel_code: str | None,
+        started_at_utc: str | None,
+        ended_before_utc: str | None,
+    ) -> tuple[list[str], list[object]]:
+        """Build the shared validated WHERE clause for message history queries."""
+        where: list[str] = []
+        params: list[object] = []
+        if sender_uuid is not None:
+            normalized_uuid = str(sender_uuid or "").strip()
+            if not normalized_uuid:
+                where.append("0 = 1")
+            else:
+                where.append("sender_uuid = ?")
+                params.append(normalized_uuid)
+        if channel_code is not None:
+            normalized_channel = normalize_global_chat_channel(channel_code)
+            if normalized_channel is None:
+                raise ValueError("Unsupported global chat channel")
+            where.append("channel_code = ?")
+            params.append(normalized_channel)
+        normalized_start = None
+        if started_at_utc is not None:
+            normalized_start = cls._normalize_moderation_utc_boundary(
+                started_at_utc,
+                "started_at_utc",
+            )
+            where.append("sent_at_utc >= ?")
+            params.append(normalized_start)
+        normalized_end = None
+        if ended_before_utc is not None:
+            normalized_end = cls._normalize_moderation_utc_boundary(
+                ended_before_utc,
+                "ended_before_utc",
+            )
+            where.append("sent_at_utc < ?")
+            params.append(normalized_end)
+        if (
+            normalized_start is not None
+            and normalized_end is not None
+            and normalized_start >= normalized_end
+        ):
+            raise ValueError("Global chat message time range is empty or reversed")
+        return where, params
+
+    def find_global_chat_sender_summaries(
+        self,
+        username: str,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[GlobalChatSenderSummary]:
+        """Find retained sender identities for one exact folded username."""
+        lookup_key = username_key(normalize_username(username))
+        if not lookup_key:
+            return []
+        safe_limit = max(1, min(int(limit), MAX_MODERATION_QUERY_PAGE_SIZE))
+        safe_offset = max(0, int(offset))
+        rows = self._conn.execute(
+            """
+            SELECT history.sender_uuid,
+                   (
+                       SELECT latest.sender_username
+                       FROM global_chat_messages AS latest
+                       WHERE latest.sender_uuid = history.sender_uuid
+                       ORDER BY latest.sent_at_utc DESC, latest.id DESC
+                       LIMIT 1
+                   ) AS sender_username,
+                   COUNT(*) AS message_count,
+                   MIN(history.sent_at_utc) AS first_sent_at_utc,
+                   MAX(history.sent_at_utc) AS last_sent_at_utc
+            FROM global_chat_messages AS history
+            WHERE history.sender_uuid IN (
+                SELECT DISTINCT matching.sender_uuid
+                FROM global_chat_messages AS matching
+                WHERE USERNAME_KEY(matching.sender_username) = ?
+            )
+            GROUP BY history.sender_uuid
+            ORDER BY last_sent_at_utc DESC, history.sender_uuid
+            LIMIT ? OFFSET ?
+            """,
+            (lookup_key, safe_limit, safe_offset),
+        ).fetchall()
+        return [
+            GlobalChatSenderSummary(
+                sender_uuid=str(row["sender_uuid"]),
+                sender_username=str(row["sender_username"]),
+                message_count=int(row["message_count"]),
+                first_sent_at_utc=str(row["first_sent_at_utc"]),
+                last_sent_at_utc=str(row["last_sent_at_utc"]),
+            )
+            for row in rows
+        ]
+
+    def count_global_chat_sender_identities(self, username: str) -> int:
+        """Count immutable sender IDs matching one exact folded username."""
+        lookup_key = username_key(normalize_username(username))
+        if not lookup_key:
+            return 0
+        row = self._conn.execute(
+            """
+            SELECT COUNT(DISTINCT sender_uuid) AS count
+            FROM global_chat_messages
+            WHERE USERNAME_KEY(sender_username) = ?
+            """,
+            (lookup_key,),
+        ).fetchone()
+        return int(row["count"] if row else 0)
+
+    def list_global_chat_messages(
+        self,
+        *,
+        sender_uuid: str | None = None,
+        channel_code: str | None = None,
+        started_at_utc: str | None = None,
+        ended_before_utc: str | None = None,
+        sort_order: str = "newest",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[GlobalChatMessageRecord]:
+        """List retained messages with bounded, indexed moderation filters."""
+        safe_limit = max(1, min(int(limit), MAX_MODERATION_QUERY_PAGE_SIZE))
+        safe_offset = max(0, int(offset))
+        normalized_sort = str(sort_order or "")
+        if normalized_sort not in GLOBAL_CHAT_HISTORY_SORT_ORDERS:
+            raise ValueError("Unsupported global chat history sort order")
+        where, params = self._global_chat_message_filter(
+            sender_uuid=sender_uuid,
+            channel_code=channel_code,
+            started_at_utc=started_at_utc,
+            ended_before_utc=ended_before_utc,
+        )
+        query = "SELECT * FROM global_chat_messages"
+        if where:
+            query += " WHERE " + " AND ".join(where)
+        direction = "DESC" if normalized_sort == "newest" else "ASC"
+        query += (
+            f" ORDER BY sent_at_utc {direction}, id {direction}"
+            " LIMIT ? OFFSET ?"
+        )
+        params.extend((safe_limit, safe_offset))
+        rows = self._conn.execute(query, params).fetchall()
+        return [self._global_chat_message_from_row(row) for row in rows]
+
+    def get_global_chat_context(
+        self,
+        reported_at_utc: str,
+        *,
+        channel_code: str | None = None,
+        before_count: int = 20,
+        after_count: int = 10,
+    ) -> list[GlobalChatMessageRecord]:
+        """Return chronological conversation context around one UTC instant."""
+        try:
+            report_time = datetime.fromisoformat(str(reported_at_utc))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Report context requires an ISO timestamp") from exc
+        if report_time.tzinfo is None:
+            raise ValueError("Report context timestamp must include a timezone")
+        timestamp = report_time.astimezone(timezone.utc).isoformat(
+            timespec="microseconds"
+        )
+        safe_before = max(
+            0, min(int(before_count), MAX_MODERATION_QUERY_PAGE_SIZE)
+        )
+        safe_after = max(
+            0, min(int(after_count), MAX_MODERATION_QUERY_PAGE_SIZE)
+        )
+        where = "sent_at_utc <= ?"
+        params: list[object] = [timestamp]
+        after_where = "sent_at_utc > ?"
+        after_params: list[object] = [timestamp]
+        if channel_code is not None:
+            normalized_channel = normalize_global_chat_channel(channel_code)
+            if normalized_channel is None:
+                raise ValueError("Unsupported global chat channel")
+            where += " AND channel_code = ?"
+            after_where += " AND channel_code = ?"
+            params.append(normalized_channel)
+            after_params.append(normalized_channel)
+
+        before: list[GlobalChatMessageRecord] = []
+        if safe_before:
+            before_rows = self._conn.execute(
+                f"""
+                SELECT * FROM global_chat_messages
+                WHERE {where}
+                ORDER BY sent_at_utc DESC, id DESC
+                LIMIT ?
+                """,
+                (*params, safe_before),
+            ).fetchall()
+            before = [
+                self._global_chat_message_from_row(row)
+                for row in reversed(before_rows)
+            ]
+
+        after: list[GlobalChatMessageRecord] = []
+        if safe_after:
+            after_rows = self._conn.execute(
+                f"""
+                SELECT * FROM global_chat_messages
+                WHERE {after_where}
+                ORDER BY sent_at_utc ASC, id ASC
+                LIMIT ?
+                """,
+                (*after_params, safe_after),
+            ).fetchall()
+            after = [self._global_chat_message_from_row(row) for row in after_rows]
+        return [*before, *after]
+
+    def clear_global_chat_messages(self) -> int:
+        """Explicitly clear all retained global-chat evidence."""
+        with self._transaction(immediate=True) as cursor:
+            cursor.execute("DELETE FROM global_chat_messages")
+            deleted = max(0, cursor.rowcount)
+            cursor.execute(
+                "DELETE FROM sqlite_sequence WHERE name = ?",
+                ("global_chat_messages",),
+            )
+            return deleted
+
+    @staticmethod
+    def _moderation_report_from_row(
+        row: sqlite3.Row,
+    ) -> ModerationReportRecord:
+        return ModerationReportRecord(
+            id=int(row["id"]),
+            reporter_uuid=str(row["reporter_uuid"]),
+            reporter_username=str(row["reporter_username"]),
+            reported_uuid=str(row["reported_uuid"]),
+            reported_username=str(row["reported_username"]),
+            reported_at_utc=str(row["reported_at_utc"]),
+            reason_code=str(row["reason_code"]),
+            details=str(row["details"] or ""),
+            channel_code=(
+                str(row["channel_code"]) if row["channel_code"] else None
+            ),
+            context_anchor_message_id=(
+                int(row["context_anchor_message_id"])
+                if row["context_anchor_message_id"] is not None
+                else None
+            ),
+            status=str(row["status"]),
+            reviewed_by_uuid=(
+                str(row["reviewed_by_uuid"])
+                if row["reviewed_by_uuid"]
+                else None
+            ),
+            reviewed_by_username=(
+                str(row["reviewed_by_username"])
+                if row["reviewed_by_username"]
+                else None
+            ),
+            reviewed_at_utc=(
+                str(row["reviewed_at_utc"]) if row["reviewed_at_utc"] else None
+            ),
+        )
+
+    def submit_moderation_report(
+        self,
+        *,
+        reporter_uuid: str,
+        reporter_username: str,
+        reported_uuid: str,
+        reported_username: str,
+        reason_code: str,
+        details: str = "",
+        channel_code: str | None = None,
+    ) -> ModerationReportSubmission:
+        """Atomically enforce report limits and retain one manual-review case."""
+        reporter_id = str(reporter_uuid or "").strip()
+        reporter_name = str(reporter_username or "").strip()
+        reported_id = str(reported_uuid or "").strip()
+        reported_name = str(reported_username or "").strip()
+        if not reporter_id or not reporter_name or not reported_id or not reported_name:
+            raise ValueError("Moderation reports require both account identities")
+        if reporter_id == reported_id:
+            raise ValueError("An account cannot report itself")
+        if reason_code not in REPORT_REASON_CODE_SET:
+            raise ValueError("Unsupported moderation report reason")
+        if not isinstance(details, str):
+            raise ValueError("Moderation report details must be text")
+        normalized_details = details.strip()
+        if len(normalized_details) > MAX_REPORT_DETAILS_LENGTH:
+            raise ValueError("Moderation report details exceed the limit")
+        normalized_channel = None
+        if channel_code is not None:
+            normalized_channel = normalize_global_chat_channel(channel_code)
+            if normalized_channel is None:
+                raise ValueError("Unsupported moderation report channel")
+
+        now = datetime.now(timezone.utc)
+        reported_at_utc = now.isoformat(timespec="microseconds")
+        limit_window_start = (
+            now - timedelta(seconds=REPORT_LIMIT_WINDOW_SECONDS)
+        ).isoformat(timespec="microseconds")
+        target_cooldown_start = (
+            now - timedelta(seconds=SAME_TARGET_REPORT_COOLDOWN_SECONDS)
+        ).isoformat(timespec="microseconds")
+
+        with self._transaction(immediate=True) as cursor:
+            cursor.execute(
+                "SELECT uuid, username FROM users WHERE uuid IN (?, ?)",
+                (reporter_id, reported_id),
+            )
+            current_accounts = {
+                str(row["uuid"]): str(row["username"])
+                for row in cursor.fetchall()
+            }
+            if (
+                current_accounts.get(reporter_id) != reporter_name
+                or current_accounts.get(reported_id) != reported_name
+            ):
+                raise ValueError(
+                    "Moderation report identities must match current accounts"
+                )
+
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS count
+                FROM moderation_reports
+                WHERE reporter_uuid = ? AND reported_at_utc >= ?
+                """,
+                (reporter_id, limit_window_start),
+            )
+            recent_count_row = cursor.fetchone()
+            recent_count = int(recent_count_row["count"] if recent_count_row else 0)
+            if recent_count >= MAX_REPORTS_PER_WINDOW:
+                cursor.execute(
+                    """
+                    SELECT reported_at_utc
+                    FROM moderation_reports
+                    WHERE reporter_uuid = ? AND reported_at_utc >= ?
+                    ORDER BY reported_at_utc ASC, id ASC
+                    LIMIT 1
+                    """,
+                    (reporter_id, limit_window_start),
+                )
+                oldest = cursor.fetchone()
+                retry_after = REPORT_LIMIT_WINDOW_SECONDS
+                if oldest:
+                    oldest_at = datetime.fromisoformat(oldest["reported_at_utc"])
+                    retry_after = max(
+                        1,
+                        math.ceil(
+                            (
+                                oldest_at
+                                + timedelta(seconds=REPORT_LIMIT_WINDOW_SECONDS)
+                                - now
+                            ).total_seconds()
+                        ),
+                    )
+                return ModerationReportSubmission(
+                    outcome="reporter_limit",
+                    retry_after_seconds=retry_after,
+                )
+
+            cursor.execute(
+                """
+                SELECT reported_at_utc
+                FROM moderation_reports
+                WHERE reporter_uuid = ?
+                  AND reported_uuid = ?
+                  AND reported_at_utc >= ?
+                ORDER BY reported_at_utc DESC, id DESC
+                LIMIT 1
+                """,
+                (reporter_id, reported_id, target_cooldown_start),
+            )
+            latest_same_target = cursor.fetchone()
+            if latest_same_target:
+                latest_at = datetime.fromisoformat(
+                    latest_same_target["reported_at_utc"]
+                )
+                retry_after = max(
+                    1,
+                    math.ceil(
+                        (
+                            latest_at
+                            + timedelta(seconds=SAME_TARGET_REPORT_COOLDOWN_SECONDS)
+                            - now
+                        ).total_seconds()
+                    ),
+                )
+                return ModerationReportSubmission(
+                    outcome="target_cooldown",
+                    retry_after_seconds=retry_after,
+                )
+
+            anchor_query = (
+                "SELECT id FROM global_chat_messages "
+                "WHERE sender_uuid = ? AND sent_at_utc <= ?"
+            )
+            anchor_params: list[object] = [reported_id, reported_at_utc]
+            if normalized_channel is not None:
+                anchor_query += " AND channel_code = ?"
+                anchor_params.append(normalized_channel)
+            anchor_query += " ORDER BY sent_at_utc DESC, id DESC LIMIT 1"
+            cursor.execute(anchor_query, anchor_params)
+            anchor_row = cursor.fetchone()
+            anchor_id = int(anchor_row["id"]) if anchor_row else None
+
+            cursor.execute(
+                """
+                INSERT INTO moderation_reports (
+                    reporter_uuid,
+                    reporter_username,
+                    reported_uuid,
+                    reported_username,
+                    reported_at_utc,
+                    reason_code,
+                    details,
+                    channel_code,
+                    context_anchor_message_id,
+                    status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')
+                """,
+                (
+                    reporter_id,
+                    reporter_name,
+                    reported_id,
+                    reported_name,
+                    reported_at_utc,
+                    reason_code,
+                    normalized_details,
+                    normalized_channel,
+                    anchor_id,
+                ),
+            )
+            return ModerationReportSubmission(
+                outcome="created",
+                report_id=int(cursor.lastrowid),
+            )
+
+    def get_moderation_report(
+        self, report_id: int
+    ) -> ModerationReportRecord | None:
+        """Return one report by stable ID."""
+        row = self._conn.execute(
+            "SELECT * FROM moderation_reports WHERE id = ?",
+            (int(report_id),),
+        ).fetchone()
+        return self._moderation_report_from_row(row) if row else None
+
+    @staticmethod
+    def _normalize_report_status_filter(
+        *,
+        status: str | None,
+        statuses: tuple[str, ...] | None,
+    ) -> tuple[str, ...] | None:
+        """Return one validated status filter without ambiguous combinations."""
+        if status is not None and statuses is not None:
+            raise ValueError("Use status or statuses, not both")
+        if status is not None:
+            selected = (status,)
+        elif statuses is not None:
+            selected = tuple(dict.fromkeys(statuses))
+        else:
+            return None
+        if not selected or any(item not in REPORT_STATUS_SET for item in selected):
+            raise ValueError("Unsupported moderation report status")
+        return selected
+
+    def count_moderation_reports(
+        self,
+        *,
+        status: str | None = None,
+        statuses: tuple[str, ...] | None = None,
+    ) -> int:
+        """Count retained reports, optionally by review status."""
+        selected = self._normalize_report_status_filter(
+            status=status,
+            statuses=statuses,
+        )
+        if selected is None:
+            row = self._conn.execute(
+                "SELECT COUNT(*) AS count FROM moderation_reports"
+            ).fetchone()
+        else:
+            placeholders = ", ".join("?" for _ in selected)
+            row = self._conn.execute(
+                "SELECT COUNT(*) AS count FROM moderation_reports "
+                f"WHERE status IN ({placeholders})",
+                selected,
+            ).fetchone()
+        return int(row["count"] if row else 0)
+
+    def list_moderation_reports(
+        self,
+        *,
+        status: str | None = None,
+        statuses: tuple[str, ...] | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[ModerationReportRecord]:
+        """List reports newest-first, optionally filtered by review status."""
+        selected = self._normalize_report_status_filter(
+            status=status,
+            statuses=statuses,
+        )
+        safe_limit = max(1, min(int(limit), MAX_MODERATION_QUERY_PAGE_SIZE))
+        safe_offset = max(0, int(offset))
+        if selected is None:
+            rows = self._conn.execute(
+                """
+                SELECT * FROM moderation_reports
+                ORDER BY reported_at_utc DESC, id DESC
+                LIMIT ? OFFSET ?
+                """,
+                (safe_limit, safe_offset),
+            ).fetchall()
+        else:
+            placeholders = ", ".join("?" for _ in selected)
+            rows = self._conn.execute(
+                f"""
+                SELECT * FROM moderation_reports
+                WHERE status IN ({placeholders})
+                ORDER BY reported_at_utc DESC, id DESC
+                LIMIT ? OFFSET ?
+                """,
+                (*selected, safe_limit, safe_offset),
+            ).fetchall()
+        return [self._moderation_report_from_row(row) for row in rows]
+
+    def set_moderation_report_status(
+        self,
+        report_id: int,
+        status: str,
+        *,
+        reviewer_uuid: str,
+        reviewer_username: str,
+    ) -> bool:
+        """Record a manual review outcome with an immutable reviewer snapshot."""
+        if status not in REPORT_STATUS_SET or status == "open":
+            raise ValueError("Reports may only be closed with a review outcome")
+        reviewer_id = str(reviewer_uuid or "").strip()
+        reviewer_name = str(reviewer_username or "").strip()
+        if not reviewer_id or not reviewer_name:
+            raise ValueError("A moderation review requires a reviewer identity")
+        reviewed_at_utc = datetime.now(timezone.utc).isoformat(
+            timespec="microseconds"
+        )
+        with self._transaction(immediate=True) as cursor:
+            cursor.execute(
+                "SELECT username FROM users WHERE uuid = ?",
+                (reviewer_id,),
+            )
+            reviewer = cursor.fetchone()
+            if not reviewer or str(reviewer["username"]) != reviewer_name:
+                raise ValueError("Reviewer identity must match a current account")
+            cursor.execute(
+                """
+                UPDATE moderation_reports
+                SET status = ?, reviewed_by_uuid = ?,
+                    reviewed_by_username = ?, reviewed_at_utc = ?
+                WHERE id = ? AND status = 'open'
+                """,
+                (
+                    status,
+                    reviewer_id,
+                    reviewer_name,
+                    reviewed_at_utc,
+                    int(report_id),
+                ),
+            )
+            return cursor.rowcount > 0
+
+    def clear_closed_moderation_reports(self) -> int:
+        """Explicitly clear reviewed reports while preserving every open case."""
+        placeholders = ", ".join("?" for _ in CLOSED_REPORT_STATUSES)
+        with self._transaction(immediate=True) as cursor:
+            cursor.execute(
+                f"DELETE FROM moderation_reports WHERE status IN ({placeholders})",
+                CLOSED_REPORT_STATUSES,
+            )
+            deleted = max(0, cursor.rowcount)
+            cursor.execute("SELECT 1 FROM moderation_reports LIMIT 1")
+            if cursor.fetchone() is None:
+                cursor.execute(
+                    "DELETE FROM sqlite_sequence WHERE name = ?",
+                    ("moderation_reports",),
+                )
+            return deleted
+
     # User operations
 
     @staticmethod
@@ -1446,6 +2569,10 @@ class Database:
                 "DELETE FROM password_reset_tokens WHERE user_uuid = ?",
                 (user.uuid,),
             )
+
+            # Global-chat messages and reports deliberately retain immutable
+            # UUID and username snapshots until a developer explicitly clears
+            # them.
 
             # Preserve other players' historical results through anonymization.
             cursor.execute(
@@ -2854,6 +3981,63 @@ class Database:
             (player_id, game_type)
         )
         return {row["stat_key"]: row["stat_value"] for row in cursor.fetchall()}
+
+    # Server Setting Operations
+
+    @staticmethod
+    def _validate_server_setting_key(setting_key: str) -> str:
+        """Return a canonical internal setting key or reject programmer error."""
+        if not isinstance(setting_key, str) or not setting_key:
+            raise ValueError("Server setting keys must be non-empty strings")
+        return setting_key
+
+    def get_boolean_server_setting(
+        self,
+        setting_key: str,
+        *,
+        default: bool,
+    ) -> bool:
+        """Read one persistent Boolean setting with a schema-safe default."""
+        key = self._validate_server_setting_key(setting_key)
+        row = self._conn.execute(
+            "SELECT value_json FROM server_settings WHERE setting_key = ?",
+            (key,),
+        ).fetchone()
+        if row is None:
+            return bool(default)
+        try:
+            value = json.loads(str(row["value_json"]))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            value = None
+        if type(value) is bool:
+            return value
+        raise ValueError(
+            f"Server setting {key!r} does not contain a Boolean value"
+        )
+
+    def set_boolean_server_setting(
+        self,
+        setting_key: str,
+        value: bool,
+    ) -> None:
+        """Atomically insert or replace one persistent Boolean setting."""
+        key = self._validate_server_setting_key(setting_key)
+        if type(value) is not bool:
+            raise TypeError("Boolean server settings require a bool value")
+        updated_at_utc = datetime.now(timezone.utc).isoformat(
+            timespec="microseconds"
+        )
+        self._conn.execute(
+            """
+            INSERT INTO server_settings (
+                setting_key, value_json, updated_at_utc
+            ) VALUES (?, ?, ?)
+            ON CONFLICT(setting_key) DO UPDATE SET
+                value_json = excluded.value_json,
+                updated_at_utc = excluded.updated_at_utc
+            """,
+            (key, json.dumps(value), updated_at_utc),
+        )
 
     # SMTP Config Operations
 

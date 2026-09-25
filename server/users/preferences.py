@@ -4,6 +4,8 @@ from dataclasses import dataclass, field, fields
 from enum import Enum
 from typing import Any
 
+from ..chat_channels import normalize_global_chat_channel
+
 
 class DiceKeepingStyle(Enum):
     """Dice keeping style preference."""
@@ -104,6 +106,7 @@ class UserPreferences:
 
     # Social preferences
     mute_global_chat: bool = False
+    global_chat_channel: str | None = None
     mute_table_chat: bool = False
     notify_table_created: bool = True  # Notify when a new table is created
     notify_user_presence: bool = False  # Notify for non-friend users
@@ -192,6 +195,7 @@ class UserPreferences:
             "mobile_tts_rate": self.mobile_tts_rate,
             "mobile_tts_voice": self.mobile_tts_voice,
             "mute_global_chat": self.mute_global_chat,
+            "global_chat_channel": self.global_chat_channel,
             "mute_table_chat": self.mute_table_chat,
             "notify_table_created": self.notify_table_created,
             "notify_user_presence": self.notify_user_presence,
@@ -229,6 +233,9 @@ class UserPreferences:
             mobile_tts_rate=data.get("mobile_tts_rate", 100),
             mobile_tts_voice=data.get("mobile_tts_voice", ""),
             mute_global_chat=data.get("mute_global_chat", False),
+            global_chat_channel=normalize_global_chat_channel(
+                data.get("global_chat_channel")
+            ),
             mute_table_chat=data.get("mute_table_chat", False),
             notify_table_created=data.get("notify_table_created", True),
             notify_user_presence=data.get("notify_user_presence", False),

@@ -1,6 +1,7 @@
 """Abstract User class that games interact with."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Any
@@ -37,6 +38,10 @@ class MenuItem:
     equivalent Fluent-backed form for framework menus. Callers set one or the
     other; the user layer resolves and displays the hint consistently for
     every client according to the account's menu-hints preference.
+    ``read_only`` keeps an informational row focusable and readable while
+    preventing activation on every client and at the server boundary. Rows
+    without an action id are informational by definition and are normalized
+    to this explicit protocol state automatically.
     """
 
     text: str
@@ -46,12 +51,15 @@ class MenuItem:
     description_key: str | None = None
     description_kwargs: dict[str, Any] | None = None
     label: str | None = None
+    read_only: bool = False
 
     def __post_init__(self) -> None:
         if self.description is not None and self.description_key is not None:
             raise ValueError(
                 "MenuItem accepts description or description_key, not both"
             )
+        if not self.id:
+            self.read_only = True
 
     def resolved_description(self, locale: str) -> str | None:
         """Return localized row help without exposing a Fluent key."""
@@ -115,6 +123,7 @@ class MenuItem:
             sound=self.sound,
             description=description,
             label=self.canonical_text,
+            read_only=self.read_only,
         )
 
     def to_dict(
@@ -128,6 +137,7 @@ class MenuItem:
             self.id is not None
             or self.sound is not None
             or description is not None
+            or self.read_only
         ):
             data: dict[str, Any] = {
                 "text": self._display_text(
@@ -145,8 +155,56 @@ class MenuItem:
                 # text has been stored in NetworkUser's current-menu state.
                 data["label"] = self.canonical_text
                 data["description"] = description
+            if self.read_only:
+                data["read_only"] = True
             return data
         return self.canonical_text
+
+
+def menu_selection_targets_read_only(
+    items: Sequence[object],
+    *,
+    selection_id: object = "",
+    selection: object = None,
+) -> bool:
+    """Return whether a menu event targets an informational row.
+
+    Both stable-id and legacy one-based index events are supported so the
+    server applies one authoritative rule across all client generations.
+    Plain-string rows are informational because they carry no action id.
+    """
+    candidates: list[object] = []
+    if isinstance(selection_id, str) and selection_id:
+        candidates.extend(
+            item
+            for item in items
+            if (
+                item.get("id")
+                if isinstance(item, dict)
+                else getattr(item, "id", None)
+            )
+            == selection_id
+        )
+    elif (
+        isinstance(selection, int)
+        and not isinstance(selection, bool)
+        and 1 <= selection <= len(items)
+    ):
+        candidates.append(items[selection - 1])
+
+    for item in candidates:
+        if isinstance(item, dict):
+            item_id = item.get("id")
+            read_only = bool(item.get("read_only", False))
+        elif isinstance(item, MenuItem):
+            item_id = item.id
+            read_only = item.read_only
+        else:
+            item_id = None
+            read_only = True
+        if read_only or not item_id:
+            return True
+    return False
 
 
 class User(ABC):

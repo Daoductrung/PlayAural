@@ -179,8 +179,13 @@ Client focus doctrine:
   survives, or `selection_id` explicitly jumps focus.
 - Keep disabled-but-visible persistent controls when they anchor touch or screen
   reader focus. Use `request_menu_focus` only for deliberate action-driven jumps.
+- Informational server-menu rows use `MenuItem(read_only=True)` when they need
+  stable ids. Rows without action ids normalize to explicit read-only protocol
+  data automatically; do not add no-op handler branches for them. Status-box
+  rows are the intentional exception because activating any row closes the box.
 - Open `MenuInput` selectors repaint live through sealed flushes; use stable
-  option ids. Pending `EditboxInput` prompts do not repaint passively. If a
+  option ids and declare contextual non-actions through `read_only_options`.
+  Pending `EditboxInput` prompts do not repaint passively. If a
   selector must freeze public mutations, declare `locks_gameplay=True` and use
   `_gameplay_input_lock_owner()` in the game's actor/permission checks rather
   than hardcoding its action id; information actions may remain available.
@@ -509,6 +514,30 @@ per-game shutdown hooks.
   restored tables receive a grace window, then missing active players are
   replaced with bots only when at least one human has returned; tables with no
   humans eventually close through abandoned-table cleanup.
+
+## Database Maintenance
+
+Live backup and compaction use the centralized reversible maintenance manager,
+never ad-hoc database calls from an admin handler.
+
+- Stop authoritative ticks, reject new gameplay/account packets while leaving
+  current menus visible, drain tracked in-flight work, and close the event-loop
+  SQLite connection before starting maintenance on a worker-owned connection.
+- Broadcast localized start and terminal notices with a `system`-buffer notify
+  sound. Reject login, registration, and password-reset work before it reaches
+  SQLite; authenticated attempts receive the active maintenance reason.
+- Resume only after the live connection reopens with corruption recovery
+  disabled and passes structural and foreign-key validation. Reopen failure is
+  fail-closed: keep gameplay frozen and require operator recovery.
+- Backups use SQLite's online-backup API, a unique partial file, full integrity
+  validation, file flush, and atomic publication in `server/backups/` by
+  default. Compaction creates a verified safety backup first and preflights
+  working disk space. Never publish partial backups; remove unpublished
+  fragments from an interrupted process before the next exclusive backup.
+- Backups contain persistent SQLite state only, not runtime-only active-table
+  state. They are retained until an operator removes them, are excluded from
+  source control, and are not rewritten when an account is later deleted.
+  Protect and rotate them operationally and keep an off-host copy.
 
 ## Server, Web, Desktop, and Mobile Rules
 

@@ -10,8 +10,9 @@ PlayAural is meant to be friendly, fair, and welcoming. These rules explain how 
 
 \*\*2. Keep Chat Reasonable\*\*
 
-\* You may speak your own language in global chat.
-\* If global chat is distracting, turn it off in Options instead of arguing with others about the language they use.
+\* Use the language of the global chat channel you selected. Choose another channel in Options when you want to chat in a different language.
+\* If global chat is distracting, turn it off in Options. If another user is abusive, block them instead of arguing with them.
+\* Global chat messages are saved with the sender's account ID and exact time for manual review. They remain saved until a developer clears the history.
 \* Do not flood chat with repeated messages, unwanted advertising, or disruptive spam.
 \* Private messages must follow the same standards as public chat.
 

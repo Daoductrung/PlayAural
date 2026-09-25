@@ -1,5 +1,5 @@
-function isActionable(item) {
-  return item?.id !== null && item?.id !== undefined;
+export function isMenuItemActionable(item) {
+  return typeof item?.id === "string" && item.id.length > 0 && item.read_only !== true;
 }
 
 function normalizeForSearch(value) {
@@ -36,7 +36,7 @@ export function createMenuView({
 
   function menuStructureSnapshot(menu) {
     const itemsSnapshot = (menu.items || [])
-      .map((item) => `${item?.id ?? ""}|${item?.text ?? ""}|${item?.sound ?? ""}`)
+      .map((item) => `${item?.id ?? ""}|${item?.text ?? ""}|${item?.sound ?? ""}|${item?.read_only === true ? "1" : "0"}`)
       .join("||");
     return [
       menu.menuId ?? "",
@@ -168,8 +168,7 @@ export function createMenuView({
     if (!item) {
       return;
     }
-    if (!isActionable(item)) {
-      onBoundaryRepeat?.(item.text);
+    if (!isMenuItemActionable(item)) {
       return;
     }
     if (onActivateSound) {
@@ -184,8 +183,7 @@ export function createMenuView({
       return;
     }
     setSelection(index, { playSound: false });
-    if (!isActionable(item)) {
-      onBoundaryRepeat?.(item.text);
+    if (!isMenuItemActionable(item)) {
       return;
     }
     if (onActivateSound) {
@@ -213,7 +211,7 @@ export function createMenuView({
 
   function contextAction(index) {
     const item = itemAt(index);
-    if (!isActionable(item)) {
+    if (!isMenuItemActionable(item)) {
       return;
     }
     setSelection(index, { playSound: false });
@@ -306,7 +304,7 @@ export function createMenuView({
     }
 
     menu.items.forEach((item, index) => {
-      const actionable = isActionable(item);
+      const actionable = isMenuItemActionable(item);
       const li = document.createElement("li");
       li.id = currentOptionId(index);
       li.className = "menu-item";

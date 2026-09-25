@@ -82,13 +82,13 @@ from ..game_utils.game_result import GameResult
 from ..audio import SameTurnAudioBatcher
 
 
-VERSION = "1.0.5"
+VERSION = "1.0.4.17"
 # Legacy native-updater compatibility constants. Retain these exact names and
 # values until an explicit compatibility cleanup removes them.
 UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.zip"
 UPDATE_HASH = "" # Optional SHA256
 
-SOUNDS_VERSION = "9"
+SOUNDS_VERSION = "10"
 SOUNDS_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/sounds.zip"
 SOUNDS_HASH = "" # Optional SHA256
 ANDROID_UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.apk"
@@ -148,10 +148,6 @@ ACTIVE_TABLE_SPECTATOR_PREVIEW_LIMIT = 3
 MAX_CHAT_MESSAGE_LENGTH = 500
 TABLE_CHAT_CONVERSATIONS = frozenset({"local", "table", "game"})
 SUPPORTED_CHAT_CONVERSATIONS = frozenset({"global", *TABLE_CHAT_CONVERSATIONS})
-# Temporary product switches. Keep the underlying delivery paths intact so each
-# feature can be restored independently without changing the chat protocol.
-GLOBAL_CHAT_SENDING_ENABLED = False
-MAIN_MENU_LOCAL_CHAT_SENDING_ENABLED = False
 VOICE_JOIN_AUTHORIZATION_WINDOW_SECONDS = 120
 SESSION_STATE_RETENTION_SECONDS = 300
 PRESENCE_OFFLINE_GRACE_SECONDS = 2.0
@@ -11110,35 +11106,7 @@ PlayAural Server
         if not self._check_chat_send_permission(user):
             return
 
-        if message.startswith("/reboot") or message.startswith("/stop"):
-            if user and user.trust_level >= 3:
-                user.speak_l("server-power-command-removed", buffer="system")
-            return
-
-        if message.startswith("/kick"):
-            # Kick command
-            # Format: /kick <username>
-            if user and user.trust_level >= 2:
-                parts = message.split(" ", 1)
-                if len(parts) < 2:
-                    user.speak_l("usage-kick", buffer="system")
-                    return
-
-                target_name = parts[1].strip()
-                await self.admin_manager.kick_user(user, target_name, show_menu=False)
-            return
-
-        sender_table: Table | None = None
-        if convo == "global" and not self._check_chat_channel_send_permission(
-            user,
-            convo,
-            sender_table,
-        ):
-            return
-
-        # Handle Private Message chat command. Global-channel policy is checked
-        # first so an explicit /g submission cannot bypass its setting or gate
-        # by beginning the message with an @ mention.
+        # Handle Private Message chat command
         if message.startswith("@"):
             text_after_at = message[1:].strip()
 
@@ -11169,14 +11137,30 @@ PlayAural Server
             # Never allow a private-message command to fall through into chat.
             return
 
-        if convo != "global":
-            sender_table = self._tables.find_user_table(username)
-            if not self._check_chat_channel_send_permission(
-                user,
-                convo,
-                sender_table,
-            ):
-                return
+        if message.startswith("/reboot") or message.startswith("/stop"):
+            if user and user.trust_level >= 3:
+                user.speak_l("server-power-command-removed", buffer="system")
+            return
+
+        elif message.startswith("/kick"):
+             # Kick command
+             # Format: /kick <username>
+             if user and user.trust_level >= 2:
+                 parts = message.split(" ", 1)
+                 if len(parts) < 2:
+                     user.speak_l("usage-kick", buffer="system")
+                     return
+                 
+                 target_name = parts[1].strip()
+                 await self.admin_manager.kick_user(user, target_name, show_menu=False)
+                 return
+             else:
+                 return
+
+        disabled_key = self._get_disabled_chat_send_key(user, convo)
+        if disabled_key:
+            user.speak_l(disabled_key, buffer="system")
+            return
 
         chat_packet = {
             "type": "chat",
@@ -11189,7 +11173,7 @@ PlayAural Server
 
         recipients: list[NetworkUser] = []
         if convo in TABLE_CHAT_CONVERSATIONS:
-            table = sender_table
+            table = self._tables.find_user_table(username)
             if table:
                 for member_name in [m.username for m in table.members]:
                     recipient = self._users.get(member_name)
@@ -11240,37 +11224,6 @@ PlayAural Server
         if convo in TABLE_CHAT_CONVERSATIONS and user.preferences.mute_table_chat:
             return "chat-table-disabled-send"
         return None
-
-    @staticmethod
-    def _get_unavailable_chat_send_key(
-        convo: str,
-        table: Table | None,
-    ) -> str | None:
-        """Return the localized error key for a temporarily unavailable chat path."""
-        if convo == "global" and not GLOBAL_CHAT_SENDING_ENABLED:
-            return "chat-global-temporarily-disabled-send"
-        if (
-            convo == "local"
-            and table is None
-            and not MAIN_MENU_LOCAL_CHAT_SENDING_ENABLED
-        ):
-            return "chat-main-menu-table-required-send"
-        return None
-
-    def _check_chat_channel_send_permission(
-        self,
-        user: NetworkUser,
-        convo: str,
-        table: Table | None,
-    ) -> bool:
-        """Enforce personal settings before temporary channel availability."""
-        rejection_key = self._get_disabled_chat_send_key(user, convo)
-        if rejection_key is None:
-            rejection_key = self._get_unavailable_chat_send_key(convo, table)
-        if rejection_key is None:
-            return True
-        user.speak_l(rejection_key, buffer="system")
-        return False
 
     def _can_receive_chat(self, user: NetworkUser, convo: str) -> bool:
         """Check per-user chat receive preferences for server-side delivery."""

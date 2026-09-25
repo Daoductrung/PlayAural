@@ -907,12 +907,6 @@ Web rules:
   voice values through stable client-generated menu ids
 - menu selection sounds, typing sounds, and action sounds should preload when
   possible and must not delay touch menu activation
-- browser game audio uses a playback audio session so iOS does not silence Web
-  Audio with the hardware mute switch. Switch to `play-and-record` only while
-  the user explicitly publishes a voice-chat microphone, then restore playback.
-  Recover previously running contexts after foregrounding without consuming the
-  initial user gesture, and retain the lazy Ogg Vorbis decoder fallback for
-  browsers that cannot decode the shipped container natively
 - table voice chat lives in the Chat area and must keep browser permission handling, ARIA announcements, and voice cleanup in sync with table lifecycle packets
 
 ### Mobile Client Architecture
@@ -966,11 +960,11 @@ Mobile rules:
   language names; metadata complements it and does not replace it.
 
 ### Game Counts and Catalog
-The server currently registers **46 games**:
+The server currently registers **47 games**:
 - category ids are `cards`, `dice`, `board`, `poker`, `arcade`, and `misc`
 - the Play menu exposes a persisted category filter with dynamic per-category game counts
 - games usually expose one category through `get_category()`, while `get_categories()` supports future multi-category games
-- recent additions include `Metal Pipe`, `Nine`, `Senet`, `Cards Against Humanity`, `21`, `Age of Heroes`, `UNO`, `Exploding Kittens`, `BANG! The Bullet`, and `Monopoly`
+- recent additions include `Bingo`, `Metal Pipe`, `Nine`, `Senet`, `Cards Against Humanity`, `21`, `Age of Heroes`, `UNO`, `Exploding Kittens`, `BANG! The Bullet`, and `Monopoly`
 
 ### Key Tech Stack
 - Python 3.11, `asyncio`, `websockets>=12.0`, `mashumaro`, `fluent-runtime`, `openskill`, `argon2-cffi`

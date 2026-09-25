@@ -340,6 +340,7 @@ class TestGameRegistryIntegration:
             "pirates": "arcade",
             "pusoydos": "cards",
             "rollingballs": "misc",
+            "bingo": "misc",
             "scopa": "cards",
             "senet": "board",
             "snakesandladders": "board",

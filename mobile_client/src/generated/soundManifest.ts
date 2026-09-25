@@ -1,5 +1,5 @@
 // Numbered entries are lookup candidates only; exact asset playback remains exact.
-export const bundledSoundVersion = "9";
+export const bundledSoundVersion = "10";
 
 export const soundManifest: Record<string, number> = {
   "accountactionnotify.ogg": require("../../sounds/accountactionnotify.ogg"),
@@ -280,6 +280,14 @@ export const soundManifest: Record<string, number> = {
   "game_battleship/place.ogg": require("../../sounds/game_battleship/place.ogg"),
   "game_battleship/sunk1.ogg": require("../../sounds/game_battleship/sunk1.ogg"),
   "game_battleship/sunk2.ogg": require("../../sounds/game_battleship/sunk2.ogg"),
+  "game_bingo/call.ogg": require("../../sounds/game_bingo/call.ogg"),
+  "game_bingo/cymbal.ogg": require("../../sounds/game_bingo/cymbal.ogg"),
+  "game_bingo/daub.ogg": require("../../sounds/game_bingo/daub.ogg"),
+  "game_bingo/error.ogg": require("../../sounds/game_bingo/error.ogg"),
+  "game_bingo/music.ogg": require("../../sounds/game_bingo/music.ogg"),
+  "game_bingo/suspense.ogg": require("../../sounds/game_bingo/suspense.ogg"),
+  "game_bingo/undaub.ogg": require("../../sounds/game_bingo/undaub.ogg"),
+  "game_bingo/win.ogg": require("../../sounds/game_bingo/win.ogg"),
   "game_blackjack/blackjack.ogg": require("../../sounds/game_blackjack/blackjack.ogg"),
   "game_blackjack/bust1.ogg": require("../../sounds/game_blackjack/bust1.ogg"),
   "game_blackjack/bust2.ogg": require("../../sounds/game_blackjack/bust2.ogg"),

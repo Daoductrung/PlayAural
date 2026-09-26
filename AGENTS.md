@@ -534,8 +534,20 @@ per-game shutdown hooks.
 
 ## Database Maintenance
 
-Live backup and compaction use the centralized reversible maintenance manager,
-never ad-hoc database calls from an admin handler.
+Live backup, cleanup, and compaction use the centralized reversible maintenance
+manager, never ad-hoc database calls from an admin handler.
+
+- Database startup is fail-closed. Never move, quarantine, replace, or rebuild
+  an existing database automatically after an integrity, identity, version, or
+  schema failure. Preserve the main file and sidecars for operator recovery.
+- Schema changes require an incremented SQLite `user_version`, the PlayAural
+  `application_id`, a full preflight integrity check, and a validated durable
+  pre-migration backup before any existing schema is changed. Reject databases
+  created by newer server versions. Opening SQLite must never run retention or
+  compatibility cleanup; destructive cleanup is an explicit operation.
+- Transient table checkpoints remain durable until database validation, schema
+  migration, table deserialization, network binding, and tick startup have all
+  succeeded. A failed startup must close SQLite and leave checkpoints intact.
 
 - Stop authoritative ticks, reject new gameplay/account packets while leaving
   current menus visible, drain tracked in-flight work, and close the event-loop
@@ -543,18 +555,34 @@ never ad-hoc database calls from an admin handler.
 - Broadcast localized start and terminal notices with a `system`-buffer notify
   sound. Reject login, registration, and password-reset work before it reaches
   SQLite; authenticated attempts receive the active maintenance reason.
-- Resume only after the live connection reopens with corruption recovery
-  disabled and passes structural and foreign-key validation. Reopen failure is
+- Read-only storage analysis does not freeze gameplay, but it still owns the
+  shared maintenance lock and storage-idle barrier. Shutdown and scheduled
+  power operations must wait for its worker-owned SQLite connection to close.
+- Resume only after the live connection reopens and passes identity, schema,
+  structural, and foreign-key validation. Reopen failure is
   fail-closed: keep gameplay frozen and require operator recovery.
 - Backups use SQLite's online-backup API, a unique partial file, full integrity
   validation, file flush, and atomic publication in `server/backups/` by
   default. Compaction creates a verified safety backup first and preflights
   working disk space. Never publish partial backups; remove unpublished
-  fragments from an interrupted process before the next exclusive backup.
+  fragments older than the shared abandonment threshold before the next
+  exclusive backup.
 - Backups contain persistent SQLite state only, not runtime-only active-table
   state. They are retained until an operator removes them, are excluded from
   source control, and are not rewritten when an account is later deleted.
   Protect and rotate them operationally and keep an off-host copy.
+- Storage cleanup is explicit, previewable, allowlisted maintenance. It creates
+  a verified pre-cleanup backup, reevaluates candidates inside one atomic
+  transaction, validates the result, and reports reusable pages without running
+  compaction. Saved tables, game results, chat history, moderation reports,
+  valid user blocks, compatibility data, valid backups, and logs are never
+  cleanup candidates. Saved tables persist until their owner or a Developer
+  explicitly deletes them.
+- Filesystem cleanup is limited to regular unpublished PlayAural backup
+  fragments older than the shared abandonment threshold in the configured
+  backup directory. Never recursively scan or delete arbitrary server files,
+  SQLite sidecars, active logs, caches, valid backups, or recovery artifacts
+  from the live administration workflow.
 
 ## Server, Web, Desktop, and Mobile Rules
 

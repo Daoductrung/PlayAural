@@ -725,9 +725,21 @@ chat-command reboot/shutdown paths or per-game shutdown hooks.
   humans eventually close through abandoned-table cleanup.
 
 #### Database Maintenance
-Database backup and compaction are framework-owned reversible maintenance, not
-server-power finalization. Route both through `ServerMaintenanceManager` and
-the developer-only Database Management menu.
+Database backup, cleanup, and compaction are framework-owned reversible
+maintenance, not server-power finalization. Route them through
+`ServerMaintenanceManager` and the developer-only Database Management menu.
+
+- Database startup is fail-closed. Never move, quarantine, replace, or rebuild
+  an existing database automatically after an integrity, identity, version, or
+  schema failure. Preserve the main file and sidecars for operator recovery.
+- Schema changes require an incremented SQLite `user_version`, the PlayAural
+  `application_id`, a full preflight integrity check, and a validated durable
+  pre-migration backup before any existing schema is changed. Reject databases
+  created by newer server versions. Opening SQLite must never run retention or
+  compatibility cleanup; destructive cleanup is an explicit operation.
+- Transient table checkpoints remain durable until database validation, schema
+  migration, table deserialization, network binding, and tick startup have all
+  succeeded. A failed startup must close SQLite and leave checkpoints intact.
 
 - The manager activates one fail-fast exclusive barrier, stops authoritative
   ticks so game clocks, bots, and sequences do not advance, rejects new
@@ -739,19 +751,23 @@ the developer-only Database Management menu.
   used, and closed on that same thread. Do not share the event-loop connection
   across threads. Shutdown waits for the worker to release storage before it
   closes transports or touches persistence.
+- Read-only storage analysis does not activate the gameplay freeze, but it owns
+  the same operation lock and storage-idle barrier. Cancellation, shutdown, and
+  scheduled power operations must wait until its worker connection has closed.
 - Announce each start and terminal outcome directly to every online user with a
   localized `system`-buffer message and notify family sound. Ongoing matches
   remain in memory and resume unchanged after success or a recoverable failure.
-- Reopen the live connection with automatic corruption quarantine disabled,
-  then require SQLite structural and foreign-key validation before clearing the
-  barrier or restarting ticks. If reopening or validation fails, remain frozen
+- Reopen the live connection and require SQLite identity, schema, structural,
+  and foreign-key validation before clearing the barrier or restarting ticks.
+  If reopening or validation fails, remain frozen
   and disconnected from SQLite so no gameplay can continue against uncertain
   storage; operator recovery is required.
 - Backups use SQLite's online-backup API, unique hidden partial files, full
   source/destination integrity checks, file flush, and same-directory atomic
   rename. The default destination is `server/backups/`, which is excluded from
   source control. A failed backup must not publish a partial snapshot, and the
-  next exclusive backup removes fragments left by an abrupt process loss.
+  next exclusive backup removes fragments older than the shared abandonment
+  threshold that were left by an abrupt process loss.
 - Compaction first creates and retains a verified safety backup, then runs
   `VACUUM` only after a conservative free-space check. Both paths reject an
   active transaction and concurrent maintenance or power operations.
@@ -760,6 +776,19 @@ the developer-only Database Management menu.
   until an operator explicitly removes them. Later account deletion does not
   rewrite historical snapshots, so deployments must restrict access, define an
   operational rotation policy, and keep tested off-host copies.
+- Storage cleanup is a separate, explicit, previewable maintenance operation.
+  It creates a verified pre-cleanup backup, reevaluates its allowlisted
+  candidates inside one atomic transaction, validates the committed database,
+  and reports reusable SQLite pages without implicitly running `VACUUM`.
+  Saved tables, game results, global-chat history, moderation reports, user
+  blocks with valid account owners, compatibility data, valid backups, and logs
+  are never cleanup candidates. Saved tables persist until their owner or a
+  Developer explicitly deletes them.
+- Filesystem cleanup is deliberately narrow: only regular unpublished
+  PlayAural backup fragments older than the shared abandonment threshold in
+  the configured backup directory may be removed. Never recursively scan or
+  delete arbitrary server files, SQLite sidecars, active logs, caches, valid
+  backups, or recovery artifacts from the live administration workflow.
 
 #### TTS Buffer Categorization
 Every `user.speak_l()` and `broadcast_l()` call must include an explicit `buffer=`:

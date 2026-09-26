@@ -91,18 +91,3 @@ def test_unsupported_game_results_do_not_create_stats_updates() -> None:
     )
 
     assert StatsExtractor.extract_incremental_stats(result) == {}
-
-
-def test_server_leaderboard_prune_spec_matches_registered_support() -> None:
-    server = Server(db_path=":memory:")
-
-    stat_keys_by_game, rating_game_types = server._get_leaderboard_prune_spec()
-
-    assert stat_keys_by_game["metalpipe"] == set()
-    assert "metalpipe" not in rating_game_types
-    assert stat_keys_by_game["twentyone"] == {"games_played", "wins", "losses"}
-    assert "twentyone" in rating_game_types
-    assert "total_score" not in stat_keys_by_game["backgammon"]
-    assert "high_score" not in stat_keys_by_game["backgammon"]
-    assert "custom_avg_points_per_turn_numerator" in stat_keys_by_game["farkle"]
-    assert "custom_avg_points_per_turn_denominator" in stat_keys_by_game["farkle"]

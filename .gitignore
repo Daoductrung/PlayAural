@@ -40,6 +40,7 @@ PlayAural.db
 *.sqlite3-shm
 *.sqlite3-journal
 server/backups/
+/backups/
 errors.log
 .vscode/
 .idea/

@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 from ..messages.localization import Localization
 from ..messages.localized_content import localized_text_for_locale
 from ..audio import AudioCommand
+from ..persistence.retention import TRANSIENT_TABLE_CHECKPOINT_RETENTION_DAYS
 
 if TYPE_CHECKING:
     from ..users.network_user import NetworkUser
@@ -21,7 +22,7 @@ if TYPE_CHECKING:
 
 
 POWER_REBOOT_EXIT_CODE = 75
-POWER_CHECKPOINT_TTL_DAYS = 1
+POWER_CHECKPOINT_TTL_DAYS = TRANSIENT_TABLE_CHECKPOINT_RETENTION_DAYS
 POWER_RESTORE_GRACE_SECONDS = 180
 POWER_MAX_CUSTOM_DELAY_MINUTES = 24 * 60
 
@@ -86,7 +87,7 @@ class ServerPowerManager:
         if self.is_scheduled:
             raise RuntimeError("A server power operation is already scheduled.")
         maintenance_manager = getattr(self.server, "maintenance_manager", None)
-        if maintenance_manager is not None and maintenance_manager.is_active:
+        if maintenance_manager is not None and maintenance_manager.is_busy:
             raise RuntimeError(
                 "A server power operation cannot start during database maintenance."
             )

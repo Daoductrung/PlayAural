@@ -57,7 +57,7 @@ def _connected_database(path) -> Database:
     return database
 
 
-def test_global_chat_message_persists_across_restart_and_startup_pruning(
+def test_global_chat_message_persists_across_restart(
     tmp_path,
 ) -> None:
     path = tmp_path / "global_chat.sqlite"

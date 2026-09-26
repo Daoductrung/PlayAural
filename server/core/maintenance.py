@@ -16,6 +16,8 @@ from ..persistence.database import (
     Database,
     DatabaseBackupResult,
     DatabaseCompactionResult,
+    DatabaseStorageAnalysis,
+    DatabaseStorageCleanupResult,
 )
 
 if TYPE_CHECKING:
@@ -36,6 +38,7 @@ class DatabaseMaintenanceKind(str, Enum):
     """Supported whole-server database maintenance operations."""
 
     BACKUP = "backup"
+    CLEANUP = "cleanup"
     COMPACTION = "compaction"
 
 
@@ -56,6 +59,14 @@ class DatabaseCompactionOperationResult:
     safety_backup: DatabaseBackupResult
 
 
+@dataclass(frozen=True)
+class DatabaseStorageCleanupOperationResult:
+    """Safe cleanup statistics plus its pre-operation recovery snapshot."""
+
+    cleanup: DatabaseStorageCleanupResult
+    safety_backup: DatabaseBackupResult
+
+
 class DatabaseMaintenanceBusyError(RuntimeError):
     """Raised when another exclusive server operation prevents maintenance."""
 
@@ -69,7 +80,7 @@ def _perform_backup_worker(
     backup_dir: Path,
 ) -> DatabaseBackupResult:
     database = Database(db_path)
-    database.connect(prune=False, recover_corrupt=False)
+    database.connect()
     try:
         return database.backup_database(backup_dir, purpose="manual")
     finally:
@@ -81,7 +92,7 @@ def _perform_compaction_worker(
     backup_dir: Path,
 ) -> DatabaseCompactionOperationResult:
     database = Database(db_path)
-    database.connect(prune=False, recover_corrupt=False)
+    database.connect()
     try:
         safety_backup = database.backup_database(
             backup_dir,
@@ -96,6 +107,42 @@ def _perform_compaction_worker(
             compaction=compaction,
             safety_backup=safety_backup,
         )
+    finally:
+        database.close()
+
+
+def _perform_storage_cleanup_worker(
+    db_path: Path,
+    backup_dir: Path,
+) -> DatabaseStorageCleanupOperationResult:
+    database = Database(db_path)
+    database.connect()
+    try:
+        safety_backup = database.backup_database(
+            backup_dir,
+            purpose="pre-cleanup",
+        )
+        logger.info(
+            "Created pre-cleanup database safety backup at %s",
+            safety_backup.path,
+        )
+        cleanup = database.clean_storage()
+        return DatabaseStorageCleanupOperationResult(
+            cleanup=cleanup,
+            safety_backup=safety_backup,
+        )
+    finally:
+        database.close()
+
+
+def _perform_storage_analysis_worker(
+    db_path: Path,
+    backup_dir: Path,
+) -> DatabaseStorageAnalysis:
+    database = Database(db_path)
+    database.connect()
+    try:
+        return database.analyze_storage_cleanup(backup_dir)
     finally:
         database.close()
 
@@ -136,6 +183,11 @@ class ServerMaintenanceManager:
     @property
     def is_active(self) -> bool:
         return self._active_operation is not None
+
+    @property
+    def is_busy(self) -> bool:
+        """Return whether any database worker currently owns serialization."""
+        return self.is_active or self._operation_lock.locked()
 
     def begin_tracked_work(self) -> bool:
         """Register event-loop work unless the maintenance barrier is active."""
@@ -209,6 +261,59 @@ class ServerMaintenanceManager:
             ),
         )
 
+    async def analyze_storage(self) -> DatabaseStorageAnalysis:
+        """Return a non-mutating cleanup preview without freezing gameplay."""
+        if self.is_busy:
+            raise DatabaseMaintenanceBusyError(
+                "A database maintenance operation is already active"
+            )
+        async with self._operation_lock:
+            if self.is_active:
+                raise DatabaseMaintenanceBusyError(
+                    "A database maintenance operation is already active"
+                )
+            if self.server.power_manager.is_scheduled:
+                raise DatabaseMaintenanceBusyError(
+                    "Storage analysis cannot start during a scheduled server power operation"
+                )
+            self._storage_idle_event.clear()
+            analysis_task = asyncio.create_task(
+                asyncio.to_thread(
+                    _perform_storage_analysis_worker,
+                    self.server.db.db_path,
+                    self.backup_dir,
+                )
+            )
+            try:
+                return await asyncio.shield(analysis_task)
+            except asyncio.CancelledError:
+                # Cancelling the coroutine cannot stop SQLite work already
+                # running in a thread. Keep shutdown blocked until it exits.
+                try:
+                    await analysis_task
+                except BaseException as worker_exc:
+                    logger.exception(
+                        "Storage analysis worker failed after cancellation",
+                        exc_info=worker_exc,
+                    )
+                raise
+            finally:
+                self._storage_idle_event.set()
+
+    async def clean_storage(
+        self,
+        *,
+        requested_by: str,
+    ) -> DatabaseStorageCleanupOperationResult:
+        return await self._run_operation(
+            DatabaseMaintenanceKind.CLEANUP,
+            requested_by=requested_by,
+            worker=lambda: _perform_storage_cleanup_worker(
+                self.server.db.db_path,
+                self.backup_dir,
+            ),
+        )
+
     async def _run_operation(
         self,
         kind: DatabaseMaintenanceKind,
@@ -218,7 +323,7 @@ class ServerMaintenanceManager:
     ) -> _ResultT:
         # Do not silently queue a second destructive/expensive operation. An
         # accidental double activation must receive an immediate busy result.
-        if self._operation_lock.locked() or self.is_active:
+        if self.is_busy:
             raise DatabaseMaintenanceBusyError(
                 "A database maintenance operation is already active"
             )
@@ -288,7 +393,7 @@ class ServerMaintenanceManager:
                     operation_error = exc
 
                 try:
-                    self.server.db.connect(prune=False, recover_corrupt=False)
+                    self.server.db.connect()
                     database_available = True
                 except BaseException as exc:
                     reconnect_error = exc

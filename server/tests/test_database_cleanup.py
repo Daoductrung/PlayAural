@@ -2,8 +2,25 @@ import pytest
 import sqlite3
 import json
 import datetime
+import os
 from datetime import timedelta
-from server.persistence.database import Database
+from pathlib import Path
+from server.persistence.database import (
+    Database,
+    DatabaseCleanupCategoryCode,
+)
+from server.persistence.retention import (
+    ABANDONED_BACKUP_FRAGMENT_MINIMUM_AGE_SECONDS,
+)
+
+
+def _mark_backup_fragment_abandoned(path: Path) -> None:
+    old_timestamp = (
+        datetime.datetime.now().timestamp()
+        - ABANDONED_BACKUP_FRAGMENT_MINIMUM_AGE_SECONDS
+        - 1
+    )
+    os.utime(path, (old_timestamp, old_timestamp))
 
 @pytest.fixture
 def db():
@@ -13,121 +30,195 @@ def db():
     yield database
     database.close()
 
-def test_prune_old_records(db):
+def test_storage_cleanup_is_allowlisted_and_preserves_excluded_data(db, tmp_path):
     cursor = db._conn.cursor()
+    reference = datetime.datetime(2026, 9, 26, 12, 0, 0)
+    recent = reference - timedelta(days=10)
+    stale = reference - timedelta(days=200)
+    old_game = reference - timedelta(days=400)
+    future = reference + timedelta(days=10)
 
-    now = datetime.datetime.now()
-    recent = now - timedelta(days=10)
-    old_game = now - timedelta(days=40)
-    old_save = now - timedelta(days=400)
-    old_ban = now - timedelta(days=40)
-    future = now + timedelta(days=10)
+    users = {
+        name: db.create_user(name, "hash")
+        for name in (
+            "mute_active",
+            "mute_expired",
+            "social_a",
+            "social_b",
+            "social_c",
+        )
+    }
 
-    db.create_user("mute_active", "hash")
-    db.create_user("mute_expired", "hash")
-    db.create_user("social_a", "hash")
-    db.create_user("social_b", "hash")
-    social_a = db.get_user("social_a")
-    social_b = db.get_user("social_b")
-    db.block_user(social_a.uuid, social_b.uuid)
-    db.send_friend_request(social_b.uuid, social_a.uuid)
-
-    # Insert game_results
-    cursor.execute("INSERT INTO game_results (game_type, timestamp, duration_ticks, custom_data) VALUES (?, ?, ?, ?)",
-                   ("pig", recent.isoformat(), 100, "{}"))
-    recent_game_id = cursor.lastrowid
-
-    cursor.execute("INSERT INTO game_results (game_type, timestamp, duration_ticks, custom_data) VALUES (?, ?, ?, ?)",
-                   ("pig", old_game.isoformat(), 100, "{}"))
+    # Historical game results and saved tables are user data, not garbage.
+    cursor.execute(
+        "INSERT INTO game_results "
+        "(game_type, timestamp, duration_ticks, custom_data) VALUES (?, ?, ?, ?)",
+        ("pig", old_game.isoformat(), 100, "{}"),
+    )
     old_game_id = cursor.lastrowid
+    cursor.execute(
+        "INSERT INTO game_result_players "
+        "(result_id, player_id, player_name, is_bot) VALUES (?, 'u1', 'p1', 0)",
+        (old_game_id,),
+    )
+    cursor.execute(
+        "INSERT INTO saved_tables "
+        "(username, save_name, game_type, game_json, members_json, saved_at) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        ("social_a", "Very Old Save", "pig", "{}", "[]", old_game.isoformat()),
+    )
+    message = db.add_global_chat_message(
+        users["social_a"].uuid,
+        "social_a",
+        "en",
+        "retained evidence",
+    )
+    cursor.execute(
+        """
+        INSERT INTO moderation_reports (
+            reporter_uuid, reporter_username, reported_uuid, reported_username,
+            reported_at_utc, reason_code, details, channel_code,
+            context_anchor_message_id, status, origin_code, context_code
+        ) VALUES (?, ?, ?, ?, ?, 'spam', '', 'en', ?, 'open', 'manual', 'global')
+        """,
+        (
+            users["social_b"].uuid,
+            "social_b",
+            users["social_a"].uuid,
+            "social_a",
+            old_game.isoformat(),
+            message.id,
+        ),
+    )
 
-    # Insert children to test CASCADE
-    cursor.execute("INSERT INTO game_result_players (result_id, player_id, player_name, is_bot) VALUES (?, 'u1', 'p1', 0)", (recent_game_id,))
-    cursor.execute("INSERT INTO game_result_players (result_id, player_id, player_name, is_bot) VALUES (?, 'u2', 'p2', 0)", (old_game_id,))
-
-    # Insert saved_tables
-    cursor.execute("INSERT INTO saved_tables (username, save_name, game_type, game_json, members_json, saved_at) VALUES (?, ?, ?, ?, ?, ?)",
-                   ("p1", "Recent", "pig", "{}", "[]", recent.isoformat()))
-    cursor.execute("INSERT INTO saved_tables (username, save_name, game_type, game_json, members_json, saved_at) VALUES (?, ?, ?, ?, ?, ?)",
-                   ("p1", "Old", "pig", "{}", "[]", old_save.isoformat()))
-
-    # Insert bans
-    cursor.execute("INSERT INTO bans (username, admin_username, reason_key, issued_at, expires_at) VALUES (?, ?, ?, ?, ?)",
-                   ("b1", "admin", "reason", old_game.isoformat(), recent.isoformat())) # Expired recently
-    cursor.execute("INSERT INTO bans (username, admin_username, reason_key, issued_at, expires_at) VALUES (?, ?, ?, ?, ?)",
-                   ("b2", "admin", "reason", old_save.isoformat(), old_ban.isoformat())) # Expired long ago
-
-    # Insert mutes
-    cursor.execute("INSERT INTO mutes (username, admin_username, reason, issued_at, expires_at) VALUES (?, ?, ?, ?, ?)",
-                   ("mute_active", "admin", "reason", recent.isoformat(), future.isoformat()))
-    cursor.execute("INSERT INTO mutes (username, admin_username, reason, issued_at, expires_at) VALUES (?, ?, ?, ?, ?)",
-                   ("mute_expired", "admin", "reason", old_game.isoformat(), recent.isoformat()))
-    cursor.execute("INSERT INTO mutes (username, admin_username, reason, issued_at, expires_at) VALUES (?, ?, ?, ?, ?)",
-                   ("mute_orphan", "admin", "reason", recent.isoformat(), future.isoformat()))
-
+    # Every allowlisted category gets one independent candidate.
+    cursor.execute(
+        """
+        INSERT INTO tables (
+            table_id, game_type, host, members_json, game_json,
+            checkpoint_created_at, checkpoint_expires_at
+        ) VALUES ('expired', 'pig', 'social_a', '[]', '{}', ?, ?)
+        """,
+        ((reference - timedelta(days=2)).isoformat(), recent.isoformat()),
+    )
+    cursor.execute(
+        """
+        INSERT INTO tables (
+            table_id, game_type, host, members_json, game_json,
+            checkpoint_created_at, checkpoint_expires_at
+        ) VALUES ('active', 'pig', 'social_a', '[]', '{}', ?, ?)
+        """,
+        ((reference - timedelta(days=2)).isoformat(), future.isoformat()),
+    )
+    cursor.execute(
+        "INSERT INTO password_reset_tokens "
+        "(user_uuid, token_hash, created_at, expires_at) VALUES (?, ?, ?, ?)",
+        (users["social_a"].uuid, "expired", stale.isoformat(), recent.isoformat()),
+    )
+    cursor.execute(
+        "INSERT INTO password_reset_tokens "
+        "(user_uuid, token_hash, created_at, expires_at) VALUES (?, ?, ?, ?)",
+        (users["social_b"].uuid, "malformed", recent.isoformat(), "not-a-date"),
+    )
+    cursor.execute(
+        "INSERT INTO bans "
+        "(username, admin_username, reason_key, issued_at, expires_at) "
+        "VALUES (?, 'admin', 'reason', ?, ?)",
+        ("recent_ban", old_game.isoformat(), recent.isoformat()),
+    )
+    cursor.execute(
+        "INSERT INTO bans "
+        "(username, admin_username, reason_key, issued_at, expires_at) "
+        "VALUES (?, 'admin', 'reason', ?, ?)",
+        ("old_ban", old_game.isoformat(), (reference - timedelta(days=40)).isoformat()),
+    )
+    cursor.execute(
+        "INSERT INTO friendships VALUES (?, ?, 'accepted', ?)",
+        (users["social_a"].uuid, users["social_b"].uuid, recent.isoformat()),
+    )
+    cursor.execute(
+        "INSERT INTO friendships VALUES (?, ?, 'pending', ?)",
+        (users["social_b"].uuid, users["social_c"].uuid, stale.isoformat()),
+    )
+    cursor.execute(
+        "INSERT INTO friendships VALUES (?, ?, 'accepted', ?)",
+        ("missing-friend", users["social_c"].uuid, recent.isoformat()),
+    )
+    cursor.execute(
+        "INSERT INTO user_blocks VALUES (?, ?, ?)",
+        (users["social_a"].uuid, users["social_b"].uuid, recent.isoformat()),
+    )
     cursor.execute(
         "INSERT INTO user_blocks (blocker_id, blocked_id, created_at) VALUES (?, ?, ?)",
-        ("missing-user", social_a.uuid, recent.isoformat()),
+        ("missing-blocker", users["social_c"].uuid, recent.isoformat()),
     )
     cursor.execute(
-        "INSERT INTO friendships (requester_id, receiver_id, status, created_at) VALUES (?, ?, ?, ?)",
-        ("missing-user", social_a.uuid, "accepted", recent.isoformat()),
+        "INSERT INTO user_notifications VALUES (NULL, ?, ?, 'friend_added', ?)",
+        (users["social_a"].uuid, "social_b", recent.isoformat()),
     )
     cursor.execute(
-        "INSERT INTO user_notifications (user_id, source_username, event_type, created_at) VALUES (?, ?, ?, ?)",
-        (social_a.uuid, "missing-user", "friend_removed", recent.isoformat()),
+        "INSERT INTO user_notifications VALUES (NULL, ?, ?, 'friend_added', ?)",
+        (users["social_b"].uuid, "social_a", stale.isoformat()),
+    )
+    cursor.execute(
+        "INSERT INTO user_notifications VALUES (NULL, ?, ?, 'friend_removed', ?)",
+        (users["social_c"].uuid, "missing-source", recent.isoformat()),
+    )
+    cursor.execute(
+        "INSERT INTO mutes "
+        "(username, admin_username, reason, issued_at, expires_at) "
+        "VALUES (?, 'admin', 'reason', ?, ?)",
+        ("mute_active", recent.isoformat(), future.isoformat()),
+    )
+    cursor.execute(
+        "INSERT INTO mutes "
+        "(username, admin_username, reason, issued_at, expires_at) "
+        "VALUES (?, 'admin', 'reason', ?, ?)",
+        ("mute_expired", old_game.isoformat(), recent.isoformat()),
+    )
+    cursor.execute(
+        "INSERT INTO mutes "
+        "(username, admin_username, reason, issued_at, expires_at) "
+        "VALUES ('missing-mute', 'admin', 'reason', ?, ?)",
+        (recent.isoformat(), future.isoformat()),
     )
 
-    db._conn.commit()
+    preview = db.analyze_storage_cleanup(
+        tmp_path / "backups",
+        reference_time=reference,
+    )
+    preview_counts = {category.code: category.count for category in preview.categories}
+    expected_codes = tuple(category.value for category in DatabaseCleanupCategoryCode)
+    assert tuple(preview_counts) == expected_codes
+    assert set(preview_counts.values()) == {1}
+    assert preview.total_candidate_records == len(expected_codes)
+    assert preview.invalid_timestamp_values == 1
+    assert db.get_password_reset_token(users["social_b"].uuid) is None
 
-    # Run pruner
-    db.prune_old_records()
+    result = db.clean_storage(reference_time=reference)
+    assert {category.code: category.count for category in result.categories} == preview_counts
+    assert result.total_deleted_records == preview.total_candidate_records
+    assert result.invalid_timestamp_values == 1
 
-    # Check game results and cascade
-    cursor.execute("SELECT id FROM game_results")
-    games = [row[0] for row in cursor.fetchall()]
-    assert recent_game_id in games
-    assert old_game_id not in games
+    assert cursor.execute("SELECT COUNT(*) FROM game_results").fetchone()[0] == 1
+    assert cursor.execute("SELECT COUNT(*) FROM game_result_players").fetchone()[0] == 1
+    assert cursor.execute("SELECT save_name FROM saved_tables").fetchone()[0] == "Very Old Save"
+    assert cursor.execute("SELECT COUNT(*) FROM global_chat_messages").fetchone()[0] == 1
+    assert cursor.execute("SELECT COUNT(*) FROM moderation_reports").fetchone()[0] == 1
+    assert cursor.execute("SELECT table_id FROM tables").fetchone()[0] == "active"
+    assert cursor.execute("SELECT token_hash FROM password_reset_tokens").fetchone()[0] == "malformed"
+    assert [row[0] for row in cursor.execute("SELECT username FROM bans")] == ["recent_ban"]
+    assert [row[0] for row in cursor.execute("SELECT username FROM mutes")] == ["mute_active"]
+    assert cursor.execute("SELECT COUNT(*) FROM friendships").fetchone()[0] == 1
+    assert cursor.execute("SELECT COUNT(*) FROM user_blocks").fetchone()[0] == 1
+    assert cursor.execute("SELECT COUNT(*) FROM user_notifications").fetchone()[0] == 1
 
-    cursor.execute("SELECT result_id FROM game_result_players")
-    players = [row[0] for row in cursor.fetchall()]
-    assert recent_game_id in players
-    assert old_game_id not in players # Cascaded!
-
-    # Check saved tables
-    cursor.execute("SELECT save_name FROM saved_tables")
-    saves = [row[0] for row in cursor.fetchall()]
-    assert "Recent" in saves
-    assert "Old" not in saves
-
-    # Check bans
-    cursor.execute("SELECT username FROM bans")
-    bans = [row[0] for row in cursor.fetchall()]
-    assert "b1" in bans
-    assert "b2" not in bans
-
-    # Check mutes
-    cursor.execute("SELECT username FROM mutes")
-    mutes = [row[0] for row in cursor.fetchall()]
-    assert "mute_active" in mutes
-    assert "mute_expired" not in mutes
-    assert "mute_orphan" not in mutes
-
-    cursor.execute("SELECT blocker_id, blocked_id FROM user_blocks")
-    assert [tuple(row) for row in cursor.fetchall()] == [
-        (social_a.uuid, social_b.uuid)
-    ]
-    cursor.execute("SELECT requester_id, receiver_id FROM friendships")
-    assert cursor.fetchall() == []
-    cursor.execute("SELECT user_id FROM user_notifications")
-    assert cursor.fetchall() == []
-
-def test_connect_can_skip_pruning_for_short_cli_operations(tmp_path):
+def test_connect_never_runs_retention_cleanup_implicitly(tmp_path):
     db_path = tmp_path / "PlayAural.db"
     database = Database(db_path)
     database.connect()
 
-    old_game = datetime.datetime.now() - timedelta(days=40)
+    old_game = datetime.datetime.now() - timedelta(days=400)
     cursor = database._conn.cursor()
     cursor.execute(
         "INSERT INTO game_results (game_type, timestamp, duration_ticks, custom_data) VALUES (?, ?, ?, ?)",
@@ -137,17 +228,21 @@ def test_connect_can_skip_pruning_for_short_cli_operations(tmp_path):
     database.close()
 
     database = Database(db_path)
-    database.connect(prune=False)
+    database.connect()
     cursor = database._conn.cursor()
     cursor.execute("SELECT COUNT(*) FROM game_results")
     assert cursor.fetchone()[0] == 1
     database.close()
 
     database = Database(db_path)
-    database.connect(prune=True)
+    database.connect()
     cursor = database._conn.cursor()
     cursor.execute("SELECT COUNT(*) FROM game_results")
-    assert cursor.fetchone()[0] == 0
+    assert cursor.fetchone()[0] == 1
+
+    database.clean_storage()
+    cursor.execute("SELECT COUNT(*) FROM game_results")
+    assert cursor.fetchone()[0] == 1
     database.close()
 
 
@@ -220,7 +315,7 @@ def test_database_backup_is_unique_valid_and_preserves_live_data(tmp_path):
         assert not list(backup_dir.glob("*.partial"))
 
         restored = Database(first.path)
-        restored.connect(prune=False, recover_corrupt=False)
+        restored.connect()
         try:
             assert restored.get_user("Retained Backup User").uuid == user.uuid
             assert restored._conn.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
@@ -282,6 +377,8 @@ def test_database_backup_removes_only_unpublished_backup_fragments(tmp_path):
     unrelated_partial = backup_dir / ".unrelated.sqlite3.partial"
     for path in (stale_main, stale_wal, retained_backup, unrelated_partial):
         path.write_bytes(b"test")
+    _mark_backup_fragment_abandoned(stale_main)
+    _mark_backup_fragment_abandoned(stale_wal)
 
     database = Database(tmp_path / "source.sqlite")
     database.connect()
@@ -289,6 +386,8 @@ def test_database_backup_removes_only_unpublished_backup_fragments(tmp_path):
         result = database.backup_database(backup_dir)
 
         assert result.path.exists()
+        assert result.incomplete_files_removed == 2
+        assert result.incomplete_file_bytes_removed == 8
         assert not stale_main.exists()
         assert not stale_wal.exists()
         assert retained_backup.read_bytes() == b"test"
@@ -297,7 +396,116 @@ def test_database_backup_removes_only_unpublished_backup_fragments(tmp_path):
         database.close()
 
 
-def test_connect_quarantines_corrupt_database_and_rebuilds(tmp_path, capsys):
+def test_database_backup_preserves_recent_matching_fragments(tmp_path):
+    backup_dir = tmp_path / "backups"
+    backup_dir.mkdir()
+    recent_fragment = backup_dir / ".PlayAural-manual-live.sqlite3.partial"
+    recent_fragment.write_bytes(b"possibly active")
+
+    database = Database(tmp_path / "source.sqlite")
+    database.connect()
+    try:
+        result = database.backup_database(backup_dir)
+
+        assert result.incomplete_files_removed == 0
+        assert result.incomplete_file_bytes_removed == 0
+        assert recent_fragment.read_bytes() == b"possibly active"
+    finally:
+        database.close()
+
+
+def test_storage_cleanup_rolls_back_every_category_if_one_delete_fails(
+    tmp_path,
+) -> None:
+    database = Database(tmp_path / "cleanup-rollback.sqlite")
+    database.connect()
+    try:
+        expired = (datetime.datetime.now() - timedelta(days=2)).isoformat()
+        user = database.create_user("Rollback Retained", "hash")
+        database._conn.execute(
+            """
+            INSERT INTO tables (
+                table_id, game_type, host, members_json, game_json,
+                checkpoint_created_at, checkpoint_expires_at
+            ) VALUES ('expired', 'pig', ?, '[]', '{}', ?, ?)
+            """,
+            (user.username, expired, expired),
+        )
+        database.save_password_reset_token(
+            user.uuid,
+            "expired-token",
+            expired,
+        )
+        database._conn.execute(
+            """
+            CREATE TRIGGER reject_token_cleanup
+            BEFORE DELETE ON password_reset_tokens
+            BEGIN
+                SELECT RAISE(ABORT, 'simulated cleanup failure');
+            END
+            """
+        )
+
+        with pytest.raises(sqlite3.IntegrityError, match="simulated cleanup failure"):
+            database.clean_storage()
+
+        assert database._conn.execute(
+            "SELECT COUNT(*) FROM tables WHERE table_id = 'expired'"
+        ).fetchone()[0] == 1
+        assert database._conn.execute(
+            "SELECT COUNT(*) FROM password_reset_tokens"
+        ).fetchone()[0] == 1
+        assert database._conn.in_transaction is False
+    finally:
+        database.close()
+
+
+def test_storage_cleanup_rolls_back_if_precommit_validation_fails(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database = Database(tmp_path / "cleanup-validation.sqlite")
+    database.connect()
+    try:
+        expired = (datetime.datetime.now() - timedelta(days=2)).isoformat()
+        user = database.create_user("Validation Retained", "hash")
+        database.save_password_reset_token(
+            user.uuid,
+            "expired-token",
+            expired,
+        )
+        original_verify = database._verify_connection_integrity
+        validation_count = 0
+
+        def fail_precommit_validation(connection, *, full: bool) -> None:
+            nonlocal validation_count
+            validation_count += 1
+            if validation_count == 2:
+                raise sqlite3.DatabaseError("simulated precommit validation failure")
+            original_verify(connection, full=full)
+
+        monkeypatch.setattr(
+            database,
+            "_verify_connection_integrity",
+            fail_precommit_validation,
+        )
+
+        with pytest.raises(
+            sqlite3.DatabaseError,
+            match="simulated precommit validation failure",
+        ):
+            database.clean_storage()
+
+        assert validation_count == 2
+        assert database._conn.execute(
+            "SELECT COUNT(*) FROM password_reset_tokens"
+        ).fetchone()[0] == 1
+        assert database._conn.in_transaction is False
+    finally:
+        database.close()
+
+
+def test_connect_leaves_corrupt_database_and_sidecars_untouched(tmp_path):
     db_path = tmp_path / "PlayAural.db"
     wal_path = tmp_path / "PlayAural.db-wal"
     shm_path = tmp_path / "PlayAural.db-shm"
@@ -306,100 +514,273 @@ def test_connect_quarantines_corrupt_database_and_rebuilds(tmp_path, capsys):
     shm_path.write_bytes(b"stale shm")
 
     database = Database(db_path)
-    database.connect()
-    printed = capsys.readouterr().out
-
-    assert "Database recovery: detected a corrupt SQLite database" in printed
-    assert db_path.exists()
-
-    quarantined_main = list(tmp_path.glob("PlayAural.db.corrupt-*"))
-    assert len(quarantined_main) == 1
-    assert quarantined_main[0].read_bytes() == b"this is not a sqlite database"
-
-    cursor = database._conn.cursor()
-    cursor.execute(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'users'"
-    )
-    assert cursor.fetchone()["name"] == "users"
-    database.close()
-
-
-def test_connect_can_disable_corrupt_database_recovery(tmp_path):
-    db_path = tmp_path / "PlayAural.db"
-    db_path.write_bytes(b"this is not a sqlite database")
-
-    database = Database(db_path)
     with pytest.raises(sqlite3.DatabaseError):
-        database.connect(recover_corrupt=False)
+        database.connect()
 
     assert db_path.read_bytes() == b"this is not a sqlite database"
-    assert not list(tmp_path.glob("PlayAural.db.corrupt-*"))
+    assert wal_path.read_bytes() == b"stale wal"
+    assert shm_path.read_bytes() == b"stale shm"
     assert database._conn is None
 
 
-def test_quarantine_corrupt_database_moves_existing_sidecars(tmp_path):
-    db_path = tmp_path / "PlayAural.db"
-    wal_path = tmp_path / "PlayAural.db-wal"
-    shm_path = tmp_path / "PlayAural.db-shm"
-    journal_path = tmp_path / "PlayAural.db-journal"
-    db_path.write_bytes(b"bad db")
-    wal_path.write_bytes(b"bad wal")
-    shm_path.write_bytes(b"bad shm")
-    journal_path.write_bytes(b"bad journal")
+def test_connect_rejects_orphan_sidecars_without_creating_main_database(tmp_path):
+    db_path = tmp_path / "missing.db"
+    wal_path = Path(f"{db_path}-wal")
+    wal_path.write_bytes(b"orphaned wal")
 
     database = Database(db_path)
-    moved = database._quarantine_corrupt_database(
-        sqlite3.DatabaseError("database disk image is malformed")
-    )
+    with pytest.raises(sqlite3.DatabaseError, match="sidecar files exist"):
+        database.connect()
 
-    assert db_path.exists() is False
-    assert wal_path.exists() is False
-    assert shm_path.exists() is False
-    assert journal_path.exists() is False
-    assert len(moved) == 4
-    assert (
-        list(tmp_path.glob("PlayAural.db.corrupt-*"))[0].read_bytes()
-        == b"bad db"
-    )
-    assert (
-        list(tmp_path.glob("PlayAural.db-wal.corrupt-*"))[0].read_bytes()
-        == b"bad wal"
-    )
-    assert (
-        list(tmp_path.glob("PlayAural.db-shm.corrupt-*"))[0].read_bytes()
-        == b"bad shm"
-    )
-    assert (
-        list(tmp_path.glob("PlayAural.db-journal.corrupt-*"))[0].read_bytes()
-        == b"bad journal"
-    )
+    assert not db_path.exists()
+    assert wal_path.read_bytes() == b"orphaned wal"
+    assert database._conn is None
 
 
-def test_connect_recovers_when_pruning_reports_corruption(tmp_path, monkeypatch):
-    db_path = tmp_path / "PlayAural.db"
-    original_prune = Database.prune_old_records
-    calls = 0
-
-    def flaky_prune(self):
-        nonlocal calls
-        calls += 1
-        if calls == 1:
-            raise sqlite3.DatabaseError("database disk image is malformed")
-        return original_prune(self)
-
-    monkeypatch.setattr(Database, "prune_old_records", flaky_prune)
-
+def _create_unversioned_database(db_path: Path) -> str:
+    """Create the production v0 shape from the current schema for migration tests."""
     database = Database(db_path)
     database.connect()
-
-    assert calls == 2
-    assert len(list(tmp_path.glob("PlayAural.db.corrupt-*"))) == 1
-    cursor = database._conn.cursor()
-    cursor.execute(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'users'"
+    user = database.create_user("Legacy User", "hash")
+    database._conn.execute(
+        """
+        INSERT INTO game_results (game_type, timestamp, duration_ticks, custom_data)
+        VALUES (?, ?, ?, ?)
+        """,
+        ("pig", "2020-01-01T00:00:00", 100, "{}"),
     )
-    assert cursor.fetchone()["name"] == "users"
+    database._conn.execute(
+        """
+        INSERT INTO password_reset_tokens
+            (user_uuid, token_hash, created_at, expires_at)
+        VALUES (?, ?, ?, ?)
+        """,
+        (
+            user.uuid,
+            "expired-token",
+            "2020-01-01T00:00:00",
+            "2020-01-01T01:00:00",
+        ),
+    )
     database.close()
+
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute("DROP TABLE moderation_reports")
+        connection.execute("DROP TABLE global_chat_messages")
+        connection.execute("DROP TABLE server_settings")
+        connection.execute("PRAGMA application_id = 0")
+        connection.execute("PRAGMA user_version = 0")
+        connection.commit()
+    finally:
+        connection.close()
+    return user.uuid
+
+
+def test_legacy_migration_creates_backup_and_preserves_all_rows(tmp_path):
+    db_path = tmp_path / "PlayAural.db"
+    backup_dir = tmp_path / "migration-backups"
+    user_uuid = _create_unversioned_database(db_path)
+
+    database = Database(db_path)
+    database.connect(migration_backup_dir=backup_dir)
+    try:
+        assert database.get_user("Legacy User").uuid == user_uuid
+        assert database._conn.execute(
+            "SELECT COUNT(*) FROM game_results"
+        ).fetchone()[0] == 1
+        assert database._conn.execute(
+            "SELECT COUNT(*) FROM password_reset_tokens"
+        ).fetchone()[0] == 1
+        assert database._conn.execute("PRAGMA application_id").fetchone()[0] == (
+            Database.APPLICATION_ID
+        )
+        assert database._conn.execute("PRAGMA user_version").fetchone()[0] == (
+            Database.CURRENT_SCHEMA_VERSION
+        )
+    finally:
+        database.close()
+
+    backups = list(backup_dir.glob("*.sqlite3"))
+    assert len(backups) == 1
+    backup = sqlite3.connect(backups[0])
+    try:
+        assert backup.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+        assert backup.execute("PRAGMA application_id").fetchone()[0] == 0
+        assert backup.execute("PRAGMA user_version").fetchone()[0] == 0
+        assert backup.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 1
+        assert backup.execute("SELECT COUNT(*) FROM game_results").fetchone()[0] == 1
+        assert backup.execute(
+            "SELECT COUNT(*) FROM password_reset_tokens"
+        ).fetchone()[0] == 1
+        assert backup.execute(
+            "SELECT COUNT(*) FROM sqlite_schema WHERE name = 'moderation_reports'"
+        ).fetchone()[0] == 0
+    finally:
+        backup.close()
+
+    # A current database does not create repeated migration backups.
+    database = Database(db_path)
+    database.connect(migration_backup_dir=backup_dir)
+    database.close()
+    assert len(list(backup_dir.glob("*.sqlite3"))) == 1
+
+
+def test_failed_migration_rolls_back_and_retains_recovery_backup(
+    tmp_path,
+    monkeypatch,
+):
+    db_path = tmp_path / "PlayAural.db"
+    backup_dir = tmp_path / "migration-backups"
+    _create_unversioned_database(db_path)
+
+    database = Database(db_path)
+    original_create = database._create_tables_in_transaction
+
+    def fail_after_schema_changes(cursor):
+        original_create(cursor)
+        raise RuntimeError("simulated migration failure")
+
+    monkeypatch.setattr(
+        database,
+        "_create_tables_in_transaction",
+        fail_after_schema_changes,
+    )
+    with pytest.raises(RuntimeError, match="simulated migration failure"):
+        database.connect(migration_backup_dir=backup_dir)
+
+    assert database._conn is None
+    connection = sqlite3.connect(db_path)
+    try:
+        assert connection.execute("PRAGMA application_id").fetchone()[0] == 0
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 0
+        assert connection.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 1
+        assert connection.execute(
+            "SELECT COUNT(*) FROM sqlite_schema WHERE name = 'moderation_reports'"
+        ).fetchone()[0] == 0
+    finally:
+        connection.close()
+    assert len(list(backup_dir.glob("*.sqlite3"))) == 1
+
+
+def test_failed_migration_backup_prevents_any_schema_write(tmp_path, monkeypatch):
+    db_path = tmp_path / "PlayAural.db"
+    _create_unversioned_database(db_path)
+    database = Database(db_path)
+
+    def fail_backup(*_args, **_kwargs):
+        raise OSError("simulated backup failure")
+
+    monkeypatch.setattr(database, "backup_database", fail_backup)
+    with pytest.raises(OSError, match="simulated backup failure"):
+        database.connect(migration_backup_dir=tmp_path / "backups")
+
+    assert database._conn is None
+    connection = sqlite3.connect(db_path)
+    try:
+        assert connection.execute("PRAGMA application_id").fetchone()[0] == 0
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 0
+        assert connection.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 1
+        assert connection.execute(
+            "SELECT COUNT(*) FROM sqlite_schema WHERE name = 'moderation_reports'"
+        ).fetchone()[0] == 0
+    finally:
+        connection.close()
+
+
+def test_post_migration_validation_failure_rolls_back_header_and_schema(tmp_path):
+    db_path = tmp_path / "incomplete-legacy.db"
+    backup_dir = tmp_path / "backups"
+    connection = sqlite3.connect(db_path)
+    connection.execute(
+        """
+        CREATE TABLE users (
+            id INTEGER PRIMARY KEY,
+            username TEXT NOT NULL,
+            password_hash TEXT NOT NULL,
+            uuid TEXT NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        "INSERT INTO users VALUES (1, 'Retained', 'hash', 'retained-uuid')"
+    )
+    connection.commit()
+    connection.close()
+
+    with pytest.raises(sqlite3.DatabaseError, match="missing required columns"):
+        Database(db_path).connect(migration_backup_dir=backup_dir)
+
+    connection = sqlite3.connect(db_path)
+    try:
+        assert connection.execute("PRAGMA application_id").fetchone()[0] == 0
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 0
+        assert connection.execute("SELECT username FROM users").fetchone()[0] == (
+            "Retained"
+        )
+        columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(users)")
+        }
+        assert "username_key" not in columns
+        assert connection.execute(
+            "SELECT COUNT(*) FROM sqlite_schema WHERE name = 'moderation_reports'"
+        ).fetchone()[0] == 0
+    finally:
+        connection.close()
+    assert len(list(backup_dir.glob("*.sqlite3"))) == 1
+
+
+def test_connect_rejects_newer_or_foreign_database_without_mutation(tmp_path):
+    newer_path = tmp_path / "newer.db"
+    newer = Database(newer_path)
+    newer.connect()
+    newer.close()
+    connection = sqlite3.connect(newer_path)
+    connection.execute(
+        f"PRAGMA user_version = {Database.CURRENT_SCHEMA_VERSION + 1}"
+    )
+    connection.close()
+    newer_bytes = newer_path.read_bytes()
+
+    with pytest.raises(sqlite3.DatabaseError, match="newer than supported"):
+        Database(newer_path).connect()
+    assert newer_path.read_bytes() == newer_bytes
+
+    foreign_path = tmp_path / "foreign.db"
+    connection = sqlite3.connect(foreign_path)
+    connection.execute("CREATE TABLE unrelated (id INTEGER PRIMARY KEY)")
+    connection.execute("PRAGMA application_id = 1234")
+    connection.commit()
+    connection.close()
+    foreign_bytes = foreign_path.read_bytes()
+
+    with pytest.raises(sqlite3.DatabaseError, match="another application"):
+        Database(foreign_path).connect()
+    assert foreign_path.read_bytes() == foreign_bytes
+
+
+def test_current_schema_drift_fails_closed_without_recreating_data(tmp_path):
+    db_path = tmp_path / "drift.db"
+    database = Database(db_path)
+    database.connect()
+    database.create_user("Retained", "hash")
+    database.close()
+    connection = sqlite3.connect(db_path)
+    connection.execute("DROP TABLE server_settings")
+    connection.commit()
+    connection.close()
+
+    with pytest.raises(sqlite3.DatabaseError, match="missing required tables"):
+        Database(db_path).connect()
+
+    connection = sqlite3.connect(db_path)
+    try:
+        assert connection.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 1
+        assert connection.execute(
+            "SELECT COUNT(*) FROM sqlite_schema WHERE name = 'server_settings'"
+        ).fetchone()[0] == 0
+    finally:
+        connection.close()
 
 
 def test_corruption_detection_is_narrow():

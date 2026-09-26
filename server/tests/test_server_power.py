@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from ..core import power as power_module
+from ..core import server as server_module
 from ..core.power import PowerAction, ScheduledPowerOperation, ServerPowerManager
 from ..core.server import Server
 from ..games.pig.game import PigGame
@@ -174,7 +175,7 @@ def test_active_table_checkpoints_replace_and_prune(tmp_path, monkeypatch) -> No
             (old,),
         )
         db._conn.commit()
-        db.prune_old_records()
+        db.clean_storage()
         assert db.load_all_tables() == []
     finally:
         db.close()
@@ -263,7 +264,7 @@ def test_legacy_user_saved_table_schema_adds_empty_table_state(tmp_path) -> None
         connection.close()
 
     db = Database(db_path)
-    db.connect(prune=False)
+    db.connect()
     try:
         records = db.get_user_saved_tables("Alice")
         assert len(records) == 1
@@ -275,6 +276,144 @@ def test_legacy_user_saved_table_schema_adds_empty_table_state(tmp_path) -> None
         assert "table_state_json" in columns
     finally:
         db.close()
+
+
+@pytest.mark.asyncio
+async def test_startup_preserves_durable_rows_and_consumes_checkpoints_only_on_success(
+    tmp_path,
+) -> None:
+    db_path = tmp_path / "startup.db"
+    database = Database(db_path)
+    database.connect()
+    database.save_all_tables(
+        [Table(table_id="recoverable", game_type="pig", host="Alice")]
+    )
+    database._conn.execute(
+        """
+        INSERT INTO tables (
+            table_id, game_type, host, members_json, status,
+            checkpoint_kind, checkpoint_created_at
+        ) VALUES ('expired', 'pig', 'Alice', '[]', 'waiting',
+                  'planned_reboot', '2020-01-01T00:00:00')
+        """
+    )
+    database._conn.execute(
+        """
+        INSERT INTO game_results (game_type, timestamp, duration_ticks, custom_data)
+        VALUES ('pig', '2020-01-01T00:00:00', 10, '{}')
+        """
+    )
+    database._conn.execute(
+        """
+        INSERT INTO password_reset_tokens
+            (user_uuid, token_hash, created_at, expires_at)
+        VALUES ('missing-user', 'expired', '2020-01-01T00:00:00',
+                '2020-01-01T01:00:00')
+        """
+    )
+    database.close()
+
+    server = Server(
+        host="127.0.0.1",
+        port=0,
+        db_path=str(db_path),
+        database_backup_dir=tmp_path / "backups",
+    )
+    await server.start()
+    try:
+        assert server.db._conn.execute(
+            "SELECT COUNT(*) FROM tables"
+        ).fetchone()[0] == 0
+        assert server.db._conn.execute(
+            "SELECT COUNT(*) FROM game_results"
+        ).fetchone()[0] == 1
+        assert server.db._conn.execute(
+            "SELECT COUNT(*) FROM password_reset_tokens"
+        ).fetchone()[0] == 1
+        assert server._tables.get_table("recoverable") is not None
+        assert server._tables.get_table("expired") is None
+    finally:
+        await server.stop(preserve_tables=False)
+
+
+@pytest.mark.asyncio
+async def test_failed_startup_keeps_table_checkpoints_and_closes_database(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "failed-startup.db"
+    database = Database(db_path)
+    database.connect()
+    database.save_all_tables(
+        [Table(table_id="recoverable", game_type="pig", host="Alice")]
+    )
+    database.close()
+
+    async def fail_to_bind(_websocket_server) -> None:
+        raise OSError("simulated bind failure")
+
+    monkeypatch.setattr(server_module.WebSocketServer, "start", fail_to_bind)
+    server = Server(
+        host="127.0.0.1",
+        port=0,
+        db_path=str(db_path),
+        database_backup_dir=tmp_path / "backups",
+    )
+    with pytest.raises(OSError, match="simulated bind failure"):
+        await server.start()
+
+    assert server.db._conn is None
+    assert server._tables.get_all_tables() == []
+    connection = sqlite3.connect(db_path)
+    try:
+        assert connection.execute("SELECT COUNT(*) FROM tables").fetchone()[0] == 1
+    finally:
+        connection.close()
+
+
+@pytest.mark.asyncio
+async def test_malformed_checkpoint_fails_startup_without_deleting_evidence(
+    tmp_path,
+) -> None:
+    db_path = tmp_path / "malformed-checkpoint.db"
+    database = Database(db_path)
+    database.connect()
+    database._conn.execute(
+        """
+        INSERT INTO tables (
+            table_id, game_type, host, members_json, status,
+            checkpoint_kind, checkpoint_created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            "malformed",
+            "pig",
+            "Alice",
+            "not-json",
+            "waiting",
+            "planned_reboot",
+            datetime.now().isoformat(),
+        ),
+    )
+    database.close()
+
+    server = Server(
+        host="127.0.0.1",
+        port=0,
+        db_path=str(db_path),
+        database_backup_dir=tmp_path / "backups",
+    )
+    with pytest.raises(sqlite3.DatabaseError, match="'malformed'"):
+        await server.start()
+
+    assert server.db._conn is None
+    connection = sqlite3.connect(db_path)
+    try:
+        assert connection.execute(
+            "SELECT members_json FROM tables WHERE table_id = 'malformed'"
+        ).fetchone()[0] == "not-json"
+    finally:
+        connection.close()
 
 
 @pytest.mark.parametrize(

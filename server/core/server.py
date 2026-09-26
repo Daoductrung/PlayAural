@@ -36,6 +36,8 @@ from ..administration.manager import (
     ADMIN_DATABASE_BACKUP_CONFIRM_MENU,
     ADMIN_DATABASE_COMPACT_CONFIRM_MENU,
     ADMIN_DATABASE_MENU,
+    ADMIN_DATABASE_STORAGE_ANALYSIS_MENU,
+    ADMIN_DATABASE_STORAGE_CLEANUP_CONFIRM_MENU,
     ADMIN_LOCALIZED_TEXT_MENU,
     ADMIN_MENU_IDS,
     ADMIN_MODERATION_CLEAR_CONFIRM_MENU,
@@ -536,86 +538,74 @@ PlayAural Server
         self._requested_exit_code = 0
         self._stopping = False
 
-        # Connect to database. Server startup owns guarded corruption recovery:
-        # a malformed SQLite file is quarantined before a fresh schema is built.
-        self._db.connect(recover_corrupt=True)
-        self._load_persistent_server_settings()
-        self._db.prune_unregistered_game_data(
-            {game_class.get_type() for game_class in GameRegistry.get_all()}
+        # Startup is fail-closed: the database layer never replaces a suspect
+        # file, and an older schema receives a durable backup before migration.
+        self._db.connect(
+            migration_backup_dir=self.maintenance_manager.backup_dir,
         )
-        stat_keys_by_game, rating_game_types = self._get_leaderboard_prune_spec()
-        self._db.prune_unsupported_leaderboard_data(
-            stat_keys_by_game,
-            rating_game_types,
-        )
-        self._auth = AuthManager(self._db)
+        try:
+            self._load_persistent_server_settings()
+            self._auth = AuthManager(self._db)
 
-        # Initialize trust levels for users
-        promoted_user = self._db.initialize_trust_levels()
-        if promoted_user:
-            print(f"User '{promoted_user}' has been promoted to admin (trust level 2).")
+            # Initialize trust levels for users
+            promoted_user = self._db.initialize_trust_levels()
+            if promoted_user:
+                print(
+                    f"User '{promoted_user}' has been promoted to admin "
+                    "(trust level 2)."
+                )
 
-        # Load existing tables
-        self._load_tables()
+            # Load existing tables without consuming their recovery records.
+            # The records remain durable until every startup stage succeeds.
+            self._load_tables()
 
-        # Start WebSocket server
-        self._ws_server = WebSocketServer(
-            host=self.host,
-            port=self.port,
-            on_connect=self._on_client_connect,
-            on_disconnect=self._on_client_disconnect,
-            on_message=self._on_client_message,
-            ssl_cert=self._ssl_cert,
-            ssl_key=self._ssl_key,
-        )
-        await self._ws_server.start()
+            # Start WebSocket server
+            self._ws_server = WebSocketServer(
+                host=self.host,
+                port=self.port,
+                on_connect=self._on_client_connect,
+                on_disconnect=self._on_client_disconnect,
+                on_message=self._on_client_message,
+                ssl_cert=self._ssl_cert,
+                ssl_key=self._ssl_key,
+            )
+            await self._ws_server.start()
 
-        # Start tick scheduler
-        self._tick_scheduler = TickScheduler(self._on_tick)
-        await self._tick_scheduler.start()
+            # Start tick scheduler
+            self._tick_scheduler = TickScheduler(self._on_tick)
+            await self._tick_scheduler.start()
+
+            # Checkpoints are one-time recovery records. Consume them only
+            # after SQLite, deserialization, networking, and ticking are ready.
+            self._db.delete_all_tables()
+        except BaseException:
+            if self._tick_scheduler is not None:
+                try:
+                    await self._tick_scheduler.stop()
+                except BaseException:
+                    logging.getLogger("playaural").exception(
+                        "Failed to stop the tick scheduler after startup failed"
+                    )
+                self._tick_scheduler = None
+            if self._ws_server is not None:
+                try:
+                    await self._ws_server.stop()
+                except BaseException:
+                    logging.getLogger("playaural").exception(
+                        "Failed to stop the WebSocket server after startup failed"
+                    )
+                self._ws_server = None
+            self._discard_restored_tables_after_failed_startup()
+            try:
+                self._db.close()
+            except BaseException:
+                logging.getLogger("playaural").exception(
+                    "Failed to close SQLite after startup failed"
+                )
+            raise
 
         protocol = "wss" if self._ssl_cert else "ws"
         print(f"Server running on {protocol}://{self.host}:{self.port}")
-
-    def _get_leaderboard_prune_spec(self) -> tuple[dict[str, set[str]], set[str]]:
-        """Build persisted leaderboard stat allowlists from registered games."""
-        built_in_stat_keys = {
-            "games_played": {"games_played"},
-            "wins": {"wins", "losses"},
-            "total_score": {"total_score"},
-            "high_score": {"high_score"},
-        }
-        stat_keys_by_game: dict[str, set[str]] = {}
-        rating_game_types: set[str] = set()
-
-        for game_class in GameRegistry.get_all():
-            game_type = game_class.get_type()
-            supported = set(game_class.get_supported_leaderboards())
-            stat_keys: set[str] = set()
-            for leaderboard_type, stat_keys_for_type in built_in_stat_keys.items():
-                if leaderboard_type in supported:
-                    stat_keys.update(stat_keys_for_type)
-            if "rating" in supported:
-                rating_game_types.add(game_type)
-
-            for config in game_class.get_leaderboard_types():
-                leaderboard_id = config["id"]
-                aggregate = config.get("aggregate", "sum")
-                if config.get("path"):
-                    if aggregate == "max":
-                        stat_keys.add(f"custom_{leaderboard_id}_high")
-                    elif aggregate == "avg":
-                        stat_keys.add(f"custom_{leaderboard_id}_sum")
-                        stat_keys.add(f"custom_{leaderboard_id}_count")
-                    else:
-                        stat_keys.add(f"custom_{leaderboard_id}")
-                elif config.get("numerator") and config.get("denominator"):
-                    stat_keys.add(f"custom_{leaderboard_id}_numerator")
-                    stat_keys.add(f"custom_{leaderboard_id}_denominator")
-
-            stat_keys_by_game[game_type] = stat_keys
-
-        return stat_keys_by_game, rating_game_types
 
     async def stop(
         self,
@@ -698,15 +688,15 @@ PlayAural Server
 
         tables = self._db.load_all_tables()
         for table in tables:
-            self._tables.add_table(table)
+            game_class = get_game_class(table.game_type)
+            if not game_class:
+                raise RuntimeError(
+                    "Could not restore table "
+                    f"{table.table_id!r}: unknown game type {table.game_type!r}"
+                )
 
             # Restore game from JSON if present
             if table.game_json:
-                game_class = get_game_class(table.game_type)
-                if not game_class:
-                    print(f"WARNING: Could not find game class for {table.game_type}")
-                    continue
-
                 # Deserialize game and rebuild runtime state
                 game = game_class.from_json(table.game_json)
                 game.rebuild_runtime_state()
@@ -725,11 +715,35 @@ PlayAural Server
             if getattr(table, "_checkpoint_kind", "") == "planned_reboot":
                 table.mark_power_restored(POWER_RESTORE_GRACE_SECONDS)
 
+        # Publish restored tables only after the complete checkpoint set has
+        # validated, so a failed retry cannot inherit a partial runtime roster.
+        for table in tables:
+            self._tables.add_table(table)
+
         print(f"Loaded {len(tables)} tables from database.")
 
-        # Delete all tables from database after loading to prevent stale data
-        # on subsequent restarts. Tables will be re-saved on shutdown.
-        self._db.delete_all_tables()
+    def _discard_restored_tables_after_failed_startup(self) -> None:
+        """Release unpublished runtime restores while preserving checkpoints."""
+        for table in self._tables.get_all_tables():
+            game = table.game
+            if game is not None:
+                try:
+                    game._destroyed = True
+                    game.on_discard()
+                except BaseException:
+                    logging.getLogger("playaural").exception(
+                        "Failed to release a restored game after startup failed"
+                    )
+                finally:
+                    game._users.clear()
+                    game._table = None
+            table._users.clear()
+            table._manager = None
+            table._server = None
+            table._db = None
+
+        self._tables = TableManager()
+        self._tables._server = self
 
     def _save_tables(
         self,
@@ -13026,6 +13040,24 @@ PlayAural Server
             self.admin_manager._show_database_management_menu(user)
         elif menu == ADMIN_DATABASE_BACKUP_CONFIRM_MENU:
             self.admin_manager._show_database_backup_confirm_menu(user)
+        elif menu == ADMIN_DATABASE_STORAGE_ANALYSIS_MENU:
+            analysis = frame.get("storage_analysis")
+            if analysis is None:
+                self.admin_manager._show_database_management_menu(user)
+            else:
+                self.admin_manager._show_database_storage_analysis_menu(
+                    user,
+                    analysis,
+                )
+        elif menu == ADMIN_DATABASE_STORAGE_CLEANUP_CONFIRM_MENU:
+            analysis = frame.get("storage_analysis")
+            if analysis is None:
+                self.admin_manager._show_database_management_menu(user)
+            else:
+                self.admin_manager._show_database_storage_cleanup_confirm_menu(
+                    user,
+                    analysis,
+                )
         elif menu == ADMIN_DATABASE_COMPACT_CONFIRM_MENU:
             self.admin_manager._show_database_compact_confirm_menu(user)
         elif menu == "account_approval_menu":

@@ -11,6 +11,7 @@ import json
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
+from enum import Enum
 from pathlib import Path
 from dataclasses import dataclass
 
@@ -38,6 +39,13 @@ from ..moderation.reports import (
 )
 from ..tables.table import Table
 from ..users.identity import normalize_username, username_key
+from .retention import (
+    ABANDONED_BACKUP_FRAGMENT_MINIMUM_AGE_SECONDS,
+    EXPIRED_BAN_RETENTION_DAYS,
+    PENDING_FRIEND_REQUEST_RETENTION_DAYS,
+    TRANSIENT_TABLE_CHECKPOINT_RETENTION_DAYS,
+    USER_NOTIFICATION_RETENTION_DAYS,
+)
 
 
 _USER_RECORD_COLUMNS = (
@@ -45,6 +53,21 @@ _USER_RECORD_COLUMNS = (
     "trust_level, approved, email, bio, motd_version, gender, "
     "registration_date, last_login_date"
 )
+
+
+class DatabaseCleanupCategoryCode(str, Enum):
+    """Stable codes for the complete safe-storage cleanup allowlist."""
+
+    EXPIRED_TABLE_CHECKPOINTS = "expired_table_checkpoints"
+    EXPIRED_PASSWORD_RESET_TOKENS = "expired_password_reset_tokens"
+    EXPIRED_BANS = "expired_bans"
+    STALE_PENDING_FRIEND_REQUESTS = "stale_pending_friend_requests"
+    ORPHANED_FRIENDSHIPS = "orphaned_friendships"
+    ORPHANED_USER_BLOCKS = "orphaned_user_blocks"
+    STALE_USER_NOTIFICATIONS = "stale_user_notifications"
+    ORPHANED_USER_NOTIFICATIONS = "orphaned_user_notifications"
+    EXPIRED_MUTES = "expired_mutes"
+    ORPHANED_MUTES = "orphaned_mutes"
 
 
 @dataclass
@@ -164,6 +187,77 @@ class DatabaseBackupResult:
     size_bytes: int
     page_count: int
     created_at_utc: str
+    incomplete_files_removed: int = 0
+    incomplete_file_bytes_removed: int = 0
+
+
+@dataclass(frozen=True)
+class DatabaseCleanupCategoryResult:
+    """One allowlisted storage-cleanup category and its row count."""
+
+    code: str
+    count: int
+    retention_days: int | None = None
+
+
+@dataclass(frozen=True)
+class DatabaseStorageAnalysis:
+    """Read-only snapshot of data eligible for safe storage cleanup."""
+
+    analyzed_at_utc: str
+    database_size_bytes: int
+    page_size_bytes: int
+    free_page_count: int
+    categories: tuple[DatabaseCleanupCategoryResult, ...]
+    incomplete_backup_file_count: int
+    incomplete_backup_file_bytes: int
+    invalid_timestamp_values: int
+
+    @property
+    def reusable_database_bytes(self) -> int:
+        return self.page_size_bytes * self.free_page_count
+
+    @property
+    def total_candidate_records(self) -> int:
+        return sum(category.count for category in self.categories)
+
+    @property
+    def has_candidates(self) -> bool:
+        return bool(
+            self.total_candidate_records or self.incomplete_backup_file_count
+        )
+
+
+@dataclass(frozen=True)
+class DatabaseStorageCleanupResult:
+    """Committed row deletions and resulting reusable SQLite space."""
+
+    completed_at_utc: str
+    database_size_bytes: int
+    page_size_bytes: int
+    free_pages_before: int
+    free_pages_after: int
+    categories: tuple[DatabaseCleanupCategoryResult, ...]
+    invalid_timestamp_values: int
+
+    @property
+    def total_deleted_records(self) -> int:
+        return sum(category.count for category in self.categories)
+
+    @property
+    def reusable_database_bytes(self) -> int:
+        return self.page_size_bytes * self.free_pages_after
+
+
+@dataclass(frozen=True)
+class _DatabaseCleanupRule:
+    """Internal allowlisted DELETE/COUNT rule shared by preview and cleanup."""
+
+    code: DatabaseCleanupCategoryCode
+    table: str
+    predicate: str
+    parameters: tuple[str, ...]
+    retention_days: int | None = None
 
 
 @dataclass
@@ -199,17 +293,144 @@ class Database:
     """
 
     # SQLite exposes corruption through message text rather than a dedicated
-    # exception type. Keep the patterns centralized so future SQLite versions
-    # or drivers can be supported without changing connect-time control flow.
+    # exception type. These markers are used only to give operators a clearer
+    # diagnostic; startup never moves or replaces a suspect database.
     CORRUPT_DATABASE_MARKERS = (
         "database disk image is malformed",
         "file is not a database",
+        "file is not a sqlite database",
         "not a database",
         "malformed database schema",
         "database integrity check failed",
     )
     SQLITE_SIDECAR_SUFFIXES = ("-wal", "-shm", "-journal")
-    CORRUPT_FILE_SUFFIX = ".corrupt"
+    APPLICATION_ID = 0x50415552  # "PAUR"
+    CURRENT_SCHEMA_VERSION = 1
+    SCHEMA_TABLE_COLUMNS = {
+        "bans": frozenset(
+            {"id", "username", "admin_username", "reason_key", "issued_at", "expires_at"}
+        ),
+        "friendships": frozenset(
+            {"requester_id", "receiver_id", "status", "created_at"}
+        ),
+        "game_result_players": frozenset(
+            {"id", "result_id", "player_id", "player_name", "is_bot"}
+        ),
+        "game_results": frozenset(
+            {"id", "game_type", "timestamp", "duration_ticks", "custom_data"}
+        ),
+        "global_chat_messages": frozenset(
+            {
+                "id",
+                "sender_uuid",
+                "sender_username",
+                "channel_code",
+                "sent_at_utc",
+                "message",
+            }
+        ),
+        "moderation_reports": frozenset(
+            {
+                "id",
+                "reporter_uuid",
+                "reporter_username",
+                "reported_uuid",
+                "reported_username",
+                "reported_at_utc",
+                "reason_code",
+                "details",
+                "channel_code",
+                "context_anchor_message_id",
+                "status",
+                "reviewed_by_uuid",
+                "reviewed_by_username",
+                "reviewed_at_utc",
+                "origin_code",
+                "context_code",
+                "evidence_json",
+            }
+        ),
+        "motd": frozenset({"id", "version", "language", "message"}),
+        "mutes": frozenset(
+            {"id", "username", "admin_username", "reason", "issued_at", "expires_at"}
+        ),
+        "password_reset_tokens": frozenset(
+            {"id", "user_uuid", "token_hash", "created_at", "expires_at"}
+        ),
+        "player_game_stats": frozenset(
+            {"player_id", "game_type", "stat_key", "stat_value"}
+        ),
+        "player_ratings": frozenset(
+            {"player_id", "game_type", "mu", "sigma"}
+        ),
+        "saved_tables": frozenset(
+            {
+                "id",
+                "username",
+                "save_name",
+                "game_type",
+                "game_json",
+                "members_json",
+                "table_state_json",
+                "saved_at",
+            }
+        ),
+        "server_settings": frozenset(
+            {"setting_key", "value_json", "updated_at_utc"}
+        ),
+        "smtp_config": frozenset(
+            {
+                "id",
+                "host",
+                "port",
+                "username",
+                "password",
+                "from_email",
+                "from_name",
+                "encryption_type",
+            }
+        ),
+        "tables": frozenset(
+            {
+                "table_id",
+                "game_type",
+                "host",
+                "members_json",
+                "game_json",
+                "status",
+                "is_private",
+                "table_state_json",
+                "active_human_offline_elapsed",
+                "checkpoint_kind",
+                "checkpoint_created_at",
+                "checkpoint_expires_at",
+                "checkpoint_operation_id",
+            }
+        ),
+        "user_blocks": frozenset({"blocker_id", "blocked_id", "created_at"}),
+        "user_notifications": frozenset(
+            {"id", "user_id", "source_username", "event_type", "created_at"}
+        ),
+        "users": frozenset(
+            {
+                "id",
+                "username",
+                "username_key",
+                "password_hash",
+                "uuid",
+                "locale",
+                "preferences_json",
+                "trust_level",
+                "approved",
+                "email",
+                "bio",
+                "motd_version",
+                "gender",
+                "registration_date",
+                "last_login_date",
+            }
+        ),
+    }
     BACKUP_FILE_PREFIX = "PlayAural"
     BACKUP_FILE_SUFFIX = ".sqlite3"
     BACKUP_PAGE_BATCH_SIZE = 256
@@ -229,50 +450,43 @@ class Database:
     def connect(
         self,
         *,
-        prune: bool = True,
         timeout: float = 30.0,
-        recover_corrupt: bool = True,
+        migration_backup_dir: str | Path | None = None,
     ) -> None:
-        """Connect to the database and create tables if needed.
+        """Connect, validate, and migrate the database without deleting data.
 
-        When recover_corrupt is true, a database that fails SQLite integrity
-        checks is moved aside with its sidecar files and replaced with a fresh
-        schema. Callers that perform short maintenance operations should pass
-        recover_corrupt=False so they fail loudly instead of acting on a newly
-        rebuilt empty database.
+        Existing databases are opened fail-closed. A corrupt, foreign, partial,
+        or newer-schema database is never moved, replaced, or rebuilt, and the
+        exception is returned to the caller. Before the first versioned schema
+        migration, a validated online backup is durably published. Retention
+        cleanup is explicit and is never coupled to opening the database.
         """
+        if self._conn is not None:
+            raise RuntimeError("Database is already connected")
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._validate_database_file_layout()
+        existed_with_content = (
+            self._is_file_database()
+            and self.db_path.exists()
+            and self.db_path.stat().st_size > 0
+        )
         try:
-            self._connect_once(prune=prune, timeout=timeout)
-        except sqlite3.DatabaseError as exc:
+            self._connect_once(
+                timeout=timeout,
+                existed_with_content=existed_with_content,
+                migration_backup_dir=migration_backup_dir,
+            )
+        except BaseException:
             self.close()
-            if (
-                not recover_corrupt
-                or not self._is_corruption_error(exc)
-                or not self._can_quarantine()
-            ):
-                raise
+            raise
 
-            quarantine_paths = self._quarantine_corrupt_database(exc)
-            logger = logging.getLogger("playaural.db")
-            logger.critical(
-                "SQLite database was corrupt and has been quarantined. "
-                "A fresh database will be created. Quarantined files: %s",
-                ", ".join(str(path) for path in quarantine_paths),
-                exc_info=True,
-            )
-            print(
-                "Database recovery: detected a corrupt SQLite database and "
-                "moved it aside before creating a fresh one. Quarantined files: "
-                + ", ".join(str(path) for path in quarantine_paths)
-            )
-            try:
-                self._connect_once(prune=prune, timeout=timeout)
-            except Exception:
-                self.close()
-                raise
-
-    def _connect_once(self, *, prune: bool, timeout: float) -> None:
+    def _connect_once(
+        self,
+        *,
+        timeout: float,
+        existed_with_content: bool,
+        migration_backup_dir: str | Path | None,
+    ) -> None:
         # Keep the connection in SQLite autocommit mode. Multi-statement writes
         # use _transaction() below, so a failed operation cannot leave an
         # implicit transaction open and poison a later explicit BEGIN.
@@ -290,16 +504,18 @@ class Database:
         )
         self._conn.execute(f"PRAGMA busy_timeout = {int(timeout * 1000)};")
         self._conn.execute("PRAGMA foreign_keys = ON;")
+        self._conn.execute("PRAGMA synchronous = FULL;")
+        if existed_with_content:
+            # Validate the original file before any schema or journal-mode write.
+            self._verify_connection_integrity(self._conn, full=True)
+        self._prepare_schema(migration_backup_dir=migration_backup_dir)
         # Make the durability policy explicit rather than relying on SQLite's
         # build-time defaults. WAL protects committed work from process crashes,
         # while FULL synchronization asks the OS to flush commit-critical data
         # before SQLite reports success.
         self._conn.execute("PRAGMA journal_mode = WAL;")
         self._conn.execute("PRAGMA synchronous = FULL;")
-        self._verify_database_integrity()
-        self._create_tables()
-        if prune:
-            self.prune_old_records()
+        self._verify_connection_integrity(self._conn, full=True)
 
     @contextmanager
     def _transaction(
@@ -410,7 +626,9 @@ class Database:
 
         directory = Path(backup_dir).resolve()
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-        self._remove_incomplete_backups(directory)
+        incomplete_files_removed, incomplete_file_bytes_removed = (
+            self._remove_incomplete_backups(directory)
+        )
         self._require_free_space(directory, required_bytes)
 
         created_at = datetime.now(timezone.utc)
@@ -465,6 +683,8 @@ class Database:
                 size_bytes=final_path.stat().st_size,
                 page_count=page_count,
                 created_at_utc=created_at.isoformat(),
+                incomplete_files_removed=incomplete_files_removed,
+                incomplete_file_bytes_removed=incomplete_file_bytes_removed,
             )
         except BaseException:
             if destination is not None:
@@ -482,20 +702,52 @@ class Database:
             raise
 
     @classmethod
-    def _remove_incomplete_backups(cls, directory: Path) -> None:
+    def _incomplete_backup_files(cls, directory: Path) -> tuple[Path, ...]:
+        """Return old regular unpublished PlayAural backup fragments only."""
+        if not directory.exists():
+            return ()
+        if not directory.is_dir():
+            raise NotADirectoryError(directory)
+
+        prefix = f".{cls.BACKUP_FILE_PREFIX}-"
+        oldest_active_timestamp = (
+            time.time() - ABANDONED_BACKUP_FRAGMENT_MINIMUM_AGE_SECONDS
+        )
+        candidates: list[Path] = []
+        for candidate in directory.iterdir():
+            if candidate.is_symlink() or not candidate.is_file():
+                continue
+            if not candidate.name.startswith(prefix):
+                continue
+            if not candidate.name.endswith(cls.INCOMPLETE_BACKUP_SUFFIXES):
+                continue
+            try:
+                if candidate.stat().st_mtime > oldest_active_timestamp:
+                    continue
+            except FileNotFoundError:
+                continue
+            candidates.append(candidate)
+        return tuple(sorted(candidates, key=lambda path: path.name))
+
+    @classmethod
+    def _remove_incomplete_backups(cls, directory: Path) -> tuple[int, int]:
         """Remove unpublished fragments left by an interrupted prior backup.
 
         The caller must own PlayAural's exclusive maintenance barrier. Final
         backups never use these suffixes, so a completed recovery snapshot is
         not eligible for cleanup.
         """
-        prefix = f".{cls.BACKUP_FILE_PREFIX}-"
-        for candidate in directory.iterdir():
-            if not candidate.is_file() or not candidate.name.startswith(prefix):
+        file_count = 0
+        bytes_removed = 0
+        for candidate in cls._incomplete_backup_files(directory):
+            try:
+                size_bytes = candidate.stat().st_size
+                candidate.unlink()
+            except FileNotFoundError:
                 continue
-            if not candidate.name.endswith(cls.INCOMPLETE_BACKUP_SUFFIXES):
-                continue
-            candidate.unlink()
+            file_count += 1
+            bytes_removed += size_bytes
+        return file_count, bytes_removed
 
     @classmethod
     def _verify_connection_integrity(
@@ -555,13 +807,6 @@ class Database:
         finally:
             os.close(descriptor)
 
-    def _verify_database_integrity(self) -> None:
-        """Fail early if an existing SQLite file is corrupt."""
-        if not self._is_file_database() or not self.db_path.exists():
-            return
-
-        self._verify_connection_integrity(self._conn, full=False)
-
     def _is_file_database(self) -> bool:
         return str(self.db_path) not in {":memory:", ""}
 
@@ -572,52 +817,195 @@ class Database:
             marker in message for marker in cls.CORRUPT_DATABASE_MARKERS
         )
 
-    def _can_quarantine(self) -> bool:
-        return self._is_file_database() and self.db_path.exists()
-
     def _database_sidecar_paths(self) -> list[Path]:
         return [
-            self.db_path,
-            *(
-                Path(f"{self.db_path}{suffix}")
-                for suffix in self.SQLITE_SIDECAR_SUFFIXES
-            ),
+            Path(f"{self.db_path}{suffix}")
+            for suffix in self.SQLITE_SIDECAR_SUFFIXES
         ]
 
-    @classmethod
-    def _next_quarantine_path(cls, path: Path, timestamp: str) -> Path:
-        candidate = path.with_name(
-            f"{path.name}{cls.CORRUPT_FILE_SUFFIX}-{timestamp}"
+    def _validate_database_file_layout(self) -> None:
+        """Reject orphan SQLite sidecars before SQLite can create a new main file."""
+        if not self._is_file_database():
+            return
+        sidecars = [path for path in self._database_sidecar_paths() if path.exists()]
+        main_missing_or_empty = (
+            not self.db_path.exists() or self.db_path.stat().st_size == 0
         )
-        counter = 1
-        while candidate.exists():
-            candidate = path.with_name(
-                f"{path.name}{cls.CORRUPT_FILE_SUFFIX}-{timestamp}.{counter}"
+        if main_missing_or_empty and sidecars:
+            names = ", ".join(path.name for path in sidecars)
+            raise sqlite3.DatabaseError(
+                "SQLite sidecar files exist without a non-empty main database: "
+                f"{names}. Refusing to create or replace the database."
             )
-            counter += 1
-        return candidate
+        if self.db_path.exists() and self.db_path.stat().st_size > 0:
+            with self.db_path.open("rb") as database_file:
+                header = database_file.read(16)
+            if header != b"SQLite format 3\x00":
+                raise sqlite3.DatabaseError(
+                    "file is not a SQLite database; refusing to open or replace it"
+                )
 
-    def _quarantine_corrupt_database(
-        self, exc: sqlite3.DatabaseError
-    ) -> list[Path]:
-        self.close()
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        moved: list[Path] = []
-        for path in self._database_sidecar_paths():
-            if not path.exists():
-                continue
-            target = self._next_quarantine_path(path, timestamp)
-            path.replace(target)
-            moved.append(target)
-        if not moved:
-            raise exc
-        return moved
+    def _prepare_schema(
+        self,
+        *,
+        migration_backup_dir: str | Path | None,
+    ) -> None:
+        """Validate schema ownership and run the one supported migration path."""
+        application_id = int(
+            self._conn.execute("PRAGMA application_id").fetchone()[0]
+        )
+        schema_version = int(
+            self._conn.execute("PRAGMA user_version").fetchone()[0]
+        )
+        schema_rows = self._conn.execute(
+            """
+            SELECT type, name
+            FROM sqlite_schema
+            WHERE name NOT LIKE 'sqlite_%'
+            """
+        ).fetchall()
+        table_names = {
+            str(row["name"])
+            for row in schema_rows
+            if str(row["type"]) == "table"
+        }
+        has_application_schema = bool(schema_rows)
+
+        if application_id not in {0, self.APPLICATION_ID}:
+            raise sqlite3.DatabaseError(
+                "database application_id belongs to another application; "
+                "refusing to modify it"
+            )
+        if schema_version > self.CURRENT_SCHEMA_VERSION:
+            raise sqlite3.DatabaseError(
+                "database schema version "
+                f"{schema_version} is newer than supported version "
+                f"{self.CURRENT_SCHEMA_VERSION}"
+            )
+        if schema_version < 0:
+            raise sqlite3.DatabaseError(
+                f"database schema version {schema_version} is invalid"
+            )
+
+        if schema_version == self.CURRENT_SCHEMA_VERSION:
+            if application_id != self.APPLICATION_ID:
+                raise sqlite3.DatabaseError(
+                    "current-version database is missing the PlayAural "
+                    "application identifier"
+                )
+            self._validate_current_schema()
+            return
+
+        # Version zero is the only unversioned production layout. Historical
+        # tests and deployment tools may contain one isolated PlayAural table,
+        # so recognize any non-empty subset of the canonical table names while
+        # rejecting an unrelated SQLite schema.
+        if schema_version != 0:
+            raise sqlite3.DatabaseError(
+                f"no migration path exists from schema version {schema_version}"
+            )
+        unknown_tables = table_names - set(self.SCHEMA_TABLE_COLUMNS)
+        if has_application_schema and (not table_names or unknown_tables):
+            detail = (
+                ": " + ", ".join(sorted(unknown_tables))
+                if unknown_tables
+                else ""
+            )
+            raise sqlite3.DatabaseError(
+                "unversioned SQLite database is not a recognizable PlayAural "
+                f"database; refusing to modify it{detail}"
+            )
+
+        if has_application_schema and self._is_file_database():
+            backup_directory = (
+                Path(migration_backup_dir)
+                if migration_backup_dir is not None
+                else self.db_path.resolve().parent / "backups"
+            )
+            result = self.backup_database(
+                backup_directory,
+                purpose=(
+                    f"pre-migration-v{schema_version}-to-"
+                    f"v{self.CURRENT_SCHEMA_VERSION}"
+                ),
+            )
+            logging.getLogger("playaural.db").warning(
+                "Created pre-migration database backup at %s",
+                result.path,
+            )
+            print(f"Created pre-migration database backup: {result.path}")
+
+        self._create_tables()
+
+    def _validate_current_schema(
+        self,
+        cursor: sqlite3.Cursor | None = None,
+    ) -> None:
+        """Require every current table and column without repairing drift."""
+        executor = cursor if cursor is not None else self._conn
+        application_id = int(executor.execute("PRAGMA application_id").fetchone()[0])
+        schema_version = int(executor.execute("PRAGMA user_version").fetchone()[0])
+        if application_id != self.APPLICATION_ID:
+            raise sqlite3.DatabaseError(
+                "database is missing the PlayAural application identifier"
+            )
+        if schema_version != self.CURRENT_SCHEMA_VERSION:
+            raise sqlite3.DatabaseError(
+                "database schema version changed unexpectedly during validation"
+            )
+
+        actual_tables = {
+            str(row[0])
+            for row in executor.execute(
+                """
+                SELECT name
+                FROM sqlite_schema
+                WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
+                """
+            ).fetchall()
+        }
+        missing_tables = sorted(set(self.SCHEMA_TABLE_COLUMNS) - actual_tables)
+        if missing_tables:
+            raise sqlite3.DatabaseError(
+                "database schema is missing required tables: "
+                + ", ".join(missing_tables)
+            )
+
+        for table_name, required_columns in self.SCHEMA_TABLE_COLUMNS.items():
+            rows = executor.execute(
+                f"PRAGMA table_info({self._quote_identifier(table_name)})"
+            ).fetchall()
+            actual_columns = {str(row[1]) for row in rows}
+            missing_columns = sorted(required_columns - actual_columns)
+            if missing_columns:
+                raise sqlite3.DatabaseError(
+                    f"database table {table_name!r} is missing required columns: "
+                    + ", ".join(missing_columns)
+                )
+
+        stale_username_key = executor.execute(
+            """
+            SELECT username
+            FROM users
+            WHERE username_key IS NULL
+               OR username_key != USERNAME_KEY(username)
+            LIMIT 1
+            """
+        ).fetchone()
+        if stale_username_key is not None:
+            raise sqlite3.DatabaseError(
+                "database contains an invalid canonical username key for "
+                f"{stale_username_key[0]!r}"
+            )
 
     def _create_tables(self) -> None:
-        """Create database tables if they don't exist."""
+        """Create or migrate the schema in one atomic transaction."""
         self._conn.execute("PRAGMA foreign_keys = ON;")
         with self._transaction(immediate=True) as cursor:
             self._create_tables_in_transaction(cursor)
+            cursor.execute(f"PRAGMA application_id = {self.APPLICATION_ID}")
+            cursor.execute(f"PRAGMA user_version = {self.CURRENT_SCHEMA_VERSION}")
+            self._validate_current_schema(cursor)
 
     def _create_tables_in_transaction(self, cursor: sqlite3.Cursor) -> None:
         """Create and migrate the schema inside the caller's transaction."""
@@ -829,8 +1217,8 @@ class Database:
         """)
 
         # Directional user blocks. UUIDs keep relationships stable even if
-        # display-name handling evolves; account deletion and startup pruning
-        # explicitly remove rows because the legacy users.uuid column is not a
+        # display-name handling evolves; account deletion and explicit cleanup
+        # remove rows because the legacy users.uuid column is not a
         # foreign-key target.
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS user_blocks (
@@ -1089,153 +1477,334 @@ class Database:
                 f"{stale_predicate}"
             )
 
-    def prune_old_records(self) -> None:
+    @staticmethod
+    def _storage_cleanup_rules(
+        reference_time: datetime,
+    ) -> tuple[_DatabaseCleanupRule, ...]:
+        """Build the single allowlist used by cleanup preview and execution.
+
+        The predicates deliberately preserve malformed timestamps rather than
+        guessing whether a record has expired. Historical game results, saved
+        tables, chat history, moderation reports, and compatibility data do not
+        appear here and therefore cannot be removed by storage cleanup.
         """
-        Prune historical bloat from the database to save space.
-        - game_results: Older than 30 days.
-        - saved_tables: Older than 365 days.
-        - tables checkpoints: Older than 1 day or explicitly expired.
-        - bans: Expired more than 30 days ago.
-        - social relationships: Expired requests and orphaned rows.
-        - mutes: Expired or orphaned.
-        - password reset tokens: Expired.
+        now = reference_time.isoformat()
+        checkpoint_cutoff = (
+            reference_time
+            - timedelta(days=TRANSIENT_TABLE_CHECKPOINT_RETENTION_DAYS)
+        ).isoformat()
+        ban_cutoff = (
+            reference_time - timedelta(days=EXPIRED_BAN_RETENTION_DAYS)
+        ).isoformat()
+        pending_request_cutoff = (
+            reference_time
+            - timedelta(days=PENDING_FRIEND_REQUEST_RETENTION_DAYS)
+        ).isoformat()
+        notification_cutoff = (
+            reference_time - timedelta(days=USER_NOTIFICATION_RETENTION_DAYS)
+        ).isoformat()
 
-        Global-chat messages and moderation reports are intentionally excluded.
-        They are retained until an explicit developer clear operation.
+        expired_checkpoint = """
+            (
+                checkpoint_expires_at IS NOT NULL
+                AND julianday(checkpoint_expires_at) IS NOT NULL
+                AND julianday(checkpoint_expires_at) <= julianday(?)
+            )
+            OR (
+                checkpoint_expires_at IS NULL
+                AND
+                checkpoint_created_at != ''
+                AND julianday(checkpoint_created_at) IS NOT NULL
+                AND julianday(checkpoint_created_at) < julianday(?)
+            )
         """
-        now = datetime.now()
-        thirty_days_ago = (now - timedelta(days=30)).isoformat()
-        one_day_ago = (now - timedelta(days=1)).isoformat()
-        one_year_ago = (now - timedelta(days=365)).isoformat()
+        stale_request = """
+            status = 'pending'
+            AND julianday(created_at) IS NOT NULL
+            AND julianday(created_at) < julianday(?)
+        """
+        stale_notification = """
+            julianday(created_at) IS NOT NULL
+            AND julianday(created_at) < julianday(?)
+        """
+        expired_mute = """
+            expires_at IS NOT NULL
+            AND julianday(expires_at) IS NOT NULL
+            AND julianday(expires_at) <= julianday(?)
+        """
 
-        # Ensure foreign keys are ON so cascading deletes work
-        self._conn.execute("PRAGMA foreign_keys = ON;")
-        with self._transaction(immediate=True) as cursor:
-            # 1. Prune game_results (ON DELETE CASCADE handles child rows).
-            cursor.execute(
-                "DELETE FROM game_results WHERE timestamp < ?",
-                (thirty_days_ago,),
-            )
-            deleted_games = cursor.rowcount
-
-            # 2. Prune saved tables and transient table checkpoints.
-            cursor.execute(
-                "DELETE FROM saved_tables WHERE saved_at < ?",
-                (one_year_ago,),
-            )
-            deleted_saves = cursor.rowcount
-            cursor.execute(
+        return (
+            _DatabaseCleanupRule(
+                DatabaseCleanupCategoryCode.EXPIRED_TABLE_CHECKPOINTS,
+                "tables",
+                expired_checkpoint,
+                (now, checkpoint_cutoff),
+            ),
+            _DatabaseCleanupRule(
+                DatabaseCleanupCategoryCode.EXPIRED_PASSWORD_RESET_TOKENS,
+                "password_reset_tokens",
                 """
-                DELETE FROM tables
-                WHERE (checkpoint_expires_at IS NOT NULL AND checkpoint_expires_at < ?)
-                   OR (checkpoint_created_at != '' AND checkpoint_created_at < ?)
+                    julianday(expires_at) IS NOT NULL
+                    AND julianday(expires_at) <= julianday(?)
                 """,
-                (now.isoformat(), one_day_ago),
-            )
-            deleted_table_checkpoints = cursor.rowcount
+                (now,),
+            ),
+            _DatabaseCleanupRule(
+                DatabaseCleanupCategoryCode.EXPIRED_BANS,
+                "bans",
+                """
+                    expires_at IS NOT NULL
+                    AND julianday(expires_at) IS NOT NULL
+                    AND julianday(expires_at) < julianday(?)
+                """,
+                (ban_cutoff,),
+                EXPIRED_BAN_RETENTION_DAYS,
+            ),
+            _DatabaseCleanupRule(
+                DatabaseCleanupCategoryCode.STALE_PENDING_FRIEND_REQUESTS,
+                "friendships",
+                stale_request,
+                (pending_request_cutoff,),
+                PENDING_FRIEND_REQUEST_RETENTION_DAYS,
+            ),
+            _DatabaseCleanupRule(
+                DatabaseCleanupCategoryCode.ORPHANED_FRIENDSHIPS,
+                "friendships",
+                f"""
+                    NOT ({stale_request})
+                    AND (
+                        NOT EXISTS (
+                            SELECT 1 FROM users
+                            WHERE users.uuid = friendships.requester_id
+                        )
+                        OR NOT EXISTS (
+                            SELECT 1 FROM users
+                            WHERE users.uuid = friendships.receiver_id
+                        )
+                    )
+                """,
+                (pending_request_cutoff,),
+            ),
+            _DatabaseCleanupRule(
+                DatabaseCleanupCategoryCode.ORPHANED_USER_BLOCKS,
+                "user_blocks",
+                """
+                    NOT EXISTS (
+                        SELECT 1 FROM users
+                        WHERE users.uuid = user_blocks.blocker_id
+                    )
+                    OR NOT EXISTS (
+                        SELECT 1 FROM users
+                        WHERE users.uuid = user_blocks.blocked_id
+                    )
+                """,
+                (),
+            ),
+            _DatabaseCleanupRule(
+                DatabaseCleanupCategoryCode.STALE_USER_NOTIFICATIONS,
+                "user_notifications",
+                stale_notification,
+                (notification_cutoff,),
+                USER_NOTIFICATION_RETENTION_DAYS,
+            ),
+            _DatabaseCleanupRule(
+                DatabaseCleanupCategoryCode.ORPHANED_USER_NOTIFICATIONS,
+                "user_notifications",
+                f"""
+                    NOT ({stale_notification})
+                    AND (
+                        NOT EXISTS (
+                            SELECT 1 FROM users
+                            WHERE users.uuid = user_notifications.user_id
+                        )
+                        OR NOT EXISTS (
+                            SELECT 1 FROM users
+                            WHERE users.username =
+                                user_notifications.source_username COLLATE BINARY
+                        )
+                    )
+                """,
+                (notification_cutoff,),
+            ),
+            _DatabaseCleanupRule(
+                DatabaseCleanupCategoryCode.EXPIRED_MUTES,
+                "mutes",
+                expired_mute,
+                (now,),
+            ),
+            _DatabaseCleanupRule(
+                DatabaseCleanupCategoryCode.ORPHANED_MUTES,
+                "mutes",
+                f"""
+                    NOT ({expired_mute})
+                    AND NOT EXISTS (
+                        SELECT 1 FROM users
+                        WHERE users.username = mutes.username COLLATE BINARY
+                    )
+                """,
+                (now,),
+            ),
+        )
 
-            # 3. Keep expired bans for 30 days for admin records, then prune.
+    def _storage_cleanup_category_counts(
+        self,
+        rules: tuple[_DatabaseCleanupRule, ...],
+    ) -> tuple[DatabaseCleanupCategoryResult, ...]:
+        cursor = self._conn.cursor()
+        results: list[DatabaseCleanupCategoryResult] = []
+        for rule in rules:
             cursor.execute(
-                "DELETE FROM bans "
-                "WHERE expires_at IS NOT NULL AND expires_at < ?",
-                (thirty_days_ago,),
+                f"SELECT COUNT(*) FROM {rule.table} WHERE {rule.predicate}",
+                rule.parameters,
             )
-            deleted_bans = cursor.rowcount
+            results.append(
+                DatabaseCleanupCategoryResult(
+                    rule.code.value,
+                    int(cursor.fetchone()[0]),
+                    rule.retention_days,
+                )
+            )
+        return tuple(results)
 
-            # 4. Prune stale social data.
-            six_months_ago = (now - timedelta(days=180)).isoformat()
+    def _count_invalid_cleanup_timestamps(self) -> int:
+        """Count malformed retention timestamps that cleanup will preserve."""
+        timestamp_fields = (
+            ("tables", "checkpoint_created_at", "checkpoint_created_at != ''"),
+            ("tables", "checkpoint_expires_at", "checkpoint_expires_at IS NOT NULL"),
+            ("password_reset_tokens", "expires_at", "expires_at IS NOT NULL"),
+            ("bans", "expires_at", "expires_at IS NOT NULL"),
+            (
+                "friendships",
+                "created_at",
+                "status = 'pending' AND created_at != ''",
+            ),
+            ("user_notifications", "created_at", "created_at != ''"),
+            ("mutes", "expires_at", "expires_at IS NOT NULL"),
+        )
+        cursor = self._conn.cursor()
+        total = 0
+        for table, column, present_predicate in timestamp_fields:
             cursor.execute(
-                "DELETE FROM friendships "
-                "WHERE status = 'pending' AND created_at < ?",
-                (six_months_ago,),
-            )
-            deleted_requests = cursor.rowcount
-            cursor.execute(
-                """
-                DELETE FROM friendships
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM users
-                    WHERE users.uuid = friendships.requester_id
-                )
-                OR NOT EXISTS (
-                    SELECT 1 FROM users
-                    WHERE users.uuid = friendships.receiver_id
-                )
-                """
-            )
-            deleted_orphaned_friendships = cursor.rowcount
-            cursor.execute(
-                """
-                DELETE FROM user_blocks
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM users
-                    WHERE users.uuid = user_blocks.blocker_id
-                )
-                OR NOT EXISTS (
-                    SELECT 1 FROM users
-                    WHERE users.uuid = user_blocks.blocked_id
-                )
+                f"""
+                SELECT COUNT(*) FROM {table}
+                WHERE {present_predicate} AND julianday({column}) IS NULL
                 """
             )
-            deleted_orphaned_blocks = cursor.rowcount
-            cursor.execute(
-                "DELETE FROM user_notifications WHERE created_at < ?",
-                (six_months_ago,),
-            )
-            deleted_notifications = cursor.rowcount
-            cursor.execute(
-                """
-                DELETE FROM user_notifications
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM users
-                    WHERE users.uuid = user_notifications.user_id
-                )
-                OR NOT EXISTS (
-                    SELECT 1 FROM users
-                    WHERE users.username = user_notifications.source_username
-                        COLLATE BINARY
-                )
-                """
-            )
-            deleted_notifications += cursor.rowcount
+            total += int(cursor.fetchone()[0])
+        return total
 
-            # 5. Prune expired and orphaned mutes.
-            cursor.execute(
-                "DELETE FROM mutes "
-                "WHERE expires_at IS NOT NULL AND expires_at < ?",
-                (now.isoformat(),),
+    def analyze_storage_cleanup(
+        self,
+        backup_dir: str | Path,
+        *,
+        reference_time: datetime | None = None,
+    ) -> DatabaseStorageAnalysis:
+        """Preview the exact allowlisted cleanup set without changing storage."""
+        if self._conn is None:
+            raise RuntimeError("Database is not connected")
+        if self._conn.in_transaction:
+            raise RuntimeError("Cannot analyze storage during a transaction")
+
+        reference = reference_time or datetime.now()
+        incomplete_files = self._incomplete_backup_files(Path(backup_dir).resolve())
+        incomplete_file_bytes = 0
+        retained_incomplete_files = 0
+        for candidate in incomplete_files:
+            try:
+                incomplete_file_bytes += candidate.stat().st_size
+            except FileNotFoundError:
+                continue
+            retained_incomplete_files += 1
+
+        with self._transaction() as cursor:
+            page_size = int(cursor.execute("PRAGMA page_size").fetchone()[0])
+            page_count = int(cursor.execute("PRAGMA page_count").fetchone()[0])
+            free_page_count = int(
+                cursor.execute("PRAGMA freelist_count").fetchone()[0]
             )
-            deleted_expired_mutes = cursor.rowcount
-            cursor.execute(
-                """
-                DELETE FROM mutes
-                WHERE NOT EXISTS (
-                    SELECT 1
-                    FROM users
-                    WHERE users.username = mutes.username COLLATE BINARY
+            categories = self._storage_cleanup_category_counts(
+                self._storage_cleanup_rules(reference)
+            )
+            invalid_timestamp_values = self._count_invalid_cleanup_timestamps()
+        return DatabaseStorageAnalysis(
+            analyzed_at_utc=datetime.now(timezone.utc).isoformat(),
+            database_size_bytes=page_size * page_count,
+            page_size_bytes=page_size,
+            free_page_count=free_page_count,
+            categories=categories,
+            incomplete_backup_file_count=retained_incomplete_files,
+            incomplete_backup_file_bytes=incomplete_file_bytes,
+            invalid_timestamp_values=invalid_timestamp_values,
+        )
+
+    def clean_storage(
+        self,
+        *,
+        reference_time: datetime | None = None,
+    ) -> DatabaseStorageCleanupResult:
+        """Atomically delete only records covered by the safe cleanup allowlist."""
+        if self._conn is None:
+            raise RuntimeError("Database is not connected")
+        if self._conn.in_transaction:
+            raise RuntimeError("Cannot clean storage during a transaction")
+
+        self._verify_connection_integrity(self._conn, full=True)
+        reference = reference_time or datetime.now()
+        rules = self._storage_cleanup_rules(reference)
+        page_size = int(self._conn.execute("PRAGMA page_size").fetchone()[0])
+        page_count = int(self._conn.execute("PRAGMA page_count").fetchone()[0])
+        database_size_bytes = page_size * page_count
+        free_pages_before = int(
+            self._conn.execute("PRAGMA freelist_count").fetchone()[0]
+        )
+        if self._is_file_database():
+            self._require_free_space(
+                self.db_path.parent,
+                max(database_size_bytes, self.MINIMUM_MAINTENANCE_FREE_BYTES),
+            )
+        deleted: list[DatabaseCleanupCategoryResult] = []
+
+        self._conn.execute("PRAGMA foreign_keys = ON")
+        with self._transaction(immediate=True) as cursor:
+            for rule in rules:
+                cursor.execute(
+                    f"DELETE FROM {rule.table} WHERE {rule.predicate}",
+                    rule.parameters,
                 )
-                """
-            )
-            deleted_orphaned_mutes = cursor.rowcount
+                deleted.append(
+                    DatabaseCleanupCategoryResult(
+                        rule.code.value,
+                        cursor.rowcount,
+                        rule.retention_days,
+                    )
+                )
 
-            # 6. Prune expired password reset tokens.
-            cursor.execute(
-                "DELETE FROM password_reset_tokens WHERE expires_at < ?",
-                (now.isoformat(),),
-            )
-            deleted_tokens = cursor.rowcount
-            deleted_mutes = deleted_expired_mutes + deleted_orphaned_mutes
+            # Validate the exact uncommitted result so any structural or
+            # foreign-key failure rolls the complete allowlisted delete set
+            # back instead of publishing a partially trusted state.
+            self._verify_connection_integrity(self._conn, full=True)
 
-        # Log results
-        logger = logging.getLogger("playaural.db.prune")
-        if deleted_games > 0 or deleted_saves > 0 or deleted_table_checkpoints > 0 or deleted_bans > 0 or deleted_requests > 0 or deleted_orphaned_friendships > 0 or deleted_orphaned_blocks > 0 or deleted_notifications > 0 or deleted_mutes > 0 or deleted_tokens > 0:
-             logger.info(f"Database Pruning: Deleted {deleted_games} old game results, {deleted_saves} old saved tables, {deleted_table_checkpoints} table checkpoints, {deleted_bans} expired bans, {deleted_requests} pending requests, {deleted_orphaned_friendships} orphaned friendships, {deleted_orphaned_blocks} orphaned user blocks, {deleted_notifications} notifications, {deleted_expired_mutes} expired mutes, {deleted_orphaned_mutes} orphaned mutes, {deleted_tokens} expired tokens.")
-        else:
-             logger.info("Database Pruning: 0 records deleted (no old data found).")
-
-        # Also print to standard output for explicit CLI visibility on startup
-        if deleted_games > 0 or deleted_saves > 0 or deleted_table_checkpoints > 0 or deleted_bans > 0 or deleted_requests > 0 or deleted_orphaned_friendships > 0 or deleted_orphaned_blocks > 0 or deleted_notifications > 0 or deleted_mutes > 0 or deleted_tokens > 0:
-             print(f"Database Pruning: Cleaned up {deleted_games} game_results, {deleted_saves} saved_tables, {deleted_table_checkpoints} table checkpoints, {deleted_bans} bans, {deleted_requests} friend requests, {deleted_orphaned_friendships} orphaned friendships, {deleted_orphaned_blocks} orphaned user blocks, {deleted_notifications} notifications, {deleted_expired_mutes} expired mutes, {deleted_orphaned_mutes} mutes, {deleted_tokens} tokens.")
+        self._verify_connection_integrity(self._conn, full=True)
+        free_pages_after = int(
+            self._conn.execute("PRAGMA freelist_count").fetchone()[0]
+        )
+        result = DatabaseStorageCleanupResult(
+            completed_at_utc=datetime.now(timezone.utc).isoformat(),
+            database_size_bytes=database_size_bytes,
+            page_size_bytes=page_size,
+            free_pages_before=free_pages_before,
+            free_pages_after=free_pages_after,
+            categories=tuple(deleted),
+            invalid_timestamp_values=self._count_invalid_cleanup_timestamps(),
+        )
+        logging.getLogger("playaural.db.cleanup").info(
+            "Storage cleanup deleted %d records; categories: %s",
+            result.total_deleted_records,
+            self._format_cleanup_counts(
+                {category.code: category.count for category in result.categories}
+            ),
+        )
+        return result
 
     @staticmethod
     def _quote_identifier(identifier: str) -> str:
@@ -3539,7 +4108,8 @@ class Database:
                 table_state_json,
                 active_human_offline_elapsed,
                 checkpoint_kind,
-                checkpoint_created_at
+                checkpoint_created_at,
+                checkpoint_expires_at
             FROM tables
             ORDER BY checkpoint_created_at DESC, table_id
             """
@@ -3548,7 +4118,14 @@ class Database:
         restored_at = time.time()
         for row in cursor.fetchall():
             try:
+                if self._table_checkpoint_is_expired(
+                    row["checkpoint_created_at"],
+                    row["checkpoint_expires_at"],
+                ):
+                    continue
                 members_data = json.loads(row["members_json"])
+                if not isinstance(members_data, list):
+                    raise TypeError("members_json must contain a list")
                 members = [
                     TableMember(username=m["username"], is_spectator=m["is_spectator"])
                     for m in members_data
@@ -3572,9 +4149,35 @@ class Database:
                     restored_at,
                 )
                 tables.append(table)
-            except Exception:
-                pass  # Skip any malformed table records
+            except Exception as exc:
+                raise sqlite3.DatabaseError(
+                    "could not restore durable table checkpoint "
+                    f"{row['table_id']!r}: {exc}"
+                ) from exc
         return tables
+
+    @staticmethod
+    def _table_checkpoint_is_expired(
+        created_at: str | None,
+        expires_at: str | None,
+    ) -> bool:
+        """Return whether a transient table checkpoint is outside its TTL."""
+        now_timestamp = time.time()
+
+        def now_for(value: datetime) -> datetime:
+            return datetime.fromtimestamp(now_timestamp, tz=value.tzinfo)
+
+        if expires_at:
+            expiration = datetime.fromisoformat(expires_at)
+            if expiration <= now_for(expiration):
+                return True
+        if created_at:
+            creation = datetime.fromisoformat(created_at)
+            if creation < now_for(creation) - timedelta(
+                days=TRANSIENT_TABLE_CHECKPOINT_RETENTION_DAYS
+            ):
+                return True
+        return False
 
     def delete_table(self, table_id: str) -> None:
         """Delete a table from the database."""
@@ -4281,7 +4884,9 @@ class Database:
         cursor.execute("""
             SELECT token_hash, expires_at
             FROM password_reset_tokens
-            WHERE user_uuid = ? AND expires_at > ?
+            WHERE user_uuid = ?
+              AND julianday(expires_at) IS NOT NULL
+              AND julianday(expires_at) > julianday(?)
         """, (user_uuid, now))
         row = cursor.fetchone()
         if row:

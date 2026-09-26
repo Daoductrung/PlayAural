@@ -12,8 +12,9 @@ from ..core.maintenance import (
     DatabaseMaintenanceBusyError,
     DatabaseMaintenanceUnavailableError,
 )
+from ..core.power import PowerAction
 from ..core.server import Server
-from ..persistence.database import DatabaseBackupResult
+from ..persistence.database import DatabaseBackupResult, DatabaseStorageAnalysis
 from ..users.network_user import NetworkUser
 
 
@@ -37,6 +38,127 @@ def _make_server(tmp_path) -> Server:
     )
     server.db.connect()
     return server
+
+
+@pytest.mark.asyncio
+async def test_storage_analysis_runs_without_freezing_and_serializes_maintenance(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    server = _make_server(tmp_path)
+    started = threading.Event()
+    release = threading.Event()
+
+    def controlled_analysis(_db_path: Path, _backup_dir: Path) -> DatabaseStorageAnalysis:
+        started.set()
+        assert release.wait(timeout=5)
+        return DatabaseStorageAnalysis(
+            analyzed_at_utc="2026-09-26T00:00:00+00:00",
+            database_size_bytes=4096,
+            page_size_bytes=4096,
+            free_page_count=0,
+            categories=(),
+            incomplete_backup_file_count=0,
+            incomplete_backup_file_bytes=0,
+            invalid_timestamp_values=0,
+        )
+
+    monkeypatch.setattr(
+        "server.core.maintenance._perform_storage_analysis_worker",
+        controlled_analysis,
+    )
+    analysis_task = asyncio.create_task(
+        server.maintenance_manager.analyze_storage()
+    )
+    try:
+        for _ in range(100):
+            if started.is_set():
+                break
+            await asyncio.sleep(0.01)
+        assert started.is_set()
+        assert server.maintenance_manager.is_active is False
+        assert server.maintenance_manager.is_busy is True
+        assert server.maintenance_manager._storage_idle_event.is_set() is False
+        assert server.db._conn is not None
+
+        with pytest.raises(DatabaseMaintenanceBusyError):
+            await server.maintenance_manager.back_up_database(
+                requested_by="Developer"
+            )
+        with pytest.raises(RuntimeError, match="database maintenance"):
+            server.power_manager.schedule(
+                action=PowerAction.REBOOT,
+                delay_seconds=60,
+                requested_by="Developer",
+                reason_id="maintenance",
+            )
+    finally:
+        release.set()
+        result = await analysis_task
+        assert result.database_size_bytes == 4096
+        assert server.maintenance_manager.is_busy is False
+        assert server.maintenance_manager._storage_idle_event.is_set() is True
+        server.db.close()
+
+
+@pytest.mark.asyncio
+async def test_cancelled_storage_analysis_remains_busy_until_worker_exits(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    server = _make_server(tmp_path)
+    started = threading.Event()
+    release = threading.Event()
+
+    def controlled_analysis(_db_path: Path, _backup_dir: Path) -> DatabaseStorageAnalysis:
+        started.set()
+        assert release.wait(timeout=5)
+        return DatabaseStorageAnalysis(
+            analyzed_at_utc="2026-09-26T00:00:00+00:00",
+            database_size_bytes=4096,
+            page_size_bytes=4096,
+            free_page_count=0,
+            categories=(),
+            incomplete_backup_file_count=0,
+            incomplete_backup_file_bytes=0,
+            invalid_timestamp_values=0,
+        )
+
+    monkeypatch.setattr(
+        "server.core.maintenance._perform_storage_analysis_worker",
+        controlled_analysis,
+    )
+    analysis_task = asyncio.create_task(
+        server.maintenance_manager.analyze_storage()
+    )
+    try:
+        for _ in range(100):
+            if started.is_set():
+                break
+            await asyncio.sleep(0.01)
+        assert started.is_set()
+
+        analysis_task.cancel()
+        await asyncio.sleep(0)
+        storage_idle = asyncio.create_task(
+            server.maintenance_manager.wait_until_storage_idle()
+        )
+        await asyncio.sleep(0)
+        assert analysis_task.done() is False
+        assert storage_idle.done() is False
+        assert server.maintenance_manager.is_busy is True
+
+        release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await analysis_task
+        await storage_idle
+        assert server.maintenance_manager.is_busy is False
+    finally:
+        release.set()
+        if not analysis_task.done():
+            with pytest.raises(asyncio.CancelledError):
+                await analysis_task
+        server.db.close()
 
 
 @pytest.mark.asyncio
@@ -311,7 +433,7 @@ async def test_reopen_failure_keeps_server_frozen_and_database_disconnected(
 
     # Restore the test fixture without weakening the production fail-closed state.
     monkeypatch.setattr(server.db, "connect", original_connect)
-    original_connect(prune=False, recover_corrupt=False)
+    original_connect()
     server.maintenance_manager._active_operation = None
     server.maintenance_manager._resume_event.set()
     server.db.close()

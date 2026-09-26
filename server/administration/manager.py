@@ -19,6 +19,7 @@ from ..messages.localized_content import (
 )
 from ..persistence.database import (
     BanRecord,
+    DatabaseStorageAnalysis,
     GlobalChatMessageRecord,
     ModerationReportRecord,
     MuteRecord,
@@ -82,7 +83,33 @@ ADMIN_MODERATION_CLEAR_CONFIRM_MENU = "admin_moderation_clear_confirm_menu"
 ADMIN_MODERATION_HISTORY_INPUT = "admin_moderation_history_input"
 ADMIN_DATABASE_MENU = "admin_database_menu"
 ADMIN_DATABASE_BACKUP_CONFIRM_MENU = "admin_database_backup_confirm_menu"
+ADMIN_DATABASE_STORAGE_ANALYSIS_MENU = "admin_database_storage_analysis_menu"
+ADMIN_DATABASE_STORAGE_CLEANUP_CONFIRM_MENU = (
+    "admin_database_storage_cleanup_confirm_menu"
+)
 ADMIN_DATABASE_COMPACT_CONFIRM_MENU = "admin_database_compact_confirm_menu"
+DATABASE_STORAGE_SIZE_UNITS = (
+    ("gib", 1024**3),
+    ("mib", 1024**2),
+    ("kib", 1024),
+)
+
+
+def _localized_database_size(locale: str, size_bytes: int) -> str:
+    """Render a non-negative byte count in a compact locale-aware unit."""
+    safe_size = max(0, int(size_bytes))
+    for unit, divisor in DATABASE_STORAGE_SIZE_UNITS:
+        if safe_size >= divisor:
+            return Localization.get(
+                locale,
+                f"admin-database-size-{unit}",
+                value=safe_size / divisor,
+            )
+    return Localization.get(
+        locale,
+        "admin-database-size-bytes",
+        value=safe_size,
+    )
 
 
 @dataclass(frozen=True)
@@ -138,6 +165,8 @@ ADMIN_MENU_IDS = {
     ADMIN_MODERATION_CLEAR_CONFIRM_MENU,
     ADMIN_DATABASE_MENU,
     ADMIN_DATABASE_BACKUP_CONFIRM_MENU,
+    ADMIN_DATABASE_STORAGE_ANALYSIS_MENU,
+    ADMIN_DATABASE_STORAGE_CLEANUP_CONFIRM_MENU,
     ADMIN_DATABASE_COMPACT_CONFIRM_MENU,
     "account_approval_menu",
     "pending_user_actions_menu",
@@ -2685,6 +2714,14 @@ class AdministrationManager:
             await self._handle_database_backup_confirm_selection(
                 user, selection_id
             )
+        elif current_menu == ADMIN_DATABASE_STORAGE_ANALYSIS_MENU:
+            await self._handle_database_storage_analysis_selection(
+                user, selection_id
+            )
+        elif current_menu == ADMIN_DATABASE_STORAGE_CLEANUP_CONFIRM_MENU:
+            await self._handle_database_storage_cleanup_confirm_selection(
+                user, selection_id
+            )
         elif current_menu == ADMIN_DATABASE_COMPACT_CONFIRM_MENU:
             await self._handle_database_compact_confirm_selection(
                 user, selection_id
@@ -2824,6 +2861,20 @@ class AdministrationManager:
             MenuItem(
                 text=Localization.get(
                     user.locale,
+                    "admin-database-storage-analyze",
+                ),
+                id="analyze_storage",
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-database-storage-cleanup",
+                ),
+                id="cleanup_storage",
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
                     "admin-database-compact",
                 ),
                 id="compact_database",
@@ -2870,6 +2921,193 @@ class AdministrationManager:
             "menu": ADMIN_DATABASE_BACKUP_CONFIRM_MENU
         }
 
+    def _database_storage_analysis_rows(
+        self,
+        user: NetworkUser,
+        analysis: DatabaseStorageAnalysis,
+        *,
+        include_all_categories: bool,
+    ) -> list[MenuItem]:
+        """Build stable read-only rows from one structured cleanup preview."""
+        rows = [
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-database-storage-analysis-summary",
+                    size=_localized_database_size(
+                        user.locale,
+                        analysis.database_size_bytes,
+                    ),
+                    reusable=_localized_database_size(
+                        user.locale,
+                        analysis.reusable_database_bytes,
+                    ),
+                    records=analysis.total_candidate_records,
+                ),
+                id="storage_analysis_summary",
+                read_only=True,
+            )
+        ]
+        visible_categories = (
+            analysis.categories
+            if include_all_categories
+            else tuple(
+                category for category in analysis.categories if category.count
+            )
+        )
+        for category in visible_categories:
+            label = Localization.get(
+                user.locale,
+                "admin-database-storage-category-"
+                + category.code.replace("_", "-"),
+                days=category.retention_days or 0,
+            )
+            rows.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "admin-database-storage-category-row",
+                        category=label,
+                        count=category.count,
+                    ),
+                    id=f"storage_category_{category.code}",
+                    read_only=True,
+                )
+            )
+        if not visible_categories:
+            rows.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "admin-database-storage-no-record-candidates",
+                    ),
+                    id="storage_no_record_candidates",
+                    read_only=True,
+                )
+            )
+        rows.append(
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-database-storage-temporary-files",
+                    count=analysis.incomplete_backup_file_count,
+                    size=_localized_database_size(
+                        user.locale,
+                        analysis.incomplete_backup_file_bytes,
+                    ),
+                ),
+                id="storage_temporary_files",
+                read_only=True,
+            )
+        )
+        if analysis.invalid_timestamp_values:
+            rows.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "admin-database-storage-invalid-timestamps",
+                        count=analysis.invalid_timestamp_values,
+                    ),
+                    id="storage_invalid_timestamps",
+                    read_only=True,
+                )
+            )
+        rows.append(
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-database-storage-exclusions",
+                ),
+                id="storage_exclusions",
+                read_only=True,
+            )
+        )
+        return rows
+
+    def _show_database_storage_analysis_menu(
+        self,
+        user: NetworkUser,
+        analysis: DatabaseStorageAnalysis,
+    ) -> None:
+        """Show a non-mutating, refreshable storage-cleanup preview."""
+        if not self._require_developer_database_access(user):
+            return
+        items = self._database_storage_analysis_rows(
+            user,
+            analysis,
+            include_all_categories=True,
+        )
+        items.extend(
+            (
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "admin-database-storage-refresh-analysis",
+                    ),
+                    id="refresh",
+                ),
+                MenuItem(text=Localization.get(user.locale, "back"), id="back"),
+            )
+        )
+        user.show_menu(
+            ADMIN_DATABASE_STORAGE_ANALYSIS_MENU,
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self.server.user_states[user.username] = {
+            "menu": ADMIN_DATABASE_STORAGE_ANALYSIS_MENU,
+            "storage_analysis": analysis,
+        }
+
+    def _show_database_storage_cleanup_confirm_menu(
+        self,
+        user: NetworkUser,
+        analysis: DatabaseStorageAnalysis,
+    ) -> None:
+        """Confirm the exclusive cleanup using a recent eligibility preview."""
+        if not self._require_developer_database_access(user):
+            return
+        items = [
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-database-storage-cleanup-confirm",
+                ),
+                id="storage_cleanup_confirm_summary",
+                read_only=True,
+            )
+        ]
+        items.extend(
+            self._database_storage_analysis_rows(
+                user,
+                analysis,
+                include_all_categories=False,
+            )
+        )
+        items.extend(
+            (
+                MenuItem(
+                    text=Localization.get(user.locale, "confirm-yes"),
+                    id="confirm",
+                ),
+                MenuItem(
+                    text=Localization.get(user.locale, "confirm-no"),
+                    id="back",
+                ),
+            )
+        )
+        user.show_menu(
+            ADMIN_DATABASE_STORAGE_CLEANUP_CONFIRM_MENU,
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self.server.user_states[user.username] = {
+            "menu": ADMIN_DATABASE_STORAGE_CLEANUP_CONFIRM_MENU,
+            "storage_analysis": analysis,
+        }
+
     def _show_database_compact_confirm_menu(self, user: NetworkUser) -> None:
         """Confirm an exclusive SQLite compaction operation."""
         if not self._require_developer_database_access(user):
@@ -2914,12 +3152,129 @@ class AdministrationManager:
                 user,
                 self._show_database_backup_confirm_menu,
             )
+        elif selection_id in {"analyze_storage", "cleanup_storage"}:
+            analysis = await self._analyze_database_storage(user)
+            if analysis is None:
+                return
+            show_fn = (
+                self._show_database_storage_analysis_menu
+                if selection_id == "analyze_storage"
+                else self._show_database_storage_cleanup_confirm_menu
+            )
+            self.server._nav_push(user, show_fn, analysis)
         elif selection_id == "compact_database":
             self.server._nav_push(
                 user,
                 self._show_database_compact_confirm_menu,
             )
         elif selection_id == "back":
+            self.server._nav_back(user)
+
+    async def _analyze_database_storage(
+        self,
+        user: NetworkUser,
+    ) -> DatabaseStorageAnalysis | None:
+        try:
+            return await self.server.maintenance_manager.analyze_storage()
+        except DatabaseMaintenanceBusyError:
+            user.speak_l(
+                "admin-database-maintenance-busy",
+                buffer="system",
+            )
+        except Exception:
+            logging.getLogger("playaural").exception(
+                "Developer-requested storage analysis failed"
+            )
+            user.speak_l(
+                "admin-database-storage-analysis-failed",
+                buffer="system",
+            )
+        return None
+
+    async def _handle_database_storage_analysis_selection(
+        self,
+        user: NetworkUser,
+        selection_id: str,
+    ) -> None:
+        if not self._require_developer_database_access(user):
+            return
+        if selection_id == "back":
+            self.server._nav_back(user)
+            return
+        if selection_id != "refresh":
+            return
+        analysis = await self._analyze_database_storage(user)
+        if analysis is not None:
+            self.server._nav_refresh(
+                user,
+                self._show_database_storage_analysis_menu,
+                analysis,
+            )
+
+    async def _handle_database_storage_cleanup_confirm_selection(
+        self,
+        user: NetworkUser,
+        selection_id: str,
+    ) -> None:
+        if not self._require_developer_database_access(user):
+            return
+        if selection_id == "back":
+            self.server._nav_back(user)
+            return
+        if selection_id != "confirm":
+            return
+
+        current_analysis = await self._analyze_database_storage(user)
+        if current_analysis is None:
+            return
+        if not current_analysis.has_candidates:
+            user.speak_l(
+                "admin-database-storage-cleanup-not-needed",
+                buffer="system",
+            )
+            self.server._nav_back(user)
+            return
+
+        try:
+            operation_result = await self.server.maintenance_manager.clean_storage(
+                requested_by=user.username,
+            )
+        except DatabaseMaintenanceBusyError:
+            user.speak_l(
+                "admin-database-maintenance-busy",
+                buffer="system",
+            )
+        except DatabaseMaintenanceUnavailableError:
+            # The manager delivered the critical notice and deliberately keeps
+            # the server frozen for operator recovery.
+            pass
+        except Exception:
+            logging.getLogger("playaural").exception(
+                "Developer-requested storage cleanup failed"
+            )
+            user.speak_l(
+                "admin-database-storage-cleanup-failed",
+                buffer="system",
+            )
+        else:
+            result = operation_result.cleanup
+            backup = operation_result.safety_backup
+            user.speak_l(
+                "admin-database-storage-cleanup-success",
+                buffer="system",
+                records=result.total_deleted_records,
+                files=backup.incomplete_files_removed,
+                file_size=_localized_database_size(
+                    user.locale,
+                    backup.incomplete_file_bytes_removed,
+                ),
+                reusable=_localized_database_size(
+                    user.locale,
+                    result.reusable_database_bytes,
+                ),
+                filename=backup.path.name,
+            )
+        if not self.server.maintenance_manager.is_active:
             self.server._nav_back(user)
 
     async def _handle_database_backup_confirm_selection(
@@ -2961,7 +3316,7 @@ class AdministrationManager:
                 "admin-database-backup-success",
                 buffer="system",
                 filename=result.path.name,
-                size=result.size_bytes,
+                size=_localized_database_size(user.locale, result.size_bytes),
             )
         if not self.server.maintenance_manager.is_active:
             self.server._nav_back(user)
@@ -3005,9 +3360,12 @@ class AdministrationManager:
             user.speak_l(
                 "admin-database-compact-success",
                 buffer="system",
-                before=result.before_bytes,
-                after=result.after_bytes,
-                reclaimed=result.reclaimed_bytes,
+                before=_localized_database_size(user.locale, result.before_bytes),
+                after=_localized_database_size(user.locale, result.after_bytes),
+                reclaimed=_localized_database_size(
+                    user.locale,
+                    result.reclaimed_bytes,
+                ),
                 filename=operation_result.safety_backup.path.name,
             )
         if not self.server.maintenance_manager.is_active:

@@ -736,9 +736,10 @@ def open_auth_database():
 
     db = Database()
     try:
-        # CLI account actions should not run historical pruning while the live
-        # server may be writing to the same SQLite file.
-        db.connect(prune=False, timeout=30.0, recover_corrupt=False)
+        db.connect(
+            timeout=30.0,
+            migration_backup_dir=Path(__file__).resolve().parent / "backups",
+        )
         yield db
     except sqlite3.OperationalError as exc:
         if "locked" in str(exc).lower():
@@ -753,8 +754,8 @@ def open_auth_database():
         if Database._is_corruption_error(exc):
             print(
                 "Error: The database appears to be corrupt. Restore a known-good "
-                "backup, or start the server so its guarded startup recovery can "
-                "quarantine the damaged file before rebuilding."
+                "backup or perform recovery on an offline copy. The original "
+                "database has been left untouched."
             )
         else:
             print(f"Error: Database operation failed: {exc}")

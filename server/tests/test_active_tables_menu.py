@@ -26,7 +26,7 @@ def _make_server() -> Server:
         db_path=":memory:",
         locales_dir=Path(__file__).resolve().parents[1] / "locales",
     )
-    server._db.connect(prune=False)
+    server._db.connect()
     return server
 
 

@@ -212,18 +212,18 @@ def test_connect_backfills_lookup_keys_from_legacy_schema(tmp_path):
     connection.close()
 
     reopened = Database(str(path))
-    reopened.connect()
-    try:
-        repaired = reopened.get_user("TRUNG")
-        repaired_key = reopened._conn.execute(
-            "SELECT username_key FROM users WHERE username = 'Trung'"
-        ).fetchone()["username_key"]
-    finally:
-        reopened.close()
+    with pytest.raises(sqlite3.DatabaseError, match="canonical username key"):
+        reopened.connect()
+    assert reopened._conn is None
 
-    assert repaired is not None
-    assert repaired.username == "Trung"
-    assert repaired_key == "trung"
+    unchanged = sqlite3.connect(path)
+    try:
+        repaired_key = unchanged.execute(
+            "SELECT username_key FROM users WHERE username = 'Trung'"
+        ).fetchone()[0]
+    finally:
+        unchanged.close()
+    assert repaired_key == "stale"
 
 
 def test_concurrent_connections_cannot_create_folded_collision(tmp_path):
@@ -235,7 +235,7 @@ def test_concurrent_connections_cannot_create_folded_collision(tmp_path):
 
     def create(username: str) -> bool:
         database = Database(str(path))
-        database.connect(prune=False)
+        database.connect()
         try:
             barrier.wait(timeout=10)
             return database.create_user(username, "hash") is not None
@@ -246,7 +246,7 @@ def test_concurrent_connections_cannot_create_folded_collision(tmp_path):
         results = list(executor.map(create, ("Straße", "STRASSE")))
 
     check = Database(str(path))
-    check.connect(prune=False)
+    check.connect()
     try:
         count = check.get_user_count()
     finally:
@@ -265,7 +265,7 @@ def test_concurrent_first_account_creation_promotes_exactly_one_user(tmp_path):
 
     def create(username: str) -> int:
         database = Database(str(path))
-        database.connect(prune=False)
+        database.connect()
         try:
             barrier.wait(timeout=10)
             record = database.create_user(
@@ -327,7 +327,7 @@ def test_registration_lock_failure_logs_sqlite_cause_at_error_level(
 ):
     path = tmp_path / "locked-registration.db"
     database = Database(path)
-    database.connect(prune=False, timeout=0.01)
+    database.connect(timeout=0.01)
     blocker = sqlite3.connect(path, timeout=0.01, isolation_level=None)
     blocker.execute("BEGIN IMMEDIATE")
     caplog.set_level(logging.ERROR, logger="playaural.db")

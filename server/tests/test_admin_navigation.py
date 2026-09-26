@@ -1,5 +1,6 @@
 """Admin menu navigation and focus restoration tests."""
 
+import os
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 
@@ -10,6 +11,8 @@ from ..administration.manager import (
     ADMIN_DATABASE_BACKUP_CONFIRM_MENU,
     ADMIN_DATABASE_COMPACT_CONFIRM_MENU,
     ADMIN_DATABASE_MENU,
+    ADMIN_DATABASE_STORAGE_ANALYSIS_MENU,
+    ADMIN_DATABASE_STORAGE_CLEANUP_CONFIRM_MENU,
     ADMIN_MODERATION_CLEAR_CONFIRM_MENU,
     ADMIN_MODERATION_CONTEXT_MENU,
     ADMIN_MODERATION_HISTORY_INPUT,
@@ -21,9 +24,22 @@ from ..administration.manager import (
     ADMIN_MODERATION_REPORT_DETAIL_MENU,
     ADMIN_MODERATION_REPORTS_MENU,
     ADMIN_MODERATION_SENDER_RESULTS_MENU,
+    _localized_database_size,
 )
 from ..users.test_user import MockUser
 from ..moderation.reports import AutomatedSpamEvidence
+from ..persistence.retention import (
+    ABANDONED_BACKUP_FRAGMENT_MINIMUM_AGE_SECONDS,
+)
+
+
+def _mark_backup_fragment_abandoned(path) -> None:
+    old_timestamp = (
+        datetime.now().timestamp()
+        - ABANDONED_BACKUP_FRAGMENT_MINIMUM_AGE_SECONDS
+        - 1
+    )
+    os.utime(path, (old_timestamp, old_timestamp))
 
 
 def _current_menu(server: Server, username: str) -> str:
@@ -49,6 +65,17 @@ def _create_approved_user(server: Server, username: str, trust_level: int = 1):
     record = server._db.create_user(username, "hash", trust_level=trust_level)
     server._db.approve_user(username)
     return record
+
+
+def test_database_storage_sizes_are_compact_and_locale_aware(tmp_path) -> None:
+    server, _developer = _make_admin_server(tmp_path)
+    try:
+        assert _localized_database_size("en", 1) == "1 byte"
+        assert _localized_database_size("en", 1536) == "1.5 KiB"
+        assert _localized_database_size("vi", 1536) == "1,5 KiB"
+        assert _localized_database_size("en", 1024**2) == "1 MiB"
+    finally:
+        server._db.close()
 
 
 async def _select(server: Server, user: MockUser, menu_id: str, selection_id: str) -> None:
@@ -148,6 +175,207 @@ async def test_database_management_compacts_with_confirmation_and_restores_focus
             developer.menus["admin_menu"]["selection_id"]
             == "database_management"
         )
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_database_storage_analysis_is_read_only_and_refreshable(tmp_path) -> None:
+    server, developer = _make_admin_server(tmp_path)
+    try:
+        retained = _create_approved_user(server, "Storage Retained")
+        old = (datetime.now() - timedelta(days=1000)).isoformat()
+        expired = (datetime.now() - timedelta(days=1)).isoformat()
+        server._db._conn.execute(
+            """
+            INSERT INTO saved_tables (
+                username, save_name, game_type, game_json, members_json, saved_at
+            ) VALUES (?, 'Ancient Save', 'pig', '{}', '[]', ?)
+            """,
+            (retained.username, old),
+        )
+        server._db.save_password_reset_token(
+            retained.uuid,
+            "expired-token",
+            expired,
+        )
+        backup_dir = tmp_path / "backups"
+        backup_dir.mkdir()
+        partial = backup_dir / ".PlayAural-interrupted.sqlite3.partial"
+        partial.write_bytes(b"partial")
+        _mark_backup_fragment_abandoned(partial)
+
+        await _select(server, developer, "main_menu", "administration")
+        await _select(server, developer, "admin_menu", "database_management")
+        await _select(
+            server,
+            developer,
+            ADMIN_DATABASE_MENU,
+            "analyze_storage",
+        )
+
+        assert (
+            _current_menu(server, developer.username)
+            == ADMIN_DATABASE_STORAGE_ANALYSIS_MENU
+        )
+        assert "Eligible database records: 1" in _menu_item_text(
+            developer,
+            ADMIN_DATABASE_STORAGE_ANALYSIS_MENU,
+            "storage_analysis_summary",
+        )
+        assert "Expired password-reset tokens: 1" == _menu_item_text(
+            developer,
+            ADMIN_DATABASE_STORAGE_ANALYSIS_MENU,
+            "storage_category_expired_password_reset_tokens",
+        )
+        assert "1 (7 bytes)" in _menu_item_text(
+            developer,
+            ADMIN_DATABASE_STORAGE_ANALYSIS_MENU,
+            "storage_temporary_files",
+        )
+        assert "saved tables" in _menu_item_text(
+            developer,
+            ADMIN_DATABASE_STORAGE_ANALYSIS_MENU,
+            "storage_exclusions",
+        )
+        assert all(
+            item.read_only
+            for item in developer.get_current_menu_items(
+                ADMIN_DATABASE_STORAGE_ANALYSIS_MENU
+            )
+            if item.id.startswith("storage_")
+        )
+
+        await _select(
+            server,
+            developer,
+            ADMIN_DATABASE_STORAGE_ANALYSIS_MENU,
+            "storage_analysis_summary",
+        )
+        assert (
+            _current_menu(server, developer.username)
+            == ADMIN_DATABASE_STORAGE_ANALYSIS_MENU
+        )
+        await _select(
+            server,
+            developer,
+            ADMIN_DATABASE_STORAGE_ANALYSIS_MENU,
+            "refresh",
+        )
+        assert server._db._conn.execute(
+            "SELECT COUNT(*) FROM password_reset_tokens"
+        ).fetchone()[0] == 1
+        assert server._db._conn.execute(
+            "SELECT COUNT(*) FROM saved_tables"
+        ).fetchone()[0] == 1
+        assert partial.exists()
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_database_storage_cleanup_is_backed_up_and_preserves_saved_tables(
+    tmp_path,
+) -> None:
+    server, developer = _make_admin_server(tmp_path)
+    try:
+        retained = _create_approved_user(server, "Cleanup Retained")
+        old = (datetime.now() - timedelta(days=1000)).isoformat()
+        expired = (datetime.now() - timedelta(days=1)).isoformat()
+        server._db._conn.execute(
+            """
+            INSERT INTO saved_tables (
+                username, save_name, game_type, game_json, members_json, saved_at
+            ) VALUES (?, 'Never Automatic', 'pig', '{}', '[]', ?)
+            """,
+            (retained.username, old),
+        )
+        server._db.save_password_reset_token(
+            retained.uuid,
+            "expired-token",
+            expired,
+        )
+        backup_dir = tmp_path / "backups"
+        backup_dir.mkdir()
+        partial = backup_dir / ".PlayAural-interrupted.sqlite3.partial"
+        partial.write_bytes(b"partial")
+        _mark_backup_fragment_abandoned(partial)
+
+        await _select(server, developer, "main_menu", "administration")
+        await _select(server, developer, "admin_menu", "database_management")
+        await _select(
+            server,
+            developer,
+            ADMIN_DATABASE_MENU,
+            "cleanup_storage",
+        )
+        assert (
+            _current_menu(server, developer.username)
+            == ADMIN_DATABASE_STORAGE_CLEANUP_CONFIRM_MENU
+        )
+        confirmation = next(
+            item
+            for item in developer.get_current_menu_items(
+                ADMIN_DATABASE_STORAGE_CLEANUP_CONFIRM_MENU
+            )
+            if item.id == "storage_cleanup_confirm_summary"
+        )
+        assert confirmation.read_only is True
+
+        await _select(
+            server,
+            developer,
+            ADMIN_DATABASE_STORAGE_CLEANUP_CONFIRM_MENU,
+            "confirm",
+        )
+
+        assert _current_menu(server, developer.username) == ADMIN_DATABASE_MENU
+        assert developer.get_last_spoken().startswith("Storage cleanup completed")
+        assert server._db._conn.execute(
+            "SELECT COUNT(*) FROM password_reset_tokens"
+        ).fetchone()[0] == 0
+        assert server._db._conn.execute(
+            "SELECT save_name FROM saved_tables"
+        ).fetchone()[0] == "Never Automatic"
+        assert not partial.exists()
+        safety_backups = list(
+            backup_dir.glob("*-pre-cleanup-*.sqlite3")
+        )
+        assert len(safety_backups) == 1
+        spoken = developer.get_spoken_messages()
+        assert any("performing server storage cleanup" in text for text in spoken)
+        assert any("cleanup and database validation are complete" in text for text in spoken)
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_database_storage_cleanup_skips_maintenance_when_nothing_is_eligible(
+    tmp_path,
+) -> None:
+    server, developer = _make_admin_server(tmp_path)
+    try:
+        await _select(server, developer, "main_menu", "administration")
+        await _select(server, developer, "admin_menu", "database_management")
+        await _select(
+            server,
+            developer,
+            ADMIN_DATABASE_MENU,
+            "cleanup_storage",
+        )
+        await _select(
+            server,
+            developer,
+            ADMIN_DATABASE_STORAGE_CLEANUP_CONFIRM_MENU,
+            "confirm",
+        )
+
+        assert _current_menu(server, developer.username) == ADMIN_DATABASE_MENU
+        assert developer.get_last_spoken().startswith(
+            "Storage cleanup is not needed"
+        )
+        assert not (tmp_path / "backups").exists()
+        assert server.maintenance_manager.is_active is False
     finally:
         server._db.close()
 
@@ -266,7 +494,7 @@ async def test_database_backup_uses_confirmation_and_publishes_verified_snapshot
         backups = list((tmp_path / "backups").glob("*-manual-*.sqlite3"))
         assert len(backups) == 1
         backup_db = server._db.__class__(backups[0])
-        backup_db.connect(prune=False, recover_corrupt=False)
+        backup_db.connect()
         try:
             assert backup_db.get_user("Backup Retained").uuid == retained.uuid
         finally:

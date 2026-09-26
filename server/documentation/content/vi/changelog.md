@@ -1,5 +1,26 @@
 Nhật ký thay đổi
 
+Thứ Bảy 26 Tháng Chín 2026
+
+Tính năng mới:
+
+* Trò chuyện chung giờ được chia thành các kênh ngôn ngữ. Mặc định chưa chọn kênh nào; hãy chọn Cá nhân và Tùy chỉnh > Tùy chỉnh chung > Ngôn ngữ trò chuyện chung trước khi gửi hoặc nhận tin nhắn chung. Khi chưa tham gia bàn, tin nhắn thông thường sẽ được gửi vào kênh đã chọn; khi đang ở trong bàn, tin nhắn thông thường chỉ được gửi trong bàn, còn `/g` sẽ gửi vào kênh chung.
+* Báo cáo người dùng giờ cho phép bạn báo cáo hành vi nghiêm trọng hoặc lặp lại. Báo cáo ghi lại lý do, kênh ngôn ngữ và chính xác thời điểm gửi để xem xét thủ công; người dùng bị báo cáo không nhận được thông báo và không tự động bị xử phạt. Tin nhắn trò chuyện chung được lưu cùng người gửi và thời điểm cho đến khi Nhà phát triển xóa lịch sử, nhờ đó báo cáo có thể được xem xét theo đúng ngữ cảnh; bạn có thể chặn người dùng đó ngay trong lúc chờ xem xét.
+* Điểm Đột Phá giờ đã có đầy đủ bằng Tiếng Tây Ban Nha và Tiếng Bồ Đào Nha, gồm toàn bộ nội dung trong game và tài liệu cho người mới.
+
+Cải thiện:
+
+* Các dòng chỉ cung cấp thông tin trong menu giờ luôn là nội dung chỉ đọc. Việc chọn những dòng này không còn thực hiện thao tác hoặc bất ngờ đưa bạn trở lại menu trước.
+* Hệ thống chống spam giờ kiểm soát trò chuyện chung chặt hơn nhưng nới lỏng hơn trong trò chuyện tại bàn. Hệ thống chỉ từ chối tin nhắn có dấu hiệu spam thay vì tự động tắt tiếng tài khoản; hành vi lặp lại có thể được chuyển đi xem xét thủ công.
+* Khi phải tạm dừng ván chơi và thay đổi tài khoản để bảo trì máy chủ, hệ thống giờ thông báo rõ lúc bắt đầu và hoàn tất. Menu hiện tại vẫn hiển thị cho đến khi dịch vụ hoạt động bình thường trở lại.
+
+Sửa lỗi:
+
+* Hiệu ứng trò chơi, nhạc và âm thanh môi trường trên web giờ hoạt động ổn định trên các trình duyệt của Apple và khôi phục đúng sau khi trình duyệt trở lại từ chế độ nền.
+* Trên di động, một âm thanh tải chậm hoặc gặp lỗi không còn chặn tiếng bước chân, tiếng súng hay các âm thanh trò chơi phát sau đó; các trận kéo dài cũng không còn dần mất âm thanh không gian.
+* Điểm Đột Phá giờ giữ đúng đội, phe, quyền mang bom và điểm số qua giờ nghỉ giữa trận, hiệp phụ, thay người chơi mất kết nối bằng bot, trở lại chỗ đã được giữ và khôi phục bàn đã lưu. Thao tác bị chặn không còn làm lộ bước di chuyển hay vật dụng của đối thủ; khán giả nhận trạng thái bom trung lập trước khi bom được đặt; tiếng súng trên di động cũng nhỏ hơn để giảm rè và giật âm thanh.
+* Nhịp game không còn tăng tốc để bù lại sau khi máy chủ tạm thời bị chậm.
+
 Thứ Tư 23 Tháng Chín 2026
 
 Tính năng mới:

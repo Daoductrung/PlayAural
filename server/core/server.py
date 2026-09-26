@@ -122,7 +122,7 @@ from ..game_utils.game_result import GameResult
 from ..audio import SameTurnAudioBatcher
 
 
-VERSION = "1.0.5"
+VERSION = "1.0.5.1"
 # Legacy native-updater compatibility constants. Retain these exact names and
 # values until an explicit compatibility cleanup removes them.
 UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.zip"

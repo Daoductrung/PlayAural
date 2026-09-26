@@ -1,5 +1,26 @@
 Changelog
 
+Saturday 26 September 2026
+
+New Additions:
+
+* Global chat is now organized into language channels. No channel is selected by default; choose Personal and Options > General options > Global Chat Language before sending or receiving global messages. Outside a table, ordinary messages go to your selected channel; at a table, ordinary messages stay in table chat and `/g` sends to the global channel.
+* Report a user is now available for serious or repeated abuse. Reports record the reason, language channel, and exact submission time for manual review without notifying or automatically punishing the reported user. Global chat messages are retained with their sender and time until a developer clears the history, so reports can be reviewed in context; you can block the user immediately while awaiting review.
+* Breach Point is now fully available in Spanish and Portuguese, including all game text and beginner guides.
+
+Improvements:
+
+* Informational rows throughout menus are now consistently read-only. Selecting one no longer performs an action or unexpectedly returns to the previous menu.
+* Chat spam protection now treats global chat more strictly than table chat. It rejects only the spam-like message instead of automatically muting the account, while repeated incidents can be sent for manual review.
+* Server maintenance now gives clear start and completion notices when gameplay and account changes must pause temporarily. Current menus remain visible until normal service resumes.
+
+Bug Fixes:
+
+* Web game sounds, music, and ambience now work reliably in Apple browsers and recover correctly after the browser returns from the background.
+* On Mobile, a sound that loads slowly or fails no longer blocks later footsteps, gunfire, or other game audio, and long matches no longer gradually lose spatial sounds.
+* Breach Point now keeps squad membership, sides, bomb ownership, and scores correct through halftime, overtime, disconnected-seat replacement, seat recovery, and saved-table restoration. Blocked actions no longer reveal hidden enemy movement or utility details, spectators receive a neutral pre-plant bomb status, and Mobile gunfire is quieter to reduce clipping.
+* Game timing no longer speeds up to catch up after a temporary server slowdown.
+
 Wednesday 23 September 2026
 
 New Additions:

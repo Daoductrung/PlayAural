@@ -1,4 +1,4 @@
-"""Bounded account chat limiter with escalation and repetition detection."""
+"""Scope-aware runtime chat throttling with conservative spam escalation."""
 
 import math
 import time
@@ -7,20 +7,33 @@ from dataclasses import dataclass
 from typing import Literal
 
 
-ChatRejectionKind = Literal[
-    "rate_limited",
-    "repeated_message",
-    "auto_muted",
-    "auto_mute_applied",
-]
+ChatScope = Literal["global", "table", "direct"]
+ChatRejectionKind = Literal["rate_limited", "repeated_message"]
+
+
+@dataclass(frozen=True)
+class ChatRateLimitPolicy:
+    """One channel scope's burst, sustained, and escalation limits."""
+
+    capacity: int
+    refill_per_second: float
+    sustained_limit: int
+    duplicate_limit: int
+    short_duplicate_limit: int
+    report_incident_threshold: int | None
 
 
 @dataclass(frozen=True)
 class ChatRateLimitRejection:
-    """Structured explanation for one rejected chat attempt."""
+    """Structured explanation and review evidence for one rejected attempt."""
 
     kind: ChatRejectionKind
-    seconds: int = 0
+    scope: ChatScope
+    seconds: int
+    incident_count: int
+    rejected_attempt_count: int
+    accepted_message_count: int
+    report_recommended: bool
 
 
 def normalize_chat_content(message: str) -> str:
@@ -38,223 +51,258 @@ def normalize_chat_content(message: str) -> str:
 
 
 class ChatRateLimiter:
-    """Limit bursts, sustained floods, and repeated messages per account ID.
+    """Reject spam-shaped sends without applying automated account penalties.
 
-    State intentionally remains runtime-only, survives ordinary reconnects, and
-    is explicitly removed only when the account is deleted. A token bucket
-    protects short bursts, a bounded sliding window caps sustained throughput,
-    and normalized duplicate detection rejects the third matching message in a
-    short interval. Rejections share one strike escalation path.
+    Buckets are isolated by immutable account ID and chat scope, so activity at
+    a table cannot consume global-chat capacity. Repeated rejected attempts are
+    coalesced into incidents before a review-only report is recommended. State
+    remains runtime-only, survives ordinary reconnects, and is removed when an
+    account is deleted.
     """
 
-    BUCKET_CAPACITY = 5
-    REFILL_RATE = 0.5
+    GLOBAL_POLICY = ChatRateLimitPolicy(
+        capacity=5,
+        refill_per_second=0.5,
+        sustained_limit=15,
+        duplicate_limit=2,
+        short_duplicate_limit=5,
+        report_incident_threshold=3,
+    )
+    TABLE_POLICY = ChatRateLimitPolicy(
+        capacity=20,
+        refill_per_second=5.0,
+        sustained_limit=120,
+        duplicate_limit=8,
+        short_duplicate_limit=15,
+        report_incident_threshold=6,
+    )
+    DIRECT_POLICY = ChatRateLimitPolicy(
+        capacity=8,
+        refill_per_second=1.0,
+        sustained_limit=30,
+        duplicate_limit=4,
+        short_duplicate_limit=8,
+        report_incident_threshold=None,
+    )
+    POLICIES: dict[ChatScope, ChatRateLimitPolicy] = {
+        "global": GLOBAL_POLICY,
+        "table": TABLE_POLICY,
+        "direct": DIRECT_POLICY,
+    }
 
     SUSTAINED_WINDOW_SECONDS = 60.0
-    SUSTAINED_MESSAGE_LIMIT = 20
     DUPLICATE_WINDOW_SECONDS = 30.0
-    DUPLICATE_MESSAGE_LIMIT = 2
-
-    STRIKE_WARN_THRESHOLD = 4
-    ADMIN_NOTIFY_STRIKE_THRESHOLD = 6
-    STRIKE_DECAY_INTERVAL = 60.0
-
-    AUTO_MUTE_DURATIONS = {
-        4: 30,
-        5: 120,
-    }
-    AUTO_MUTE_SEVERE = 300
-    IDLE_RETENTION_SECONDS = 600.0
+    SHORT_MESSAGE_MAX_CHARACTERS = 4
+    INCIDENT_WINDOW_SECONDS = 10 * 60.0
+    INCIDENT_COALESCE_SECONDS = 10.0
+    MAX_REJECTED_ATTEMPTS_TRACKED = 1_000
+    REPORT_FAILURE_RETRY_SECONDS = 60.0
+    IDLE_RETENTION_SECONDS = 10 * 60.0
     PRUNE_INTERVAL_SECONDS = 60.0
 
     def __init__(self) -> None:
-        self._buckets: dict[str, _UserBucket] = {}
+        self._buckets: dict[tuple[str, ChatScope], _ScopeBucket] = {}
         self._last_prune = time.monotonic()
 
     @classmethod
-    def _prune_recent_messages(cls, bucket: "_UserBucket", now: float) -> None:
-        cutoff = now - cls.SUSTAINED_WINDOW_SECONDS
-        bucket.recent_messages = [
-            entry for entry in bucket.recent_messages if entry[0] > cutoff
-        ]
+    def _policy(cls, scope: ChatScope) -> ChatRateLimitPolicy:
+        try:
+            return cls.POLICIES[scope]
+        except KeyError as exc:
+            raise ValueError("Unsupported chat rate-limit scope") from exc
 
     @classmethod
-    def _decay_strikes(cls, bucket: "_UserBucket", now: float) -> None:
-        if bucket.strikes <= 0 or bucket.last_strike_time is None:
-            return
-        decay_elapsed = max(0.0, now - bucket.last_strike_time)
-        decay_count = int(decay_elapsed / cls.STRIKE_DECAY_INTERVAL)
-        if decay_count <= 0:
-            return
-        bucket.strikes = max(0, bucket.strikes - decay_count)
-        if bucket.strikes == 0:
-            bucket.last_strike_time = None
-        else:
-            bucket.last_strike_time += decay_count * cls.STRIKE_DECAY_INTERVAL
-        if bucket.strikes < cls.ADMIN_NOTIFY_STRIKE_THRESHOLD:
-            bucket.admin_notified = False
+    def _prune_bucket(cls, bucket: "_ScopeBucket", now: float) -> None:
+        message_cutoff = now - cls.SUSTAINED_WINDOW_SECONDS
+        bucket.recent_messages = [
+            entry for entry in bucket.recent_messages if entry[0] > message_cutoff
+        ]
+        incident_cutoff = now - cls.INCIDENT_WINDOW_SECONDS
+        bucket.incidents = [
+            occurred_at
+            for occurred_at in bucket.incidents
+            if occurred_at > incident_cutoff
+        ]
+        bucket.recent_rejections = [
+            occurred_at
+            for occurred_at in bucket.recent_rejections
+            if occurred_at > incident_cutoff
+        ]
 
     def _prune_inactive(self, now: float) -> None:
         """Bound runtime state without making reconnect a limiter bypass."""
         if now - self._last_prune < self.PRUNE_INTERVAL_SECONDS:
             return
         self._last_prune = now
-        for account_id, bucket in list(self._buckets.items()):
-            if bucket.muted_until is not None and now >= bucket.muted_until:
-                bucket.muted_until = None
-            self._decay_strikes(bucket, now)
-            self._prune_recent_messages(bucket, now)
+        for key, bucket in list(self._buckets.items()):
+            self._prune_bucket(bucket, now)
             if (
-                bucket.muted_until is None
-                and bucket.strikes == 0
-                and not bucket.recent_messages
+                not bucket.recent_messages
+                and not bucket.incidents
+                and not bucket.recent_rejections
+                and now >= bucket.report_suppressed_until
                 and now - bucket.last_activity > self.IDLE_RETENTION_SECONDS
             ):
-                self._buckets.pop(account_id, None)
+                self._buckets.pop(key, None)
 
-    def get_bucket(self, account_id: str) -> "_UserBucket":
-        """Get or create the runtime bucket for one immutable account ID."""
+    @staticmethod
+    def _account_id(account_id: str) -> str:
         normalized_id = str(account_id or "").strip()
         if not normalized_id:
             raise ValueError("Chat rate limiting requires an account identity")
+        return normalized_id
+
+    def get_bucket(
+        self,
+        account_id: str,
+        scope: ChatScope,
+    ) -> "_ScopeBucket":
+        """Get or create runtime state for one account and channel scope."""
+        normalized_id = self._account_id(account_id)
+        policy = self._policy(scope)
         now = time.monotonic()
         self._prune_inactive(now)
-        if normalized_id not in self._buckets:
-            self._buckets[normalized_id] = _UserBucket(self.BUCKET_CAPACITY)
-        bucket = self._buckets[normalized_id]
+        key = (normalized_id, scope)
+        if key not in self._buckets:
+            self._buckets[key] = _ScopeBucket(policy.capacity)
+        bucket = self._buckets[key]
         bucket.last_activity = max(bucket.last_activity, now)
         return bucket
 
     def _record_violation(
         self,
-        bucket: "_UserBucket",
+        bucket: "_ScopeBucket",
+        policy: ChatRateLimitPolicy,
+        scope: ChatScope,
+        kind: ChatRejectionKind,
         now: float,
-        kind: Literal["rate_limited", "repeated_message"],
     ) -> ChatRateLimitRejection:
-        bucket.strikes += 1
-        bucket.last_strike_time = now
-        if bucket.strikes < self.STRIKE_WARN_THRESHOLD:
-            return ChatRateLimitRejection(kind)
-
-        duration = self.AUTO_MUTE_DURATIONS.get(
-            bucket.strikes, self.AUTO_MUTE_SEVERE
+        bucket.recent_rejections.append(now)
+        if len(bucket.recent_rejections) > self.MAX_REJECTED_ATTEMPTS_TRACKED:
+            del bucket.recent_rejections[
+                : -self.MAX_REJECTED_ATTEMPTS_TRACKED
+            ]
+        if (
+            not bucket.incidents
+            or now - bucket.incidents[-1] >= self.INCIDENT_COALESCE_SECONDS
+        ):
+            bucket.incidents.append(now)
+        threshold = policy.report_incident_threshold
+        report_recommended = bool(
+            threshold is not None
+            and len(bucket.incidents) >= threshold
+            and now >= bucket.report_suppressed_until
         )
-        bucket.muted_until = now + duration
-        # A forced-silence interval is not evidence of clean behavior. Strike
-        # decay starts only after the user can chat again.
-        bucket.last_strike_time = bucket.muted_until
-        return ChatRateLimitRejection("auto_mute_applied", seconds=duration)
+        retry_seconds = max(
+            1,
+            math.ceil((1.0 - bucket.tokens) / policy.refill_per_second),
+        )
+        return ChatRateLimitRejection(
+            kind=kind,
+            scope=scope,
+            seconds=retry_seconds,
+            incident_count=len(bucket.incidents),
+            rejected_attempt_count=len(bucket.recent_rejections),
+            accepted_message_count=len(bucket.recent_messages),
+            report_recommended=report_recommended,
+        )
 
     def try_consume(
-        self, account_id: str, message: str | None = None
+        self,
+        account_id: str,
+        message: str,
+        *,
+        scope: ChatScope,
     ) -> tuple[bool, ChatRateLimitRejection | None]:
         """Consume capacity for one otherwise-sendable chat message."""
-        bucket = self.get_bucket(account_id)
+        if not isinstance(message, str):
+            raise ValueError("Chat rate limiting requires message text")
+        fingerprint = normalize_chat_content(message)
+        if not fingerprint:
+            raise ValueError("Chat rate limiting requires message text")
+        policy = self._policy(scope)
+        bucket = self.get_bucket(account_id, scope)
         now = time.monotonic()
-
-        if bucket.muted_until is not None:
-            if now < bucket.muted_until:
-                return False, ChatRateLimitRejection(
-                    "auto_muted",
-                    seconds=max(1, math.ceil(bucket.muted_until - now)),
-                )
-            bucket.muted_until = None
+        self._prune_bucket(bucket, now)
 
         if now >= bucket.last_refill:
             elapsed = now - bucket.last_refill
             bucket.tokens = min(
-                self.BUCKET_CAPACITY,
-                bucket.tokens + elapsed * self.REFILL_RATE,
+                policy.capacity,
+                bucket.tokens + elapsed * policy.refill_per_second,
             )
             bucket.last_refill = now
-        self._decay_strikes(bucket, now)
-        self._prune_recent_messages(bucket, now)
 
-        fingerprint = None
-        if message is not None:
-            fingerprint = normalize_chat_content(message)
-            duplicate_cutoff = now - self.DUPLICATE_WINDOW_SECONDS
-            duplicate_count = sum(
-                1
-                for sent_at, prior_fingerprint in bucket.recent_messages
-                if sent_at > duplicate_cutoff
-                and prior_fingerprint == fingerprint
+        duplicate_cutoff = now - self.DUPLICATE_WINDOW_SECONDS
+        duplicate_count = sum(
+            1
+            for sent_at, prior_fingerprint in bucket.recent_messages
+            if sent_at > duplicate_cutoff and prior_fingerprint == fingerprint
+        )
+        duplicate_limit = (
+            policy.short_duplicate_limit
+            if len(fingerprint) <= self.SHORT_MESSAGE_MAX_CHARACTERS
+            else policy.duplicate_limit
+        )
+        if duplicate_count >= duplicate_limit:
+            return False, self._record_violation(
+                bucket, policy, scope, "repeated_message", now
             )
-            if fingerprint and duplicate_count >= self.DUPLICATE_MESSAGE_LIMIT:
-                return False, self._record_violation(
-                    bucket, now, "repeated_message"
-                )
-            if len(bucket.recent_messages) >= self.SUSTAINED_MESSAGE_LIMIT:
-                return False, self._record_violation(
-                    bucket, now, "rate_limited"
-                )
+        if len(bucket.recent_messages) >= policy.sustained_limit:
+            return False, self._record_violation(
+                bucket, policy, scope, "rate_limited", now
+            )
 
         if bucket.tokens < 1.0:
             return False, self._record_violation(
-                bucket, now, "rate_limited"
+                bucket, policy, scope, "rate_limited", now
             )
 
         bucket.tokens -= 1.0
-        if fingerprint:
-            bucket.recent_messages.append((now, fingerprint))
+        bucket.recent_messages.append((now, fingerprint))
         return True, None
 
-    def is_muted(self, account_id: str) -> tuple[bool, int]:
-        """Return the active auto-mute state without creating a new bucket."""
+    def suppress_report(
+        self,
+        account_id: str,
+        scope: ChatScope,
+        seconds: float,
+    ) -> None:
+        """Suppress duplicate escalation after persistence or a write failure."""
+        bucket = self.get_bucket(account_id, scope)
         now = time.monotonic()
-        self._prune_inactive(now)
-        bucket = self._buckets.get(str(account_id or "").strip())
-        if bucket is None:
-            return False, 0
-        bucket.last_activity = max(bucket.last_activity, now)
-        if bucket.muted_until is None:
-            return False, 0
-        if now >= bucket.muted_until:
-            bucket.muted_until = None
-            return False, 0
-        return True, max(1, math.ceil(bucket.muted_until - now))
-
-    def should_notify_admins(self, account_id: str) -> bool:
-        """Return whether severe spam needs its one current admin alert."""
-        bucket = self._buckets.get(str(account_id or "").strip())
-        return bool(
-            bucket
-            and bucket.strikes >= self.ADMIN_NOTIFY_STRIKE_THRESHOLD
-            and not bucket.admin_notified
+        bucket.report_suppressed_until = max(
+            bucket.report_suppressed_until,
+            now + max(0.0, float(seconds)),
         )
 
-    def mark_admin_notified(self, account_id: str) -> None:
-        """Mark the current severe-spam escalation as announced."""
-        bucket = self._buckets.get(str(account_id or "").strip())
-        if bucket:
-            bucket.admin_notified = True
-
     def remove_user(self, account_id: str) -> None:
-        """Remove limiter state when its account is permanently deleted."""
-        self._buckets.pop(str(account_id or "").strip(), None)
+        """Remove every scope bucket when an account is permanently deleted."""
+        normalized_id = str(account_id or "").strip()
+        for key in tuple(self._buckets):
+            if key[0] == normalized_id:
+                self._buckets.pop(key, None)
 
 
-class _UserBucket:
-    """Bounded runtime state for one immutable account ID."""
+class _ScopeBucket:
+    """Bounded runtime state for one account and channel scope."""
 
     __slots__ = (
         "tokens",
         "last_refill",
-        "strikes",
-        "last_strike_time",
-        "muted_until",
-        "admin_notified",
         "last_activity",
         "recent_messages",
+        "incidents",
+        "recent_rejections",
+        "report_suppressed_until",
     )
 
     def __init__(self, capacity: float):
         now = time.monotonic()
         self.tokens: float = capacity
         self.last_refill: float = now
-        self.strikes: int = 0
-        self.last_strike_time: float | None = None
-        self.muted_until: float | None = None
-        self.admin_notified: bool = False
         self.last_activity: float = now
         self.recent_messages: list[tuple[float, str]] = []
+        self.incidents: list[float] = []
+        self.recent_rejections: list[float] = []
+        self.report_suppressed_until = 0.0

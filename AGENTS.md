@@ -496,6 +496,23 @@ replace the retention and cleanup rules required for genuinely persistent data.
 Do not add database rows, tables, saved runtime state, notifications, chat logs,
 tokens, invites, moderation records, or similar data without this lifecycle.
 
+## Chat Anti-Spam and Reports
+
+- Apply chat throttles by immutable account ID and channel scope. Global chat is
+  deliberately stricter than table chat; direct messages are isolated from
+  both. Reconnects and switching channels must not bypass capacity.
+- Automated detection may reject the spam-shaped message, but it must not mute,
+  ban, lower reputation, or otherwise punish an account. Escalation creates a
+  review-only System report after multiple time-separated incidents.
+- Coalesce rapid retries into one incident. Automatic reports use a persistent
+  per-account/per-scope cooldown so restarts cannot flood staff, and only a
+  newly created report sends the localized staff alert and `system`-buffer
+  notification sound.
+- Automatic reports store versioned structured evidence and one bounded sample.
+  They use the existing report lifecycle: retained until manual review and
+  explicit cleanup, retained across target-account deletion, and included in
+  database backups. Runtime limiter state is discarded on account deletion.
+
 ## Server Power Management
 
 Server reboot and shutdown flows must go through the centralized server power

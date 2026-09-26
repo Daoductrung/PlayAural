@@ -31,9 +31,14 @@ from ..moderation.chat_history import (
 from ..moderation.reports import (
     CLOSED_REPORT_STATUSES,
     MODERATION_REVIEW_PAGE_SIZE,
+    REPORT_CONTEXT_CODES,
+    REPORT_CONTEXT_GLOBAL,
     REPORT_CONTEXT_MESSAGES_AFTER,
     REPORT_CONTEXT_MESSAGES_BEFORE,
+    REPORT_ORIGIN_AUTOMATED_SPAM,
+    REPORT_ORIGIN_MANUAL,
     REPORT_STATUS_SET,
+    AutomatedSpamEvidence,
     report_reason_localization_key,
 )
 from ..core.power import (
@@ -574,18 +579,6 @@ class AdministrationManager:
             state["_stack"] = parent_stack
             self.server._restore_menu_focus(user, restore_frame)
 
-    def _notify_admins(
-        self, message_id: str, sound: str, exclude_username: str | None = None
-    ) -> None:
-        """Notify all online admins with a message and sound, optionally excluding one admin."""
-        for username, user in self.server.users.items():
-            if user.trust_level < 2:
-                continue  # Not an admin
-            if exclude_username and username == exclude_username:
-                continue  # Skip the excluded admin
-            user.speak_l(message_id, buffer="system")
-            user.play_sound(sound)
-
     def _admin_target_search_text(self, user: NetworkUser, query: str) -> str:
         query = query.strip()
         if query:
@@ -1017,6 +1010,68 @@ class AdministrationManager:
             return Localization.get(locale, "report-channel-unspecified")
         return self.server._get_global_chat_channel_name(locale, channel_code)
 
+    @staticmethod
+    def _moderation_reporter_name(
+        locale: str, report: ModerationReportRecord
+    ) -> str:
+        if report.origin_code == REPORT_ORIGIN_AUTOMATED_SPAM:
+            return Localization.get(locale, "system-name")
+        return report.reporter_username
+
+    @staticmethod
+    def _moderation_origin_name(locale: str, origin_code: str) -> str:
+        if origin_code == REPORT_ORIGIN_AUTOMATED_SPAM:
+            key = "admin-moderation-origin-automatic"
+        elif origin_code == REPORT_ORIGIN_MANUAL:
+            key = "admin-moderation-origin-manual"
+        else:
+            return Localization.get(locale, "admin-moderation-value-unknown")
+        return Localization.get(locale, key)
+
+    @staticmethod
+    def _moderation_scope_name(locale: str, scope: str) -> str:
+        if scope not in REPORT_CONTEXT_CODES:
+            return Localization.get(locale, "admin-moderation-value-unknown")
+        return Localization.get(locale, f"admin-moderation-scope-{scope}")
+
+    def _automated_report_evidence_items(
+        self, user: NetworkUser, report: ModerationReportRecord
+    ) -> list[MenuItem]:
+        """Render structured System evidence without exposing storage JSON."""
+        if report.origin_code != REPORT_ORIGIN_AUTOMATED_SPAM:
+            return []
+        evidence = (
+            AutomatedSpamEvidence.from_json(report.evidence_json)
+            if report.evidence_json is not None
+            else None
+        )
+        if evidence is not None and evidence.scope != report.context_code:
+            evidence = None
+        if evidence is None:
+            text = Localization.get(
+                user.locale,
+                "admin-moderation-automatic-evidence-unavailable",
+            )
+        else:
+            text = Localization.get(
+                user.locale,
+                "admin-moderation-automatic-evidence",
+                scope=self._moderation_scope_name(user.locale, evidence.scope),
+                detection=Localization.get(
+                    user.locale,
+                    f"admin-moderation-detection-{evidence.detection_kind.replace('_', '-')}",
+                ),
+                incidents=evidence.incident_count,
+                rejected=evidence.rejected_attempt_count,
+                accepted=evidence.accepted_message_count,
+                window=ServerPowerManager.format_duration(
+                    user.locale,
+                    evidence.observation_window_seconds,
+                ),
+                sample=evidence.sample_message,
+            )
+        return [MenuItem(text=text, id="automatic_evidence", read_only=True)]
+
     def _require_developer_moderation_access(self, user: NetworkUser) -> bool:
         """Protect irreversible evidence cleanup at display and action time."""
         if user.trust_level >= 3:
@@ -1196,7 +1251,7 @@ class AdministrationManager:
             target=report.reported_username,
             target_id=report.reported_uuid,
             reason=self._moderation_reason_name(user.locale, report.reason_code),
-            reporter=report.reporter_username,
+            reporter=self._moderation_reporter_name(user.locale, report),
             status=self._moderation_status_name(user.locale, report.status),
         )
 
@@ -1298,6 +1353,7 @@ class AdministrationManager:
                 MenuItem(text=Localization.get(user.locale, "back"), id="back"),
             ]
         else:
+            has_global_history = report.context_code == REPORT_CONTEXT_GLOBAL
             items = [
                 MenuItem(
                     text=Localization.get(
@@ -1332,8 +1388,21 @@ class AdministrationManager:
                 MenuItem(
                     text=Localization.get(
                         user.locale,
+                        "admin-moderation-report-origin",
+                        origin=self._moderation_origin_name(
+                            user.locale, report.origin_code
+                        ),
+                    ),
+                    id="report_origin",
+                    read_only=True,
+                ),
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
                         "admin-moderation-report-reporter",
-                        username=report.reporter_username,
+                        username=self._moderation_reporter_name(
+                            user.locale, report
+                        ),
                         uuid=report.reporter_uuid,
                     ),
                     id="reporter_identity",
@@ -1363,28 +1432,49 @@ class AdministrationManager:
                 MenuItem(
                     text=Localization.get(
                         user.locale,
-                        "admin-moderation-report-channel",
-                        channel=self._moderation_channel_name(
-                            user.locale, report.channel_code
+                        (
+                            "admin-moderation-report-scope"
+                            if report.origin_code
+                            == REPORT_ORIGIN_AUTOMATED_SPAM
+                            else "admin-moderation-report-channel"
+                        ),
+                        **(
+                            {
+                                "scope": self._moderation_scope_name(
+                                    user.locale,
+                                    report.context_code,
+                                )
+                            }
+                            if report.origin_code
+                            == REPORT_ORIGIN_AUTOMATED_SPAM
+                            else {
+                                "channel": self._moderation_channel_name(
+                                    user.locale, report.channel_code
+                                )
+                            }
                         ),
                     ),
                     id="report_channel",
                     read_only=True,
                 ),
-                MenuItem(
-                    text=Localization.get(
-                        user.locale,
-                        (
-                            "admin-moderation-report-anchor"
-                            if report.context_anchor_message_id is not None
-                            else "admin-moderation-report-anchor-unavailable"
-                        ),
-                        id=report.context_anchor_message_id,
-                    ),
-                    id="report_anchor",
-                    read_only=True,
-                ),
             ]
+            if has_global_history:
+                items.append(
+                    MenuItem(
+                        text=Localization.get(
+                            user.locale,
+                            (
+                                "admin-moderation-report-anchor"
+                                if report.context_anchor_message_id is not None
+                                else "admin-moderation-report-anchor-unavailable"
+                            ),
+                            id=report.context_anchor_message_id,
+                        ),
+                        id="report_anchor",
+                        read_only=True,
+                    )
+                )
+            items.extend(self._automated_report_evidence_items(user, report))
             if report.details:
                 items.append(
                     MenuItem(
@@ -1426,22 +1516,23 @@ class AdministrationManager:
                         read_only=True,
                     )
                 )
-            items.extend(
-                [
+            if has_global_history:
+                items.append(
                     MenuItem(
                         text=Localization.get(
                             user.locale, "admin-moderation-view-context"
                         ),
                         id="view_context",
-                    ),
+                    )
+                )
+                items.append(
                     MenuItem(
                         text=Localization.get(
                             user.locale, "admin-moderation-view-target-history"
                         ),
                         id="view_target_history",
-                    ),
-                ]
-            )
+                    )
+                )
             if report.status == "open":
                 items.extend(
                     [
@@ -3482,8 +3573,10 @@ class AdministrationManager:
             admin.speak_l("account-approved", buffer="system", player=username)
 
             # Notify other admins of the account action
-            self._notify_admins(
-                "account-action", "accountactionnotify.ogg", exclude_username=admin.username
+            self.server._notify_admins(
+                "account-action",
+                "accountactionnotify.ogg",
+                exclude_username=admin.username,
             )
 
             # Check if the user is online and waiting for approval
@@ -3523,8 +3616,10 @@ class AdministrationManager:
             admin.speak_l("account-declined", buffer="system", player=username)
 
             # Notify other admins of the account action
-            self._notify_admins(
-                "account-action", "accountactionnotify.ogg", exclude_username=admin.username
+            self.server._notify_admins(
+                "account-action",
+                "accountactionnotify.ogg",
+                exclude_username=admin.username,
             )
 
         self.refresh_account_approval_menus(exclude_username=admin.username)

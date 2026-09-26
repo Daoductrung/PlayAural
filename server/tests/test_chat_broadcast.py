@@ -5,6 +5,7 @@ from ..core import server as server_module
 from ..core.server import MAX_CHAT_MESSAGE_LENGTH, Server
 from ..messages.localization import Localization
 from ..persistence.database import GlobalChatMessageRecord
+from ..moderation.reports import ModerationReportSubmission
 from ..tables.manager import TableManager
 from ..users.test_user import MockUser
 
@@ -36,6 +37,7 @@ class MutatingConnection(RecordingConnection):
 class DummyDatabase:
     def __init__(self):
         self.global_messages: list[GlobalChatMessageRecord] = []
+        self.automated_reports: list[dict] = []
         self.fail_global_message_write = False
 
     def get_active_mute(self, username: str):
@@ -63,6 +65,13 @@ class DummyDatabase:
         )
         self.global_messages.append(record)
         return record
+
+    def submit_automated_spam_report(self, **kwargs) -> ModerationReportSubmission:
+        self.automated_reports.append(kwargs)
+        return ModerationReportSubmission(
+            outcome="created",
+            report_id=len(self.automated_reports),
+        )
 
 
 def _make_server() -> Server:
@@ -199,13 +208,15 @@ async def test_unavailable_chat_attempts_do_not_consume_send_capacity(
             False,
         )
 
-    for index in range(server._chat_rate_limiter.BUCKET_CAPACITY + 3):
+    for index in range(server._chat_rate_limiter.GLOBAL_POLICY.capacity + 3):
         await server._handle_chat(
             DummyClient("Alice"),
             {"convo": convo, "message": f"blocked {index}", "type": "chat"},
         )
 
-    assert alice.uuid not in server._chat_rate_limiter._buckets
+    assert all(
+        key[0] != alice.uuid for key in server._chat_rate_limiter._buckets
+    )
 
     if convo == "global":
         server._global_chat_sending_enabled = True
@@ -261,59 +272,84 @@ async def test_repeated_global_message_is_not_logged_or_delivered() -> None:
 
 
 @pytest.mark.asyncio
-async def test_severe_spam_notifies_online_admin_once(
+async def test_repeated_global_spam_creates_one_system_report_and_staff_alert(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(
-        server_module,
-        "MAIN_MENU_LOCAL_CHAT_SENDING_ENABLED",
-        True,
-    )
+    clock = 1_000.0
+    monkeypatch.setattr("server.auth.chat_rate_limit.time.monotonic", lambda: clock)
     server = _make_server()
     alice_connection = RecordingConnection()
     admin_connection = RecordingConnection()
+    developer_connection = RecordingConnection()
+    player_connection = RecordingConnection()
+    pending_admin_connection = RecordingConnection()
     alice = _make_user("Alice", alice_connection)
     admin = _make_user("Admin", admin_connection)
+    developer = _make_user("Developer", developer_connection)
+    player = _make_user("Player", player_connection)
+    pending_admin = MockUser("Pending Admin", approved=False)
+    pending_admin.connection = pending_admin_connection
     admin.trust_level = 2
-    server._users = {"Alice": alice, "Admin": admin}
-    bucket = server._chat_rate_limiter.get_bucket(alice.uuid)
-    bucket.tokens = 0.0
-    bucket.strikes = server._chat_rate_limiter.ADMIN_NOTIFY_STRIKE_THRESHOLD - 1
+    developer.trust_level = 3
+    pending_admin.trust_level = 2
+    alice.preferences.global_chat_channel = "en"
+    server._users = {
+        "Alice": alice,
+        "Admin": admin,
+        "Developer": developer,
+        "Player": player,
+        "Pending Admin": pending_admin,
+    }
+    bucket = server._chat_rate_limiter.get_bucket(alice.uuid, "global")
+    bucket.recent_messages = [(999.0, "flood"), (999.0, "flood")]
 
-    await server._handle_chat(
-        DummyClient("Alice"),
-        {"convo": "local", "message": "flood", "type": "chat"},
-    )
+    for incident in range(3):
+        clock = 1_000.0 + incident * 10.0
+        await server._handle_chat(
+            DummyClient("Alice"),
+            {
+                "convo": "global",
+                "message": "flood",
+                "type": "chat",
+            },
+        )
 
-    assert alice_connection.sent == []
-    assert admin_connection.sent == []
-    assert alice.get_last_spoken() == Localization.get(
-        alice.locale,
-        "auto-muted-applied-minutes",
-        minutes="5",
-    )
+    assert len(server._db.automated_reports) == 1
+    report = server._db.automated_reports[0]
+    assert report["reported_uuid"] == alice.uuid
+    assert report["reported_username"] == "Alice"
+    assert report["channel_code"] == "en"
+    assert report["evidence"].scope == "global"
+    assert report["evidence"].incident_count == 3
     assert admin.get_last_spoken() == Localization.get(
         admin.locale,
-        "admin-spam-alert",
-        username="Alice",
+        "admin-new-automatic-report",
+        id=1,
+        target="Alice",
     )
-    assert bucket.admin_notified
+    assert developer.get_last_spoken() == Localization.get(
+        developer.locale,
+        "admin-new-automatic-report",
+        id=1,
+        target="Alice",
+    )
+    assert player.get_spoken_messages() == []
+    assert pending_admin.get_spoken_messages() == []
+    assert admin.get_sounds_played() == ["moderation_report.ogg"]
+    assert developer.get_sounds_played() == ["moderation_report.ogg"]
+    assert all(
+        message.data.get("buffer") == "system"
+        for message in admin.messages
+        if message.type == "play_sound"
+    )
 
+    clock = 1_030.0
     await server._handle_chat(
         DummyClient("Alice"),
-        {"convo": "local", "message": "still flooding", "type": "chat"},
+        {"convo": "global", "message": "flood", "type": "chat"},
     )
-    expected_alert = Localization.get(
-        admin.locale,
-        "admin-spam-alert",
-        username="Alice",
-    )
-    admin_alerts = [
-        message
-        for message in admin.messages
-        if message.type == "speak" and message.data.get("text") == expected_alert
-    ]
-    assert len(admin_alerts) == 1
+    assert len(server._db.automated_reports) == 1
+    assert admin.get_sounds_played() == ["moderation_report.ogg"]
 
 
 @pytest.mark.asyncio
@@ -329,7 +365,9 @@ async def test_message_with_no_visible_content_is_rejected_before_rate_limit() -
     )
 
     assert alice_connection.sent == []
-    assert alice.uuid not in server._chat_rate_limiter._buckets
+    assert all(
+        key[0] != alice.uuid for key in server._chat_rate_limiter._buckets
+    )
     assert alice.get_last_spoken() == Localization.get(
         alice.locale,
         "chat-invalid-message",

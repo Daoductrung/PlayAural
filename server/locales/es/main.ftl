@@ -589,17 +589,12 @@ you-have-been-unmuted = Se te quitó el silencio. Ya puedes chatear de nuevo.
 muted-remaining-seconds = Estás silenciado. Quedan { $seconds } segundos.
 muted-remaining-minutes = Estás silenciado. Quedan { $minutes } minutos.
 muted-permanent = Estás silenciado de forma permanente. Contacta a un administrador para más información.
-auto-muted-seconds = Fuiste silenciado temporalmente por hacer spam. Quedan { $seconds } segundos.
-auto-muted-minutes = Fuiste silenciado temporalmente por hacer spam. Quedan { $minutes } minutos.
-auto-muted-applied-seconds = Se te silenció automáticamente por { $seconds } segundos por exceso de spam en el chat.
-auto-muted-applied-minutes = Se te silenció automáticamente por { $minutes } minutos por exceso de spam en el chat.
 chat-rate-limited = ¡Más despacio! Estás enviando mensajes demasiado rápido.
 chat-global-disabled-send = El chat global está desactivado en tus opciones. Actívalo antes de enviar mensajes globales.
 chat-table-disabled-send = El chat de mesa está desactivado en tus opciones. Actívalo antes de enviar mensajes en la mesa.
 chat-invalid-channel = Ese canal de chat no está disponible.
 chat-invalid-message = Ese mensaje no se pudo enviar porque su formato no es válido.
 chat-message-too-long = Ese mensaje es demasiado largo. Los mensajes pueden tener como máximo { $limit } caracteres.
-admin-spam-alert = Advertencia: { $username } está haciendo spam excesivo en el chat y fue silenciado automáticamente.
 
 broadcast-announcement = Anuncio general
 admin-broadcast-prompt = Ingresa el mensaje para anunciar a todos los usuarios en línea. (¡Esto se enviará a todos!)

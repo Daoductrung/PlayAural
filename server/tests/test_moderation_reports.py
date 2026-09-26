@@ -1,9 +1,16 @@
 from datetime import datetime, timedelta, timezone
+import sqlite3
 
 import pytest
 
 from ..moderation.chat_history import GlobalChatHistoryFilter
-from ..moderation.reports import MAX_REPORTS_PER_WINDOW
+from ..moderation.reports import (
+    MAX_REPORTS_PER_WINDOW,
+    REPORT_ORIGIN_AUTOMATED_SPAM,
+    SYSTEM_REPORTER_USERNAME,
+    SYSTEM_REPORTER_UUID,
+    AutomatedSpamEvidence,
+)
 from ..persistence.database import Database
 
 
@@ -11,6 +18,58 @@ def _connected_database(path) -> Database:
     database = Database(path)
     database.connect()
     return database
+
+
+def test_report_schema_has_no_unreleased_compatibility_defaults(tmp_path) -> None:
+    database = _connected_database(tmp_path / "schema.sqlite")
+    try:
+        columns = {
+            str(row["name"]): row
+            for row in database._conn.execute(
+                "PRAGMA table_info(moderation_reports)"
+            ).fetchall()
+        }
+        assert columns["origin_code"]["dflt_value"] is None
+        assert columns["context_code"]["dflt_value"] is None
+        assert columns["evidence_json"]["dflt_value"] is None
+    finally:
+        database.close()
+
+
+def test_table_report_schema_rejects_global_history_metadata(tmp_path) -> None:
+    database = _connected_database(tmp_path / "table_report_schema.sqlite")
+    try:
+        target = database.create_user("Target", "hash")
+        message = database.add_global_chat_message(
+            target.uuid,
+            target.username,
+            "en",
+            "global message",
+        )
+        values = (
+            "system:anti-spam",
+            "System",
+            target.uuid,
+            target.username,
+            datetime.now(timezone.utc).isoformat(timespec="microseconds"),
+            message.id,
+            '{"version":1}',
+        )
+        with pytest.raises(sqlite3.IntegrityError):
+            database._conn.execute(
+                """
+                INSERT INTO moderation_reports (
+                    reporter_uuid, reporter_username, reported_uuid,
+                    reported_username, reported_at_utc, reason_code,
+                    context_anchor_message_id, status, origin_code,
+                    context_code, evidence_json
+                ) VALUES (?, ?, ?, ?, ?, 'spam', ?, 'open',
+                          'automated_spam', 'table', ?)
+                """,
+                values,
+            )
+    finally:
+        database.close()
 
 
 def test_report_persists_identity_time_reason_channel_and_message_anchor(
@@ -56,6 +115,9 @@ def test_report_persists_identity_time_reason_channel_and_message_anchor(
         assert report.reason_code == "harassment"
         assert report.channel_code == "en"
         assert report.context_anchor_message_id == matching_message.id
+        assert report.origin_code == "manual"
+        assert report.context_code == "global"
+        assert report.evidence_json is None
         assert report.status == "open"
         assert report.reviewed_by_uuid is None
         timestamp = datetime.fromisoformat(report.reported_at_utc)
@@ -121,6 +183,135 @@ def test_report_limits_are_persistent_and_do_not_change_target_state(tmp_path) -
             ).fetchall()
         }
         assert "idx_moderation_reports_reporter_target_time" in indexes
+    finally:
+        database.close()
+
+
+def test_automatic_spam_report_persists_system_identity_and_evidence(
+    tmp_path,
+) -> None:
+    path = tmp_path / "automatic.sqlite"
+    database = _connected_database(path)
+    target = database.create_user("Target", "hash")
+    anchor = database.add_global_chat_message(
+        target.uuid,
+        target.username,
+        "en",
+        "accepted before the flood",
+    )
+    evidence = AutomatedSpamEvidence(
+        scope="global",
+        detection_kind="repeated_message",
+        incident_count=3,
+        rejected_attempt_count=12,
+        accepted_message_count=2,
+        observation_window_seconds=600,
+        sample_message="repeated sample",
+    )
+
+    result = database.submit_automated_spam_report(
+        reported_uuid=target.uuid,
+        reported_username=target.username,
+        evidence=evidence,
+        channel_code="en-US",
+    )
+    assert result.outcome == "created"
+    database.close()
+
+    reopened = _connected_database(path)
+    try:
+        report = reopened.get_moderation_report(result.report_id)
+        assert report is not None
+        assert report.reporter_uuid == SYSTEM_REPORTER_UUID
+        assert report.reporter_username == SYSTEM_REPORTER_USERNAME
+        assert report.origin_code == REPORT_ORIGIN_AUTOMATED_SPAM
+        assert report.context_code == "global"
+        assert report.reason_code == "spam"
+        assert report.channel_code == "en"
+        assert report.context_anchor_message_id == anchor.id
+        assert report.evidence_json is not None
+        assert AutomatedSpamEvidence.from_json(report.evidence_json) == evidence
+        assert reopened.get_active_mute(target.username) is None
+    finally:
+        reopened.close()
+
+
+def test_automatic_report_cooldown_is_persistent_and_scope_specific(
+    tmp_path,
+) -> None:
+    database = _connected_database(tmp_path / "automatic_cooldown.sqlite")
+    try:
+        target = database.create_user("Target", "hash")
+        global_evidence = AutomatedSpamEvidence(
+            scope="global",
+            detection_kind="rate_limited",
+            incident_count=3,
+            rejected_attempt_count=3,
+            accepted_message_count=15,
+            observation_window_seconds=600,
+            sample_message="global flood",
+        )
+        table_evidence = AutomatedSpamEvidence(
+            scope="table",
+            detection_kind="repeated_message",
+            incident_count=6,
+            rejected_attempt_count=20,
+            accepted_message_count=8,
+            observation_window_seconds=600,
+            sample_message="table flood",
+        )
+        first = database.submit_automated_spam_report(
+            reported_uuid=target.uuid,
+            reported_username=target.username,
+            evidence=global_evidence,
+            channel_code="en",
+        )
+        duplicate = database.submit_automated_spam_report(
+            reported_uuid=target.uuid,
+            reported_username=target.username,
+            evidence=global_evidence,
+            channel_code="en",
+        )
+        separate_scope = database.submit_automated_spam_report(
+            reported_uuid=target.uuid,
+            reported_username=target.username,
+            evidence=table_evidence,
+        )
+
+        assert first.outcome == "created"
+        assert duplicate.outcome == "automation_cooldown"
+        assert duplicate.retry_after_seconds > 0
+        assert separate_scope.outcome == "created"
+        assert database.count_moderation_reports() == 2
+    finally:
+        database.close()
+
+
+def test_automatic_report_snapshot_survives_target_account_deletion(
+    tmp_path,
+) -> None:
+    database = _connected_database(tmp_path / "automatic_deleted.sqlite")
+    try:
+        target = database.create_user("Target", "hash")
+        result = database.submit_automated_spam_report(
+            reported_uuid=target.uuid,
+            reported_username=target.username,
+            evidence=AutomatedSpamEvidence(
+                scope="table",
+                detection_kind="rate_limited",
+                incident_count=6,
+                rejected_attempt_count=7,
+                accepted_message_count=120,
+                observation_window_seconds=600,
+                sample_message="sample",
+            ),
+        )
+        assert database.delete_user(target.username)
+
+        report = database.get_moderation_report(result.report_id)
+        assert report is not None
+        assert report.reported_uuid == target.uuid
+        assert report.reported_username == target.username
     finally:
         database.close()
 

@@ -18,14 +18,22 @@ from ..messages.localization import DEFAULT_LOCALE, Localization
 from ..chat_channels import MAX_CHAT_MESSAGE_LENGTH, normalize_global_chat_channel
 from ..moderation.chat_history import GLOBAL_CHAT_HISTORY_SORT_ORDERS
 from ..moderation.reports import (
+    AUTOMATED_SPAM_REPORT_COOLDOWN_SECONDS,
     CLOSED_REPORT_STATUSES,
     MAX_MODERATION_QUERY_PAGE_SIZE,
     MAX_REPORT_DETAILS_LENGTH,
     MAX_REPORTS_PER_WINDOW,
+    REPORT_CONTEXT_CODES,
+    REPORT_CONTEXT_GLOBAL,
     REPORT_LIMIT_WINDOW_SECONDS,
+    REPORT_ORIGIN_AUTOMATED_SPAM,
+    REPORT_ORIGIN_MANUAL,
     REPORT_REASON_CODE_SET,
     REPORT_STATUS_SET,
     SAME_TARGET_REPORT_COOLDOWN_SECONDS,
+    SYSTEM_REPORTER_USERNAME,
+    SYSTEM_REPORTER_UUID,
+    AutomatedSpamEvidence,
     ModerationReportSubmission,
 )
 from ..tables.table import Table
@@ -132,6 +140,9 @@ class ModerationReportRecord:
     reviewed_by_uuid: str | None
     reviewed_by_username: str | None
     reviewed_at_utc: str | None
+    origin_code: str
+    context_code: str
+    evidence_json: str | None
 
 
 @dataclass(frozen=True)
@@ -861,6 +872,9 @@ class Database:
             )
         """)
 
+        # Reports are immutable identity/evidence snapshots with no user-table
+        # foreign keys. Manual cleanup owns their retention, so deleting an
+        # account cannot erase a pending review or orphan a constrained row.
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS moderation_reports (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -878,10 +892,33 @@ class Database:
                 reviewed_by_uuid TEXT,
                 reviewed_by_username TEXT,
                 reviewed_at_utc TEXT,
+                origin_code TEXT NOT NULL,
+                context_code TEXT NOT NULL,
+                evidence_json TEXT,
                 CHECK (reporter_uuid != ''),
                 CHECK (reported_uuid != ''),
                 CHECK (reporter_uuid != reported_uuid),
-                CHECK (status IN ('open', 'reviewed', 'dismissed', 'actioned'))
+                CHECK (status IN ('open', 'reviewed', 'dismissed', 'actioned')),
+                CHECK (origin_code IN ('manual', 'automated_spam')),
+                CHECK (context_code IN ('global', 'table')),
+                CHECK (
+                    (origin_code = 'manual'
+                        AND context_code = 'global'
+                        AND evidence_json IS NULL)
+                    OR
+                    (origin_code = 'automated_spam'
+                        AND evidence_json IS NOT NULL
+                        AND evidence_json != '')
+                ),
+                CHECK (
+                    context_code != 'table'
+                    OR (channel_code IS NULL AND context_anchor_message_id IS NULL)
+                ),
+                CHECK (
+                    origin_code != 'automated_spam'
+                    OR context_code != 'global'
+                    OR channel_code IS NOT NULL
+                )
             )
         """)
 
@@ -988,6 +1025,16 @@ class Database:
             CREATE INDEX IF NOT EXISTS idx_moderation_reports_reporter_target_time
             ON moderation_reports(
                 reporter_uuid, reported_uuid, reported_at_utc DESC, id DESC
+            )
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_moderation_reports_origin_target_context_time
+            ON moderation_reports(
+                origin_code,
+                reported_uuid,
+                context_code,
+                reported_at_utc DESC,
+                id DESC
             )
         """)
         cursor.execute("""
@@ -1860,6 +1907,13 @@ class Database:
             reviewed_at_utc=(
                 str(row["reviewed_at_utc"]) if row["reviewed_at_utc"] else None
             ),
+            origin_code=str(row["origin_code"]),
+            context_code=str(row["context_code"]),
+            evidence_json=(
+                str(row["evidence_json"])
+                if row["evidence_json"] is not None
+                else None
+            ),
         )
 
     def submit_moderation_report(
@@ -2018,8 +2072,10 @@ class Database:
                     details,
                     channel_code,
                     context_anchor_message_id,
-                    status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')
+                    status,
+                    origin_code,
+                    context_code
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)
                 """,
                 (
                     reporter_id,
@@ -2031,6 +2087,138 @@ class Database:
                     normalized_details,
                     normalized_channel,
                     anchor_id,
+                    REPORT_ORIGIN_MANUAL,
+                    REPORT_CONTEXT_GLOBAL,
+                ),
+            )
+            return ModerationReportSubmission(
+                outcome="created",
+                report_id=int(cursor.lastrowid),
+            )
+
+    def submit_automated_spam_report(
+        self,
+        *,
+        reported_uuid: str,
+        reported_username: str,
+        evidence: AutomatedSpamEvidence,
+        channel_code: str | None = None,
+    ) -> ModerationReportSubmission:
+        """Persist one review-only System report with a durable flood guard."""
+        reported_id = str(reported_uuid or "").strip()
+        reported_name = str(reported_username or "").strip()
+        if not reported_id or not reported_name:
+            raise ValueError("Automated reports require a target identity")
+        if evidence.scope not in REPORT_CONTEXT_CODES:
+            raise ValueError("Unsupported automated-report context")
+        normalized_channel = None
+        if evidence.scope == REPORT_CONTEXT_GLOBAL:
+            normalized_channel = normalize_global_chat_channel(channel_code)
+            if normalized_channel is None:
+                raise ValueError("Global automated reports require a channel")
+        elif channel_code is not None:
+            raise ValueError("Table automated reports cannot have a global channel")
+        evidence_json = evidence.to_json()
+
+        now = datetime.now(timezone.utc)
+        reported_at_utc = now.isoformat(timespec="microseconds")
+        cooldown_start = (
+            now - timedelta(seconds=AUTOMATED_SPAM_REPORT_COOLDOWN_SECONDS)
+        ).isoformat(timespec="microseconds")
+
+        with self._transaction(immediate=True) as cursor:
+            cursor.execute(
+                "SELECT username FROM users WHERE uuid = ?",
+                (reported_id,),
+            )
+            target = cursor.fetchone()
+            if not target or str(target["username"]) != reported_name:
+                raise ValueError("Automated-report target must match a current account")
+
+            cursor.execute(
+                """
+                SELECT reported_at_utc
+                FROM moderation_reports
+                WHERE origin_code = ?
+                  AND reported_uuid = ?
+                  AND context_code = ?
+                  AND reported_at_utc >= ?
+                ORDER BY reported_at_utc DESC, id DESC
+                LIMIT 1
+                """,
+                (
+                    REPORT_ORIGIN_AUTOMATED_SPAM,
+                    reported_id,
+                    evidence.scope,
+                    cooldown_start,
+                ),
+            )
+            latest = cursor.fetchone()
+            if latest:
+                latest_at = datetime.fromisoformat(latest["reported_at_utc"])
+                retry_after = max(
+                    1,
+                    math.ceil(
+                        (
+                            latest_at
+                            + timedelta(
+                                seconds=AUTOMATED_SPAM_REPORT_COOLDOWN_SECONDS
+                            )
+                            - now
+                        ).total_seconds()
+                    ),
+                )
+                return ModerationReportSubmission(
+                    outcome="automation_cooldown",
+                    retry_after_seconds=retry_after,
+                )
+
+            anchor_id = None
+            if evidence.scope == REPORT_CONTEXT_GLOBAL:
+                cursor.execute(
+                    """
+                    SELECT id
+                    FROM global_chat_messages
+                    WHERE sender_uuid = ?
+                      AND channel_code = ?
+                      AND sent_at_utc <= ?
+                    ORDER BY sent_at_utc DESC, id DESC
+                    LIMIT 1
+                    """,
+                    (reported_id, normalized_channel, reported_at_utc),
+                )
+                anchor = cursor.fetchone()
+                anchor_id = int(anchor["id"]) if anchor else None
+
+            cursor.execute(
+                """
+                INSERT INTO moderation_reports (
+                    reporter_uuid,
+                    reporter_username,
+                    reported_uuid,
+                    reported_username,
+                    reported_at_utc,
+                    reason_code,
+                    details,
+                    channel_code,
+                    context_anchor_message_id,
+                    status,
+                    origin_code,
+                    context_code,
+                    evidence_json
+                ) VALUES (?, ?, ?, ?, ?, 'spam', '', ?, ?, 'open', ?, ?, ?)
+                """,
+                (
+                    SYSTEM_REPORTER_UUID,
+                    SYSTEM_REPORTER_USERNAME,
+                    reported_id,
+                    reported_name,
+                    reported_at_utc,
+                    normalized_channel,
+                    anchor_id,
+                    REPORT_ORIGIN_AUTOMATED_SPAM,
+                    evidence.scope,
+                    evidence_json,
                 ),
             )
             return ModerationReportSubmission(

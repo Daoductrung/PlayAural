@@ -804,6 +804,24 @@ bot observations, and similar memory that must not outlive its game instance.
 The framework calls it on both table destruction and game restart; it does not
 replace the retention and cleanup rules required for genuinely persistent data.
 
+#### Chat Anti-Spam and Moderation Reports
+- Throttle by immutable account UUID and independent chat scope. Global chat is
+  intentionally stricter than table chat, while direct messages use their own
+  capacity. Limiter state is runtime-only, survives reconnects, and is removed
+  only with account deletion.
+- Automated anti-spam may reject only the current spam-shaped send. It must not
+  automatically mute, ban, change reputation, or apply another account-level
+  penalty. Multiple time-separated incidents may create a System-authored case
+  for manual review.
+- Coalesce rapid retries into one incident. Enforce a persistent automatic-case
+  cooldown per reported UUID and chat scope so reconnects and server restarts
+  cannot flood the report queue or online staff alerts. Notify staff only after
+  the report transaction commits successfully.
+- System reports retain versioned structured detector evidence and one bounded
+  rejected-message sample. Like manual reports, they remain until explicit
+  review/cleanup, survive target-account deletion as identity snapshots, and
+  are included in database backups. Never expose raw evidence JSON in menus.
+
 ### Localization
 - Use "user" / "người dùng" for account-level entities (presence, profiles,
   friends, blocks, and moderation). Reserve "player" / "người chơi" for

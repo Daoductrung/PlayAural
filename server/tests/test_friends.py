@@ -368,7 +368,10 @@ class TestFriendsSystem:
             and packet.get("buffer") == "system"
             for packet in alice_user.get_queued_messages()
         )
-        assert alice.uuid not in self.server._chat_rate_limiter._buckets
+        assert all(
+            key[0] != alice.uuid
+            for key in self.server._chat_rate_limiter._buckets
+        )
 
     @pytest.mark.asyncio
     async def test_private_message_resolves_friend_case_variant_canonically(self):
@@ -773,10 +776,16 @@ class TestFriendsSystem:
     ):
         self.db.create_user("Alice", "hash")
         self.db.create_user("Nguyễn Văn An", "hash")
+        self.db.create_user("Admin", "hash", trust_level=2)
         alice = self.db.get_user("Alice")
         target = self.db.get_user("Nguyễn Văn An")
+        admin_record = self.db.get_user("Admin")
         alice_user = self._make_network_user(alice.username, alice.uuid)
         target_user = self._make_network_user(target.username, target.uuid)
+        admin_user = self._make_network_user(
+            admin_record.username, admin_record.uuid
+        )
+        admin_user.set_trust_level(2)
         alice_user.connection.username = alice.username
         alice_user.preferences.global_chat_channel = "vi"
         target_message = self.db.add_global_chat_message(
@@ -838,6 +847,20 @@ class TestFriendsSystem:
         assert not any(
             message.get("type") == "speak"
             for message in target_user.get_queued_messages()
+        )
+        admin_messages = admin_user.get_queued_messages()
+        assert any(
+            message.get("key") == "admin-new-manual-report"
+            and message.get("params")
+            == {"id": 1, "reporter": "Alice", "target": "Nguyễn Văn An"}
+            and message.get("buffer") == "system"
+            for message in admin_messages
+        )
+        assert any(
+            message.get("type") == "audio"
+            and message.get("asset") == "moderation_report.ogg"
+            and message.get("buffer") == "system"
+            for message in admin_messages
         )
 
     @pytest.mark.asyncio
@@ -987,7 +1010,10 @@ class TestFriendsSystem:
             and message.get("buffer") == "system"
             for message in alice_user.get_queued_messages()
         )
-        assert alice.uuid not in self.server._chat_rate_limiter._buckets
+        assert all(
+            key[0] != alice.uuid
+            for key in self.server._chat_rate_limiter._buckets
+        )
         assert not any(
             message.get("key") == "pm-received"
             for message in bob_user.get_queued_messages()

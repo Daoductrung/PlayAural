@@ -1,5 +1,5 @@
 // Numbered entries are lookup candidates only; exact asset playback remains exact.
-export const bundledSoundVersion = "9";
+export const bundledSoundVersion = "10";
 
 export const soundManifest: Record<string, number> = {
   "accountactionnotify.ogg": require("../../sounds/accountactionnotify.ogg"),
@@ -1281,6 +1281,7 @@ export const soundManifest: Record<string, number> = {
   "mention.ogg": require("../../sounds/mention.ogg"),
   "menuclick.ogg": require("../../sounds/menuclick.ogg"),
   "menuenter.ogg": require("../../sounds/menuenter.ogg"),
+  "moderation_report.ogg": require("../../sounds/moderation_report.ogg"),
   "newsmus.ogg": require("../../sounds/newsmus.ogg"),
   "notify1.ogg": require("../../sounds/notify1.ogg"),
   "notify2.ogg": require("../../sounds/notify2.ogg"),

@@ -55,7 +55,12 @@ from ..persistence.database import Database
 from ..auth.auth import AuthManager, is_valid_email
 from ..auth.captcha import verify_captcha
 from ..auth.rate_limit import RateLimiter
-from ..auth.chat_rate_limit import ChatRateLimiter, normalize_chat_content
+from ..auth.chat_rate_limit import (
+    ChatRateLimiter,
+    ChatRateLimitRejection,
+    ChatScope,
+    normalize_chat_content,
+)
 from ..auth.voice_rate_limit import VoiceRateLimiter
 from ..tables.manager import TableManager
 from ..tables.table import Table
@@ -83,8 +88,11 @@ from ..games.categories import (
 from ..messages.localization import Localization
 from ..messages.localized_content import localized_penalty_reason_for_locale
 from ..moderation.reports import (
+    AUTOMATED_SPAM_REPORT_COOLDOWN_SECONDS,
+    MODERATION_REPORT_NOTIFICATION_SOUND,
     REPORT_REASON_CODE_SET,
     REPORT_REASON_CODES,
+    AutomatedSpamEvidence,
     report_reason_localization_key,
 )
 from ..menu_pagination import (
@@ -118,7 +126,7 @@ VERSION = "1.0.5"
 UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.zip"
 UPDATE_HASH = "" # Optional SHA256
 
-SOUNDS_VERSION = "9"
+SOUNDS_VERSION = "10"
 SOUNDS_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/sounds.zip"
 SOUNDS_HASH = "" # Optional SHA256
 ANDROID_UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.apk"
@@ -1278,12 +1286,49 @@ PlayAural Server
             user.play_sound(spec["sounds"][sound_role])
         return True
 
-    def _notify_admins(self, message_id: str, sound: str) -> None:
-        """Notify all online admins (trust level >= 2) with a message and sound."""
-        for user in self._users.values():
-            if user.trust_level >= 2:
-                user.speak_l(message_id, buffer="system")
-                user.play_sound(sound)
+    def _notify_admins(
+        self,
+        message_id: str,
+        sound: str,
+        *,
+        exclude_username: str | None = None,
+        **kwargs: object,
+    ) -> None:
+        """Send one localized system alert to every authorized online staff member."""
+        for user in tuple(self._users.values()):
+            if (
+                self._users.get(user.username) is not user
+                or not user.approved
+                or user.trust_level < 2
+                or user.username == exclude_username
+            ):
+                continue
+            user.speak_l(message_id, buffer="system", **kwargs)
+            user.play_sound(sound, buffer="system")
+
+    def _notify_new_moderation_report(
+        self,
+        report_id: int,
+        target_username: str,
+        *,
+        reporter_username: str | None = None,
+    ) -> None:
+        """Announce one newly persisted report; suppressed reports never alert."""
+        if reporter_username is None:
+            self._notify_admins(
+                "admin-new-automatic-report",
+                MODERATION_REPORT_NOTIFICATION_SOUND,
+                id=report_id,
+                target=target_username,
+            )
+            return
+        self._notify_admins(
+            "admin-new-manual-report",
+            MODERATION_REPORT_NOTIFICATION_SOUND,
+            id=report_id,
+            reporter=reporter_username,
+            target=target_username,
+        )
 
     def _get_auth_client_type(self, packet: dict) -> str:
         """Return the canonical client type from an auth-related packet."""
@@ -6953,6 +6998,12 @@ PlayAural Server
                 buffer="system",
                 username=target_record.username,
             )
+            if result.report_id is not None:
+                self._notify_new_moderation_report(
+                    result.report_id,
+                    target_record.username,
+                    reporter_username=user.username,
+                )
         elif result.outcome == "target_cooldown":
             user.speak_l(
                 "report-target-cooldown",
@@ -11663,7 +11714,11 @@ PlayAural Server
                     user.speak_l("chat-invalid-message", buffer="system")
                 elif (
                     target_username
-                    and self._check_chat_send_permission(user, value)
+                    and self._check_chat_send_permission(
+                        user,
+                        value,
+                        scope="direct",
+                    )
                 ):
                     await self._deliver_private_message(user, target_username, value)
 
@@ -11764,10 +11819,74 @@ PlayAural Server
         )
         sender.play_sound("pm.ogg", buffer="private")
 
+    def _submit_automated_spam_report(
+        self,
+        user: NetworkUser,
+        message: str,
+        rejection: ChatRateLimitRejection,
+    ) -> None:
+        """Persist a deduplicated, review-only System report for repeated spam."""
+        if rejection.scope == "direct" or not rejection.report_recommended:
+            return
+        evidence = AutomatedSpamEvidence(
+            scope=rejection.scope,
+            detection_kind=rejection.kind,
+            incident_count=rejection.incident_count,
+            rejected_attempt_count=rejection.rejected_attempt_count,
+            accepted_message_count=rejection.accepted_message_count,
+            observation_window_seconds=int(
+                self._chat_rate_limiter.INCIDENT_WINDOW_SECONDS
+            ),
+            sample_message=message,
+        )
+        channel_code = (
+            normalize_global_chat_channel(user.preferences.global_chat_channel)
+            if rejection.scope == "global"
+            else None
+        )
+        try:
+            result = self._db.submit_automated_spam_report(
+                reported_uuid=user.uuid,
+                reported_username=user.username,
+                evidence=evidence,
+                channel_code=channel_code,
+            )
+        except Exception:
+            logging.getLogger("playaural").exception(
+                "Failed to persist automated spam report",
+                extra={"username": user.username, "scope": rejection.scope},
+            )
+            self._chat_rate_limiter.suppress_report(
+                user.uuid,
+                rejection.scope,
+                self._chat_rate_limiter.REPORT_FAILURE_RETRY_SECONDS,
+            )
+            return
+
+        suppression_seconds = (
+            AUTOMATED_SPAM_REPORT_COOLDOWN_SECONDS
+            if result.outcome == "created"
+            else result.retry_after_seconds
+        )
+        self._chat_rate_limiter.suppress_report(
+            user.uuid,
+            rejection.scope,
+            suppression_seconds,
+        )
+        if result.outcome == "created" and result.report_id is not None:
+            self._notify_new_moderation_report(
+                result.report_id,
+                user.username,
+            )
+
     def _check_chat_send_permission(
-        self, user: NetworkUser, message: str | None = None
+        self,
+        user: NetworkUser,
+        message: str,
+        *,
+        scope: ChatScope,
     ) -> bool:
-        """Apply persistent moderation and the shared runtime chat rate limit."""
+        """Apply persistent moderation and scope-specific runtime throttling."""
         username = user.username
         active_mute = self._db.get_active_mute(username)
         if active_mute:
@@ -11794,52 +11913,19 @@ PlayAural Server
             self._db.unmute_user(username)
 
         allowed, rejection = self._chat_rate_limiter.try_consume(
-            user.uuid, message
+            user.uuid,
+            message,
+            scope=scope,
         )
         if allowed:
             return True
 
-        if rejection and rejection.kind == "auto_muted":
-            remaining = rejection.seconds
-            if remaining < 60:
-                user.speak_l(
-                    "auto-muted-seconds",
-                    buffer="system",
-                    seconds=str(remaining),
-                )
-            else:
-                user.speak_l(
-                    "auto-muted-minutes",
-                    buffer="system",
-                    minutes=str((remaining + 59) // 60),
-                )
-        elif rejection and rejection.kind == "auto_mute_applied":
-            if rejection.seconds < 60:
-                user.speak_l(
-                    "auto-muted-applied-seconds",
-                    buffer="system",
-                    seconds=str(rejection.seconds),
-                )
-            else:
-                user.speak_l(
-                    "auto-muted-applied-minutes",
-                    buffer="system",
-                    minutes=str((rejection.seconds + 59) // 60),
-                )
-        elif rejection and rejection.kind == "repeated_message":
+        if rejection and rejection.kind == "repeated_message":
             user.speak_l("chat-repeated-message", buffer="system")
         else:
             user.speak_l("chat-rate-limited", buffer="system")
-
-        if self._chat_rate_limiter.should_notify_admins(user.uuid):
-            self._chat_rate_limiter.mark_admin_notified(user.uuid)
-            for recipient in self._users.values():
-                if recipient.trust_level >= 2 and recipient.username != username:
-                    recipient.speak_l(
-                        "admin-spam-alert",
-                        buffer="system",
-                        username=username,
-                    )
+        if rejection:
+            self._submit_automated_spam_report(user, message, rejection)
         return False
 
     async def _handle_chat(self, client: ClientConnection, packet: dict) -> None:
@@ -11931,7 +12017,11 @@ PlayAural Server
             if not normalize_chat_content(pm_content):
                 user.speak_l("chat-invalid-message", buffer="system")
                 return
-            if not self._check_chat_send_permission(user, pm_content):
+            if not self._check_chat_send_permission(
+                user,
+                pm_content,
+                scope="direct",
+            ):
                 return
             await self._deliver_private_message(user, target_username, pm_content)
 
@@ -11947,7 +12037,12 @@ PlayAural Server
             ):
                 return
 
-        if not self._check_chat_send_permission(user, message):
+        chat_scope: ChatScope = "global" if convo == "global" else "table"
+        if not self._check_chat_send_permission(
+            user,
+            message,
+            scope=chat_scope,
+        ):
             return
 
         global_message = None

@@ -5,6 +5,7 @@ from pathlib import Path
 
 from client.typing_sounds import TYPING_EXACT_ASSETS, TYPING_SOUND_FAMILY
 from server.core.server import SOUNDS_VERSION
+from server.moderation.reports import MODERATION_REPORT_NOTIFICATION_SOUND
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -49,3 +50,13 @@ def test_typing_feedback_assets_are_complete_and_identical_across_clients() -> N
             )
         }
         assert discovered == set(variants)
+
+
+def test_moderation_report_sound_is_valid_and_identical_across_clients() -> None:
+    paths = tuple(
+        _sound_path(pack, MODERATION_REPORT_NOTIFICATION_SOUND)
+        for pack in SOUND_PACKS
+    )
+    assert all(path.is_file() for path in paths)
+    assert all(path.read_bytes().startswith(b"OggS") for path in paths)
+    assert len({_sha256(path) for path in paths}) == 1

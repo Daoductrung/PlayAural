@@ -577,6 +577,27 @@ def _create_unversioned_database(db_path: Path) -> str:
     return user.uuid
 
 
+def test_schema_discovery_uses_legacy_compatible_sqlite_catalog_name():
+    """AlmaLinux 8 SQLite predates the sqlite_schema alias."""
+
+    database = Database(":memory:")
+    database.connect()
+    connection = database._conn
+
+    class LegacyCatalogConnection:
+        def execute(self, sql, *args, **kwargs):
+            if "sqlite_schema" in str(sql).lower():
+                raise sqlite3.OperationalError("no such table: sqlite_schema")
+            return connection.execute(sql, *args, **kwargs)
+
+    database._conn = LegacyCatalogConnection()
+    try:
+        database._prepare_schema(migration_backup_dir=None)
+    finally:
+        database._conn = connection
+        database.close()
+
+
 def test_legacy_migration_creates_backup_and_preserves_all_rows(tmp_path):
     db_path = tmp_path / "PlayAural.db"
     backup_dir = tmp_path / "migration-backups"
@@ -614,7 +635,7 @@ def test_legacy_migration_creates_backup_and_preserves_all_rows(tmp_path):
             "SELECT COUNT(*) FROM password_reset_tokens"
         ).fetchone()[0] == 1
         assert backup.execute(
-            "SELECT COUNT(*) FROM sqlite_schema WHERE name = 'moderation_reports'"
+            "SELECT COUNT(*) FROM sqlite_master WHERE name = 'moderation_reports'"
         ).fetchone()[0] == 0
     finally:
         backup.close()
@@ -656,7 +677,7 @@ def test_failed_migration_rolls_back_and_retains_recovery_backup(
         assert connection.execute("PRAGMA user_version").fetchone()[0] == 0
         assert connection.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 1
         assert connection.execute(
-            "SELECT COUNT(*) FROM sqlite_schema WHERE name = 'moderation_reports'"
+            "SELECT COUNT(*) FROM sqlite_master WHERE name = 'moderation_reports'"
         ).fetchone()[0] == 0
     finally:
         connection.close()
@@ -682,7 +703,7 @@ def test_failed_migration_backup_prevents_any_schema_write(tmp_path, monkeypatch
         assert connection.execute("PRAGMA user_version").fetchone()[0] == 0
         assert connection.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 1
         assert connection.execute(
-            "SELECT COUNT(*) FROM sqlite_schema WHERE name = 'moderation_reports'"
+            "SELECT COUNT(*) FROM sqlite_master WHERE name = 'moderation_reports'"
         ).fetchone()[0] == 0
     finally:
         connection.close()
@@ -723,7 +744,7 @@ def test_post_migration_validation_failure_rolls_back_header_and_schema(tmp_path
         }
         assert "username_key" not in columns
         assert connection.execute(
-            "SELECT COUNT(*) FROM sqlite_schema WHERE name = 'moderation_reports'"
+            "SELECT COUNT(*) FROM sqlite_master WHERE name = 'moderation_reports'"
         ).fetchone()[0] == 0
     finally:
         connection.close()
@@ -777,7 +798,7 @@ def test_current_schema_drift_fails_closed_without_recreating_data(tmp_path):
     try:
         assert connection.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 1
         assert connection.execute(
-            "SELECT COUNT(*) FROM sqlite_schema WHERE name = 'server_settings'"
+            "SELECT COUNT(*) FROM sqlite_master WHERE name = 'server_settings'"
         ).fetchone()[0] == 0
     finally:
         connection.close()

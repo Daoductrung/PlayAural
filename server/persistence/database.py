@@ -860,7 +860,7 @@ class Database:
         schema_rows = self._conn.execute(
             """
             SELECT type, name
-            FROM sqlite_schema
+            FROM sqlite_master
             WHERE name NOT LIKE 'sqlite_%'
             """
         ).fetchall()
@@ -959,7 +959,7 @@ class Database:
             for row in executor.execute(
                 """
                 SELECT name
-                FROM sqlite_schema
+                FROM sqlite_master
                 WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
                 """
             ).fetchall()

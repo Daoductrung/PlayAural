@@ -17,7 +17,7 @@ The squads swap roles halfway through the match, but your teammates and score st
 Every combat round is worth one point.
 
 \* T wins by eliminating every CT player before a defuse, or by protecting a planted bomb until it explodes.
-\* CT wins by eliminating every T player before the bomb is planted, preventing a plant for six tactical rounds, or defusing a planted bomb.
+\* CT wins by eliminating every T player before the bomb is planted, keeping T from planting before the pre-plant clock expires, or defusing a planted bomb.
 
 Once the bomb is planted, eliminating every T player does not end the round. CT must still defuse before the bomb explodes.
 
@@ -49,9 +49,9 @@ The game supports 2v2, 3v3, 4v4, and 5v5: 4, 6, 8, or 10 active players split in
 
 \*\*The start of a combat round\*\*
 
-Living players spawn with 100 health and their side's free pistol: Glock for T, USP-S for CT. The bomb is assigned randomly to one living T player. Each player then receives a private buy turn.
+Living players spawn with 100 health and their side's free pistol: Glock for T, USP-S for CT. The bomb is assigned randomly to one living T player. Everyone then receives a private buy menu at the same time.
 
-The buy menu opens on a read-only loadout summary. Below it are teammate information, item categories, ground weapons, refunds, and buying for a teammate. Purchases are grouped into Equipment, Pistols, Mid-Tier, Rifles, and Grenades. Choose \*\*Finish buying\* when ready. After everyone finishes, three beeps lead into combat.
+The buy menu opens on a read-only loadout summary. Below it are teammate information, item categories, ground weapons, refunds, and buying for a teammate. Purchases are grouped into Equipment, Pistols, Mid-Tier, Rifles, and Grenades. Choose \*\*Finish buying\*\* when ready. After everyone finishes, three beeps lead into combat.
 
 \*\*Your turn\*\*
 
@@ -65,15 +65,15 @@ The first combat row summarizes your health, equipped weapon, and anything you c
 \* \*\*Weapons and reload:\*\* Switch weapons or reload.
 \* \*\*Ground weapons:\*\* Recover a weapon in your current area.
 
-Spend up to 2 AP in any legal order. Using the last AP ends the turn automatically; otherwise choose \*\*End activation\* or press E. After a choice, you return to the category that opened it. While footsteps, a burst, a grenade, or a response is resolving, the combat menu stays visible but locked and explains what is still happening.
+Spend up to 2 AP in any legal order. Using the last AP ends the turn automatically; otherwise choose \*\*End activation\*\* or press E. After a choice, you return to the category that opened it. While footsteps, a burst, a grenade, or a response is resolving, the combat menu stays visible but locked and explains what is still happening.
 
 \*\*Movement, contact, and fog of war\*\*
 
-Moving to a connected area costs 1 AP. Allies and enemies may share an area, so entering an occupied area is legal and creates point-blank danger. Leaving an area shared with a living enemy is a \*\*Disengage\* and costs 2 AP.
+Moving to a connected area costs 1 AP. Allies and enemies may share an area, so entering an occupied area is legal and creates point-blank danger. Leaving an area shared with a living enemy is a \*\*Disengage\*\* and costs 2 AP.
 
 You always know your teammates' locations and public combat state. A living enemy appears only while at least one living teammate can see that enemy's area. Team sightings are shared, but you may shoot only through your own line of sight. Smoke blocks sight into and out of its area; players sharing the smoked area still see one another.
 
-When a contact disappears from every team sightline, it becomes hidden again. Hidden movement never reveals the destination. Eliminations are different: the kill feed is global and always names the shooter, victim, weapon, and area, so an eliminated player's final location remains public.
+When a contact disappears from every team sightline, it becomes hidden again. If the other team cannot observe an action, it receives no spoken clue that the player moved, waited, held an angle, or prepared evasion. Nearby spatial audio can still give careful listeners useful clues. Eliminations are different: the kill feed is global and always names the shooter, victim, weapon, and area, so an eliminated player's final location remains public.
 
 Before a plant, CT learns the bomb carrier only by seeing that player. CT may see and guard a dropped bomb but cannot pick it up. T always knows its own bomb state. A planted bomb and its site are public.
 
@@ -124,11 +124,11 @@ Your team hears your utility callout. The enemy receives the exact callout only 
 
 Only the T bomb carrier may plant, and only at A or B. Starting the plant costs 1 AP and ends that player's turn, but the bomb is not planted yet. One living CT receives a response. Any shot that damages health or armor interrupts the plant; otherwise it completes after the response. The normal turn order then resumes from where it was interrupted.
 
-CT cannot start a defuse while planting is still in progress. Once planted, the bomb receives its full three-tactical-round fuse even if T planted on the final pre-plant turn.
+CT cannot start a defuse while planting is still in progress. Once planted, the bomb always receives its full fuse, even if T planted on the final pre-plant turn. In 2v2, that fuse lasts four tactical rounds. Larger matches use three.
 
 A CT at the bomb may start defusing for 2 AP, or 1 AP with a Defuse Kit. The action ends that CT's turn and gives one living T a response. Any health or armor damage interrupts the defuse; a fully evaded attack does not. If the response ends without damage, the defuse succeeds.
 
-When the final full fuse round ends, the bomb enters its final arming sequence. It is then too late to defuse.
+When the final full fuse round ends, the bomb enters its final arming sequence. It is then too late to defuse. The explosion instantly eliminates anyone still at the bombsite. A player in an area one movement step away loses 50 health without armor, or 40 health and 10 armor while fully armored.
 
 \*\*Dropped weapons\*\*
 
@@ -140,9 +140,9 @@ If the final elimination wins the round and the survivor still has enough AP bes
 
 Each regulation half starts at $800. Survivors keep weapons, remaining armor, equipment, utility, and cash. Eliminated players keep cash but lose purchased gear and receive the free pistol for their new round. Cash is capped at $16,000. Halftime resets everyone to $800; each overtime half starts at $10,000.
 
-A purchase may be refunded for its full price until you finish that same buy turn, provided the item is still available. A newly bought gun remains refundable after another purchase drops it. Gear carried from an older round and battlefield pickups cannot be refunded.
+A purchase may be refunded for its full price until you choose \*\*Finish buying\*\*, provided the item is still available. A newly bought gun remains refundable after another purchase drops it. Gear carried from an older round and battlefield pickups cannot be refunded.
 
-You may buy a gun for a living teammate, including one whose buy turn has already passed. The recipient may accept or decline. Accepting equips and commits the gift. Declining drops it at the buyer's position, where the buyer may refund it or leave it on the ground.
+You may buy a gun for any living teammate while the buy phase remains open, even if that teammate has already chosen \*\*Finish buying\*\*. The recipient may accept or decline. Accepting equips and commits the gift. Declining drops it at the buyer's position, where the buyer may refund it or leave it on the ground.
 
 Round winners receive $3,250 for elimination or time, and $3,500 for defuse or detonation. Consecutive loss income rises from $1,400 to $3,400. A successful plant or defuse pays that player $300; a T loss after planting also pays each T player a $600 plant bonus.
 
@@ -161,7 +161,9 @@ Movement and sight are separate. Mid and Lower Tunnels connect around a blind co
 \* \*\*MR12:\*\* Twelve rounds per half; first to 13. Default.
 \* \*\*MR15:\*\* Fifteen rounds per half; first to 16.
 
-A tied regulation match either ends in a draw or enters repeatable MR3 overtime, according to the host's \*\*Tied match resolution\* option. Each MR3 period has three rounds per side; 4 wins takes the period, while 3–3 starts another. The six-round pre-plant clock and three-round bomb fuse are fixed.
+A tied regulation match either ends in a draw or enters repeatable MR3 overtime, according to the host's \*\*Tied match resolution\*\* option. Each MR3 period has three rounds per side; 4 wins takes the period, while 3–3 starts another.
+
+The tactical clock adapts to the squad size. A 2v2 round allows eight tactical rounds before a plant and gives a planted bomb a four-round fuse. A 3v3 round allows seven before the plant and three after it. In 4v4 and 5v5, the clock remains six before the plant and three after it.
 
 \*\*Information actions\*\*
 

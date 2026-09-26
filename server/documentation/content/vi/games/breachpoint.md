@@ -17,7 +17,7 @@ Hai đội đổi vai trò giữa trận, nhưng đồng đội và điểm số
 Mỗi hiệp đấu trị giá một điểm.
 
 \* T thắng khi hạ toàn bộ CT trước lúc bom bị gỡ, hoặc giữ được quả bom đã đặt cho đến khi nó phát nổ.
-\* CT thắng khi hạ toàn bộ T trước lúc bom được đặt, ngăn T đặt bom trong sáu vòng chiến thuật, hoặc gỡ thành công quả bom đã đặt.
+\* CT thắng khi hạ toàn bộ T trước lúc bom được đặt, cầm chân T cho đến khi hết giờ đặt bom, hoặc gỡ thành công quả bom đã đặt.
 
 Sau khi bom đã được đặt, hạ hết T vẫn chưa kết thúc hiệp đấu. CT phải gỡ bom trước khi nó phát nổ.
 
@@ -49,7 +49,7 @@ Trò chơi hỗ trợ 2 đấu 2, 3 đấu 3, 4 đấu 4 và 5 đấu 5: tổng 
 
 \*\*Bắt đầu một hiệp đấu\*\*
 
-Mỗi người xuất hiện với 100 máu và khẩu súng ngắn miễn phí của phe mình: Glock cho T, USP-S cho CT. Bom được giao ngẫu nhiên cho một người T còn sống. Sau đó, từng người nhận một lượt mua riêng.
+Mỗi người xuất hiện với 100 máu và khẩu súng ngắn miễn phí của phe mình: Glock cho T, USP-S cho CT. Bom được giao ngẫu nhiên cho một người T còn sống. Sau đó, tất cả mọi người cùng nhận trình đơn mua riêng của mình.
 
 Trình đơn mua mở tại dòng tóm tắt trang bị chỉ đọc. Bên dưới là thông tin đồng đội, các nhóm vật phẩm, vũ khí dưới đất, hoàn tiền và mua tặng đồng đội. Các món hàng được chia thành \*\*Trang bị\*\*, \*\*Súng ngắn\*\*, \*\*Vũ khí tầm trung\*\*, \*\*Súng trường\*\* và \*\*Lựu đạn\*\*. Chọn \*\*Mua xong\*\* khi đã sẵn sàng. Sau khi mọi người mua xong, ba tiếng bíp sẽ dẫn vào giao tranh.
 
@@ -73,7 +73,7 @@ Bạn có thể dùng tối đa 2 AP theo bất kỳ thứ tự hợp lệ nào.
 
 Bạn luôn biết vị trí và trạng thái chiến đấu công khai của đồng đội. Một đối thủ còn sống chỉ hiện ra khi ít nhất một đồng đội còn sống nhìn thấy khu vực của họ. Cả đội chia sẻ tin phát hiện, nhưng bạn chỉ được bắn qua đường ngắm của chính mình. Khói chặn tầm nhìn vào và ra khỏi khu vực; những người cùng đứng trong làn khói vẫn nhìn thấy nhau.
 
-Khi đối thủ rời khỏi mọi đường ngắm của đội, họ lại bị ẩn. Di chuyển trong vùng khuất không làm lộ điểm đến. Riêng thông tin hạ gục luôn công khai: tất cả mọi người đều biết ai bắn, ai bị hạ, vũ khí nào được dùng và sự việc xảy ra ở đâu, nên vị trí cuối cùng của người bị hạ vẫn được biết.
+Khi đối thủ rời khỏi mọi đường ngắm của đội, họ lại bị ẩn. Nếu đội bên kia không quan sát được một hành động, trò chơi sẽ không đọc ra rằng người đó vừa di chuyển, chờ đợi, kê góc hay chuẩn bị né tránh. Âm thanh không gian ở cự ly gần vẫn có thể giúp người nghe tinh ý đoán được tình hình. Riêng thông tin hạ gục luôn công khai: tất cả mọi người đều biết ai bắn, ai bị hạ, vũ khí nào được dùng và sự việc xảy ra ở đâu, nên vị trí cuối cùng của người bị hạ vẫn được biết.
 
 Trước khi đặt bom, CT chỉ biết ai đang cầm bom nếu nhìn thấy người đó. CT có thể thấy và canh quả bom bị rơi nhưng không thể nhặt nó. T luôn biết trạng thái bom của đội mình. Khi bom đã được đặt, vị trí đặt bom trở thành thông tin công khai.
 
@@ -124,11 +124,11 @@ Bạn được mang tối đa bốn vật phẩm hỗ trợ và có thể ném v
 
 Chỉ người T đang cầm bom mới được đặt, và chỉ tại Bom A hoặc Bom B. Bắt đầu đặt bom tốn 1 AP và kết thúc lượt của người đặt, nhưng bom chưa được đặt ngay. Một CT còn sống sẽ nhận lượt đáp trả. Bất kỳ phát bắn nào gây sát thương lên máu hoặc giáp đều ngắt quá trình đặt; nếu không bị ngắt, bom hoàn tất việc đặt sau lượt đáp trả. Thứ tự lượt bình thường sau đó tiếp tục đúng từ chỗ đã bị chen ngang.
 
-CT không thể bắt đầu gỡ khi bom vẫn đang được đặt. Khi bom đã được đặt, nó luôn có đủ ba vòng chiến thuật trước khi nổ, kể cả khi T đặt ở lượt cuối cùng trước khi hết giờ.
+CT không thể bắt đầu gỡ khi bom vẫn đang được đặt. Khi bom đã được đặt, nó luôn có trọn thời gian kích nổ, kể cả khi T đặt ở lượt cuối cùng trước khi hết giờ. Trận 2 đấu 2 có bốn vòng chiến thuật sau khi đặt bom; các trận đông người hơn có ba vòng.
 
 Một CT đứng tại chỗ bom có thể bắt đầu gỡ với 2 AP, hoặc 1 AP nếu có Bộ Gỡ Bom. Hành động này kết thúc lượt của CT và cho một T còn sống cơ hội đáp trả. Bất kỳ sát thương nào lên máu hoặc giáp đều ngắt quá trình gỡ; một đòn bị né hoàn toàn thì không. Nếu lượt đáp trả kết thúc mà CT không chịu sát thương, bom được gỡ thành công.
 
-Sau khi vòng kíp nổ trọn vẹn cuối cùng kết thúc, bom bắt đầu chuỗi kích nổ. Từ thời điểm đó, đã quá muộn để gỡ.
+Sau khi vòng kíp nổ trọn vẹn cuối cùng kết thúc, bom bắt đầu chuỗi kích nổ. Từ thời điểm đó, đã quá muộn để gỡ. Vụ nổ hạ ngay bất kỳ ai còn đứng tại khu đặt bom. Người ở cách đó một bước di chuyển sẽ mất 50 máu nếu không có giáp, hoặc mất 40 máu và 10 giáp nếu đang có đủ giáp.
 
 \*\*Vũ khí bị rơi\*\*
 
@@ -140,9 +140,9 @@ Nếu lần hạ gục cuối cùng giúp đội bạn thắng hiệp nhưng ng�
 
 Mỗi nửa thời gian thi đấu chính thức bắt đầu với $800. Người sống sót giữ vũ khí, giáp còn lại, trang bị, lựu đạn và tiền. Người bị hạ giữ tiền nhưng mất đồ đã mua, rồi nhận lại khẩu súng ngắn miễn phí ở hiệp mới. Mỗi người được giữ tối đa $16.000. Sau khi đổi phe, mọi người trở lại $800; mỗi nửa hiệp phụ bắt đầu với $10.000.
 
-Bạn có thể hoàn đủ tiền cho một món đã mua cho đến khi kết thúc chính lượt mua đó, miễn là món hàng vẫn còn. Một khẩu súng vừa mua vẫn được hoàn sau khi lần mua kế tiếp làm nó rơi xuống đất. Đồ mang từ hiệp trước và vũ khí nhặt trên chiến trường không được hoàn.
+Bạn có thể hoàn đủ tiền cho một món đã mua cho đến khi chọn \*\*Mua xong\*\*, miễn là món hàng vẫn còn. Một khẩu súng vừa mua vẫn được hoàn sau khi lần mua kế tiếp làm nó rơi xuống đất. Đồ mang từ hiệp trước và vũ khí nhặt trên chiến trường không được hoàn.
 
-Bạn có thể mua súng tặng một đồng đội còn sống, kể cả người đã mua xong trước bạn. Người nhận được quyền đồng ý hoặc từ chối. Nếu đồng ý, họ trang bị khẩu súng và món quà được chốt. Nếu từ chối, khẩu súng rơi tại vị trí người mua; người mua có thể hoàn tiền hoặc để nó lại dưới đất.
+Bạn có thể mua súng tặng bất kỳ đồng đội nào còn sống khi giai đoạn mua vẫn mở, kể cả người đã chọn \*\*Mua xong\*\*. Người nhận được quyền đồng ý hoặc từ chối. Nếu đồng ý, họ trang bị khẩu súng và món quà được chốt. Nếu từ chối, khẩu súng rơi tại vị trí người mua; người mua có thể hoàn tiền hoặc để nó lại dưới đất.
 
 Đội thắng nhận $3.250 nếu thắng nhờ hạ hết đối thủ hoặc hết giờ, và $3.500 nếu thắng nhờ gỡ bom hoặc bom phát nổ. Tiền thua tăng dần từ $1.400 đến $3.400 theo chuỗi thua. Người hoàn tất việc đặt hoặc gỡ bom nhận $300; nếu T thua sau khi đã đặt bom, mỗi người T còn nhận thêm $600.
 
@@ -161,7 +161,9 @@ Lối đi và đường ngắm là hai thứ khác nhau. Mid nối với Hầm D
 \* \*\*MR12:\*\* Mười hai hiệp đấu mỗi phe; đội đầu tiên đạt 13 điểm sẽ thắng. Đây là thể thức mặc định.
 \* \*\*MR15:\*\* Mười lăm hiệp đấu mỗi phe; đội đầu tiên đạt 16 điểm sẽ thắng.
 
-Nếu hai đội hòa sau thời gian chính thức, tùy chọn \*\*Cách xử lý trận hòa\*\* của chủ bàn sẽ cho trận kết thúc hòa hoặc bước vào các hiệp phụ MR3 nối tiếp. Mỗi hiệp phụ có ba hiệp đấu cho mỗi phe; đội đạt 4 điểm trong hiệp phụ sẽ thắng, còn tỷ số 3–3 sẽ mở một hiệp phụ mới. Đồng hồ sáu vòng trước khi đặt bom và kíp nổ ba vòng là luật cố định.
+Nếu hai đội hòa sau thời gian chính thức, tùy chọn \*\*Cách xử lý trận hòa\*\* của chủ bàn sẽ cho trận kết thúc hòa hoặc bước vào các hiệp phụ MR3 nối tiếp. Mỗi hiệp phụ có ba hiệp đấu cho mỗi phe; đội đạt 4 điểm trong hiệp phụ sẽ thắng, còn tỷ số 3–3 sẽ mở một hiệp phụ mới.
+
+Thời gian chiến thuật thay đổi theo quân số. Trận 2 đấu 2 cho T tám vòng để đặt bom và có kíp nổ bốn vòng sau khi đặt. Trận 3 đấu 3 có bảy vòng trước khi đặt và ba vòng sau khi đặt. Với 4 đấu 4 và 5 đấu 5, thời gian vẫn là sáu vòng trước khi đặt và ba vòng sau khi đặt.
 
 \*\*Hành động thông tin\*\*
 

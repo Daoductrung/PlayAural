@@ -17,7 +17,7 @@ Los escuadrones cambian de rol a la mitad de la partida, pero tus compañeros y 
 Cada ronda de combate vale un punto.
 
 \* T gana eliminando a todos los jugadores CT antes de una desactivación, o protegiendo una bomba plantada hasta que explote.
-\* CT gana eliminando a todos los jugadores T antes de que se plante la bomba, evitando una plantada durante seis rondas tácticas, o desactivando una bomba plantada.
+\* CT gana eliminando a todos los jugadores T antes de que se plante la bomba, impidiendo la plantada hasta que se agote el tiempo, o desactivando una bomba plantada.
 
 Una vez plantada la bomba, eliminar a todos los jugadores T no termina la ronda. CT todavía debe desactivarla antes de que explote.
 
@@ -49,9 +49,9 @@ El juego admite 2v2, 3v3, 4v4, y 5v5: 4, 6, 8 o 10 jugadores activos divididos e
 
 \*\*El inicio de una ronda de combate\*\*
 
-Los jugadores con vida aparecen con 100 de salud y la pistola gratuita de su bando: Glock para T, USP-S para CT. La bomba se asigna al azar a un jugador T con vida. Cada jugador recibe entonces un turno de compra privado.
+Los jugadores con vida aparecen con 100 de salud y la pistola gratuita de su bando: Glock para T, USP-S para CT. La bomba se asigna al azar a un jugador T con vida. Después, todos reciben al mismo tiempo su propio menú de compra privado.
 
-El menú de compra se abre con un resumen del equipamiento de solo lectura. Debajo están la información de los compañeros, las categorías de objetos, las armas en el suelo, los reembolsos, y la opción de comprar para un compañero. Las compras se agrupan en Equipo, Pistolas, Nivel medio, Rifles y Granadas. Elige \*\*Terminar la compra\* cuando estés listo. Cuando todos terminan, tres pitidos dan paso al combate.
+El menú de compra se abre con un resumen del equipamiento de solo lectura. Debajo están la información de los compañeros, las categorías de objetos, las armas en el suelo, los reembolsos, y la opción de comprar para un compañero. Las compras se agrupan en Equipo, Pistolas, Nivel medio, Rifles y Granadas. Elige \*\*Terminar la compra\*\* cuando estés listo. Cuando todos terminan, tres pitidos dan paso al combate.
 
 \*\*Tu turno\*\*
 
@@ -65,15 +65,15 @@ La primera línea de combate resume tu salud, tu arma equipada y todo lo que pue
 \* \*\*Armas y recarga:\*\* Cambia de arma o recarga.
 \* \*\*Armas en el suelo:\*\* Recupera un arma en tu área actual.
 
-Gasta hasta 2 PA en cualquier orden válido. Usar el último PA termina el turno automáticamente; de lo contrario, elige \*\*Terminar activación\* o presiona E. Después de una elección, vuelves a la categoría que la abrió. Mientras se resuelven pasos, una ráfaga, una granada, o una respuesta, el menú de combate permanece visible pero bloqueado, y explica qué sigue sucediendo.
+Gasta hasta 2 PA en cualquier orden válido. Usar el último PA termina el turno automáticamente; de lo contrario, elige \*\*Terminar activación\*\* o presiona E. Después de una elección, vuelves a la categoría que la abrió. Mientras se resuelven pasos, una ráfaga, una granada, o una respuesta, el menú de combate permanece visible pero bloqueado, y explica qué sigue sucediendo.
 
 \*\*Movimiento, contacto, y niebla de guerra\*\*
 
-Moverte a un área conectada cuesta 1 PA. Los aliados y los enemigos pueden compartir un área, así que entrar a un área ocupada está permitido y crea peligro a quemarropa. Salir de un área compartida con un enemigo vivo es un \*\*Repliegue\* y cuesta 2 PA.
+Moverte a un área conectada cuesta 1 PA. Los aliados y los enemigos pueden compartir un área, así que entrar a un área ocupada está permitido y crea peligro a quemarropa. Salir de un área compartida con un enemigo vivo es un \*\*Repliegue\*\* y cuesta 2 PA.
 
 Siempre conoces la ubicación de tus compañeros y su estado público de combate. Un enemigo con vida aparece solo mientras al menos un compañero con vida pueda ver el área de ese enemigo. Los avistamientos del equipo se comparten, pero solo puedes disparar a través de tu propia línea de visión. El humo bloquea la visión hacia dentro y fuera de su área; los jugadores que comparten el área con humo aún pueden verse entre sí.
 
-Cuando un contacto desaparece de todas las líneas de visión del equipo, vuelve a estar oculto. El movimiento oculto nunca revela el destino. Las eliminaciones son diferentes: el registro de eliminaciones es global y siempre nombra al tirador, la víctima, el arma y el área, así que la ubicación final de un jugador eliminado permanece pública.
+Cuando un contacto desaparece de todas las líneas de visión del equipo, vuelve a estar oculto. Si el otro equipo no puede observar una acción, no recibe ninguna pista hablada de que el jugador se movió, esperó, mantuvo un ángulo o preparó evasión. El audio espacial cercano todavía puede dar pistas a quien escuche con atención. Las eliminaciones son diferentes: el registro de eliminaciones es global y siempre nombra al tirador, la víctima, el arma y el área, así que la ubicación final de un jugador eliminado permanece pública.
 
 Antes de una plantada, CT solo se entera de quién lleva la bomba al ver a ese jugador. CT puede ver y vigilar una bomba soltada pero no puede recogerla. T siempre conoce el estado de su propia bomba. Una bomba plantada y su sitio son públicos.
 
@@ -124,11 +124,11 @@ Tu equipo escucha tu aviso de utilidad. El enemigo recibe el aviso exacto solo c
 
 Solo el portador T de la bomba puede plantarla, y solo en A o en B. Empezar a plantar cuesta 1 PA y termina el turno de ese jugador, pero la bomba todavía no está plantada. Un CT con vida recibe una respuesta. Cualquier disparo que dañe la salud o la armadura interrumpe la plantada; de lo contrario, se completa después de la respuesta. El orden normal de turnos se reanuda entonces desde donde se interrumpió.
 
-CT no puede empezar a desactivar mientras la plantada sigue en curso. Una vez plantada, la bomba recibe su mecha completa de tres rondas tácticas incluso si T plantó en el último turno previo a la plantada.
+CT no puede empezar a desactivar mientras la plantada sigue en curso. Una vez plantada, la bomba siempre recibe su mecha completa, aunque T la plante en el último turno disponible. En 2v2, la mecha dura cuatro rondas tácticas; en partidas más grandes dura tres.
 
 Un CT junto a la bomba puede empezar a desactivarla por 2 PA, o por 1 PA con un Kit de desactivación. La acción termina el turno de ese CT y le da a un T con vida una respuesta. Cualquier daño a la salud o a la armadura interrumpe la desactivación; un ataque completamente evadido no. Si la respuesta termina sin daño, la desactivación tiene éxito.
 
-Cuando termina la última ronda completa de la mecha, la bomba entra en su secuencia final de armado. En ese momento ya es muy tarde para desactivarla.
+Cuando termina la última ronda completa de la mecha, la bomba entra en su secuencia final de armado. En ese momento ya es muy tarde para desactivarla. La explosión elimina al instante a cualquiera que siga en el sitio de bomba. A un paso de distancia causa 50 de daño sin armadura, o 40 de salud y 10 de armadura con protección completa.
 
 \*\*Armas soltadas\*\*
 
@@ -140,9 +140,9 @@ Si la eliminación final gana la ronda y el sobreviviente todavía tiene suficie
 
 Cada mitad reglamentaria comienza con $800. Los sobrevivientes conservan armas, la armadura restante, el equipo, la utilidad y el dinero. Los jugadores eliminados conservan el dinero pero pierden el equipo comprado y reciben la pistola gratuita para su nueva ronda. El dinero tiene un tope de $16,000. El medio tiempo reinicia a todos a $800; cada mitad de tiempo extra comienza con $10,000.
 
-Una compra puede reembolsarse por su precio completo hasta que termines ese mismo turno de compra, siempre que el objeto siga disponible. Un arma recién comprada sigue siendo reembolsable después de que otra compra la reemplace. El equipo llevado de una ronda anterior y lo recogido en el campo de batalla no se puede reembolsar.
+Una compra puede reembolsarse por su precio completo hasta que elijas \*\*Terminar la compra\*\*, siempre que el objeto siga disponible. Un arma recién comprada sigue siendo reembolsable después de que otra compra la reemplace. El equipo llevado de una ronda anterior y lo recogido en el campo de batalla no se puede reembolsar.
 
-Puedes comprarle un arma a un compañero con vida, incluso a uno cuyo turno de compra ya haya pasado. El destinatario puede aceptar o rechazar. Aceptar equipa y confirma el regalo. Rechazar lo deja caer en la posición del comprador, donde este puede reembolsarlo o dejarlo en el suelo.
+Puedes comprarle un arma a cualquier compañero con vida mientras la fase de compra siga abierta, incluso si ya eligió \*\*Terminar la compra\*\*. El destinatario puede aceptar o rechazar. Aceptar equipa y confirma el regalo. Rechazar lo deja caer en la posición del comprador, donde este puede reembolsarlo o dejarlo en el suelo.
 
 Los ganadores de la ronda reciben $3,250 por eliminación o por tiempo, y $3,500 por desactivación o detonación. El ingreso por derrotas consecutivas sube de $1,400 a $3,400. Una plantada o desactivación exitosa le paga $300 a ese jugador; una derrota de T después de plantar también le paga a cada jugador T una bonificación de $600 por la plantada.
 
@@ -161,7 +161,9 @@ El movimiento y la visión son cosas separadas. Mid y Tunnels inferior se conect
 \* \*\*MR12:\*\* Doce rondas por mitad; el primero a 13. Predeterminado.
 \* \*\*MR15:\*\* Quince rondas por mitad; el primero a 16.
 
-Una partida reglamentaria empatada termina en empate o entra en tiempo extra MR3 repetible, según la opción \*\*Resolución de empate\* del anfitrión. Cada periodo MR3 tiene tres rondas por bando; 4 victorias se lleva el periodo, mientras que un 3–3 inicia otro. El reloj de seis rondas previo a la plantada y la mecha de tres rondas son fijos.
+Una partida reglamentaria empatada termina en empate o entra en tiempo extra MR3 repetible, según la opción \*\*Resolución de empate\*\* del anfitrión. Cada periodo MR3 tiene tres rondas por bando; 4 victorias se lleva el periodo, mientras que un 3–3 inicia otro.
+
+El reloj táctico se adapta al tamaño de los equipos. En 2v2 hay ocho rondas tácticas para plantar y cuatro de mecha. En 3v3 hay siete antes de plantar y tres después. En 4v4 y 5v5 se mantienen seis antes de plantar y tres después.
 
 \*\*Acciones de información\*\*
 

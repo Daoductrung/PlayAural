@@ -35,6 +35,7 @@ WEAPON_AUDIO_SEQUENCE_TAG = "breachpoint-weapon-fire"
 BOMB_DETONATION_AUDIO_SEQUENCE_TAG = "breachpoint-bomb-detonation"
 UTILITY_FLIGHT_HANDLE_PREFIX = "breachpoint.utility-flight."
 MUSIC_CONTEXT_HANDLE = "breachpoint.music-context"
+MUSIC_ALERT_HANDLE = "breachpoint.music-alert"
 MUSIC_RESULT_HANDLE = "breachpoint.music-result"
 MUSIC_ACTION_STOP_SEQUENCE_TAG = "breachpoint-music-action-stop"
 MUSIC_CROSSFADE_MS = 800
@@ -634,7 +635,7 @@ UTILITY_AUDIO_PROFILES = {
             distant_variants=3,
             has_flight=True,
             has_bounce=True,
-            pickup_kind="molotov",
+            pickup_kind="grenade",
             detonate_overlay_assets=(
                 f"{AUDIO_ROOT}/utility/incendiary_grenade/detonate_sweetener.ogg",
             ),
@@ -817,6 +818,8 @@ SERVER_TIMING_ASSET_DURATIONS_MS = {
     "game_breachpoint/movement/sand_step12.ogg": 820,
     "game_breachpoint/objective/bomb_arm.ogg": 1240,
     "game_breachpoint/objective/bomb_nvg_on.ogg": 1758,
+    "game_breachpoint/music/round_lost.ogg": 7305,
+    "game_breachpoint/music/round_won.ogg": 6207,
     "game_breachpoint/utility/flashbang/draw.ogg": 408,
     "game_breachpoint/utility/flashbang/landing.ogg": 385,
     "game_breachpoint/utility/flashbang/pin.ogg": 794,
@@ -883,6 +886,15 @@ def bomb_detonation_warning_ticks() -> int:
         + sound_milliseconds(BOMB_ARM_ASSET)
     )
     return math.ceil(duration_ms * TICKS_PER_SECOND / 1000)
+
+
+def round_result_transition_ticks() -> int:
+    """Wait until every listener's authored result cue has completed."""
+
+    return max(
+        sound_ticks(MUSIC_ROUND_WON_ASSET),
+        sound_ticks(MUSIC_ROUND_LOST_ASSET),
+    )
 
 
 def movement_audio_plan(
@@ -1756,20 +1768,26 @@ class BreachPointAudioMixin:
         player: BreachPointPlayer,
         weapon: WeaponProfile,
         dropped_weapon: DroppedWeapon,
+        *,
+        team_only: bool = False,
     ) -> None:
         """Emit category-correct drop Foley at the weapon's ground position."""
 
         profile = WEAPON_AUDIO_PROFILES.get(weapon.id)
         if not profile:
             return
-        self._play_spatial_asset(
-            profile.drop_asset,
-            GridPoint(dropped_weapon.grid_x, dropped_weapon.grid_y),
-            actor_id=player.id,
-            source_height_meters=FOOTSTEP_SOURCE_HEIGHT_METERS,
-            volume=88,
-            priority=22,
-        )
+        source = GridPoint(dropped_weapon.grid_x, dropped_weapon.grid_y)
+        for listener, user in self._item_audio_listeners(player, team_only):
+            self._play_spatial_asset_for_listener(
+                listener,
+                user,
+                profile.drop_asset,
+                source,
+                actor_id=player.id,
+                source_height_meters=FOOTSTEP_SOURCE_HEIGHT_METERS,
+                volume=88,
+                priority=22,
+            )
 
     def _play_weapon_reload_audio(
         self,
@@ -2199,8 +2217,9 @@ class BreachPointAudioMixin:
         player: BreachPointPlayer,
         *item_kinds: str,
         local_only: bool,
+        team_only: bool = False,
     ) -> None:
-        """Play local purchase feedback or an audible world pickup sequence."""
+        """Play local feedback or a spatial pickup for its permitted audience."""
 
         kinds = tuple(
             item_kind
@@ -2231,20 +2250,37 @@ class BreachPointAudioMixin:
                     )
                 return
             if item_kind == "defuse_kit":
-                self._play_spatial_asset(
-                    PICKUP_DEFUSE_KIT_ASSET,
-                    self._player_grid_point(player),
-                    actor_id=player.id,
-                    priority=24,
-                )
+                source = self._player_grid_point(player)
+                for listener, user in self._item_audio_listeners(player, team_only):
+                    self._play_spatial_asset_for_listener(
+                        listener,
+                        user,
+                        PICKUP_DEFUSE_KIT_ASSET,
+                        source,
+                        actor_id=player.id,
+                        priority=24,
+                    )
             else:
-                self._play_spatial_family(
-                    PICKUP_FAMILIES[item_kind],
-                    self._player_grid_point(player),
-                    actor_id=player.id,
-                    priority=24,
-                    max_instances=4,
-                )
+                source = self._player_grid_point(player)
+                for listener, user in self._item_audio_listeners(player, team_only):
+                    spatialization = self._listener_spatialization(
+                        listener,
+                        source,
+                        actor_id=player.id,
+                        source_height_meters=WEAPON_SOURCE_HEIGHT_METERS,
+                        attenuation=POSITIONAL_ATTENUATION,
+                    )
+                    if spatialization is None:
+                        continue
+                    position, curve = spatialization
+                    user.play_sound_family(
+                        PICKUP_FAMILIES[item_kind],
+                        buffer="game",
+                        priority=24,
+                        max_instances=4,
+                        position=position,
+                        attenuation=curve,
+                    )
             return
 
         selected_assets = tuple(
@@ -2265,7 +2301,7 @@ class BreachPointAudioMixin:
             return
 
         source = self._player_grid_point(player)
-        for listener, user in self._audio_listeners():
+        for listener, user in self._item_audio_listeners(player, team_only):
             spatialization = self._listener_spatialization(
                 listener,
                 source,
@@ -2290,6 +2326,23 @@ class BreachPointAudioMixin:
                 max_instances=4,
             )
 
+    def _item_audio_listeners(
+        self,
+        player: BreachPointPlayer,
+        team_only: bool,
+    ) -> list[tuple[BreachPointPlayer, User]]:
+        """Keep buy-zone Foley within its team without muting world pickups."""
+
+        listeners = self._audio_listeners()
+        if not team_only:
+            return listeners
+        return [
+            (listener, user)
+            for listener, user in listeners
+            if not listener.is_spectator
+            and listener.team_index == player.team_index
+        ]
+
     def _play_bomb_pickup_audio(self, player: BreachPointPlayer) -> None:
         """Play CS-style weapon pickup Foley with its quiet C4 child beep."""
 
@@ -2308,14 +2361,15 @@ class BreachPointAudioMixin:
         player: BreachPointPlayer,
         utility: UtilityProfile,
     ) -> None:
-        """Use the utility audio profile to select its local inventory cue."""
+        """Emit the utility's inventory cue from the purchasing player."""
 
         profile = UTILITY_AUDIO_PROFILES.get(utility.id)
         if profile:
             self._play_item_pickup_audio(
                 player,
                 profile.pickup_kind,
-                local_only=True,
+                local_only=False,
+                team_only=True,
             )
 
     def _play_equipment_purchase_audio(
@@ -2323,14 +2377,15 @@ class BreachPointAudioMixin:
         player: BreachPointPlayer,
         equipment: EquipmentProfile,
     ) -> None:
-        """Use the equipment registry to select its local inventory cue."""
+        """Emit the equipment cue from the purchasing player."""
 
         pickup_kind = EQUIPMENT_PICKUP_KINDS.get(equipment.id)
         if pickup_kind:
             self._play_item_pickup_audio(
                 player,
                 pickup_kind,
-                local_only=True,
+                local_only=False,
+                team_only=True,
             )
 
     def _play_global_asset(
@@ -2378,6 +2433,7 @@ class BreachPointAudioMixin:
         self.cancel_sequences_by_tag(MUSIC_ACTION_STOP_SEQUENCE_TAG)
         for handle in (
             MUSIC_CONTEXT_HANDLE,
+            MUSIC_ALERT_HANDLE,
             MUSIC_RESULT_HANDLE,
         ):
             self.stop_music(handle=handle, fade_ms=fade_ms)
@@ -2410,6 +2466,20 @@ class BreachPointAudioMixin:
             priority=priority,
         )
 
+    def _play_music_alert(self, asset: str, *, priority: int) -> None:
+        """Overlay one finite BGM cue without replacing the active music bed."""
+
+        self.play_music(
+            asset,
+            looping=False,
+            handle=MUSIC_ALERT_HANDLE,
+            bus="music",
+            layer="alert",
+            fade_in_ms=0,
+            fade_out_ms=0,
+            priority=priority,
+        )
+
     def _play_action_start_music(self) -> None:
         self._play_music_cue(
             self._spatial_rng.choice(MUSIC_ACTION_START_ASSETS),
@@ -2436,6 +2506,7 @@ class BreachPointAudioMixin:
             handle=MUSIC_CONTEXT_HANDLE,
             fade_ms=MUSIC_CROSSFADE_MS,
         )
+        self.stop_music(handle=MUSIC_ALERT_HANDLE, fade_ms=0)
         for _, user in self._audio_listeners():
             user.stop_sound(ROUND_STINGER_HANDLE)
         for listener, _ in self._audio_listeners():

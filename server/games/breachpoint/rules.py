@@ -4,6 +4,28 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
+class TacticalTimingProfile:
+    """Round clocks tuned for one inclusive range of squad sizes."""
+
+    minimum_team_size: int
+    maximum_team_size: int
+    preplant_tactical_round_limit: int
+    bomb_fuse_tactical_rounds: int
+
+    def supports(self, team_size: int) -> bool:
+        return self.minimum_team_size <= team_size <= self.maximum_team_size
+
+
+@dataclass(frozen=True)
+class BombBlastProfile:
+    """Node-distance damage and armor behavior for a planted bomb."""
+
+    damage_by_node_distance: tuple[int, ...]
+    lethal_node_distance: int
+    armor_reduction_percent: int
+
+
+@dataclass(frozen=True)
 class BreachPointRules:
     """Numbers that define one reusable tactical rules profile."""
 
@@ -20,9 +42,26 @@ class BreachPointRules:
     weapon_pickup_cost: int
     maximum_utility_items: int
     repeat_objective_response_action_points: int
-    preplant_tactical_round_limit: int
-    bomb_fuse_tactical_rounds: int
+    tactical_timing_profiles: tuple[TacticalTimingProfile, ...]
+    bomb_blast: BombBlastProfile
     overtime_half_rounds: int
+
+    def timing_for_team_size(self, team_size: int) -> TacticalTimingProfile:
+        """Return the registered clock profile for an equal squad size."""
+
+        profile = next(
+            (
+                candidate
+                for candidate in self.tactical_timing_profiles
+                if candidate.supports(team_size)
+            ),
+            None,
+        )
+        if profile is None:
+            raise ValueError(
+                f"No Breach Point timing profile supports {team_size}v{team_size}"
+            )
+        return profile
 
 
 @dataclass(frozen=True)
@@ -55,8 +94,31 @@ STANDARD_RULES = BreachPointRules(
     weapon_pickup_cost=1,
     maximum_utility_items=4,
     repeat_objective_response_action_points=1,
-    preplant_tactical_round_limit=6,
-    bomb_fuse_tactical_rounds=3,
+    tactical_timing_profiles=(
+        TacticalTimingProfile(
+            minimum_team_size=2,
+            maximum_team_size=2,
+            preplant_tactical_round_limit=8,
+            bomb_fuse_tactical_rounds=4,
+        ),
+        TacticalTimingProfile(
+            minimum_team_size=3,
+            maximum_team_size=3,
+            preplant_tactical_round_limit=7,
+            bomb_fuse_tactical_rounds=3,
+        ),
+        TacticalTimingProfile(
+            minimum_team_size=4,
+            maximum_team_size=5,
+            preplant_tactical_round_limit=6,
+            bomb_fuse_tactical_rounds=3,
+        ),
+    ),
+    bomb_blast=BombBlastProfile(
+        damage_by_node_distance=(100, 50),
+        lethal_node_distance=0,
+        armor_reduction_percent=20,
+    ),
     overtime_half_rounds=3,
 )
 
@@ -91,12 +153,32 @@ def _validate_rules(rules: BreachPointRules) -> None:
         rules.weapon_pickup_cost,
         rules.maximum_utility_items,
         rules.repeat_objective_response_action_points,
-        rules.preplant_tactical_round_limit,
-        rules.bomb_fuse_tactical_rounds,
         rules.overtime_half_rounds,
     )
     if any(value <= 0 for value in positive_values):
         raise ValueError("Breach Point action and timing values must be positive")
+    if not rules.tactical_timing_profiles:
+        raise ValueError("Breach Point requires at least one tactical timing profile")
+    previous_maximum: int | None = None
+    for profile in rules.tactical_timing_profiles:
+        if (
+            profile.minimum_team_size <= 0
+            or profile.maximum_team_size < profile.minimum_team_size
+            or profile.preplant_tactical_round_limit <= 0
+            or profile.bomb_fuse_tactical_rounds <= 0
+            or previous_maximum is not None
+            and profile.minimum_team_size != previous_maximum + 1
+        ):
+            raise ValueError("Breach Point tactical timing profiles must be contiguous")
+        previous_maximum = profile.maximum_team_size
+    blast = rules.bomb_blast
+    if (
+        not blast.damage_by_node_distance
+        or any(damage <= 0 for damage in blast.damage_by_node_distance)
+        or not 0 <= blast.lethal_node_distance < len(blast.damage_by_node_distance)
+        or not 0 <= blast.armor_reduction_percent <= 100
+    ):
+        raise ValueError("Breach Point bomb blast values are invalid")
     if (
         rules.maximum_evasion_points < 0
         or rules.stationary_evasion_decay_per_activation < 0

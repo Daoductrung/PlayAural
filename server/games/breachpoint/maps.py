@@ -112,6 +112,8 @@ class TacticalNode:
     bomb_site: bool = False
     acoustic_zone: str = ""
     footstep_surface: str = "sand"
+    attacker_approach_ids: tuple[str, ...] = ()
+    defender_position_ids: tuple[str, ...] = ()
 
     def is_walkable(self, point: GridPoint) -> bool:
         """Return whether a coordinate is inside the area and free of terrain."""
@@ -322,6 +324,21 @@ def _validate_map(tactical_map: TacticalMap) -> None:
             )
         if not node.footstep_surface:
             raise ValueError(f"Node {node.id} has no footstep surface")
+        if node.attacker_approach_ids and not node.bomb_site:
+            raise ValueError(f"Non-bombsite node {node.id} defines site approaches")
+        if (
+            len(set(node.attacker_approach_ids)) != len(node.attacker_approach_ids)
+            or node.id in node.attacker_approach_ids
+            or any(approach_id not in nodes for approach_id in node.attacker_approach_ids)
+        ):
+            raise ValueError(f"Node {node.id} has invalid attacker approaches")
+        if node.defender_position_ids and not node.bomb_site:
+            raise ValueError(f"Non-bombsite node {node.id} defines defender positions")
+        if (
+            len(set(node.defender_position_ids)) != len(node.defender_position_ids)
+            or any(position_id not in nodes for position_id in node.defender_position_ids)
+        ):
+            raise ValueError(f"Node {node.id} has invalid defender positions")
         for other in tactical_map.nodes[index + 1 :]:
             if node.footprint.overlaps(other.footprint):
                 raise ValueError(f"Node footprints {node.id} and {other.id} overlap")
@@ -567,6 +584,8 @@ DUST_MAP = TacticalMap(
             bomb_site=True,
             acoustic_zone="elevated_wind",
             footstep_surface="concrete",
+            attacker_approach_ids=("pit", "a_long", "a_ramp", "a_short"),
+            defender_position_ids=("a_site", "ct_spawn", "pit"),
         ),
         TacticalNode(
             "mid",
@@ -783,6 +802,8 @@ DUST_MAP = TacticalMap(
             bomb_site=True,
             acoustic_zone="b_courtyard_wind",
             footstep_surface="concrete",
+            attacker_approach_ids=("b_tunnels",),
+            defender_position_ids=("b_doors", "b_site", "ct_spawn"),
         ),
     ),
     sightlines=(

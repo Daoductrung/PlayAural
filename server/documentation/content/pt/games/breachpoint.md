@@ -17,7 +17,7 @@ Os esquadrões trocam de lado na metade da partida, mas seus colegas de equipe e
 Cada round de combate vale um ponto.
 
 \* T vence eliminando todos os jogadores CT antes de um defuse, ou protegendo uma bomba plantada até ela explodir.
-\* CT vence eliminando todos os jogadores T antes de a bomba ser plantada, impedindo o plant por seis rounds táticos ou desarmando uma bomba plantada.
+\* CT vence eliminando todos os jogadores T antes de a bomba ser plantada, impedindo o plant até o tempo acabar ou desarmando uma bomba plantada.
 
 Depois que a bomba é plantada, eliminar todos os jogadores T não encerra o round. CT ainda precisa desarmar antes que a bomba exploda.
 
@@ -49,9 +49,9 @@ O jogo suporta 2v2, 3v3, 4v4 e 5v5: 4, 6, 8 ou 10 jogadores ativos divididos em 
 
 \*\*O início de um round de combate\*\*
 
-Jogadores vivos nascem com 100 de vida e a pistola grátis do seu lado: Glock para T, USP-S para CT. A bomba é atribuída aleatoriamente a um jogador T vivo. Cada jogador então recebe um turno privado de compra.
+Jogadores vivos nascem com 100 de vida e a pistola grátis do seu lado: Glock para T, USP-S para CT. A bomba é atribuída aleatoriamente a um jogador T vivo. Todos recebem ao mesmo tempo seu próprio menu privado de compra.
 
-O menu de compra abre em um resumo de loadout somente leitura. Abaixo dele ficam informações dos colegas, categorias de itens, armas no chão, reembolsos e compra para colega de equipe. As compras são agrupadas em Equipment, Pistols, Mid-Tier, Rifles e Grenades. Escolha \*\*Finish buying\* quando estiver pronto. Depois que todos terminam, três bipes levam ao combate.
+O menu de compra abre em um resumo de loadout somente leitura. Abaixo dele ficam informações dos colegas, categorias de itens, armas no chão, reembolsos e compra para colega de equipe. As compras são agrupadas em Equipment, Pistols, Mid-Tier, Rifles e Grenades. Escolha \*\*Finish buying\*\* quando estiver pronto. Depois que todos terminam, três bipes levam ao combate.
 
 \*\*Seu turno\*\*
 
@@ -65,15 +65,15 @@ A primeira linha de combate resume sua vida, arma equipada e tudo que você pode
 \* \*\*Weapons and reload:\*\* Troque de arma ou recarregue.
 \* \*\*Ground weapons:\*\* Recupere uma arma na sua área atual.
 
-Gaste até 2 AP em qualquer ordem válida. Usar o último AP encerra o turno automaticamente; caso contrário, escolha \*\*End activation\* ou pressione E. Depois de uma escolha, você retorna à categoria que a abriu. Enquanto passos, uma rajada, uma granada ou uma resposta está sendo resolvida, o menu de combate permanece visível, mas travado, e explica o que ainda está acontecendo.
+Gaste até 2 AP em qualquer ordem válida. Usar o último AP encerra o turno automaticamente; caso contrário, escolha \*\*End activation\*\* ou pressione E. Depois de uma escolha, você retorna à categoria que a abriu. Enquanto passos, uma rajada, uma granada ou uma resposta está sendo resolvida, o menu de combate permanece visível, mas travado, e explica o que ainda está acontecendo.
 
 \*\*Movimento, contato e névoa de guerra\*\*
 
-Mover para uma área conectada custa 1 AP. Aliados e inimigos podem compartilhar uma área, então entrar em uma área ocupada é permitido e cria perigo à queima-roupa. Sair de uma área compartilhada com um inimigo vivo é um \*\*Disengage\* e custa 2 AP.
+Mover para uma área conectada custa 1 AP. Aliados e inimigos podem compartilhar uma área, então entrar em uma área ocupada é permitido e cria perigo à queima-roupa. Sair de uma área compartilhada com um inimigo vivo é um \*\*Disengage\*\* e custa 2 AP.
 
 Você sempre sabe a localização dos seus colegas e o estado público de combate deles. Um inimigo vivo aparece apenas enquanto pelo menos um colega vivo puder ver a área desse inimigo. Avistamentos da equipe são compartilhados, mas você só pode atirar pela sua própria linha de visão. Smoke bloqueia visão para dentro e para fora da área; jogadores na mesma área com smoke ainda se veem.
 
-Quando um contato desaparece de todas as linhas de visão da equipe, ele volta a ficar oculto. Movimento oculto nunca revela o destino. Eliminações são diferentes: o feed de abates é global e sempre informa atirador, vítima, arma e área, então a localização final de um jogador eliminado permanece pública.
+Quando um contato desaparece de todas as linhas de visão da equipe, ele volta a ficar oculto. Se a outra equipe não puder observar uma ação, ela não recebe nenhuma pista falada de que o jogador se moveu, esperou, segurou um ângulo ou preparou evasão. O áudio espacial próximo ainda pode dar pistas a quem escuta com atenção. Eliminações são diferentes: o feed de abates é global e sempre informa atirador, vítima, arma e área, então a localização final de um jogador eliminado permanece pública.
 
 Antes de um plant, CT só descobre o portador da bomba vendo esse jogador. CT pode ver e guardar uma bomba caída, mas não pode pegá-la. T sempre sabe o estado da própria bomba. Uma bomba plantada e seu site são públicos.
 
@@ -124,11 +124,11 @@ Sua equipe ouve seu callout de utilitário. O inimigo recebe o callout exato ape
 
 Somente o portador da bomba em T pode plantar, e apenas em A ou B. Começar o plant custa 1 AP e encerra o turno desse jogador, mas a bomba ainda não está plantada. Um CT vivo recebe uma resposta. Qualquer tiro que cause dano à vida ou armor interrompe o plant; caso contrário, ele completa depois da resposta. A ordem normal de turnos então retoma de onde foi interrompida.
 
-CT não pode iniciar um defuse enquanto o plant ainda está em andamento. Depois de plantada, a bomba recebe seu pavio completo de três rounds táticos, mesmo que T tenha plantado no último turno pré-plant.
+CT não pode iniciar um defuse enquanto o plant ainda está em andamento. Depois de plantada, a bomba sempre recebe o pavio completo, mesmo que T plante no último turno disponível. Em 2v2, o pavio dura quatro rounds táticos; em partidas maiores, dura três.
 
 Um CT na bomba pode iniciar o defuse por 2 AP, ou 1 AP com um Defuse Kit. A ação encerra o turno desse CT e dá uma resposta a um T vivo. Qualquer dano de vida ou armor interrompe o defuse; um ataque totalmente evadido não interrompe. Se a resposta termina sem dano, o defuse tem sucesso.
 
-Quando o último round completo do pavio termina, a bomba entra em sua sequência final de armamento. A partir daí é tarde demais para desarmar.
+Quando o último round completo do pavio termina, a bomba entra em sua sequência final de armamento. A partir daí é tarde demais para desarmar. A explosão elimina na hora qualquer pessoa que ainda esteja no bombsite. A uma área de distância, causa 50 de dano sem armor, ou 40 de vida e 10 de armor com proteção completa.
 
 \*\*Armas caídas\*\*
 
@@ -140,9 +140,9 @@ Se a eliminação final vence o round e o sobrevivente ainda tem AP suficiente a
 
 Cada metade regulamentar começa com $800. Sobreviventes mantêm armas, armor restante, equipamento, utilitários e dinheiro. Jogadores eliminados mantêm dinheiro, mas perdem equipamentos comprados e recebem a pistola grátis para o novo round. O dinheiro é limitado a $16,000. O halftime reinicia todos para $800; cada metade de overtime começa com $10,000.
 
-Uma compra pode ser reembolsada pelo preço total até você terminar esse mesmo turno de compra, desde que o item ainda esteja disponível. Uma arma recém-comprada continua reembolsável depois que outra compra a derruba. Equipamentos trazidos de um round anterior e itens pegos no campo de batalha não podem ser reembolsados.
+Uma compra pode ser reembolsada pelo preço total até você escolher \*\*Finish buying\*\*, desde que o item ainda esteja disponível. Uma arma recém-comprada continua reembolsável depois que outra compra a derruba. Equipamentos trazidos de um round anterior e itens pegos no campo de batalha não podem ser reembolsados.
 
-Você pode comprar uma arma para um colega vivo, incluindo alguém cujo turno de compra já passou. O destinatário pode aceitar ou recusar. Aceitar equipa e confirma o presente. Recusar derruba a arma na posição do comprador, onde ele pode reembolsá-la ou deixá-la no chão.
+Você pode comprar uma arma para qualquer colega vivo enquanto a fase de compra estiver aberta, mesmo que ele já tenha escolhido \*\*Finish buying\*\*. O destinatário pode aceitar ou recusar. Aceitar equipa e confirma o presente. Recusar derruba a arma na posição do comprador, onde ele pode reembolsá-la ou deixá-la no chão.
 
 Vencedores do round recebem $3,250 por eliminação ou tempo, e $3,500 por defuse ou detonação. A renda por derrotas consecutivas sobe de $1,400 para $3,400. Um plant ou defuse bem-sucedido paga $300 ao jogador; uma derrota de T depois de plantar também paga a cada jogador T um bônus de plant de $600.
 
@@ -161,7 +161,9 @@ Movimento e visão são separados. Mid e Lower Tunnels se conectam em torno de u
 \* \*\*MR12:\*\* Doze rounds por metade; primeiro a 13. Padrão.
 \* \*\*MR15:\*\* Quinze rounds por metade; primeiro a 16.
 
-Uma partida regulamentar empatada termina em empate ou entra em overtime MR3 repetível, conforme a opção \*\*Tied match resolution\* do anfitrião. Cada período MR3 tem três rounds por lado; 4 vitórias levam o período, enquanto 3–3 inicia outro. O relógio pré-plant de seis rounds e o pavio de bomba de três rounds são fixos.
+Uma partida regulamentar empatada termina em empate ou entra em overtime MR3 repetível, conforme a opção \*\*Tied match resolution\*\* do anfitrião. Cada período MR3 tem três rounds por lado; 4 vitórias levam o período, enquanto 3–3 inicia outro.
+
+O relógio tático se adapta ao tamanho das equipes. Em 2v2, T tem oito rounds táticos para plantar e o pavio dura quatro rounds. Em 3v3, são sete antes do plant e três depois. Em 4v4 e 5v5, continuam sendo seis antes do plant e três depois.
 
 \*\*Ações de informação\*\*
 

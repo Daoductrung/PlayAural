@@ -64,7 +64,7 @@ class AttackStrategyProfile:
 
 ATTACK_STRATEGIES = (
     AttackStrategyProfile(ATTACK_STRATEGY_DIRECT, 2),
-    AttackStrategyProfile(ATTACK_STRATEGY_SPLIT, 2),
+    AttackStrategyProfile(ATTACK_STRATEGY_SPLIT, 3),
     AttackStrategyProfile(ATTACK_STRATEGY_FAKE, 5),
 )
 
@@ -74,15 +74,20 @@ class BotTacticsProfile:
     """Tunable strategic thresholds shared by every bot team."""
 
     contact_memory_tactical_rounds: int
+    threat_memory_tactical_rounds: int
     entry_minimum_team_size: int
     lurker_minimum_team_size: int
     lurker_commit_tactical_round: int
     pistol_lurker_commit_tactical_round: int
     low_health_percent: int
     attack_history_rounds: int
+    elimination_memory_rounds: int
+    failed_position_repeat_count: int
     successful_site_repeat_limit: int
     successful_site_repeat_percent: int
+    failed_site_repeat_percent: int
     successful_strategy_repeat_percent: int
+    failed_strategy_repeat_percent: int
     split_commit_tactical_round: int
     fake_commit_tactical_round: int
     fake_contact_commit_count: int
@@ -93,21 +98,29 @@ class BotTacticsProfile:
     route_smoke_contact_count: int
     reinforcement_contact_count: int
     small_squad_full_rotation_size: int
+    small_squad_cohesion_size: int
+    solo_contact_commitment_tactical_rounds: int
+    fallback_commitment_tactical_rounds: int
     fallback_enemy_advantage: int
     maximum_duplicate_utility: int
 
 
 STANDARD_BOT_TACTICS = BotTacticsProfile(
     contact_memory_tactical_rounds=2,
+    threat_memory_tactical_rounds=2,
     entry_minimum_team_size=2,
     lurker_minimum_team_size=3,
     lurker_commit_tactical_round=4,
     pistol_lurker_commit_tactical_round=2,
     low_health_percent=35,
     attack_history_rounds=4,
+    elimination_memory_rounds=3,
+    failed_position_repeat_count=1,
     successful_site_repeat_limit=2,
     successful_site_repeat_percent=60,
+    failed_site_repeat_percent=20,
     successful_strategy_repeat_percent=40,
+    failed_strategy_repeat_percent=20,
     split_commit_tactical_round=4,
     fake_commit_tactical_round=3,
     fake_contact_commit_count=2,
@@ -118,6 +131,9 @@ STANDARD_BOT_TACTICS = BotTacticsProfile(
     route_smoke_contact_count=2,
     reinforcement_contact_count=2,
     small_squad_full_rotation_size=3,
+    small_squad_cohesion_size=2,
+    solo_contact_commitment_tactical_rounds=2,
+    fallback_commitment_tactical_rounds=2,
     fallback_enemy_advantage=1,
     maximum_duplicate_utility=1,
 )
@@ -133,6 +149,44 @@ class EnemyContact:
     health: int
     armor: int
     carried_bomb: bool
+
+
+@dataclass(frozen=True)
+class RecentThreat:
+    """One recent, team-legal record of damage dealt to a squad member."""
+
+    target_player_id: str
+    target_node_id: str
+    source_player_id: str
+    source_node_id: str
+    observed_tactical_round: int
+    damage: int
+
+
+@dataclass(frozen=True)
+class TacticalRoute:
+    """A chosen path retained until its tactical destination changes."""
+
+    target_node_id: str
+    node_ids: tuple[str, ...]
+    allows_known_fire: bool
+
+
+@dataclass(frozen=True)
+class DefensiveCommitment:
+    """A solo defender's bounded commitment to one last-known contact."""
+
+    target_node_id: str
+    observed_tactical_round: int
+
+
+@dataclass(frozen=True)
+class FallbackCommitment:
+    """A safe hold retained after breaking a losing firing lane."""
+
+    hold_node_id: str
+    watch_node_id: str
+    observed_tactical_round: int
 
 
 @dataclass(frozen=True)
@@ -154,11 +208,23 @@ class AttackRoundMemory:
     won: bool
 
 
+@dataclass(frozen=True)
+class EliminationMemory:
+    """One public death retained so a squad can vary a failed setup."""
+
+    round_marker: tuple[int, int, int, tuple[int, ...]]
+    victim_player_id: str
+    victim_node_id: str
+    source_node_id: str
+    source_name_key: str
+
+
 @dataclass
 class SquadMemory:
     """Bounded match-level strategy retained while one game instance lives."""
 
     attack_rounds: list[AttackRoundMemory] = field(default_factory=list)
+    eliminations: list[EliminationMemory] = field(default_factory=list)
 
 
 @dataclass
@@ -178,7 +244,15 @@ class TeamPlan:
     entry_commit_node_id: str = ""
     entry_commit_tactical_round: int = 0
     contacts: dict[str, EnemyContact] = field(default_factory=dict)
+    recent_threats: dict[str, RecentThreat] = field(default_factory=dict)
     assignments: dict[str, TacticalAssignment] = field(default_factory=dict)
+    routes: dict[str, TacticalRoute] = field(default_factory=dict)
+    defensive_commitments: dict[str, DefensiveCommitment] = field(
+        default_factory=dict
+    )
+    fallback_commitments: dict[str, FallbackCommitment] = field(
+        default_factory=dict
+    )
     roster_signature: tuple[str, ...] = ()
     completed_strategy_route_player_ids: set[str] = field(default_factory=set)
 
@@ -186,6 +260,8 @@ class TeamPlan:
 def _validate_tactics_profile(profile: BotTacticsProfile) -> None:
     if profile.contact_memory_tactical_rounds < 0:
         raise ValueError("Bot contact memory cannot be negative")
+    if profile.threat_memory_tactical_rounds < 0:
+        raise ValueError("Bot threat memory cannot be negative")
     if profile.entry_minimum_team_size < 2:
         raise ValueError("An entry role requires at least two teammates")
     if profile.lurker_minimum_team_size < 2:
@@ -198,12 +274,22 @@ def _validate_tactics_profile(profile: BotTacticsProfile) -> None:
         raise ValueError("The low-health percentage must be between 1 and 100")
     if profile.attack_history_rounds <= 0:
         raise ValueError("Bot attack history must retain at least one round")
+    if profile.elimination_memory_rounds <= 0:
+        raise ValueError("Bot elimination memory must retain at least one round")
+    if profile.failed_position_repeat_count <= 0:
+        raise ValueError("Failed-position adaptation requires a positive threshold")
     if profile.successful_site_repeat_limit <= 0:
         raise ValueError("Bot site repetition must allow at least one attack")
     if not 0 <= profile.successful_site_repeat_percent <= 100:
         raise ValueError("Bot site repetition percentage must be between 0 and 100")
+    if not 0 <= profile.failed_site_repeat_percent <= 100:
+        raise ValueError("Failed-site repetition percentage must be between 0 and 100")
     if not 0 <= profile.successful_strategy_repeat_percent <= 100:
         raise ValueError("Bot strategy repetition percentage must be between 0 and 100")
+    if not 0 <= profile.failed_strategy_repeat_percent <= 100:
+        raise ValueError(
+            "Failed-strategy repetition percentage must be between 0 and 100"
+        )
     if profile.split_commit_tactical_round <= 0:
         raise ValueError("The split commit round must be positive")
     if profile.fake_commit_tactical_round <= 0:
@@ -224,6 +310,12 @@ def _validate_tactics_profile(profile: BotTacticsProfile) -> None:
         raise ValueError("Reinforcement tactics require at least two contacts")
     if profile.small_squad_full_rotation_size < 2:
         raise ValueError("Full-rotation tactics require at least two teammates")
+    if profile.small_squad_cohesion_size < 2:
+        raise ValueError("Small-squad cohesion requires at least two teammates")
+    if profile.solo_contact_commitment_tactical_rounds <= 0:
+        raise ValueError("Solo contact commitment must last at least one round")
+    if profile.fallback_commitment_tactical_rounds <= 0:
+        raise ValueError("Fallback commitment must last at least one round")
     if profile.fallback_enemy_advantage <= 0:
         raise ValueError("Fallback requires a positive enemy advantage")
     if profile.maximum_duplicate_utility <= 0:
@@ -353,6 +445,47 @@ class BreachPointBotCoordinator:
         )
         del memory.attack_rounds[: -self.profile.attack_history_rounds]
 
+    def record_elimination(
+        self,
+        game: BreachPointGame,
+        target: BreachPointPlayer,
+        source: BreachPointPlayer,
+        *,
+        source_name_key: str,
+    ) -> None:
+        """Retain a bounded public death without preserving hidden observations."""
+
+        if (
+            target.team_index == source.team_index
+            or target.squad_index not in SIDE_INDEXES
+            or not target.position_id
+            or not source.position_id
+        ):
+            return
+        memory = self.squad_memories.setdefault(target.squad_index, SquadMemory())
+        elimination = EliminationMemory(
+            round_marker=self._round_marker(game),
+            victim_player_id=target.id,
+            victim_node_id=target.position_id,
+            source_node_id=source.position_id,
+            source_name_key=source_name_key,
+        )
+        if elimination in memory.eliminations:
+            return
+        memory.eliminations.append(elimination)
+        retained_markers: list[tuple[int, int, int, tuple[int, ...]]] = []
+        for remembered in reversed(memory.eliminations):
+            if remembered.round_marker not in retained_markers:
+                retained_markers.append(remembered.round_marker)
+            if len(retained_markers) == self.profile.elimination_memory_rounds:
+                break
+        retained = set(retained_markers)
+        memory.eliminations[:] = [
+            remembered
+            for remembered in memory.eliminations
+            if remembered.round_marker in retained
+        ]
+
     def observe(self, game: BreachPointGame) -> None:
         """Refresh memory only from information the corresponding team can see."""
 
@@ -361,6 +494,7 @@ class BreachPointBotCoordinator:
             plan = self.team_plans[team_index]
             if team_index == SIDE_TERRORISTS:
                 self._remember_entry_commitment(game, plan)
+                self._follow_small_squad_human_route(game, plan)
             opposing_team_index = next(
                 index for index in SIDE_INDEXES if index != team_index
             )
@@ -399,11 +533,134 @@ class BreachPointBotCoordinator:
                 ):
                     del plan.contacts[player_id]
 
+            for player_id, threat in list(plan.recent_threats.items()):
+                target = game._breach_player_by_id(player_id)
+                age = game.tactical_round - threat.observed_tactical_round
+                if (
+                    not target
+                    or target.eliminated
+                    or age > self.profile.threat_memory_tactical_rounds
+                ):
+                    del plan.recent_threats[player_id]
+
+            for player_id, commitment in list(plan.fallback_commitments.items()):
+                defender = game._breach_player_by_id(player_id)
+                lane_still_active = any(
+                    contact.observed_tactical_round == game.tactical_round
+                    and (
+                        contact.node_id == commitment.watch_node_id
+                        or game.tactical_map.has_sightline(
+                            contact.node_id,
+                            commitment.watch_node_id,
+                        )
+                    )
+                    for contact in plan.contacts.values()
+                )
+                if lane_still_active:
+                    commitment = FallbackCommitment(
+                        hold_node_id=commitment.hold_node_id,
+                        watch_node_id=commitment.watch_node_id,
+                        observed_tactical_round=game.tactical_round,
+                    )
+                    plan.fallback_commitments[player_id] = commitment
+                age = game.tactical_round - commitment.observed_tactical_round
+                if (
+                    not defender
+                    or defender.eliminated
+                    or age > self.profile.fallback_commitment_tactical_rounds
+                ):
+                    del plan.fallback_commitments[player_id]
+
             self._update_bomb_memory(game, plan)
             if team_index == SIDE_TERRORISTS:
                 self._remember_strategy_route_progress(game, plan)
                 self._update_attack_strategy(game, plan)
         self._refresh_assignments(game)
+
+    def _follow_small_squad_human_route(
+        self,
+        game: BreachPointGame,
+        plan: TeamPlan,
+    ) -> None:
+        """Make a lone T bot support the route chosen by its human teammate."""
+
+        teammates = game._players_on_team(SIDE_TERRORISTS, alive_only=True)
+        if (
+            game.bomb_state != BOMB_CARRIED
+            or len(teammates) != self.profile.small_squad_cohesion_size
+        ):
+            return
+        human_teammates = [teammate for teammate in teammates if not teammate.is_bot]
+        bot_teammates = [teammate for teammate in teammates if teammate.is_bot]
+        if len(human_teammates) != 1 or len(bot_teammates) != 1:
+            return
+        human = human_teammates[0]
+        if human.position_id == game.tactical_map.terrorist_spawn:
+            return
+        site_distances = [
+            (distance, site_id)
+            for site_id in game.tactical_map.bomb_site_ids()
+            if (distance := game._node_distance(human.position_id, site_id)) is not None
+        ]
+        if not site_distances:
+            return
+        nearest_distance = min(distance for distance, _site_id in site_distances)
+        nearest_sites = [
+            site_id
+            for distance, site_id in site_distances
+            if distance == nearest_distance
+        ]
+        if len(nearest_sites) != 1 or nearest_sites[0] == plan.attack_site_id:
+            return
+        plan.attack_site_id = nearest_sites[0]
+        plan.attack_strategy_id = ATTACK_STRATEGY_DIRECT
+        plan.decoy_site_id = self._alternate_site(game, plan.attack_site_id)
+        plan.primary_staging_node_id = self._primary_staging_node(
+            game,
+            plan.attack_site_id,
+        )
+        plan.strategy_committed = True
+
+    def record_damage(
+        self,
+        game: BreachPointGame,
+        target: BreachPointPlayer,
+        source: BreachPointPlayer,
+        damage: int,
+    ) -> None:
+        """Remember a damaging contact without granting information through fog."""
+
+        if (
+            damage <= 0
+            or target.team_index == source.team_index
+            or target.team_index not in SIDE_INDEXES
+            or source.eliminated
+        ):
+            return
+        self._ensure_current_round(game)
+        plan = self.team_plans[target.team_index]
+        if not game._team_can_see_player(target.team_index, source):
+            return
+        plan.contacts[source.id] = EnemyContact(
+            player_id=source.id,
+            node_id=source.position_id,
+            observed_tactical_round=game.tactical_round,
+            health=source.health,
+            armor=source.armor,
+            carried_bomb=bool(
+                target.team_index == SIDE_COUNTER_TERRORISTS
+                and game.bomb_state in {BOMB_CARRIED, BOMB_PLANTING}
+                and game.bomb_carrier_id == source.id
+            ),
+        )
+        plan.recent_threats[target.id] = RecentThreat(
+            target_player_id=target.id,
+            target_node_id=target.position_id,
+            source_player_id=source.id,
+            source_node_id=source.position_id,
+            observed_tactical_round=game.tactical_round,
+            damage=damage,
+        )
 
     def choose_action(
         self, game: BreachPointGame, bot: BreachPointPlayer
@@ -412,7 +669,9 @@ class BreachPointBotCoordinator:
 
         self.observe(game)
         if game.pending_weapon_donation:
-            return self.weapon_donation_response_action(game, bot)
+            response = self.weapon_donation_response_action(game, bot)
+            if response:
+                return response
         if game.phase == PHASE_BUY:
             return self.buy_action(game, bot)
         if game.round_recovery_player_id:
@@ -434,6 +693,12 @@ class BreachPointBotCoordinator:
             game,
             objective_action,
         )
+        objective_is_safe = self._objective_is_safe(
+            game,
+            bot,
+            objective_action,
+            visible_enemies,
+        )
         shootable_enemies = [
             enemy
             for enemy in visible_enemies
@@ -453,7 +718,7 @@ class BreachPointBotCoordinator:
             shootable_enemies,
         )
 
-        if objective_is_urgent:
+        if objective_is_urgent and objective_is_safe:
             return objective_action
 
         urgent_plant_route = self._urgent_plant_route_action(game, bot)
@@ -491,6 +756,22 @@ class BreachPointBotCoordinator:
         if lethal_target:
             return f"shoot_{lethal_target.id}"
 
+        hazard_escape_action = self._hazard_escape_action(game, bot)
+        if hazard_escape_action:
+            return hazard_escape_action
+
+        blast_escape_action = self._postplant_blast_escape_action(game, bot)
+        if blast_escape_action:
+            return blast_escape_action
+
+        lost_postplant_action = self._lost_postplant_action(
+            game,
+            bot,
+            shootable_enemies,
+        )
+        if lost_postplant_action:
+            return lost_postplant_action
+
         if visible_enemies and equipped_weapon:
             loaded = game._loaded_ammunition(bot, equipped_weapon)
             if loaded <= 0:
@@ -524,6 +805,14 @@ class BreachPointBotCoordinator:
         if trade_entry_action:
             return trade_entry_action
 
+        supported_return_fire = self._supported_return_fire_target(
+            game,
+            bot,
+            shootable_enemies,
+        )
+        if supported_return_fire:
+            return f"shoot_{supported_return_fire.id}"
+
         fallback_action = self._defensive_fallback_action(
             game,
             bot,
@@ -539,7 +828,7 @@ class BreachPointBotCoordinator:
         ):
             return flash_action
 
-        if objective_action and (
+        if objective_action and objective_is_safe and (
             not visible_enemies or bot.shots_fired_this_activation
         ):
             return objective_action
@@ -569,7 +858,7 @@ class BreachPointBotCoordinator:
         if switch_action:
             return switch_action
 
-        if objective_action:
+        if objective_action and objective_is_safe:
             return objective_action
 
         pickup_action = self.pickup_weapon_action(game, bot)
@@ -624,7 +913,7 @@ class BreachPointBotCoordinator:
             bot.team_index != SIDE_TERRORISTS
             or game.bomb_state != BOMB_CARRIED
             or game.bomb_carrier_id != bot.id
-            or game.tactical_round < game.rules.preplant_tactical_round_limit
+            or game.tactical_round < game.preplant_tactical_round_limit
         ):
             return None
         movement_cost = game._movement_action_point_cost(bot)
@@ -678,14 +967,21 @@ class BreachPointBotCoordinator:
             if attack.site_id != last_attack.site_id:
                 break
             consecutive_site_attacks += 1
-        if (
-            last_attack.won
-            and consecutive_site_attacks < self.profile.successful_site_repeat_limit
-            and self._rng.randrange(100) < self.profile.successful_site_repeat_percent
-        ):
+        may_repeat = bool(
+            not last_attack.won
+            or consecutive_site_attacks < self.profile.successful_site_repeat_limit
+        )
+        repeat_percent = (
+            self.profile.successful_site_repeat_percent
+            if last_attack.won
+            else self.profile.failed_site_repeat_percent
+        )
+        if may_repeat and self._rng.randrange(100) < repeat_percent:
             return last_attack.site_id
-        last_index = site_ids.index(last_attack.site_id)
-        return site_ids[(last_index + 1) % len(site_ids)]
+        alternatives = tuple(
+            site_id for site_id in site_ids if site_id != last_attack.site_id
+        )
+        return self._rng.choice(alternatives) if alternatives else last_attack.site_id
 
     def planned_attack_strategy(
         self,
@@ -711,14 +1007,23 @@ class BreachPointBotCoordinator:
         eligible_ids = tuple(strategy.id for strategy in eligible)
         if last_attack.strategy_id not in eligible_ids:
             return eligible[0].id
-        if (
-            last_attack.won
-            and self._rng.randrange(100)
-            < self.profile.successful_strategy_repeat_percent
-        ):
+        repeat_percent = (
+            self.profile.successful_strategy_repeat_percent
+            if last_attack.won
+            else self.profile.failed_strategy_repeat_percent
+        )
+        if self._rng.randrange(100) < repeat_percent:
             return last_attack.strategy_id
-        last_index = eligible_ids.index(last_attack.strategy_id)
-        return eligible_ids[(last_index + 1) % len(eligible_ids)]
+        alternatives = tuple(
+            strategy_id
+            for strategy_id in eligible_ids
+            if strategy_id != last_attack.strategy_id
+        )
+        return (
+            self._rng.choice(alternatives)
+            if alternatives
+            else last_attack.strategy_id
+        )
 
     def assigned_bomb_site(
         self, game: BreachPointGame, bot: BreachPointPlayer
@@ -744,6 +1049,35 @@ class BreachPointBotCoordinator:
             if plan.known_bomb_node_id:
                 return (plan.known_bomb_node_id,)
             assignment = plan.assignments.get(bot.id)
+            fallback_commitment = plan.fallback_commitments.get(bot.id)
+            if fallback_commitment:
+                return (fallback_commitment.hold_node_id,)
+            recent_threat = plan.recent_threats.get(bot.id)
+            if (
+                recent_threat
+                and recent_threat.target_node_id != bot.position_id
+            ):
+                return (bot.position_id,)
+            active_route = plan.routes.get(bot.id)
+            if (
+                active_route
+                and active_route.target_node_id != bot.position_id
+                and game._node(active_route.target_node_id)
+            ):
+                # Finish a legal rotation once it has started. Re-evaluating
+                # softer contact and anchor priorities after every edge can
+                # otherwise send a defender straight back over the edge it
+                # just crossed. Bomb state, known bomb information, damage
+                # retreats, and fallback commitments above still interrupt
+                # this route immediately when the tactical situation changes.
+                return (active_route.target_node_id,)
+            solo_contact_node_id = self._solo_defender_contact_target(
+                game,
+                bot,
+                plan,
+            )
+            if solo_contact_node_id:
+                return (solo_contact_node_id,)
             if (
                 assignment
                 and assignment.role == ROLE_ROTATOR
@@ -751,6 +1085,13 @@ class BreachPointBotCoordinator:
                 and bot.position_id == game.tactical_map.counter_terrorist_spawn
             ):
                 return (assignment.anchor_node_id,)
+            teammate_support_target = self._small_squad_support_target(
+                game,
+                bot,
+                plan,
+            )
+            if teammate_support_target:
+                return (teammate_support_target,)
             carrier_contact = next(
                 (contact for contact in plan.contacts.values() if contact.carried_bomb),
                 None,
@@ -803,6 +1144,9 @@ class BreachPointBotCoordinator:
 
         attack_site = plan.attack_site_id
         assignment = plan.assignments.get(bot.id)
+        cohesion_target = self._small_squad_cohesion_target(game, bot, attack_site)
+        if cohesion_target:
+            return (cohesion_target,)
         strategy_target = self._strategy_target_node(
             game,
             plan,
@@ -852,6 +1196,157 @@ class BreachPointBotCoordinator:
                 return (carrier.position_id,)
         return (attack_site,) if attack_site else game.tactical_map.bomb_site_ids()
 
+    def _small_squad_cohesion_target(
+        self,
+        game: BreachPointGame,
+        bot: BreachPointPlayer,
+        attack_site_id: str,
+    ) -> str:
+        """Keep a two-player attack within trading distance of its human leader."""
+
+        teammates = game._players_on_team(SIDE_TERRORISTS, alive_only=True)
+        if (
+            bot.team_index != SIDE_TERRORISTS
+            or len(teammates) > self.profile.small_squad_cohesion_size
+            or game.tactical_round >= game.preplant_tactical_round_limit - 1
+        ):
+            return ""
+        human_teammate = next(
+            (
+                teammate
+                for teammate in teammates
+                if teammate.id != bot.id and not teammate.is_bot
+            ),
+            None,
+        )
+        if not human_teammate:
+            return ""
+        separation = game._node_distance(bot.position_id, human_teammate.position_id)
+        if separation is not None and separation > 1:
+            return human_teammate.position_id
+        return attack_site_id
+
+    def _small_squad_support_target(
+        self,
+        game: BreachPointGame,
+        bot: BreachPointPlayer,
+        plan: TeamPlan,
+    ) -> str:
+        """Reinforce a two-player defense without pathing into enemy fire."""
+
+        teammates = game._players_on_team(SIDE_COUNTER_TERRORISTS, alive_only=True)
+        if len(teammates) > self.profile.small_squad_cohesion_size:
+            return ""
+        supporting_teammates = [
+            teammate for teammate in teammates if teammate.id != bot.id
+        ]
+        if not supporting_teammates:
+            return ""
+        contacts = sorted(
+            plan.contacts.values(),
+            key=lambda contact: (
+                -contact.observed_tactical_round,
+                contact.health + contact.armor,
+                contact.player_id,
+            ),
+        )
+        for contact in contacts:
+            enemy = game._breach_player_by_id(contact.player_id)
+            if not enemy or enemy.eliminated:
+                continue
+            if game._can_see(bot, enemy):
+                continue
+            if any(
+                teammate.position_id == contact.node_id
+                or game._can_see(teammate, enemy)
+                for teammate in supporting_teammates
+            ):
+                threatened_teammate = next(
+                    teammate
+                    for teammate in supporting_teammates
+                    if teammate.position_id == contact.node_id
+                    or game._can_see(teammate, enemy)
+                )
+                current_contacts = [
+                    remembered
+                    for remembered in plan.contacts.values()
+                    if remembered.observed_tactical_round == game.tactical_round
+                    and (
+                        remembered.node_id == threatened_teammate.position_id
+                        or game.tactical_map.has_sightline(
+                            remembered.node_id,
+                            threatened_teammate.position_id,
+                        )
+                    )
+                ]
+                teammate_needs_help = bool(
+                    contact.carried_bomb
+                    or len(current_contacts)
+                    >= self.profile.reinforcement_contact_count
+                    or threatened_teammate.health * 100
+                    <= game.rules.max_health * self.profile.low_health_percent
+                )
+                if not teammate_needs_help:
+                    continue
+                fallback = plan.fallback_commitments.get(threatened_teammate.id)
+                return (
+                    fallback.hold_node_id
+                    if fallback
+                    else threatened_teammate.position_id
+                )
+        return ""
+
+    def _solo_defender_contact_target(
+        self,
+        game: BreachPointGame,
+        bot: BreachPointPlayer,
+        plan: TeamPlan,
+    ) -> str:
+        """Keep a lone CT committed long enough to clear one contact route."""
+
+        living_defenders = game._players_on_team(
+            SIDE_COUNTER_TERRORISTS,
+            alive_only=True,
+        )
+        if len(living_defenders) != 1 or living_defenders[0].id != bot.id:
+            plan.defensive_commitments.pop(bot.id, None)
+            return ""
+
+        freshest = self._freshest_contact(plan)
+        commitment = plan.defensive_commitments.get(bot.id)
+        if freshest:
+            enemy = game._breach_player_by_id(freshest.player_id)
+            currently_visible = bool(
+                enemy
+                and not enemy.eliminated
+                and game._team_can_see_player(bot.team_index, enemy)
+            )
+            if (
+                commitment is None
+                or freshest.observed_tactical_round
+                > commitment.observed_tactical_round
+                or currently_visible
+                and freshest.node_id != commitment.target_node_id
+            ):
+                commitment = DefensiveCommitment(
+                    target_node_id=freshest.node_id,
+                    observed_tactical_round=freshest.observed_tactical_round,
+                )
+                plan.defensive_commitments[bot.id] = commitment
+
+        if not commitment:
+            return ""
+        age = game.tactical_round - commitment.observed_tactical_round
+        if (
+            age > self.profile.solo_contact_commitment_tactical_rounds
+            or bot.position_id == commitment.target_node_id
+            and freshest is None
+        ):
+            plan.defensive_commitments.pop(bot.id, None)
+            plan.routes.pop(bot.id, None)
+            return ""
+        return commitment.target_node_id
+
     def _strategy_target_node(
         self,
         game: BreachPointGame,
@@ -900,45 +1395,90 @@ class BreachPointBotCoordinator:
         bot: BreachPointPlayer,
         target_nodes: tuple[str, ...],
     ) -> str | None:
-        """Return a deterministic first edge toward any valid destination."""
+        """Return a stable next edge instead of recalculating into ping-pong."""
 
         target_set = {node_id for node_id in target_nodes if game._node(node_id)}
         if not target_set or bot.position_id in target_set:
+            plan = self.team_plans.get(bot.team_index)
+            if plan:
+                plan.routes.pop(bot.id, None)
             return None
+
+        plan = self.team_plans.get(bot.team_index)
+        route = plan.routes.get(bot.id) if plan else None
+        if route and route.target_node_id in target_set:
+            try:
+                current_index = route.node_ids.index(bot.position_id)
+            except ValueError:
+                current_index = -1
+            if current_index >= 0 and current_index + 1 < len(route.node_ids):
+                next_node_id = route.node_ids[current_index + 1]
+                if self._route_step_is_available(
+                    game,
+                    bot,
+                    next_node_id,
+                    allows_known_fire=route.allows_known_fire,
+                ):
+                    return next_node_id
+            plan.routes.pop(bot.id, None)
+
         for allow_known_fire in (False, True):
-            queue: deque[tuple[str, str | None]] = deque([(bot.position_id, None)])
+            queue: deque[tuple[str, tuple[str, ...]]] = deque(
+                [(bot.position_id, (bot.position_id,))]
+            )
             visited = {bot.position_id}
             while queue:
-                node_id, first_step = queue.popleft()
+                node_id, path = queue.popleft()
                 node = game._node(node_id)
                 if not node:
                     continue
                 for neighbor_id in node.adjacent:
                     if neighbor_id in visited:
                         continue
-                    if not allow_known_fire and game._team_knows_area_effect(
-                        bot.team_index,
-                        UTILITY_EFFECT_FIRE,
+                    if not self._route_step_is_available(
+                        game,
+                        bot,
                         neighbor_id,
+                        allows_known_fire=allow_known_fire,
                     ):
                         continue
-                    enemy = game._living_enemy_at(bot, neighbor_id)
-                    known_enemy = bool(
-                        enemy and game._team_can_see_player(bot.team_index, enemy)
-                    )
+                    next_path = (*path, neighbor_id)
                     if neighbor_id in target_set:
-                        if (
-                            known_enemy
-                            and first_step is None
-                            and not game.rules.allow_contested_entry
-                        ):
-                            return None
-                        return first_step or neighbor_id
-                    if known_enemy and not game.rules.allow_contested_entry:
-                        continue
+                        if plan:
+                            plan.routes[bot.id] = TacticalRoute(
+                                target_node_id=neighbor_id,
+                                node_ids=next_path,
+                                allows_known_fire=allow_known_fire,
+                            )
+                        return next_path[1]
                     visited.add(neighbor_id)
-                    queue.append((neighbor_id, first_step or neighbor_id))
+                    queue.append((neighbor_id, next_path))
+        if plan:
+            plan.routes.pop(bot.id, None)
         return None
+
+    @staticmethod
+    def _route_step_is_available(
+        game: BreachPointGame,
+        bot: BreachPointPlayer,
+        node_id: str,
+        *,
+        allows_known_fire: bool,
+    ) -> bool:
+        """Check only information the bot's team may legally use for routing."""
+
+        if not allows_known_fire and game._team_knows_area_effect(
+            bot.team_index,
+            UTILITY_EFFECT_FIRE,
+            node_id,
+        ):
+            return False
+        enemy = game._living_enemy_at(bot, node_id)
+        return not (
+            enemy
+            and game._team_can_see_player(bot.team_index, enemy)
+            and not game.rules.allow_contested_entry
+        )
 
     def buy_action(self, game: BreachPointGame, bot: BreachPointPlayer) -> str | None:
         """Choose a legal deterministic buy within the squad's shared plan."""
@@ -948,9 +1488,14 @@ class BreachPointBotCoordinator:
             return None
         primary = game._primary_weapon(bot)
         if not primary:
-            priority_equipment = self.team_priority_equipment(game, bot)
-            if priority_equipment:
-                action_id = f"buy_equipment_{priority_equipment.id}"
+            preferred_weapon = self._preferred_primary_weapon(game, bot)
+            if preferred_weapon:
+                action_id = f"buy_weapon_{preferred_weapon.id}"
+                if self._legal_buy_action(game, bot, action_id):
+                    return action_id
+            preferred_sidearm = self._preferred_sidearm_weapon(game, bot)
+            if preferred_sidearm:
+                action_id = f"buy_weapon_{preferred_sidearm.id}"
                 if self._legal_buy_action(game, bot, action_id):
                     return action_id
             pistol_utility = self._pistol_round_utility(game, bot)
@@ -958,14 +1503,9 @@ class BreachPointBotCoordinator:
                 action_id = f"buy_utility_{pistol_utility.id}"
                 if self._legal_buy_action(game, bot, action_id):
                     return action_id
-            preferred_weapon = self._preferred_primary_weapon(game, bot)
-            if preferred_weapon:
-                action_id = f"buy_weapon_{preferred_weapon.id}"
-                if self._legal_buy_action(game, bot, action_id):
-                    return action_id
             if (
-                bot.cash <= game.economy.starting_cash
-                and bot.armor < game.economy.maximum_armor
+                bot.armor < game.economy.maximum_armor
+                and bot.cash <= game.economy.starting_cash
                 and bot.cash >= game.economy.armor_cost
                 and self._legal_buy_action(game, bot, "buy_armor")
             ):
@@ -982,15 +1522,11 @@ class BreachPointBotCoordinator:
             and self._legal_buy_action(game, bot, "buy_armor")
         ):
             return "buy_armor"
-        for equipment in get_purchasable_equipment(bot.team_index):
-            if (
-                bot.equipment_counts.get(equipment.id, 0) < equipment.maximum_carry
-                and bot.cash >= equipment.cost
-                and not self._team_has_equipment(game, bot.team_index, equipment)
-            ):
-                action_id = f"buy_equipment_{equipment.id}"
-                if self._legal_buy_action(game, bot, action_id):
-                    return action_id
+        priority_equipment = self.team_priority_equipment(game, bot)
+        if priority_equipment:
+            action_id = f"buy_equipment_{priority_equipment.id}"
+            if self._legal_buy_action(game, bot, action_id):
+                return action_id
         preferred_sidearm = self._preferred_sidearm_weapon(game, bot)
         if preferred_sidearm:
             action_id = f"buy_weapon_{preferred_sidearm.id}"
@@ -1118,9 +1654,13 @@ class BreachPointBotCoordinator:
     def team_priority_equipment(
         self, game: BreachPointGame, bot: BreachPointPlayer
     ) -> EquipmentProfile | None:
-        """Fund one objective-equipment carrier without duplicating squad gear."""
+        """Fund objective equipment only after the core combat kit is protected."""
 
-        if bot.cash != game.economy.starting_cash:
+        if (
+            self._is_regulation_pistol_round(game)
+            or game._primary_weapon(bot) is None
+            or bot.armor < game.economy.maximum_armor
+        ):
             return None
         squad_bots = [
             teammate
@@ -1363,10 +1903,8 @@ class BreachPointBotCoordinator:
         game: BreachPointGame,
         bot: BreachPointPlayer,
     ) -> WeaponProfile | None:
-        """Assign one upgraded backup after the squad bot owns a primary."""
+        """Assign one range-capable sidearm to the squad's best-suited role."""
 
-        if game._primary_weapon(bot) is None:
-            return None
         purchasable = tuple(
             weapon
             for weapon in get_purchasable_weapons(
@@ -1384,16 +1922,7 @@ class BreachPointBotCoordinator:
             if teammate.id != bot.id
         ):
             return None
-        eligible_bots = [
-            teammate
-            for teammate in teammates
-            if teammate.is_bot
-            and self.team_priority_equipment(game, teammate) is None
-            and self._pistol_round_utility(game, teammate) is None
-        ]
-        if not eligible_bots or eligible_bots[0].id != bot.id:
-            return None
-        return max(
+        preferred_weapon = max(
             purchasable,
             key=lambda weapon: (
                 weapon.max_range,
@@ -1401,6 +1930,65 @@ class BreachPointBotCoordinator:
                 -weapon.armor_reduction_percent,
                 -weapon.cost,
             ),
+        )
+        eligible_bots = [
+            teammate
+            for teammate in teammates
+            if teammate.is_bot
+            and (
+                game._primary_weapon(teammate) is not None
+                or self._pistol_round_utility(game, teammate) is None
+            )
+        ]
+        eligible_bots.sort(
+            key=lambda teammate: self._sidearm_upgrade_rank(
+                game,
+                teammate,
+                preferred_weapon,
+            )
+        )
+        if not eligible_bots or eligible_bots[0].id != bot.id:
+            return None
+        return preferred_weapon
+
+    def _sidearm_upgrade_rank(
+        self,
+        game: BreachPointGame,
+        teammate: BreachPointPlayer,
+        weapon: WeaponProfile,
+    ) -> tuple[int, int, int, int]:
+        """Prefer a sidearm user whose assignment benefits from its extra range."""
+
+        teammates = game._turn_order_players_on_team(teammate.team_index)
+        turn_order = {player.id: index for index, player in enumerate(teammates)}
+        assignment = self.assignment_for(teammate.id)
+        if teammate.team_index == SIDE_TERRORISTS:
+            role_order = {
+                ROLE_ENTRY: 0,
+                ROLE_LURKER: 1,
+                ROLE_SUPPORT: 2,
+                ROLE_OBJECTIVE: 3,
+            }
+            return (
+                role_order.get(assignment.role if assignment else "", len(role_order)),
+                0,
+                0,
+                turn_order[teammate.id],
+            )
+        site = game._node(assignment.anchor_node_id) if assignment else None
+        ingress_ids = site.attacker_approach_ids if site else ()
+        defender_ids = site.defender_position_ids if site else ()
+        useful_lane_count = sum(
+            (distance := game._combat_distance(position_id, ingress_id)) is not None
+            and 0 < distance <= weapon.max_range
+            for position_id in defender_ids
+            for ingress_id in ingress_ids
+        )
+        return (
+            0 if assignment and assignment.role == ROLE_ANCHOR else 1,
+            len(ingress_ids) if ingress_ids else len(game.tactical_map.nodes),
+            -useful_lane_count,
+            turn_order[teammate.id],
         )
 
     def _is_designated_precision_user(
@@ -1507,21 +2095,14 @@ class BreachPointBotCoordinator:
             else game._movement_action_point_cost(bot)
         )
         route_cost = first_move_cost + max(0, distance - 1) * game.rules.move_cost
-        total_cost = (
-            route_cost
-            + game._defuse_action_point_cost(bot)
-            + (contemplated_action_cost if lethal_target is not None else 0)
-        )
+        required_objective_cost = route_cost + game._defuse_action_point_cost(bot)
         future_capacity = max(0, game.bomb_fuse_remaining - 1) * (
             game.rules.action_points_per_activation
         )
-        capacity_after_optional_action = (
-            bot.action_points + future_capacity - contemplated_action_cost
-        )
-        if lethal_target is not None:
-            if total_cost <= bot.action_points + future_capacity:
-                return None
-        elif total_cost <= capacity_after_optional_action:
+        available_capacity = bot.action_points + future_capacity
+        if required_objective_cost > available_capacity:
+            return None
+        if required_objective_cost + contemplated_action_cost <= available_capacity:
             return None
         if bot.action_points < first_move_cost:
             return None
@@ -1814,6 +2395,21 @@ class BreachPointBotCoordinator:
                 objective_player_id=plan.objective_player_id,
             )
             surviving_ids = {player.id for player in teammates}
+            plan.routes = {
+                player_id: route
+                for player_id, route in plan.routes.items()
+                if player_id in surviving_ids
+            }
+            plan.defensive_commitments = {
+                player_id: commitment
+                for player_id, commitment in plan.defensive_commitments.items()
+                if player_id in surviving_ids
+            }
+            plan.fallback_commitments = {
+                player_id: commitment
+                for player_id, commitment in plan.fallback_commitments.items()
+                if player_id in surviving_ids
+            }
             stable_assignments = {
                 player_id: assignment
                 for player_id, assignment in plan.assignments.items()
@@ -1943,6 +2539,12 @@ class BreachPointBotCoordinator:
             *sites,
             game.tactical_map.terrorist_spawn,
             game.tactical_map.counter_terrorist_spawn,
+            *(
+                position_id
+                for site_id in sites
+                if (site := game._node(site_id)) is not None
+                for position_id in site.defender_position_ids
+            ),
         }
         candidates: list[tuple[int, int, int, str]] = []
         for order, node in enumerate(game.tactical_map.nodes):
@@ -1971,6 +2573,16 @@ class BreachPointBotCoordinator:
         site = game._node(site_id)
         if assignment.role != ROLE_ANCHOR or not site:
             return site_id
+        weapon = game._primary_weapon(bot)
+        if weapon and weapon.requires_aim:
+            precision_position = self._precision_defensive_position(
+                game,
+                bot,
+                site_id,
+                weapon,
+            )
+            if precision_position:
+                return precision_position
         home_anchors = [
             teammate
             for teammate in game._turn_order_players_on_team(
@@ -1991,29 +2603,116 @@ class BreachPointBotCoordinator:
         )
         if anchor_index < 0:
             return site_id
-        if anchor_index == 0:
-            return site_id
+        preferred_positions = site.defender_position_ids or (site_id,)
+        default_index = min(anchor_index, len(preferred_positions) - 1)
+        failure_counts = {
+            node_id: self._failed_position_count(game, bot, node_id)
+            for node_id in preferred_positions
+        }
+        default_position = preferred_positions[default_index]
+        if (
+            failure_counts[default_position]
+            < self.profile.failed_position_repeat_count
+        ):
+            return default_position
+        return min(
+            enumerate(preferred_positions),
+            key=lambda candidate: (
+                failure_counts[candidate[1]],
+                abs(candidate[0] - default_index),
+                candidate[0],
+            ),
+        )[1]
 
-        site_spawn_distance = game._node_distance(
-            site_id,
-            game.tactical_map.counter_terrorist_spawn,
-        )
-        candidates: list[tuple[int, int, str]] = []
-        for stable_order, node_id in enumerate(site.adjacent):
-            spawn_distance = game._node_distance(
-                node_id,
-                game.tactical_map.counter_terrorist_spawn,
-            )
-            if spawn_distance is None or (
-                site_spawn_distance is not None
-                and spawn_distance >= site_spawn_distance
+    def _failed_position_count(
+        self,
+        game: BreachPointGame,
+        bot: BreachPointPlayer,
+        node_id: str,
+    ) -> int:
+        """Count recent public squad deaths at one defensive position."""
+
+        memory = self.squad_memories.get(bot.squad_index)
+        if not memory:
+            return 0
+        repeated_failures: dict[tuple[str, str], int] = {}
+        for remembered in memory.eliminations:
+            if not (
+                remembered.victim_node_id == node_id
+                and 0
+                <= game.round - remembered.round_marker[0]
+                < self.profile.elimination_memory_rounds
             ):
                 continue
-            candidates.append((spawn_distance, stable_order, node_id))
-        if not candidates:
-            return site_id
-        ordered_positions = [candidate[2] for candidate in sorted(candidates)]
-        return ordered_positions[min(anchor_index - 1, len(ordered_positions) - 1)]
+            signature = (remembered.source_node_id, remembered.source_name_key)
+            repeated_failures[signature] = repeated_failures.get(signature, 0) + 1
+        return max(repeated_failures.values(), default=0)
+
+    def _precision_defensive_position(
+        self,
+        game: BreachPointGame,
+        bot: BreachPointPlayer,
+        site_id: str,
+        weapon: WeaponProfile,
+    ) -> str:
+        """Choose a deep position that turns a precision weapon into site denial."""
+
+        site = game._node(site_id)
+        if not site:
+            return ""
+        terrorist_spawn = game.tactical_map.terrorist_spawn
+        ingress_nodes = self._site_ingress_nodes(game, site_id)
+        stable_order = {
+            node.id: index for index, node in enumerate(game.tactical_map.nodes)
+        }
+        candidates: list[tuple[tuple[int, int, int, int, int], str]] = []
+        candidate_node_ids = site.defender_position_ids or tuple(
+            node.id for node in game.tactical_map.nodes
+        )
+        for node_id in candidate_node_ids:
+            node = game._node(node_id)
+            if not node:
+                continue
+            site_distance = game._node_distance(node.id, site_id)
+            travel_distance = game._node_distance(bot.position_id, node.id)
+            if (
+                site_distance is None
+                or site_distance > weapon.max_range - 1
+                or travel_distance is None
+            ):
+                continue
+            covered_bands = [
+                distance
+                for ingress_id in ingress_nodes
+                if (distance := game._combat_distance(node.id, ingress_id)) is not None
+                and 0 < distance <= weapon.max_range
+            ]
+            if not covered_bands:
+                continue
+            attacker_distance = game._node_distance(node.id, terrorist_spawn)
+            candidates.append(
+                (
+                    (
+                        max(covered_bands),
+                        len(covered_bands),
+                        attacker_distance if attacker_distance is not None else 0,
+                        -travel_distance,
+                        -stable_order[node.id],
+                    ),
+                    node.id,
+                )
+            )
+        return max(candidates, default=((), site_id))[1]
+
+    @staticmethod
+    def _site_ingress_nodes(
+        game: BreachPointGame,
+        site_id: str,
+    ) -> tuple[str, ...]:
+        """Return map-authored attack lanes feeding a bombsite."""
+
+        site = game._node(site_id)
+        return site.attacker_approach_ids if site else ()
 
     def _split_staging_node(self, game: BreachPointGame) -> str:
         """Choose covered staging one edge before a cross-map junction."""
@@ -2303,8 +3002,36 @@ class BreachPointBotCoordinator:
             objective_action == "defuse"
             and game.bomb_fuse_remaining <= 1
             or objective_action == "plant"
-            and game.tactical_round >= game.rules.preplant_tactical_round_limit
+            and game.tactical_round >= game.preplant_tactical_round_limit
         )
+
+    @staticmethod
+    def _objective_is_safe(
+        game: BreachPointGame,
+        bot: BreachPointPlayer,
+        objective_action: str | None,
+        visible_enemies: list[BreachPointPlayer],
+    ) -> bool:
+        """Reject an objective attempt that a known responder can trivially stop."""
+
+        if objective_action not in {"plant", "defuse"}:
+            return True
+        if game._is_burning(bot.position_id):
+            return False
+        for enemy in visible_enemies:
+            weapon = game._equipped_weapon(enemy)
+            if (
+                not weapon
+                or game._loaded_ammunition(enemy, weapon) <= 0
+                or not game._weapon_can_reach(enemy, bot, weapon)
+            ):
+                continue
+            if not weapon.requires_aim or (
+                enemy.held_angle_origin_id == enemy.position_id
+                and enemy.held_angle_node_id == bot.position_id
+            ):
+                return False
+        return True
 
     @staticmethod
     def _attack_would_eliminate(
@@ -2413,6 +3140,52 @@ class BreachPointBotCoordinator:
         if not source:
             return None
 
+        defensive_plan = self.team_plans.get(bot.team_index)
+        fallback_commitment = (
+            defensive_plan.fallback_commitments.get(bot.id)
+            if defensive_plan and bot.team_index == SIDE_COUNTER_TERRORISTS
+            else None
+        )
+        if (
+            fallback_commitment
+            and bot.position_id == fallback_commitment.hold_node_id
+            and game._can_hold_angle(bot, fallback_commitment.watch_node_id, weapon)
+        ):
+            action_id = f"hold_angle_{fallback_commitment.watch_node_id}"
+            if game._is_hold_angle_enabled(bot, action_id=action_id) is None:
+                return action_id
+        recent_threat = (
+            defensive_plan.recent_threats.get(bot.id)
+            if defensive_plan and bot.team_index == SIDE_COUNTER_TERRORISTS
+            else None
+        )
+        if (
+            recent_threat
+            and recent_threat.target_node_id != bot.position_id
+            and game._can_hold_angle(bot, recent_threat.target_node_id, weapon)
+        ):
+            action_id = f"hold_angle_{recent_threat.target_node_id}"
+            if game._is_hold_angle_enabled(bot, action_id=action_id) is None:
+                return action_id
+
+        defensive_assignment = self.assignment_for(bot.id)
+        if (
+            bot.team_index == SIDE_COUNTER_TERRORISTS
+            and game.bomb_state != BOMB_PLANTED
+            and defensive_assignment
+            and defensive_assignment.role == ROLE_ANCHOR
+            and bot.position_id in target_nodes
+        ):
+            for node_id in self._defensive_angle_nodes(
+                game,
+                bot,
+                defensive_assignment.anchor_node_id,
+                weapon,
+            ):
+                action_id = f"hold_angle_{node_id}"
+                if game._is_hold_angle_enabled(bot, action_id=action_id) is None:
+                    return action_id
+
         site_anchor_defense = bool(
             not weapon.requires_aim
             and bot.team_index == SIDE_COUNTER_TERRORISTS
@@ -2420,24 +3193,7 @@ class BreachPointBotCoordinator:
         )
         if site_anchor_defense:
             if bot.position_id in target_nodes:
-                assignment = self.assignment_for(bot.id)
-                watched_node_id = (
-                    assignment.anchor_node_id
-                    if assignment
-                    and assignment.role == ROLE_ANCHOR
-                    and assignment.anchor_node_id != bot.position_id
-                    and game.tactical_map.has_sightline(
-                        source.id,
-                        assignment.anchor_node_id,
-                    )
-                    else bot.position_id
-                )
-                action_id = f"hold_angle_{watched_node_id}"
-                return (
-                    action_id
-                    if game._is_hold_angle_enabled(bot, action_id=action_id) is None
-                    else None
-                )
+                return None
             assignment = self.assignment_for(bot.id)
             plan = self.team_plans.get(bot.team_index)
             next_node_id = self.shortest_path_step(game, bot, target_nodes)
@@ -2486,6 +3242,41 @@ class BreachPointBotCoordinator:
             if game._is_hold_angle_enabled(bot, action_id=action_id) is None:
                 return action_id
         return None
+
+    def _defensive_angle_nodes(
+        self,
+        game: BreachPointGame,
+        bot: BreachPointPlayer,
+        site_id: str,
+        weapon: WeaponProfile,
+    ) -> tuple[str, ...]:
+        """Rank visible site approaches by the weapon's useful range."""
+
+        stable_order = {
+            node.id: index for index, node in enumerate(game.tactical_map.nodes)
+        }
+        candidates: list[tuple[tuple[int, int, int], str]] = []
+        for node_id in self._site_ingress_nodes(game, site_id):
+            distance = game._combat_distance(bot.position_id, node_id)
+            route_distance = game._node_distance(node_id, site_id)
+            if (
+                distance is None
+                or not 0 < distance <= weapon.max_range
+                or route_distance is None
+            ):
+                continue
+            candidates.append(
+                (
+                    (
+                        distance,
+                        -route_distance,
+                        -stable_order.get(node_id, len(stable_order)),
+                    ),
+                    node_id,
+                )
+            )
+        candidates.sort(reverse=True)
+        return tuple(candidate[1] for candidate in candidates)
 
     def _predictive_angle_nodes(
         self,
@@ -2890,6 +3681,250 @@ class BreachPointBotCoordinator:
         )
         return bool(living_attackers and len(plan.contacts) * 2 > len(living_attackers))
 
+    def _hazard_escape_action(
+        self,
+        game: BreachPointGame,
+        bot: BreachPointPlayer,
+    ) -> str | None:
+        """Leave known fire before attempting a static tactical action."""
+
+        if (
+            not game._is_burning(bot.position_id)
+            or bot.action_points < game._movement_action_point_cost(bot)
+        ):
+            return None
+        return self._safest_retreat_action(game, bot, away_from_node=bot.position_id)
+
+    def _lost_postplant_action(
+        self,
+        game: BreachPointGame,
+        bot: BreachPointPlayer,
+        shootable_enemies: list[BreachPointPlayer],
+    ) -> str | None:
+        """Save a premium gun, or trade enemy economy, when defusal is impossible."""
+
+        if (
+            bot.team_index != SIDE_COUNTER_TERRORISTS
+            or game.bomb_state != BOMB_PLANTED
+            or bot.position_id == game.bomb_location_id
+        ):
+            return None
+        distance = game._node_distance(bot.position_id, game.bomb_location_id)
+        if distance is None:
+            return None
+        route_cost = (
+            game._movement_action_point_cost(bot)
+            + max(0, distance - 1) * game.rules.move_cost
+            + game._defuse_action_point_cost(bot)
+        )
+        available_capacity = bot.action_points + max(
+            0,
+            game.bomb_fuse_remaining - 1,
+        ) * game.rules.action_points_per_activation
+        if route_cost <= available_capacity:
+            return None
+
+        primary = game._primary_weapon(bot)
+        worth_saving = bool(
+            primary
+            and primary.purchase_role
+            in {PURCHASE_ROLE_STANDARD, PURCHASE_ROLE_PRECISION}
+        )
+        if worth_saving:
+            return (
+                self._safest_retreat_action(
+                    game,
+                    bot,
+                    away_from_node=game.bomb_location_id,
+                )
+                or "end_turn"
+            )
+        if shootable_enemies:
+            return f"shoot_{shootable_enemies[0].id}"
+        plan = self.team_plans.get(bot.team_index)
+        contact = self._freshest_contact(plan) if plan else None
+        if contact and bot.action_points >= game._movement_action_point_cost(bot):
+            next_node = self.shortest_path_step(game, bot, (contact.node_id,))
+            action_id = f"move_{next_node}" if next_node else ""
+            if action_id and game._is_move_enabled(bot, action_id=action_id) is None:
+                return action_id
+        return "end_turn"
+
+    def _postplant_blast_escape_action(
+        self,
+        game: BreachPointGame,
+        bot: BreachPointPlayer,
+    ) -> str | None:
+        """Leave blast range only after the defuse window is certainly closed."""
+
+        if (
+            bot.team_index != SIDE_TERRORISTS
+            or game.bomb_state != BOMB_PLANTED
+            or not self._bomb_defusal_is_mathematically_closed(game)
+            or bot.action_points < game._movement_action_point_cost(bot)
+        ):
+            return None
+        distance = game._node_distance(bot.position_id, game.bomb_location_id)
+        maximum_blast_distance = len(
+            game.rules.bomb_blast.damage_by_node_distance
+        ) - 1
+        if distance is None or distance > maximum_blast_distance:
+            return None
+        return self._blast_escape_action(
+            game,
+            bot,
+        )
+
+    def _blast_escape_action(
+        self,
+        game: BreachPointGame,
+        bot: BreachPointPlayer,
+    ) -> str | None:
+        """Increase bomb distance even when every exit crosses known fire."""
+
+        source = game._node(bot.position_id)
+        current_distance = game._node_distance(
+            bot.position_id,
+            game.bomb_location_id,
+        )
+        if not source or current_distance is None:
+            return None
+        plan = self.team_plans.get(bot.team_index)
+        threat_nodes = {
+            contact.node_id for contact in plan.contacts.values()
+        } if plan else set()
+        candidates: list[tuple[int, int, int, str]] = []
+        for stable_order, node_id in enumerate(source.adjacent):
+            action_id = f"move_{node_id}"
+            if game._is_move_enabled(bot, action_id=action_id) is not None:
+                continue
+            distance = game._node_distance(node_id, game.bomb_location_id)
+            if distance is None or distance <= current_distance:
+                continue
+            exposure = sum(
+                threat_node == node_id
+                or (
+                    not game._is_smoked(threat_node)
+                    and not game._is_smoked(node_id)
+                    and game.tactical_map.has_sightline(threat_node, node_id)
+                )
+                for threat_node in threat_nodes
+            )
+            candidates.append((-distance, exposure, stable_order, action_id))
+        return min(candidates)[3] if candidates else None
+
+    @staticmethod
+    def _bomb_defusal_is_mathematically_closed(game: BreachPointGame) -> bool:
+        """Use only public turn state to prove that no CT can still defuse."""
+
+        if game.defusing_player_id or game.bomb_fuse_remaining > 1:
+            return False
+        defenders = game._players_on_team(
+            SIDE_COUNTER_TERRORISTS,
+            alive_only=True,
+        )
+        return not defenders or all(
+            defender.id in game.round_acted_player_ids for defender in defenders
+        )
+
+    def _supported_return_fire_target(
+        self,
+        game: BreachPointGame,
+        bot: BreachPointPlayer,
+        shootable_enemies: list[BreachPointPlayer],
+    ) -> BreachPointPlayer | None:
+        """Take a coordinated trade shot before breaking a threatened lane."""
+
+        if (
+            bot.team_index != SIDE_COUNTER_TERRORISTS
+            or game.bomb_state == BOMB_PLANTED
+            or not shootable_enemies
+            or bot.shots_fired_this_activation
+            or bot.health * 100
+            <= game.rules.max_health * self.profile.low_health_percent
+        ):
+            return None
+        plan = self.team_plans.get(bot.team_index)
+        if not plan or bot.id not in plan.recent_threats:
+            return None
+        supported = [
+            enemy
+            for enemy in shootable_enemies
+            if any(
+                teammate.id != bot.id and game._can_see(teammate, enemy)
+                for teammate in game._players_on_team(
+                    SIDE_COUNTER_TERRORISTS,
+                    alive_only=True,
+                )
+            )
+        ]
+        return min(
+            supported,
+            key=lambda enemy: (enemy.health + enemy.armor, enemy.id),
+            default=None,
+        )
+
+    def _safest_retreat_action(
+        self,
+        game: BreachPointGame,
+        bot: BreachPointPlayer,
+        *,
+        away_from_node: str,
+    ) -> str | None:
+        """Choose a legal neighboring area with less known exposure."""
+
+        source = game._node(bot.position_id)
+        if not source:
+            return None
+        plan = self.team_plans.get(bot.team_index)
+        threat_nodes = {
+            contact.node_id for contact in plan.contacts.values()
+        } if plan else set()
+
+        def exposure_count(node_id: str) -> int:
+            if game._is_smoked(node_id):
+                return 0
+            return sum(
+                threat_node == node_id
+                or game.tactical_map.has_sightline(threat_node, node_id)
+                for threat_node in threat_nodes
+            )
+
+        current_distance = game._node_distance(bot.position_id, away_from_node)
+        current_exposure = exposure_count(bot.position_id)
+        candidates: list[tuple[int, int, int, str]] = []
+        for stable_order, node_id in enumerate(source.adjacent):
+            if game._team_knows_area_effect(
+                bot.team_index,
+                UTILITY_EFFECT_FIRE,
+                node_id,
+            ):
+                continue
+            action_id = f"move_{node_id}"
+            if game._is_move_enabled(bot, action_id=action_id) is not None:
+                continue
+            retreat_distance = game._node_distance(node_id, away_from_node)
+            candidates.append(
+                (
+                    exposure_count(node_id),
+                    -(retreat_distance if retreat_distance is not None else 0),
+                    stable_order,
+                    action_id,
+                )
+            )
+        if not candidates:
+            return None
+        best = min(candidates)
+        best_distance = -best[1]
+        if (
+            best[0] > current_exposure
+            or best[0] == current_exposure
+            and current_distance is not None
+            and best_distance <= current_distance
+        ):
+            return None
+        return best[3]
+
     def _defensive_fallback_action(
         self,
         game: BreachPointGame,
@@ -2898,15 +3933,37 @@ class BreachPointBotCoordinator:
     ) -> str | None:
         """Break a losing pre-plant sightline after firing instead of dying in place."""
 
+        plan = self.team_plans.get(bot.team_index)
+        recent_threat = plan.recent_threats.get(bot.id) if plan else None
         if (
+            not plan
+            or
             bot.team_index != SIDE_COUNTER_TERRORISTS
             or game.bomb_state == BOMB_PLANTED
-            or bot.shots_fired_this_activation <= 0
-            or bot.action_points < game.rules.move_cost
-            or not visible_enemies
+            or not (bot.shots_fired_this_activation or recent_threat)
+            or bot.action_points < game._movement_action_point_cost(bot)
             or game._is_engaged(bot)
         ):
             return None
+        weapon = game._equipped_weapon(bot)
+        if (
+            recent_threat
+            and recent_threat.target_node_id == bot.position_id
+            and weapon
+            and weapon.requires_aim
+        ):
+            precision_retreat = self._safest_retreat_action(
+                game,
+                bot,
+                away_from_node=recent_threat.source_node_id,
+            )
+            if precision_retreat:
+                return self._remember_fallback(
+                    plan,
+                    bot,
+                    precision_retreat,
+                    game.tactical_round,
+                )
         allies_at_node = sum(
             teammate.position_id == bot.position_id
             for teammate in game._players_on_team(
@@ -2919,6 +3976,9 @@ class BreachPointBotCoordinator:
         )
         if (
             not low_health
+            and not (
+                recent_threat and recent_threat.target_node_id == bot.position_id
+            )
             and len(visible_enemies)
             < allies_at_node + self.profile.fallback_enemy_advantage
         ):
@@ -2926,26 +3986,50 @@ class BreachPointBotCoordinator:
         source = game._node(bot.position_id)
         if not source:
             return None
+        fallback_commitment = plan.fallback_commitments.get(bot.id)
+        if (
+            fallback_commitment
+            and bot.position_id == fallback_commitment.hold_node_id
+            and not bot.shots_fired_this_activation
+            and not (
+                recent_threat
+                and recent_threat.target_node_id == bot.position_id
+            )
+        ):
+            # Reaching a fallback point is a commitment to contest the lane
+            # from cover. Low health and an older damage record must not make
+            # the bot retreat back over the same edge on its next activation.
+            return None
 
         def exposure_count(node_id: str) -> int:
             if game._is_smoked(node_id):
                 return 0
+            threat_node_ids = {
+                enemy.position_id for enemy in visible_enemies
+            }
+            if recent_threat:
+                threat_node_ids.add(recent_threat.source_node_id)
             return sum(
-                enemy.position_id == node_id
+                threat_node_id == node_id
                 or (
-                    not game._is_smoked(enemy.position_id)
+                    not game._is_smoked(threat_node_id)
                     and game.tactical_map.has_sightline(
-                        enemy.position_id,
+                        threat_node_id,
                         node_id,
                     )
                 )
-                for enemy in visible_enemies
+                for threat_node_id in threat_node_ids
             )
 
         current_exposure = exposure_count(bot.position_id)
         candidates: list[tuple[int, int, int, str]] = []
         for stable_order, node_id in enumerate(source.adjacent):
             if any(enemy.position_id == node_id for enemy in visible_enemies):
+                continue
+            if (
+                fallback_commitment
+                and node_id == fallback_commitment.watch_node_id
+            ):
                 continue
             action_id = f"move_{node_id}"
             if game._is_move_enabled(bot, action_id=action_id) is not None:
@@ -2967,7 +4051,32 @@ class BreachPointBotCoordinator:
         if not candidates:
             return None
         best = min(candidates)
-        return best[3] if best[0] < current_exposure else None
+        if best[0] >= current_exposure:
+            return None
+        return self._remember_fallback(
+            plan,
+            bot,
+            best[3],
+            game.tactical_round,
+        )
+
+    @staticmethod
+    def _remember_fallback(
+        plan: TeamPlan,
+        bot: BreachPointPlayer,
+        action_id: str,
+        tactical_round: int,
+    ) -> str:
+        """Bind a retreat to one hold point so the bot cannot reverse course."""
+
+        hold_node_id = action_id.removeprefix("move_")
+        plan.fallback_commitments[bot.id] = FallbackCommitment(
+            hold_node_id=hold_node_id,
+            watch_node_id=bot.position_id,
+            observed_tactical_round=tactical_round,
+        )
+        plan.routes.pop(bot.id, None)
+        return action_id
 
     def _entry_breach_action(
         self,
@@ -3081,7 +4190,7 @@ class BreachPointBotCoordinator:
             or game.bomb_carrier_id != bot.id
             or bot.action_points <= 0
             or bot.action_points == game.rules.action_points_per_activation
-            or game.tactical_round >= game.rules.preplant_tactical_round_limit
+            or game.tactical_round >= game.preplant_tactical_round_limit
         ):
             return False
         plan = self.team_plans.get(SIDE_TERRORISTS)

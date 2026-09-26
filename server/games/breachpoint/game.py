@@ -81,6 +81,7 @@ from .audio import (
     WEAPON_AUDIO_SEQUENCE_TAG,
     BreachPointAudioMixin,
     bomb_detonation_warning_ticks,
+    round_result_transition_ticks,
     movement_audio_plan,
     utility_audio_timing,
     weapon_fire_delay_ticks,
@@ -106,6 +107,7 @@ from .rules import (
     STANDARD_RULES,
     BreachPointRules,
     MatchFormat,
+    TacticalTimingProfile,
     get_match_format,
 )
 from .state import (
@@ -235,8 +237,8 @@ WEAPON_FIRE_CALLBACK = "breachpoint-weapon-fire"
 WEAPON_RESOLVE_CALLBACK = "breachpoint-weapon-resolve"
 ROUND_TRANSITION_SEQUENCE_TAG = "breachpoint-round-transition"
 ROUND_TRANSITION_CALLBACK = "breachpoint-round-transition-finish"
-ROUND_TRANSITION_SECONDS = 9
-ROUND_TRANSITION_TICKS = ROUND_TRANSITION_SECONDS * TICKS_PER_SECOND
+ROUND_TRANSITION_TICKS = round_result_transition_ticks()
+ROUND_TRANSITION_SECONDS = ROUND_TRANSITION_TICKS / TICKS_PER_SECOND
 BUY_COUNTDOWN_SEQUENCE_TAG = "breachpoint-buy-countdown"
 BUY_COUNTDOWN_BEEP_CALLBACK = "breachpoint-buy-countdown-beep"
 BUY_COUNTDOWN_FINISH_CALLBACK = "breachpoint-buy-countdown-finish"
@@ -431,6 +433,24 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         """Return the active economy profile."""
 
         return STANDARD_ECONOMY
+
+    @property
+    def tactical_timing(self) -> TacticalTimingProfile:
+        """Return clocks balanced for the active equal-squad size."""
+
+        team_size = max(
+            MIN_TEAM_SIZE,
+            min(MAX_TEAM_SIZE, self.get_active_player_count() // len(TEAM_INDEXES)),
+        )
+        return self.rules.timing_for_team_size(team_size)
+
+    @property
+    def preplant_tactical_round_limit(self) -> int:
+        return self.tactical_timing.preplant_tactical_round_limit
+
+    @property
+    def bomb_fuse_tactical_rounds(self) -> int:
+        return self.tactical_timing.bomb_fuse_tactical_rounds
 
     @property
     def match_format(self) -> MatchFormat:
@@ -984,6 +1004,13 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                 "_get_donation_waiting_label",
             ),
             (
+                "buy_menu_ready",
+                "_action_buy_menu_noop",
+                "_is_buy_ready_waiting_enabled",
+                "_is_buy_ready_waiting_hidden",
+                "_get_buy_ready_waiting_label",
+            ),
+            (
                 "buy_menu_back",
                 "_action_buy_menu_back",
                 "_is_buy_navigation_enabled",
@@ -1354,6 +1381,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             for action_id in (
                 "buy_menu_empty_refunds",
                 "buy_menu_waiting",
+                "buy_menu_ready",
                 "buy_menu_ground_weapons",
                 "buy_menu_refunds",
                 "buy_menu_donation",
@@ -1777,7 +1805,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             self._refill_owned_weapon_ammunition(player)
 
     def _start_buy_phase(self) -> None:
-        """Begin private sequential purchases for the new combat round."""
+        """Open one private buy menu for every living player at once."""
 
         self.phase = PHASE_BUY
         self.buy_ready_player_ids = []
@@ -1785,27 +1813,30 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         self.pending_weapon_donation = None
         self._buy_menu_views.clear()
         self._combat_menu_views.clear()
-        buyer = next(
-            (
-                player
-                for player in self.turn_players
-                if isinstance(player, BreachPointPlayer) and not player.eliminated
-            ),
-            None,
-        )
-        if not buyer:
+        buyers = [
+            player
+            for player in self.turn_players
+            if isinstance(player, BreachPointPlayer) and not player.eliminated
+        ]
+        if not buyers:
             return
-        self.current_player = buyer
+        # Turn ownership resumes in combat. During preparation this stable
+        # pointer exists only for framework compatibility; every buyer acts
+        # independently through their own menu.
+        self.current_player = buyers[0]
         self.broadcast_l(
             "breachpoint-buy-phase-start",
             buffer="game",
             round=self.round,
         )
-        self._start_buy_turn(buyer)
+        for buyer in buyers:
+            self._start_buy_turn(buyer)
         self.refresh_menus()
-        BotHelper.jolt_bot(buyer)
+        BotHelper.jolt_bots(self, players=buyers)
 
     def _start_buy_turn(self, player: BreachPointPlayer) -> None:
+        """Initialize one player's independent preparation menu."""
+
         self._buy_menu_views[player.id] = BuyMenuState()
         self._focus_buy_menu_first(player)
         self._play_turn_notification(player)
@@ -2138,18 +2169,13 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         if self.winning_team_index not in (*TEAM_INDEXES, -1):
             self.winning_team_index = -1
         current = self._breach_player(self.current_player)
-        acted_ids = (
-            self.buy_ready_player_ids
-            if self.phase == PHASE_BUY
-            else self.round_acted_player_ids
-        )
+        acted_ids = self.round_acted_player_ids
         if self.status == "playing" and (
             not current
             or current.eliminated
             or (
-                self.phase == PHASE_BUY
+                self.phase != PHASE_BUY
                 and current.id in acted_ids
-                and not self.pending_weapon_donation
             )
         ):
             replacement = next(
@@ -2171,6 +2197,14 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             )
             if replacement:
                 self.current_player = replacement
+        if (
+            self.status == "playing"
+            and self.phase == PHASE_BUY
+            and not self.pending_weapon_donation
+            and self._all_buyers_ready()
+            and not self.has_active_sequence(tag=BUY_COUNTDOWN_SEQUENCE_TAG)
+        ):
+            self._queue_combat_start_countdown()
         if self.status == "playing":
             self._bot_coordinator.begin_combat_round(self)
             self._sync_all_listener_environment_audio()
@@ -2208,8 +2242,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             and weapon.cost == donation.cost
             and buyer.team_index in weapon.allowed_sides
         )
-        if is_valid and recipient:
-            self.current_player = recipient
+        if is_valid:
             return
         if (
             buyer
@@ -2262,7 +2295,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                 if self.has_active_sequence(tag=BOMB_DETONATION_SEQUENCE_TAG)
                 else 1,
                 min(
-                    self.rules.bomb_fuse_tactical_rounds,
+                    self.bomb_fuse_tactical_rounds,
                     self.bomb_fuse_remaining,
                 ),
             )
@@ -2519,8 +2552,42 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         self._process_ambient_stingers()
         if self.status != "playing":
             return
-        if not self.is_sequence_bot_paused():
-            BotHelper.on_tick(self)
+        if self.is_sequence_bot_paused():
+            return
+        if self.phase == PHASE_BUY:
+            self._process_buy_phase_bots()
+            return
+        BotHelper.on_tick(self)
+
+    def _process_buy_phase_bots(self) -> None:
+        """Advance every bot that still owes an independent buy decision."""
+
+        donation_recipient = (
+            self._breach_player_by_id(self.pending_weapon_donation.recipient_id)
+            if self.pending_weapon_donation
+            else None
+        )
+        if donation_recipient and donation_recipient.is_bot:
+            BotHelper.process_bot_action(
+                donation_recipient,
+                lambda: self.bot_think(donation_recipient),
+                lambda action_id: self.execute_action(
+                    donation_recipient,
+                    action_id,
+                ),
+            )
+        for bot in self._buy_waiting_players():
+            if (
+                not bot.is_bot
+                or donation_recipient
+                and bot.id == donation_recipient.id
+            ):
+                continue
+            BotHelper.process_bot_action(
+                bot,
+                lambda bot=bot: self.bot_think(bot),
+                lambda action_id, bot=bot: self.execute_action(bot, action_id),
+            )
 
     def on_sequence_callback(
         self,
@@ -3486,6 +3553,8 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         self,
         player: BreachPointPlayer,
         weapon: WeaponProfile,
+        *,
+        team_only: bool = False,
     ) -> DroppedWeapon:
         """Detach and spatially place one weapon carried by a player."""
 
@@ -3503,7 +3572,12 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             magazine_ammo,
             reserve_units,
         )
-        self._play_weapon_drop_audio(player, weapon, dropped_weapon)
+        self._play_weapon_drop_audio(
+            player,
+            weapon,
+            dropped_weapon,
+            team_only=team_only,
+        )
         return dropped_weapon
 
     def _death_drop_weapon(
@@ -4360,22 +4434,19 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         wait_error = self._sequence_wait_error(player)
         if wait_error:
             return wait_error
+        if tactical_player.id in self.buy_ready_player_ids:
+            return "breachpoint-error-buy-already-finished"
         if self.pending_weapon_donation:
             recipient = self._breach_player_by_id(
                 self.pending_weapon_donation.recipient_id
             )
             if recipient and recipient.id == tactical_player.id:
                 return "breachpoint-error-donation-response-only"
-            return (
-                "breachpoint-error-donation-response-player",
-                {"player": recipient.name if recipient else ""},
-            )
-        current = self.current_player
-        if not current or current.id != tactical_player.id:
-            return (
-                "breachpoint-error-not-your-buy-turn",
-                {"player": current.name if current else ""},
-            )
+            if self.pending_weapon_donation.buyer_id == tactical_player.id:
+                return (
+                    "breachpoint-error-donation-response-player",
+                    {"player": recipient.name if recipient else ""},
+                )
         return None
 
     def _donation_response_error(
@@ -4396,8 +4467,6 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         if (
             not recipient
             or tactical_player.id != recipient.id
-            or not self.current_player
-            or self.current_player.id != recipient.id
         ):
             return (
                 "breachpoint-error-donation-response-player",
@@ -4946,6 +5015,23 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             and not teammate.eliminated
         ]
 
+    def _buy_waiting_players(self) -> list[BreachPointPlayer]:
+        """Return living players who have not confirmed their purchases."""
+
+        ready_ids = set(self.buy_ready_player_ids)
+        return [
+            player
+            for player in self.turn_players
+            if isinstance(player, BreachPointPlayer)
+            and not player.eliminated
+            and player.id not in ready_ids
+        ]
+
+    def _all_buyers_ready(self) -> bool:
+        """Whether every living participant has confirmed preparation."""
+
+        return not self._buy_waiting_players()
+
     def _buy_category_action_ids(
         self,
         player: BreachPointPlayer,
@@ -5163,6 +5249,14 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         error = self._buy_turn_error(player)
         if error:
             return error
+        if self.pending_weapon_donation:
+            recipient = self._breach_player_by_id(
+                self.pending_weapon_donation.recipient_id
+            )
+            return (
+                "breachpoint-error-donation-response-player",
+                {"player": recipient.name if recipient else ""},
+            )
         donor = self._breach_player(player)
         return (
             None
@@ -5291,6 +5385,25 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         return (
             "breachpoint-error-donation-response-player",
             {"player": recipient.name if recipient else ""},
+        )
+
+    def _is_buy_ready_waiting_hidden(self, player: Player) -> Visibility:
+        return (
+            Visibility.VISIBLE
+            if self.phase == PHASE_BUY and player.id in self.buy_ready_player_ids
+            else Visibility.HIDDEN
+        )
+
+    def _is_buy_ready_waiting_enabled(self, player: Player) -> str:
+        del player
+        return "breachpoint-error-buy-already-finished"
+
+    def _get_buy_ready_waiting_label(self, player: Player, action_id: str) -> str:
+        del action_id
+        user = self.get_user(player)
+        return Localization.get(
+            user.locale if user else "en",
+            "breachpoint-buy-ready-waiting",
         )
 
     def _is_buy_shortcut_hidden(self, player: Player) -> Visibility:
@@ -7489,7 +7602,11 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             else self._sidearm(buyer)
         )
         if replacement:
-            dropped_weapon = self._drop_owned_weapon(buyer, replacement)
+            dropped_weapon = self._drop_owned_weapon(
+                buyer,
+                replacement,
+                team_only=True,
+            )
             self._link_purchased_weapon_drop(buyer, replacement, dropped_weapon)
             self._announce_weapon_drop(buyer, dropped_weapon)
         if weapon.slot == WEAPON_SLOT_PRIMARY:
@@ -7506,7 +7623,13 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             weapon.id,
             weapon.cost,
         )
-        self._play_item_pickup_audio(buyer, "weapon", "ammo", local_only=True)
+        self._play_item_pickup_audio(
+            buyer,
+            "weapon",
+            "ammo",
+            local_only=False,
+            team_only=True,
+        )
         user.speak_l(
             "breachpoint-buy-weapon-complete",
             buffer="game",
@@ -7531,9 +7654,13 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             weapon_id=weapon.id,
             cost=weapon.cost,
         )
-        self.current_player = recipient
         self._play_turn_notification(recipient)
-        self._play_item_pickup_audio(buyer, "weapon", local_only=True)
+        self._play_item_pickup_audio(
+            buyer,
+            "weapon",
+            local_only=False,
+            team_only=True,
+        )
         buyer_user = self.get_user(buyer)
         if buyer_user:
             buyer_user.speak_l(
@@ -7553,7 +7680,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             )
         self.request_menu_focus(recipient, "accept_weapon_donation")
         self.refresh_menus()
-        BotHelper.jolt_bot(recipient)
+        BotHelper.jolt_bots(self, players=[buyer, recipient])
 
     def _action_accept_weapon_donation(
         self,
@@ -7575,7 +7702,11 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             else self._sidearm(recipient)
         )
         if replacement:
-            dropped_weapon = self._drop_owned_weapon(recipient, replacement)
+            dropped_weapon = self._drop_owned_weapon(
+                recipient,
+                replacement,
+                team_only=True,
+            )
             self._link_purchased_weapon_drop(
                 recipient,
                 replacement,
@@ -7593,12 +7724,12 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         )
         self._set_full_weapon_ammunition(recipient, weapon)
         self.pending_weapon_donation = None
-        self.current_player = buyer
         self._play_item_pickup_audio(
             recipient,
             "weapon",
             "ammo",
             local_only=False,
+            team_only=True,
         )
 
         recipient_user = self.get_user(recipient)
@@ -7618,7 +7749,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                 weapon=self._weapon_name(buyer_user.locale, weapon),
             )
         self.refresh_menus()
-        BotHelper.jolt_bot(buyer)
+        BotHelper.jolt_bots(self, players=[buyer, recipient])
 
     def _action_decline_weapon_donation(
         self,
@@ -7649,8 +7780,12 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             dropped_weapon_id=dropped_weapon.drop_id,
         )
         self.pending_weapon_donation = None
-        self.current_player = buyer
-        self._play_weapon_drop_audio(buyer, weapon, dropped_weapon)
+        self._play_weapon_drop_audio(
+            buyer,
+            weapon,
+            dropped_weapon,
+            team_only=True,
+        )
 
         recipient_user = self.get_user(recipient)
         if recipient_user:
@@ -7669,7 +7804,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                 weapon=self._weapon_name(buyer_user.locale, weapon),
             )
         self.refresh_menus()
-        BotHelper.jolt_bot(buyer)
+        BotHelper.jolt_bot(recipient)
 
     def _action_buy_utility(self, player: Player, action_id: str) -> None:
         if self._is_buy_utility_enabled(player, action_id=action_id):
@@ -7748,7 +7883,12 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             self.economy.armor_cost,
             previous_amount=previous_armor,
         )
-        self._play_item_pickup_audio(buyer, "armor", local_only=True)
+        self._play_item_pickup_audio(
+            buyer,
+            "armor",
+            local_only=False,
+            team_only=True,
+        )
         user.speak_l(
             "breachpoint-buy-armor-complete",
             buffer="game",
@@ -7829,7 +7969,8 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         buyer = self._breach_player(player)
         if not buyer:
             return
-        self.buy_ready_player_ids.append(buyer.id)
+        if buyer.id not in self.buy_ready_player_ids:
+            self.buy_ready_player_ids.append(buyer.id)
         self.buy_transactions = [
             transaction
             for transaction in self.buy_transactions
@@ -7842,23 +7983,11 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             buffer="game",
             cash=buyer.cash,
         )
-        next_buyer = next(
-            (
-                candidate
-                for candidate in self.turn_players
-                if isinstance(candidate, BreachPointPlayer)
-                and not candidate.eliminated
-                and candidate.id not in self.buy_ready_player_ids
-            ),
-            None,
-        )
-        if not next_buyer:
+        self._buy_menu_views[buyer.id] = BuyMenuState()
+        if self._all_buyers_ready() and not self.pending_weapon_donation:
             self._queue_combat_start_countdown()
             return
-        self.current_player = next_buyer
-        self._start_buy_turn(next_buyer)
         self.refresh_menus()
-        BotHelper.jolt_bot(next_buyer)
 
     def _action_context_finish_or_end(
         self,
@@ -7924,7 +8053,11 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         )
         self.dropped_weapons.remove(dropped_weapon)
         if replacement:
-            replacement_drop = self._drop_owned_weapon(tactical_player, replacement)
+            replacement_drop = self._drop_owned_weapon(
+                tactical_player,
+                replacement,
+                team_only=is_buy_pickup,
+            )
             if is_buy_pickup:
                 self._link_purchased_weapon_drop(
                     tactical_player,
@@ -7948,6 +8081,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             tactical_player,
             *pickup_kinds,
             local_only=False,
+            team_only=is_buy_pickup,
         )
         self._announce_weapon_pickup(tactical_player, weapon, replacement)
         if is_buy_pickup:
@@ -8804,6 +8938,12 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         target.guard_points = 0
         target.armor -= outcome.armor_absorbed
         target.health -= outcome.health_damage
+        self._bot_coordinator.record_damage(
+            self,
+            target,
+            shooter,
+            outcome.health_damage + outcome.armor_absorbed,
+        )
         if target.health == 0:
             target.eliminated = True
             target.action_points = 0
@@ -8927,6 +9067,12 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                 utility,
                 damage_percent=damage_percent,
             )
+            self._bot_coordinator.record_damage(
+                self,
+                target,
+                source,
+                outcome.health_damage + outcome.armor_absorbed,
+            )
             if utility.effect == UTILITY_EFFECT_FIRE and (
                 outcome.health_damage or outcome.armor_absorbed
             ):
@@ -8970,6 +9116,12 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         """Publish kills, settle rewards, and apply shared death consequences."""
 
         for target in targets:
+            self._bot_coordinator.record_elimination(
+                self,
+                target,
+                source,
+                source_name_key=source_name_key,
+            )
             credited = (
                 self._add_cash(source, kill_reward)
                 if target.team_index != source.team_index
@@ -9214,13 +9366,22 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             if guard
             else "breachpoint-end-turn-no-evasion-player"
         )
-        self.broadcast_personal_l(
-            tactical_player,
-            personal_key,
-            public_key,
-            buffer="game",
-            guard=guard,
-        )
+        for listener in self.players:
+            tactical_listener = self._breach_player(listener)
+            user = self.get_user(listener)
+            if (
+                not tactical_listener
+                or not user
+                or tactical_listener.is_spectator
+                or tactical_listener.team_index != tactical_player.team_index
+            ):
+                continue
+            user.speak_l(
+                personal_key if listener.id == tactical_player.id else public_key,
+                buffer="game",
+                player=tactical_player.name,
+                guard=guard,
+            )
         tactical_player.action_points = 0
         self._end_activation(tactical_player)
 
@@ -9605,7 +9766,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                     len(BOMB_BEEP_ASSETS) - 1,
                     max(
                         0,
-                        self.rules.bomb_fuse_tactical_rounds - self.bomb_fuse_remaining,
+                        self.bomb_fuse_tactical_rounds - self.bomb_fuse_remaining,
                     ),
                 )
                 self._play_bomb_audio(
@@ -9620,12 +9781,11 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                     rounds=self.bomb_fuse_remaining,
                 )
                 if self.bomb_fuse_remaining == 1:
-                    self._play_music_cue(
+                    self._play_music_alert(
                         MUSIC_BOMB_TEN_SECOND_ASSET,
-                        looping=False,
                         priority=36,
                     )
-        elif self.tactical_round >= self.rules.preplant_tactical_round_limit:
+        elif self.tactical_round >= self.preplant_tactical_round_limit:
             self._finish_combat_round(TEAM_COUNTER_TERRORISTS, WIN_TIME)
             return True
         return False
@@ -9702,7 +9862,83 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                 locale, self.bomb_location_id
             ),
         )
+        self._resolve_bomb_blast()
         self._finish_combat_round(TEAM_TERRORISTS, WIN_DETONATED)
+
+    def _resolve_bomb_blast(self) -> None:
+        """Apply the map-scale blast before committing the detonation result."""
+
+        blast = self.rules.bomb_blast
+        maximum_distance = len(blast.damage_by_node_distance) - 1
+        for target in self.get_active_players():
+            tactical_target = self._breach_player(target)
+            if not tactical_target or tactical_target.eliminated:
+                continue
+            distance = self._node_distance(
+                self.bomb_location_id,
+                tactical_target.position_id,
+            )
+            if distance is None or distance > maximum_distance:
+                continue
+            if distance <= blast.lethal_node_distance:
+                outcome = UtilityDamageOutcome(
+                    health_damage=tactical_target.health,
+                    armor_absorbed=0,
+                    evasion_mitigation=0,
+                )
+            else:
+                damage = blast.damage_by_node_distance[distance]
+                armor_absorbed = min(
+                    tactical_target.armor,
+                    damage * blast.armor_reduction_percent // 100,
+                )
+                outcome = UtilityDamageOutcome(
+                    health_damage=min(
+                        tactical_target.health,
+                        damage - armor_absorbed,
+                    ),
+                    armor_absorbed=armor_absorbed,
+                    evasion_mitigation=0,
+                )
+            tactical_target.guard_points = 0
+            tactical_target.armor -= outcome.armor_absorbed
+            tactical_target.health -= outcome.health_damage
+            if tactical_target.health == 0:
+                tactical_target.eliminated = True
+                tactical_target.action_points = 0
+                self._play_death_audio(tactical_target)
+            self._clear_held_angle(tactical_target)
+            self._announce_bomb_blast_damage(tactical_target, outcome)
+
+    def _announce_bomb_blast_damage(
+        self,
+        target: BreachPointPlayer,
+        outcome: UtilityDamageOutcome,
+    ) -> None:
+        """Keep nonlethal blast damage private while publishing bomb deaths."""
+
+        for listener in self.players:
+            user = self.get_user(listener)
+            if not user:
+                continue
+            if target.eliminated:
+                key = (
+                    "breachpoint-bomb-blast-kills-you"
+                    if listener.id == target.id
+                    else "breachpoint-bomb-blast-kills-player"
+                )
+            elif listener.id == target.id:
+                key = "breachpoint-bomb-blast-hits-you"
+            else:
+                continue
+            user.speak_l(
+                key,
+                buffer="game",
+                player=target.name,
+                location=self._node_name(user.locale, target.position_id),
+                health_damage=outcome.health_damage,
+                armor_absorbed=outcome.armor_absorbed,
+            )
 
     def _announce_match_start(self) -> None:
         for player in self.players:
@@ -9718,7 +9954,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                         user.locale,
                         f"breachpoint-match-format-{self.match_format.id}",
                     ),
-                    tactical_rounds=self.rules.preplant_tactical_round_limit,
+                    tactical_rounds=self.preplant_tactical_round_limit,
                 )
                 continue
             tactical_player = self._breach_player(player)
@@ -9734,7 +9970,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                     user.locale,
                     f"breachpoint-match-format-{self.match_format.id}",
                 ),
-                tactical_rounds=self.rules.preplant_tactical_round_limit,
+                tactical_rounds=self.preplant_tactical_round_limit,
             )
 
     def _announce_combat_round_start(self) -> None:
@@ -9799,7 +10035,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
 
     def _round_phase_label(self, locale: str) -> str:
         if self.bomb_state == BOMB_PLANTED:
-            total = self.rules.bomb_fuse_tactical_rounds
+            total = self.bomb_fuse_tactical_rounds
             if self.bomb_planted_tactical_round >= self.tactical_round:
                 return Localization.get(
                     locale,
@@ -9820,18 +10056,17 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             locale,
             "breachpoint-phase-preplant",
             round=self.tactical_round,
-            limit=self.rules.preplant_tactical_round_limit,
+            limit=self.preplant_tactical_round_limit,
         )
 
     def _announce_tactical_round_start(self) -> None:
         self._prune_expired_area_effects()
         if (
             self.bomb_state != BOMB_PLANTED
-            and self.tactical_round == self.rules.preplant_tactical_round_limit
+            and self.tactical_round == self.preplant_tactical_round_limit
         ):
-            self._play_music_cue(
+            self._play_music_alert(
                 MUSIC_ROUND_TEN_SECOND_ASSET,
-                looping=False,
                 priority=34,
             )
         self.broadcast_l(
@@ -9890,9 +10125,12 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                 or tactical_listener.is_spectator
                 or (
                     tactical_listener.team_index != owner.team_index
-                    and not self._team_can_see_node(
-                        tactical_listener.team_index,
-                        dropped_weapon.node_id,
+                    and (
+                        self.phase == PHASE_BUY
+                        or not self._team_can_see_node(
+                            tactical_listener.team_index,
+                            dropped_weapon.node_id,
+                        )
                     )
                 )
             ):
@@ -9924,7 +10162,10 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                 or tactical_listener.is_spectator
                 or (
                     tactical_listener.team_index != picker.team_index
-                    and not self._viewer_can_see_player(listener, picker)
+                    and (
+                        self.phase == PHASE_BUY
+                        or not self._viewer_can_see_player(listener, picker)
+                    )
                 )
             ):
                 continue
@@ -9972,11 +10213,6 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             if not user or not tactical_listener:
                 continue
             if tactical_listener.is_spectator:
-                user.speak_l(
-                    "breachpoint-enemy-moves-hidden",
-                    buffer="game",
-                    player=mover.name,
-                )
                 continue
             if tactical_listener.team_index == mover.team_index:
                 key = (
@@ -10011,12 +10247,6 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             elif was_visible:
                 user.speak_l(
                     "breachpoint-enemy-lost",
-                    buffer="game",
-                    player=mover.name,
-                )
-            else:
-                user.speak_l(
-                    "breachpoint-enemy-moves-hidden",
                     buffer="game",
                     player=mover.name,
                 )
@@ -10103,7 +10333,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         self.bomb_location_id = planter.position_id
         self._set_bomb_grid_point(self._player_grid_point(planter))
         self._normalize_bomb_grid_point()
-        self.bomb_fuse_remaining = self.rules.bomb_fuse_tactical_rounds
+        self.bomb_fuse_remaining = self.bomb_fuse_tactical_rounds
         self.bomb_planted_tactical_round = self.tactical_round
         self.planting_player_id = ""
         self.planting_location_id = ""
@@ -10230,14 +10460,6 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             if not user:
                 continue
             if listener.is_spectator:
-                user.speak_l(
-                    "breachpoint-shot-spectator",
-                    buffer="game",
-                    shooter=shooter.name,
-                    target=target.name,
-                    weapon=self._weapon_name(user.locale, weapon),
-                    result=self._attack_result(user.locale, outcome),
-                )
                 continue
             kwargs = {
                 "shooter": shooter.name,
@@ -10760,7 +10982,11 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             MenuItem(
                 text=Localization.get(
                     user.locale,
-                    "breachpoint-map-header",
+                    (
+                        "breachpoint-map-header-spectator"
+                        if tactical_viewer and tactical_viewer.is_spectator
+                        else "breachpoint-map-header"
+                    ),
                     map=Localization.get(user.locale, self.tactical_map.name_key),
                     round=self.round,
                     phase=self._round_phase_label(user.locale),
@@ -10791,7 +11017,11 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                 and tactical_player.position_id == node.id
                 and self._viewer_knows_player_location(player, tactical_player)
             ]
-            occupant_text = self._format_node_occupants(user.locale, occupants)
+            occupant_text = self._format_node_occupants(
+                user.locale,
+                occupants,
+                viewer_id=player.id,
+            )
             ground_visible = bool(
                 tactical_viewer
                 and not tactical_viewer.is_spectator
@@ -10848,7 +11078,11 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         return items
 
     def _format_node_occupants(
-        self, locale: str, occupants: list[BreachPointPlayer]
+        self,
+        locale: str,
+        occupants: list[BreachPointPlayer],
+        *,
+        viewer_id: str = "",
     ) -> str:
         if not occupants:
             return Localization.get(locale, "breachpoint-map-empty")
@@ -10862,7 +11096,11 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             labels.append(
                 Localization.get(
                     locale,
-                    "breachpoint-map-occupant",
+                    (
+                        "breachpoint-map-occupant-you"
+                        if occupant.id == viewer_id
+                        else "breachpoint-map-occupant"
+                    ),
                     player=occupant.name,
                     team=self._team_name(locale, occupant.team_index),
                     health=occupant.health,
@@ -11048,6 +11286,37 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                     player=recipient.name,
                 )
                 return
+        if self.phase == PHASE_BUY:
+            waiting = self._buy_waiting_players()
+            if not waiting:
+                wait_error = self._sequence_wait_error(player)
+                if isinstance(wait_error, tuple):
+                    key, kwargs = wait_error
+                    user.speak_l(key, buffer="game", **kwargs)
+                return
+            waiting_for_self = any(candidate.id == player.id for candidate in waiting)
+            others = [candidate.name for candidate in waiting if candidate.id != player.id]
+            if waiting_for_self and not others:
+                user.speak_l(
+                    "breachpoint-whose-turn-buy-only-you",
+                    buffer="game",
+                )
+            elif waiting_for_self:
+                user.speak_l(
+                    "breachpoint-whose-turn-buy-you-and-players",
+                    buffer="game",
+                    players=Localization.format_list_and(user.locale, others),
+                )
+            else:
+                user.speak_l(
+                    "breachpoint-whose-turn-buy-players",
+                    buffer="game",
+                    players=Localization.format_list_and(
+                        user.locale,
+                        [candidate.name for candidate in waiting],
+                    ),
+                )
+            return
         if self.reaction_window.is_open:
             responder = self._breach_player_by_id(
                 self.reaction_window.responding_player_id
@@ -11089,7 +11358,11 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             if defuser:
                 return Localization.get(
                     locale,
-                    "breachpoint-bomb-status-defusing",
+                    (
+                        "breachpoint-bomb-status-defusing-you"
+                        if defuser.id == viewer.id
+                        else "breachpoint-bomb-status-defusing"
+                    ),
                     player=defuser.name,
                     location=self._node_name(locale, self.bomb_location_id),
                     rounds=self.bomb_fuse_remaining,
@@ -11119,7 +11392,11 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             ):
                 return Localization.get(
                     locale,
-                    "breachpoint-bomb-status-planting",
+                    (
+                        "breachpoint-bomb-status-planting-you"
+                        if planter.id == viewer.id
+                        else "breachpoint-bomb-status-planting"
+                    ),
                     player=planter.name,
                     location=self._node_name(locale, planter.position_id),
                 )
@@ -11141,7 +11418,11 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         ):
             return Localization.get(
                 locale,
-                "breachpoint-bomb-status-carried",
+                (
+                    "breachpoint-bomb-status-carried-you"
+                    if carrier.id == viewer.id
+                    else "breachpoint-bomb-status-carried"
+                ),
                 player=carrier.name,
                 location=self._node_name(locale, carrier.position_id),
             )

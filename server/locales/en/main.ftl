@@ -726,7 +726,6 @@ chat-global-channel-required-send = Select a language for global chat before sen
 chat-global-log-unavailable = Global chat is temporarily unavailable because this message could not be saved safely. Please try again later.
 chat-table-disabled-send = Table chat is disabled in your options. Turn table chat back on before sending table messages.
 chat-global-temporarily-disabled-send = Global chat has been temporarily disabled by the developer.
-chat-main-menu-table-required-send = Please join a table to send messages.
 chat-invalid-channel = That chat channel is not available.
 chat-invalid-message = That message could not be sent because its format is invalid.
 chat-message-too-long = That message is too long. Messages may contain at most { $limit } characters.

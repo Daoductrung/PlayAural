@@ -79,7 +79,7 @@
   "voice-status-connection-lost": "اتصال {player} قطع شد و از چت صوتی حذف شد.",
   "voice-status-left-table": "{player} میز را ترک کرد و از چت صوتی خارج شد.",
   "chat-close-button": "بستن چت",
-  "chat-placeholder": "پیام خود را بنویسید، یا /g پیام برای ارسال همگانی",
+  "chat-placeholder": "پیام خود را بنویسید. در میز، برای چت عمومی از /g پیام استفاده کنید",
   "chat-empty": "هنوز پیامی در چت وجود ندارد.",
   "chat-unknown-sender": "ناشناس",
   "chat-global": "{player} در چت عمومی می‌گوید: {message}",

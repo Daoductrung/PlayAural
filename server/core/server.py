@@ -186,10 +186,9 @@ ACTIVE_TABLE_SPECTATOR_PREVIEW_LIMIT = 3
 TABLE_CHAT_CONVERSATIONS = frozenset({"local", "table", "game"})
 SUPPORTED_CHAT_CONVERSATIONS = frozenset({"global", *TABLE_CHAT_CONVERSATIONS})
 # Global chat starts enabled and is controlled persistently from Chat
-# Moderation. Main-menu local chat remains a temporary code-level switch.
+# Moderation.
 GLOBAL_CHAT_ENABLED_SETTING_KEY = "global_chat_enabled"
 DEFAULT_GLOBAL_CHAT_SENDING_ENABLED = True
-MAIN_MENU_LOCAL_CHAT_SENDING_ENABLED = False
 VOICE_JOIN_AUTHORIZATION_WINDOW_SECONDS = 120
 SESSION_STATE_RETENTION_SECONDS = 300
 PRESENCE_OFFLINE_GRACE_SECONDS = 2.0
@@ -11978,11 +11977,11 @@ PlayAural Server
                 await self.admin_manager.kick_user(user, target_name, show_menu=False)
             return
 
-        sender_table: Table | None = None
-        if convo == "global" and not self._check_chat_channel_send_permission(
+        sender_table = self._tables.find_user_table(username)
+        explicit_global = convo == "global"
+        if explicit_global and not self._check_chat_channel_send_permission(
             user,
             convo,
-            sender_table,
         ):
             return
 
@@ -12028,12 +12027,18 @@ PlayAural Server
             # Never allow a private-message command to fall through into chat.
             return
 
-        if convo != "global":
-            sender_table = self._tables.find_user_table(username)
+        # Ordinary client chat is sent as ``local``. Resolve its destination
+        # from authoritative table membership at the moment the server accepts
+        # the message: outside a table it is global, while inside a table it
+        # remains private to that table. Explicit global packets keep their
+        # meaning in either state.
+        if convo == "local" and sender_table is None:
+            convo = "global"
+
+        if not explicit_global:
             if not self._check_chat_channel_send_permission(
                 user,
                 convo,
-                sender_table,
             ):
                 return
 
@@ -12095,16 +12100,6 @@ PlayAural Server
                         and self._can_receive_chat(recipient, convo)
                     ):
                         recipients.append(recipient)
-            elif convo == "local":
-                # Lobby chat: send to all users who are NOT in a table
-                for recipient in list(self._users.values()):
-                    if self._users.get(recipient.username) is not recipient:
-                        continue
-                    if recipient.approved:
-                        # Check if this user is in a table
-                        user_table = self._tables.find_user_table(recipient.username)
-                        if not user_table and self._can_receive_chat(recipient, convo):
-                            recipients.append(recipient)
         elif convo == "global":
             # Broadcast to approved users in the same selected language channel.
             for recipient in list(self._users.values()):
@@ -12159,31 +12154,23 @@ PlayAural Server
     def _get_unavailable_chat_send_key(
         self,
         convo: str,
-        table: Table | None,
     ) -> str | None:
         """Return the localized error key for a temporarily unavailable chat path."""
         if convo == "global" and not self.global_chat_sending_enabled:
             return "chat-global-temporarily-disabled-send"
-        if (
-            convo == "local"
-            and table is None
-            and not MAIN_MENU_LOCAL_CHAT_SENDING_ENABLED
-        ):
-            return "chat-main-menu-table-required-send"
         return None
 
     def _check_chat_channel_send_permission(
         self,
         user: NetworkUser,
         convo: str,
-        table: Table | None,
     ) -> bool:
         """Enforce personal settings before temporary channel availability."""
         rejection_key = self._get_disabled_chat_send_key(user, convo)
         if rejection_key is None:
             rejection_key = self._get_unselected_chat_channel_key(user, convo)
         if rejection_key is None:
-            rejection_key = self._get_unavailable_chat_send_key(convo, table)
+            rejection_key = self._get_unavailable_chat_send_key(convo)
         if rejection_key is None:
             return True
         user.speak_l(rejection_key, buffer="system")

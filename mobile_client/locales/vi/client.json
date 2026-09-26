@@ -84,7 +84,7 @@
   "voice-status-connection-lost": "{player} bị mất kết nối và đã bị đưa ra khỏi trò chuyện thoại.",
   "voice-status-left-table": "{player} đã rời bàn và rời khỏi trò chuyện thoại.",
   "chat-close-button": "Đóng trò chuyện",
-  "chat-placeholder": "Nhập tin nhắn, hoặc /g nội dung để gửi ra trò chuyện chung",
+  "chat-placeholder": "Nhập tin nhắn. Khi đang ở bàn, dùng /g nội dung để gửi ra trò chuyện chung",
   "chat-empty": "Chưa có tin nhắn trò chuyện.",
   "chat-unknown-sender": "Không rõ",
   "chat-global": "{player} nói với tất cả: {message}",

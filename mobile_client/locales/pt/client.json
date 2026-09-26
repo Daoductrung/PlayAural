@@ -84,7 +84,7 @@
   "voice-status-connection-lost": "{player} perdeu a conexão e foi removido do bate-papo por voz.",
   "voice-status-left-table": "{player} saiu da mesa e do bate-papo por voz.",
   "chat-close-button": "Fechar chat",
-  "chat-placeholder": "Digite uma mensagem, ou /g mensagem para enviar para todos",
+  "chat-placeholder": "Digite uma mensagem. Em uma mesa, use /g mensagem para o chat global",
   "chat-empty": "Nenhuma mensagem no chat ainda.",
   "chat-unknown-sender": "Desconhecido",
   "chat-global": "{player} diz para todos: {message}",

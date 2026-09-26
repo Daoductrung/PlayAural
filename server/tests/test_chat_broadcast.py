@@ -1,7 +1,6 @@
 import pytest
 
 from ..auth.chat_rate_limit import ChatRateLimiter
-from ..core import server as server_module
 from ..core.server import MAX_CHAT_MESSAGE_LENGTH, Server
 from ..messages.localization import Localization
 from ..persistence.database import GlobalChatMessageRecord
@@ -99,7 +98,6 @@ def _make_user(
 @pytest.mark.parametrize("convo", ["global", "local"])
 async def test_chat_broadcast_snapshots_users_when_connection_changes_during_send(
     convo: str,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     server = _make_server()
     alice_connection = MutatingConnection(server, "Bob")
@@ -118,11 +116,9 @@ async def test_chat_broadcast_snapshots_users_when_connection_changes_during_sen
         for user in (alice, bob, cara):
             user.preferences.global_chat_channel = "en"
     else:
-        monkeypatch.setattr(
-            server_module,
-            "MAIN_MENU_LOCAL_CHAT_SENDING_ENABLED",
-            True,
-        )
+        table = server._tables.create_table("pig", "Alice", alice)
+        assert table.add_member("Bob", bob)
+        assert table.add_member("Cara", cara)
 
     await server._handle_chat(
         DummyClient("Alice"),
@@ -144,7 +140,7 @@ async def test_chat_broadcast_snapshots_users_when_connection_changes_during_sen
 @pytest.mark.parametrize(
     ("convo", "message", "expected_key"),
     [
-        ("local", "hello", "chat-main-menu-table-required-send"),
+        ("local", "hello", "chat-global-temporarily-disabled-send"),
         ("global", "hello", "chat-global-temporarily-disabled-send"),
         ("global", "@Bob hello", "chat-global-temporarily-disabled-send"),
     ],
@@ -160,9 +156,8 @@ async def test_unavailable_chat_paths_return_localized_system_warning(
     bob_connection = RecordingConnection()
     alice = _make_user("Alice", alice_connection, locale=locale)
     bob = _make_user("Bob", bob_connection)
-    if convo == "global":
-        alice.preferences.global_chat_channel = "en"
-        server._global_chat_sending_enabled = False
+    alice.preferences.global_chat_channel = "en"
+    server._global_chat_sending_enabled = False
     server._users = {"Alice": alice, "Bob": bob}
 
     await server._handle_chat(
@@ -189,7 +184,6 @@ async def test_unavailable_chat_paths_return_localized_system_warning(
 )
 async def test_unavailable_chat_attempts_do_not_consume_send_capacity(
     convo: str,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     server = _make_server()
     alice_connection = RecordingConnection()
@@ -199,14 +193,7 @@ async def test_unavailable_chat_attempts_do_not_consume_send_capacity(
     alice.preferences.global_chat_channel = "en"
     bob.preferences.global_chat_channel = "en"
     server._users = {"Alice": alice, "Bob": bob}
-    if convo == "global":
-        server._global_chat_sending_enabled = False
-    else:
-        monkeypatch.setattr(
-            server_module,
-            "MAIN_MENU_LOCAL_CHAT_SENDING_ENABLED",
-            False,
-        )
+    server._global_chat_sending_enabled = False
 
     for index in range(server._chat_rate_limiter.GLOBAL_POLICY.capacity + 3):
         await server._handle_chat(
@@ -218,14 +205,7 @@ async def test_unavailable_chat_attempts_do_not_consume_send_capacity(
         key[0] != alice.uuid for key in server._chat_rate_limiter._buckets
     )
 
-    if convo == "global":
-        server._global_chat_sending_enabled = True
-    else:
-        monkeypatch.setattr(
-            server_module,
-            "MAIN_MENU_LOCAL_CHAT_SENDING_ENABLED",
-            True,
-        )
+    server._global_chat_sending_enabled = True
     await server._handle_chat(
         DummyClient("Alice"),
         {"convo": convo, "message": "now available", "type": "chat"},
@@ -377,10 +357,12 @@ async def test_message_with_no_visible_content_is_rejected_before_rate_limit() -
 @pytest.mark.asyncio
 async def test_table_local_chat_remains_available() -> None:
     server = _make_server()
+    server._global_chat_sending_enabled = False
     alice_connection = RecordingConnection()
     bob_connection = RecordingConnection()
     alice = _make_user("Alice", alice_connection)
     bob = _make_user("Bob", bob_connection)
+    alice.preferences.mute_global_chat = True
     server._users = {"Alice": alice, "Bob": bob}
     table = server._tables.create_table("pig", "Alice", alice)
     assert table.add_member("Bob", bob)
@@ -393,6 +375,127 @@ async def test_table_local_chat_remains_available() -> None:
     assert [packet["message"] for packet in alice_connection.sent] == ["hello"]
     assert [packet["message"] for packet in bob_connection.sent] == ["hello"]
     assert server._db.global_messages == []
+
+
+@pytest.mark.asyncio
+async def test_menu_local_chat_enforces_global_permission_order() -> None:
+    server = _make_server()
+    server._global_chat_sending_enabled = False
+    alice_connection = RecordingConnection()
+    alice = _make_user("Alice", alice_connection)
+    alice.preferences.mute_global_chat = True
+    server._users = {"Alice": alice}
+
+    packet = {"convo": "local", "message": "hello", "type": "chat"}
+    await server._handle_chat(DummyClient("Alice"), packet)
+    assert alice.get_last_spoken() == Localization.get(
+        alice.locale,
+        "chat-global-disabled-send",
+    )
+
+    alice.preferences.mute_global_chat = False
+    await server._handle_chat(DummyClient("Alice"), packet)
+    assert alice.get_last_spoken() == Localization.get(
+        alice.locale,
+        "chat-global-channel-required-send",
+    )
+
+    alice.preferences.global_chat_channel = "en"
+    await server._handle_chat(DummyClient("Alice"), packet)
+    assert alice.get_last_spoken() == Localization.get(
+        alice.locale,
+        "chat-global-temporarily-disabled-send",
+    )
+    assert alice_connection.sent == []
+    assert server._db.global_messages == []
+    assert all(
+        key[0] != alice.uuid for key in server._chat_rate_limiter._buckets
+    )
+
+
+@pytest.mark.asyncio
+async def test_local_chat_follows_authoritative_table_membership_transitions() -> None:
+    server = _make_server()
+    alice_connection = RecordingConnection()
+    bob_connection = RecordingConnection()
+    cara_connection = RecordingConnection()
+    alice = _make_user("Alice", alice_connection)
+    bob = _make_user("Bob", bob_connection)
+    cara = _make_user("Cara", cara_connection)
+    for user in (alice, bob, cara):
+        user.preferences.global_chat_channel = "en"
+    server._users = {"Alice": alice, "Bob": bob, "Cara": cara}
+
+    await server._handle_chat(
+        DummyClient("Alice"),
+        {"convo": "local", "message": "before joining", "type": "chat"},
+    )
+
+    table = server._tables.create_table("pig", "Alice", alice)
+    assert table.add_member("Bob", bob)
+    await server._handle_chat(
+        DummyClient("Alice"),
+        {"convo": "local", "message": "at the table", "type": "chat"},
+    )
+
+    assert table.remove_member("Alice")
+    await server._handle_chat(
+        DummyClient("Alice"),
+        {"convo": "local", "message": "after leaving", "type": "chat"},
+    )
+
+    assert [packet["convo"] for packet in alice_connection.sent] == [
+        "global",
+        "local",
+        "global",
+    ]
+    assert [packet["message"] for packet in bob_connection.sent] == [
+        "before joining",
+        "at the table",
+        "after leaving",
+    ]
+    assert [packet["message"] for packet in cara_connection.sent] == [
+        "before joining",
+        "after leaving",
+    ]
+    assert [record.message for record in server._db.global_messages] == [
+        "before joining",
+        "after leaving",
+    ]
+    assert (alice.uuid, "global") in server._chat_rate_limiter._buckets
+    assert (alice.uuid, "table") in server._chat_rate_limiter._buckets
+
+
+@pytest.mark.asyncio
+async def test_explicit_global_chat_from_a_table_stays_global() -> None:
+    server = _make_server()
+    alice_connection = RecordingConnection()
+    bob_connection = RecordingConnection()
+    cara_connection = RecordingConnection()
+    alice = _make_user("Alice", alice_connection)
+    bob = _make_user("Bob", bob_connection)
+    cara = _make_user("Cara", cara_connection)
+    for user in (alice, bob, cara):
+        user.preferences.global_chat_channel = "en"
+    server._users = {"Alice": alice, "Bob": bob, "Cara": cara}
+    table = server._tables.create_table("pig", "Alice", alice)
+    assert table.add_member("Bob", bob)
+
+    await server._handle_chat(
+        DummyClient("Alice"),
+        {"convo": "global", "message": "explicit global", "type": "chat"},
+    )
+
+    assert [packet["message"] for packet in alice_connection.sent] == [
+        "explicit global"
+    ]
+    assert [packet["message"] for packet in bob_connection.sent] == [
+        "explicit global"
+    ]
+    assert [packet["message"] for packet in cara_connection.sent] == [
+        "explicit global"
+    ]
+    assert server._db.global_messages[0].message == "explicit global"
 
 
 @pytest.mark.asyncio
@@ -600,13 +703,15 @@ async def test_global_chat_mute_precedes_temporary_disable(message: str) -> None
 
 
 @pytest.mark.asyncio
-async def test_table_chat_mute_precedes_main_menu_disable() -> None:
+async def test_menu_local_chat_uses_global_instead_of_table_preferences() -> None:
     server = _make_server()
     alice_connection = RecordingConnection()
     bob_connection = RecordingConnection()
     alice = _make_user("Alice", alice_connection)
     bob = _make_user("Bob", bob_connection)
     alice.preferences.mute_table_chat = True
+    alice.preferences.global_chat_channel = "en"
+    bob.preferences.global_chat_channel = "en"
     server._users = {
         "Alice": alice,
         "Bob": bob,
@@ -621,9 +726,9 @@ async def test_table_chat_mute_precedes_main_menu_disable() -> None:
         },
     )
 
-    assert alice_connection.sent == []
-    assert bob_connection.sent == []
-    assert alice.get_last_spoken() == Localization.get(alice.locale, "chat-table-disabled-send")
+    assert [packet["message"] for packet in alice_connection.sent] == ["hello"]
+    assert [packet["message"] for packet in bob_connection.sent] == ["hello"]
+    assert server._db.global_messages[0].message == "hello"
 
 
 @pytest.mark.asyncio

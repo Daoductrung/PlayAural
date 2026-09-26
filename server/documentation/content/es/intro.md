@@ -34,7 +34,7 @@ PlayAural está hecho para ser tan social como accesible.
 \* \*\*Amigos:\*\* Mantén registro de las personas con quienes te gusta jugar.
 \* \*\*Mensajes privados:\*\* Envía mensajes directos sin salir de tu mesa actual. Los mensajes que envías y recibes se guardan en el búfer de historial de Mensajes Privados durante la sesión actual.
 \* \*\*Usuarios en línea:\*\* Consulta quién está conectado en este momento.
-\* \*\*Chat global:\*\* Escribe `/g` seguido de tu mensaje para enviarlo a todos en el servidor.
+\* \*\*Chat global:\*\* Fuera de una mesa, los mensajes normales se envían al canal de idioma que hayas elegido para el chat global. En una mesa, escribe `/g` seguido de tu mensaje para enviarlo a ese canal; los mensajes normales permanecen en la mesa.
 
 \*\*Aprendiendo los controles\*\*
 

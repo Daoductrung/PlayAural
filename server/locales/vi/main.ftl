@@ -726,7 +726,6 @@ chat-global-channel-required-send = Hãy chọn ngôn ngữ cho trò chuyện ch
 chat-global-log-unavailable = Trò chuyện chung đang tạm thời không khả dụng vì hệ thống không thể lưu tin nhắn này một cách an toàn. Vui lòng thử lại sau.
 chat-table-disabled-send = Trò chuyện trong bàn đang bị tắt trong tùy chọn của bạn. Hãy bật lại trò chuyện trong bàn trước khi gửi tin nhắn trong bàn.
 chat-global-temporarily-disabled-send = Trò chuyện chung đã bị nhà phát triển tạm thời tắt.
-chat-main-menu-table-required-send = Vui lòng tham gia một bàn để gửi tin nhắn.
 chat-invalid-channel = Kênh trò chuyện này không khả dụng.
 chat-invalid-message = Không thể gửi tin nhắn này vì định dạng không hợp lệ.
 chat-message-too-long = Tin nhắn quá dài. Mỗi tin nhắn chỉ được chứa tối đa { $limit } ký tự.

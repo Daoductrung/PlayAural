@@ -84,7 +84,7 @@
   "voice-status-connection-lost": "{player} lost connection and was removed from the voice chat.",
   "voice-status-left-table": "{player} left the table and left the voice chat.",
   "chat-close-button": "Close Chat",
-  "chat-placeholder": "Type a message, or /g message to send it globally",
+  "chat-placeholder": "Type a message. At a table, use /g message for global chat",
   "chat-empty": "No chat messages yet.",
   "chat-unknown-sender": "Unknown",
   "chat-global": "{player} says globally: {message}",

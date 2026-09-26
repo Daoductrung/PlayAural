@@ -34,7 +34,7 @@ PlayAural không chỉ chú trọng khả năng tiếp cận mà còn chú trọ
 \* \*\*Bạn bè:\*\* Theo dõi những người bạn thích chơi cùng.
 \* \*\*Tin nhắn riêng:\*\* Gửi tin nhắn trực tiếp mà không cần rời khỏi bàn đang ngồi. Các tin nhắn bạn gửi và nhận được giữ trong bộ đệm nhật ký Tin nhắn riêng của phiên hiện tại.
 \* \*\*Người dùng đang trực tuyến:\*\* Kiểm tra xem ai đang có mặt trên máy chủ.
-\* \*\*Trò chuyện chung:\*\* Gõ `/g` rồi nhập nội dung để gửi tin nhắn cho toàn bộ máy chủ.
+\* \*\*Trò chuyện chung:\*\* Khi chưa tham gia bàn, tin nhắn thông thường sẽ được gửi vào kênh ngôn ngữ trò chuyện chung bạn đã chọn. Khi đang ở trong bàn, hãy gõ `/g` rồi nhập nội dung để gửi vào kênh đó; tin nhắn thông thường chỉ được gửi trong bàn.
 
 \*\*Tìm hiểu cách điều khiển\*\*
 

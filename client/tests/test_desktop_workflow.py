@@ -69,6 +69,31 @@ def test_client_dev_extra_installs_test_tools():
     assert any(dep.startswith("pytest-xdist") for dep in dev_deps)
 
 
+def test_desktop_numpy_constraint_preserves_legacy_x86_compatibility():
+    repo_root = CLIENT_DIR.parent
+    pyproject = tomllib.loads((CLIENT_DIR / "pyproject.toml").read_text())
+    runtime_deps = pyproject["project"]["dependencies"]
+    requirements = {
+        line.strip()
+        for line in (repo_root / "requirements.txt").read_text().splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+    lock = tomllib.loads((CLIENT_DIR / "uv.lock").read_text())
+    locked_numpy = [
+        package for package in lock["package"] if package["name"] == "numpy"
+    ]
+    build_script = (repo_root / "build_prod.bat").read_text(encoding="utf-8")
+
+    expected = "numpy>=1.26,<2.4"
+    assert expected in runtime_deps
+    assert expected in requirements
+    assert len(locked_numpy) == 1
+    locked_version = tuple(map(int, locked_numpy[0]["version"].split(".")[:2]))
+    assert (1, 26) <= locked_version < (2, 4)
+    assert "SpecifierSet('>=1.26,<2.4')" in build_script
+    assert "or sys.exit('Production builds require NumPy >=1.26,<2.4')" in build_script
+
+
 def test_run_client_syncs_development_dependencies():
     script = (CLIENT_DIR / "run_client.bat").read_text(encoding="utf-8").lower()
 

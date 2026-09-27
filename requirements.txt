@@ -20,7 +20,9 @@ requests
 psutil
 keyring>=24.0
 livekit>=1.1.5
-numpy>=1.26
+# NumPy 2.4 raised its x86 baseline to x86-64-v2. Keep the official
+# pre-2.4 wheels so portable desktop builds support older x86-64 CPUs.
+numpy>=1.26,<2.4
 sounddevice>=0.5.5
 
 # ── Development / Testing ────────────────────────────────────────────────────

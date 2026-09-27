@@ -12,7 +12,7 @@ set "PYTHON_EXE="
 set "PYTHON_ARGS="
 set "PREFERRED_PYTHON_EXE="
 set "PREFERRED_PYTHON_ARGS="
-set "BUILD_DEPS_CHECK=import PyInstaller, wx, accessible_output2, cosmos, keyring, requests, psutil, websockets, fluent.runtime, numpy, sounddevice; from livekit import rtc; assert callable(cosmos.SoundManager); assert callable(rtc.Room)"
+set "BUILD_DEPS_CHECK=import sys, PyInstaller, wx, accessible_output2, cosmos, keyring, requests, psutil, websockets, fluent.runtime, numpy, sounddevice; from livekit import rtc; from packaging.specifiers import SpecifierSet; SpecifierSet('>=1.26,<2.4').contains(numpy.__version__, prereleases=True) or sys.exit('Production builds require NumPy >=1.26,<2.4'); callable(cosmos.SoundManager) or sys.exit('Cosmos SoundManager is unavailable'); callable(rtc.Room) or sys.exit('LiveKit Room is unavailable')"
 set "DIST_ROOT=dist\PlayAural"
 set "CONTENTS_DIR="
 

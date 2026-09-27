@@ -5,6 +5,7 @@ import math
 import os
 import shutil
 import sqlite3
+import stat
 import time
 import uuid as uuid_module
 import json
@@ -40,7 +41,7 @@ from ..moderation.reports import (
 from ..tables.table import Table
 from ..users.identity import normalize_username, username_key
 from .retention import (
-    ABANDONED_BACKUP_FRAGMENT_MINIMUM_AGE_SECONDS,
+    ABANDONED_DATABASE_FRAGMENT_MINIMUM_AGE_SECONDS,
     EXPIRED_BAN_RETENTION_DAYS,
     PENDING_FRIEND_REQUEST_RETENTION_DAYS,
     TRANSIENT_TABLE_CHECKPOINT_RETENTION_DAYS,
@@ -53,6 +54,23 @@ _USER_RECORD_COLUMNS = (
     "trust_level, approved, email, bio, motd_version, gender, "
     "registration_date, last_login_date"
 )
+
+_DATABASE_STATE_UNCERTAIN_ATTRIBUTE = "_playaural_database_state_uncertain"
+_ColumnAttributes = tuple[str, bool, str | None, int]
+_NamedIndexAttributes = tuple[
+    str,
+    bool,
+    bool,
+    tuple[tuple[str | None, bool, str], ...],
+    str,
+]
+_UniqueKeyAttributes = tuple[tuple[str | None, bool, str], ...]
+_ForeignKeyAttributes = tuple[str, str, str, str, str, str]
+
+
+def database_failure_requires_operator_recovery(exc: BaseException) -> bool:
+    """Return whether a maintenance failure happened after live replacement."""
+    return bool(getattr(exc, _DATABASE_STATE_UNCERTAIN_ATTRIBUTE, False))
 
 
 class DatabaseCleanupCategoryCode(str, Enum):
@@ -260,6 +278,35 @@ class _DatabaseCleanupRule:
     retention_days: int | None = None
 
 
+@dataclass(frozen=True)
+class _DatabaseSnapshotSignature:
+    """Metadata that must survive an exact SQLite snapshot operation."""
+
+    application_id: int
+    schema_version: int
+    page_size: int
+    page_count: int
+    schema_objects: tuple[tuple[str, str, str, str], ...]
+    table_row_counts: tuple[tuple[str, int], ...]
+
+    @property
+    def logical_identity(
+        self,
+    ) -> tuple[
+        int,
+        int,
+        tuple[tuple[str, str, str, str], ...],
+        tuple[tuple[str, int], ...],
+    ]:
+        """Return values that VACUUM must preserve while page counts change."""
+        return (
+            self.application_id,
+            self.schema_version,
+            self.schema_objects,
+            self.table_row_counts,
+        )
+
+
 @dataclass
 class SmtpConfig:
     """SMTP configuration from the database."""
@@ -305,137 +352,89 @@ class Database:
     )
     SQLITE_SIDECAR_SUFFIXES = ("-wal", "-shm", "-journal")
     APPLICATION_ID = 0x50415552  # "PAUR"
-    CURRENT_SCHEMA_VERSION = 1
-    SCHEMA_TABLE_COLUMNS = {
-        "bans": frozenset(
-            {"id", "username", "admin_username", "reason_key", "issued_at", "expires_at"}
+    CURRENT_SCHEMA_VERSION = 2
+    # Window functions are the newest SQLite syntax used by the persistence
+    # layer. They were added in SQLite 3.25.0; AlmaLinux 8's supported 3.26.0
+    # runtime satisfies this baseline without relying on newer aliases such as
+    # sqlite_schema or newer maintenance syntax such as VACUUM INTO.
+    MINIMUM_SQLITE_VERSION = (3, 25, 0)
+    DEFAULT_CONNECTION_TIMEOUT_SECONDS = 30.0
+    SQLITE_BACKUP_RETRY_SECONDS = 0.05
+    # Version-zero databases did not carry an application identifier or a
+    # schema version. Keep the historical table names solely to recognize that
+    # legacy layout before migration; current-schema contracts are derived from
+    # the authoritative DDL below.
+    LEGACY_V0_TABLE_NAMES = frozenset(
+        {
+            "bans",
+            "friendships",
+            "game_result_players",
+            "game_results",
+            "global_chat_messages",
+            "moderation_reports",
+            "motd",
+            "mutes",
+            "password_reset_tokens",
+            "player_game_stats",
+            "player_ratings",
+            "saved_tables",
+            "server_settings",
+            "smtp_config",
+            "tables",
+            "user_blocks",
+            "user_notifications",
+            "users",
+        }
+    )
+    SCHEMA_REQUIRED_TABLE_SQL_FRAGMENTS = {
+        "user_blocks": ("CHECK (blocker_id != blocked_id)",),
+        "global_chat_messages": (
+            "CHECK (sender_uuid != '')",
+            "CHECK (sender_username != '')",
+            "CHECK (channel_code != '')",
+            "CHECK (message != '')",
         ),
-        "friendships": frozenset(
-            {"requester_id", "receiver_id", "status", "created_at"}
+        "moderation_reports": (
+            "CHECK (reporter_uuid != '')",
+            "CHECK (reported_uuid != '')",
+            "CHECK (reporter_uuid != reported_uuid)",
+            "CHECK (status IN ('open', 'reviewed', 'dismissed', 'actioned'))",
+            "CHECK (origin_code IN ('manual', 'automated_spam'))",
+            "CHECK (context_code IN ('global', 'table'))",
+            """
+                CHECK (
+                    (origin_code = 'manual'
+                        AND context_code = 'global'
+                        AND evidence_json IS NULL)
+                    OR
+                    (origin_code = 'automated_spam'
+                        AND evidence_json IS NOT NULL
+                        AND evidence_json != '')
+                )
+            """,
+            """
+                CHECK (
+                    context_code != 'table'
+                    OR (channel_code IS NULL AND context_anchor_message_id IS NULL)
+                )
+            """,
+            """
+                CHECK (
+                    origin_code != 'automated_spam'
+                    OR context_code != 'global'
+                    OR channel_code IS NOT NULL
+                )
+            """,
         ),
-        "game_result_players": frozenset(
-            {"id", "result_id", "player_id", "player_name", "is_bot"}
-        ),
-        "game_results": frozenset(
-            {"id", "game_type", "timestamp", "duration_ticks", "custom_data"}
-        ),
-        "global_chat_messages": frozenset(
-            {
-                "id",
-                "sender_uuid",
-                "sender_username",
-                "channel_code",
-                "sent_at_utc",
-                "message",
-            }
-        ),
-        "moderation_reports": frozenset(
-            {
-                "id",
-                "reporter_uuid",
-                "reporter_username",
-                "reported_uuid",
-                "reported_username",
-                "reported_at_utc",
-                "reason_code",
-                "details",
-                "channel_code",
-                "context_anchor_message_id",
-                "status",
-                "reviewed_by_uuid",
-                "reviewed_by_username",
-                "reviewed_at_utc",
-                "origin_code",
-                "context_code",
-                "evidence_json",
-            }
-        ),
-        "motd": frozenset({"id", "version", "language", "message"}),
-        "mutes": frozenset(
-            {"id", "username", "admin_username", "reason", "issued_at", "expires_at"}
-        ),
-        "password_reset_tokens": frozenset(
-            {"id", "user_uuid", "token_hash", "created_at", "expires_at"}
-        ),
-        "player_game_stats": frozenset(
-            {"player_id", "game_type", "stat_key", "stat_value"}
-        ),
-        "player_ratings": frozenset(
-            {"player_id", "game_type", "mu", "sigma"}
-        ),
-        "saved_tables": frozenset(
-            {
-                "id",
-                "username",
-                "save_name",
-                "game_type",
-                "game_json",
-                "members_json",
-                "table_state_json",
-                "saved_at",
-            }
-        ),
-        "server_settings": frozenset(
-            {"setting_key", "value_json", "updated_at_utc"}
-        ),
-        "smtp_config": frozenset(
-            {
-                "id",
-                "host",
-                "port",
-                "username",
-                "password",
-                "from_email",
-                "from_name",
-                "encryption_type",
-            }
-        ),
-        "tables": frozenset(
-            {
-                "table_id",
-                "game_type",
-                "host",
-                "members_json",
-                "game_json",
-                "status",
-                "is_private",
-                "table_state_json",
-                "active_human_offline_elapsed",
-                "checkpoint_kind",
-                "checkpoint_created_at",
-                "checkpoint_expires_at",
-                "checkpoint_operation_id",
-            }
-        ),
-        "user_blocks": frozenset({"blocker_id", "blocked_id", "created_at"}),
-        "user_notifications": frozenset(
-            {"id", "user_id", "source_username", "event_type", "created_at"}
-        ),
-        "users": frozenset(
-            {
-                "id",
-                "username",
-                "username_key",
-                "password_hash",
-                "uuid",
-                "locale",
-                "preferences_json",
-                "trust_level",
-                "approved",
-                "email",
-                "bio",
-                "motd_version",
-                "gender",
-                "registration_date",
-                "last_login_date",
-            }
-        ),
+        "server_settings": ("CHECK (setting_key != '')",),
+        "smtp_config": ("CHECK (id = 1)",),
     }
     BACKUP_FILE_PREFIX = "PlayAural"
     BACKUP_FILE_SUFFIX = ".sqlite3"
     BACKUP_PAGE_BATCH_SIZE = 256
     MINIMUM_MAINTENANCE_FREE_BYTES = 16 * 1024 * 1024
     VACUUM_WORKING_SPACE_MULTIPLIER = 2
+    COMPACTION_STAGING_COPY_MULTIPLIER = 1
     INCOMPLETE_BACKUP_SUFFIXES = (
         f"{BACKUP_FILE_SUFFIX}.partial",
         f"{BACKUP_FILE_SUFFIX}.partial-wal",
@@ -450,7 +449,7 @@ class Database:
     def connect(
         self,
         *,
-        timeout: float = 30.0,
+        timeout: float = DEFAULT_CONNECTION_TIMEOUT_SECONDS,
         migration_backup_dir: str | Path | None = None,
     ) -> None:
         """Connect, validate, and migrate the database without deleting data.
@@ -463,6 +462,7 @@ class Database:
         """
         if self._conn is not None:
             raise RuntimeError("Database is already connected")
+        self._require_supported_sqlite_version()
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._validate_database_file_layout()
         existed_with_content = (
@@ -490,21 +490,10 @@ class Database:
         # Keep the connection in SQLite autocommit mode. Multi-statement writes
         # use _transaction() below, so a failed operation cannot leave an
         # implicit transaction open and poison a later explicit BEGIN.
-        self._conn = sqlite3.connect(
-            str(self.db_path),
-            timeout=timeout,
-            isolation_level=None,
-        )
-        self._conn.row_factory = sqlite3.Row
-        self._conn.create_function(
-            "USERNAME_KEY",
-            1,
-            username_key,
-            deterministic=True,
-        )
-        self._conn.execute(f"PRAGMA busy_timeout = {int(timeout * 1000)};")
+        self._conn = self._open_connection(self.db_path, timeout=timeout)
         self._conn.execute("PRAGMA foreign_keys = ON;")
-        self._conn.execute("PRAGMA synchronous = FULL;")
+        self._require_pragma_value(self._conn, "foreign_keys", 1)
+        self._set_full_synchronous(self._conn)
         if existed_with_content:
             # Validate the original file before any schema or journal-mode write.
             self._verify_connection_integrity(self._conn, full=True)
@@ -513,9 +502,83 @@ class Database:
         # build-time defaults. WAL protects committed work from process crashes,
         # while FULL synchronization asks the OS to flush commit-critical data
         # before SQLite reports success.
-        self._conn.execute("PRAGMA journal_mode = WAL;")
-        self._conn.execute("PRAGMA synchronous = FULL;")
+        if self._is_file_database():
+            self._set_journal_mode(self._conn, "WAL")
+        self._set_full_synchronous(self._conn)
         self._verify_connection_integrity(self._conn, full=True)
+
+    @classmethod
+    def _require_supported_sqlite_version(
+        cls,
+        version: tuple[int, ...] | None = None,
+    ) -> None:
+        """Fail before touching storage when SQLite lacks required syntax."""
+        actual = tuple(
+            version if version is not None else sqlite3.sqlite_version_info
+        )
+        if actual < cls.MINIMUM_SQLITE_VERSION:
+            required = ".".join(str(part) for part in cls.MINIMUM_SQLITE_VERSION)
+            found = ".".join(str(part) for part in actual)
+            raise RuntimeError(
+                f"SQLite {required} or newer is required; runtime is {found}"
+            )
+
+    @classmethod
+    def _open_connection(
+        cls,
+        path: str | Path,
+        *,
+        timeout: float,
+    ) -> sqlite3.Connection:
+        """Open one consistently configured autocommit SQLite connection."""
+        connection = sqlite3.connect(
+            str(path),
+            timeout=timeout,
+            isolation_level=None,
+        )
+        connection.row_factory = sqlite3.Row
+        connection.create_function(
+            "USERNAME_KEY",
+            1,
+            username_key,
+            deterministic=True,
+        )
+        timeout_ms = max(0, int(timeout * 1000))
+        connection.execute(f"PRAGMA busy_timeout = {timeout_ms}")
+        cls._require_pragma_value(connection, "busy_timeout", timeout_ms)
+        return connection
+
+    @staticmethod
+    def _require_pragma_value(
+        connection: sqlite3.Connection,
+        pragma: str,
+        expected: object,
+    ) -> None:
+        row = connection.execute(f"PRAGMA {pragma}").fetchone()
+        actual = row[0] if row is not None else None
+        if actual != expected:
+            raise sqlite3.OperationalError(
+                f"SQLite PRAGMA {pragma} did not take effect: "
+                f"expected {expected!r}, received {actual!r}"
+            )
+
+    @classmethod
+    def _set_full_synchronous(cls, connection: sqlite3.Connection) -> None:
+        connection.execute("PRAGMA synchronous = FULL")
+        cls._require_pragma_value(connection, "synchronous", 2)
+
+    @staticmethod
+    def _set_journal_mode(connection: sqlite3.Connection, mode: str) -> None:
+        normalized = str(mode).strip().upper()
+        if normalized not in {"DELETE", "WAL"}:
+            raise ValueError(f"Unsupported SQLite journal mode: {mode!r}")
+        row = connection.execute(f"PRAGMA journal_mode = {normalized}").fetchone()
+        actual = str(row[0]).upper() if row is not None else ""
+        if actual != normalized:
+            raise sqlite3.OperationalError(
+                f"SQLite journal mode {normalized} was not enabled; received "
+                f"{actual or 'no result'}"
+            )
 
     @contextmanager
     def _transaction(
@@ -527,15 +590,25 @@ class Database:
         if self._conn.in_transaction:
             raise RuntimeError("Nested database transactions are not supported")
 
-        cursor = self._conn.cursor()
-        cursor.execute("BEGIN IMMEDIATE" if immediate else "BEGIN")
+        connection = self._conn
+        cursor = connection.cursor()
         try:
-            yield cursor
-            self._conn.commit()
-        except BaseException:
-            if self._conn.in_transaction:
-                self._conn.rollback()
-            raise
+            cursor.execute("BEGIN IMMEDIATE" if immediate else "BEGIN")
+            try:
+                yield cursor
+                connection.commit()
+            except BaseException as exc:
+                if connection.in_transaction:
+                    try:
+                        connection.rollback()
+                    except BaseException as rollback_exc:
+                        exc.add_note(
+                            "SQLite rollback also failed after the original "
+                            f"transaction error: {rollback_exc!r}"
+                        )
+                raise
+        finally:
+            cursor.close()
 
     def close(self) -> None:
         """Close the database connection."""
@@ -544,11 +617,12 @@ class Database:
             self._conn = None
 
     def compact_database(self) -> DatabaseCompactionResult:
-        """Rebuild the main SQLite file and return exact page-level results.
+        """Safely rebuild the SQLite file and return exact page-level results.
 
-        VACUUM cannot run inside a transaction. The server calls this from an
-        exclusive worker-owned connection only after event-loop database work
-        has drained and the live connection has closed.
+        File databases are copied to a same-directory candidate, VACUUMed in
+        legacy DELETE-journal mode, fully validated, flushed, and only then
+        atomically installed. The authoritative file is therefore never the
+        target of VACUUM itself. This uses no post-AlmaLinux-8 SQLite syntax.
         """
         if self._conn is None:
             raise RuntimeError("Database is not connected")
@@ -564,20 +638,157 @@ class Database:
         before_pages = int(before_pages_row[0])
         before_free_pages = int(before_free_row[0])
 
-        if self._is_file_database():
-            required_bytes = max(
-                before_pages * page_size * self.VACUUM_WORKING_SPACE_MULTIPLIER,
-                self.MINIMUM_MAINTENANCE_FREE_BYTES,
+        before_signature = self._snapshot_signature(self._conn)
+        if not self._is_file_database():
+            self._vacuum_connection(self._conn)
+            self._verify_connection_integrity(self._conn, full=True)
+            after_pages_row = self._conn.execute("PRAGMA page_count").fetchone()
+            after_free_row = self._conn.execute("PRAGMA freelist_count").fetchone()
+            after_pages = int(after_pages_row[0])
+            after_free_pages = int(after_free_row[0])
+            before_bytes = before_pages * page_size
+            after_bytes = after_pages * page_size
+            return DatabaseCompactionResult(
+                before_bytes=before_bytes,
+                after_bytes=after_bytes,
+                reclaimed_bytes=max(0, before_bytes - after_bytes),
+                before_free_pages=before_free_pages,
+                after_free_pages=after_free_pages,
             )
-            self._require_free_space(self.db_path.parent, required_bytes)
 
-        self._conn.execute("VACUUM")
-        self._verify_connection_integrity(self._conn, full=True)
+        database_path = self.db_path.resolve()
+        directory = database_path.parent
+        self._remove_incomplete_compactions(directory, database_path.name)
+        required_bytes = max(
+            before_pages
+            * page_size
+            * (
+                self.COMPACTION_STAGING_COPY_MULTIPLIER
+                + self.VACUUM_WORKING_SPACE_MULTIPLIER
+            ),
+            self.MINIMUM_MAINTENANCE_FREE_BYTES,
+        )
+        self._require_free_space(directory, required_bytes)
 
-        after_pages_row = self._conn.execute("PRAGMA page_count").fetchone()
-        after_free_row = self._conn.execute("PRAGMA freelist_count").fetchone()
-        after_pages = int(after_pages_row[0])
-        after_free_pages = int(after_free_row[0])
+        candidate_path = directory / (
+            f".{database_path.name}.compaction-{uuid_module.uuid4().hex}"
+            f"{self.BACKUP_FILE_SUFFIX}.partial"
+        )
+        original_mode = stat.S_IMODE(database_path.stat().st_mode)
+        candidate: sqlite3.Connection | None = None
+        stage = "create verified candidate"
+        replaced = False
+        try:
+            self._write_verified_snapshot(candidate_path)
+            self._require_free_space(
+                directory,
+                max(
+                    before_pages
+                    * page_size
+                    * self.VACUUM_WORKING_SPACE_MULTIPLIER,
+                    self.MINIMUM_MAINTENANCE_FREE_BYTES,
+                ),
+            )
+            candidate = self._open_connection(
+                candidate_path,
+                timeout=self.DEFAULT_CONNECTION_TIMEOUT_SECONDS,
+            )
+            candidate.execute("PRAGMA foreign_keys = ON")
+            self._require_pragma_value(candidate, "foreign_keys", 1)
+            self._set_journal_mode(candidate, "DELETE")
+            self._set_full_synchronous(candidate)
+
+            stage = "VACUUM staged candidate"
+            self._vacuum_connection(candidate)
+            self._verify_connection_integrity(candidate, full=True)
+            self._validate_schema(candidate)
+            after_signature = self._snapshot_signature(candidate)
+            if after_signature.logical_identity != before_signature.logical_identity:
+                raise sqlite3.DatabaseError(
+                    "staged compaction changed database schema or table row counts"
+                )
+            after_pages = after_signature.page_count
+            after_free_pages = int(
+                candidate.execute("PRAGMA freelist_count").fetchone()[0]
+            )
+            candidate.close()
+            candidate = None
+
+            os.chmod(candidate_path, original_mode)
+            self._flush_file_to_disk(candidate_path)
+
+            stage = "checkpoint source database"
+            checkpoint = self._conn.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
+            if checkpoint is not None and int(checkpoint[0]) != 0:
+                raise sqlite3.OperationalError(
+                    "SQLite could not checkpoint the source WAL before compaction publication"
+                )
+            self._set_journal_mode(self._conn, "DELETE")
+            self._verify_connection_integrity(self._conn, full=True)
+            if (
+                self._snapshot_signature(self._conn).logical_identity
+                != before_signature.logical_identity
+            ):
+                raise sqlite3.DatabaseError(
+                    "source database changed during exclusive compaction"
+                )
+
+            stage = "atomically publish compacted database"
+            self.close()
+            remaining_sidecars = [
+                path for path in self._database_sidecar_paths() if path.exists()
+            ]
+            if remaining_sidecars:
+                raise sqlite3.DatabaseError(
+                    "SQLite sidecars remained after leaving WAL mode: "
+                    + ", ".join(path.name for path in remaining_sidecars)
+                )
+            self._atomic_replace(candidate_path, database_path)
+            replaced = True
+            self._flush_directory_to_disk(directory)
+
+            stage = "reopen compacted database"
+            self.connect()
+            if (
+                self._snapshot_signature(self._conn).logical_identity
+                != before_signature.logical_identity
+            ):
+                raise sqlite3.DatabaseError(
+                    "published compacted database failed logical validation"
+                )
+        except BaseException as exc:
+            if candidate is not None:
+                candidate.close()
+            self._remove_sqlite_file_set(candidate_path)
+            if replaced and self._conn is not None:
+                # A post-publication validation failure must leave this
+                # Database instance fail-closed just like the server manager.
+                self.close()
+            elif self._conn is None and not replaced:
+                try:
+                    self.connect()
+                except BaseException as reopen_exc:
+                    exc.add_note(
+                        "The original database could not be reopened after the "
+                        f"pre-publication failure: {reopen_exc!r}"
+                    )
+            elif self._conn is not None and not replaced:
+                try:
+                    self._set_journal_mode(self._conn, "WAL")
+                except BaseException as journal_exc:
+                    exc.add_note(
+                        "The original database remained available, but WAL mode "
+                        f"could not be restored: {journal_exc!r}"
+                    )
+            self._add_sqlite_failure_note(
+                exc,
+                operation="compaction",
+                stage=stage,
+                path=database_path,
+                replacement_applied=replaced,
+            )
+            raise
+
         before_bytes = before_pages * page_size
         after_bytes = after_pages * page_size
         return DatabaseCompactionResult(
@@ -587,6 +798,16 @@ class Database:
             before_free_pages=before_free_pages,
             after_free_pages=after_free_pages,
         )
+
+    @staticmethod
+    def _vacuum_connection(connection: sqlite3.Connection) -> None:
+        """Run the oldest SQLite compaction syntax supported by PlayAural."""
+        connection.execute("VACUUM")
+
+    @staticmethod
+    def _atomic_replace(source: Path, destination: Path) -> None:
+        """Install one fully flushed same-filesystem database candidate."""
+        source.replace(destination)
 
     def backup_database(
         self,
@@ -640,78 +861,213 @@ class Database:
         )
         final_path = directory / filename
         temporary_path = directory / f".{filename}.partial"
-        destination: sqlite3.Connection | None = None
-
+        published = False
         try:
-            destination = sqlite3.connect(
-                str(temporary_path),
-                timeout=30.0,
-                isolation_level=None,
-            )
-            destination.create_function(
-                "USERNAME_KEY",
-                1,
-                username_key,
-                deterministic=True,
-            )
-            destination.execute("PRAGMA synchronous = FULL;")
-            self._conn.backup(
-                destination,
-                pages=self.BACKUP_PAGE_BATCH_SIZE,
-                sleep=0.05,
-            )
-            # Publish one self-contained file. A backup must never depend on a
-            # temporary WAL sidecar that is not part of the atomic rename.
-            destination.execute("PRAGMA journal_mode = DELETE;")
-            self._verify_connection_integrity(destination, full=True)
-            destination.close()
-            destination = None
-
-            self._flush_file_to_disk(temporary_path)
+            snapshot_signature = self._write_verified_snapshot(temporary_path)
             temporary_path.replace(final_path)
-            try:
-                final_path.chmod(0o600)
-            except OSError:
-                logging.getLogger("playaural.db").warning(
-                    "Could not restrict backup file permissions for %s",
-                    final_path,
-                    exc_info=True,
-                )
+            published = True
             self._flush_directory_to_disk(directory)
             return DatabaseBackupResult(
                 path=final_path,
                 size_bytes=final_path.stat().st_size,
-                page_count=page_count,
+                page_count=snapshot_signature.page_count,
                 created_at_utc=created_at.isoformat(),
                 incomplete_files_removed=incomplete_files_removed,
                 incomplete_file_bytes_removed=incomplete_file_bytes_removed,
             )
+        except BaseException as exc:
+            self._remove_sqlite_file_set(temporary_path)
+            if published:
+                try:
+                    self._remove_sqlite_file_set(final_path, strict=True)
+                    self._flush_directory_to_disk(directory)
+                except BaseException as cleanup_exc:
+                    exc.add_note(
+                        "A fully written backup reached its final path, but "
+                        "publication durability failed and cleanup could not be "
+                        f"confirmed: {final_path} ({cleanup_exc!r})"
+                    )
+            self._add_sqlite_failure_note(
+                exc,
+                operation="backup",
+                stage="create and publish verified snapshot",
+                path=self.db_path.resolve(),
+                replacement_applied=False,
+            )
+            raise
+
+    def _write_verified_snapshot(
+        self,
+        destination_path: Path,
+    ) -> _DatabaseSnapshotSignature:
+        """Write one exact, self-contained snapshot to an unpublished path."""
+        if self._conn is None:
+            raise RuntimeError("Database is not connected")
+        source_signature = self._snapshot_signature(self._conn)
+        descriptor = os.open(
+            destination_path,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+            0o600,
+        )
+        os.close(descriptor)
+        destination: sqlite3.Connection | None = None
+        try:
+            destination = self._open_connection(
+                destination_path,
+                timeout=self.DEFAULT_CONNECTION_TIMEOUT_SECONDS,
+            )
+            self._set_full_synchronous(destination)
+            self._conn.backup(
+                destination,
+                pages=self.BACKUP_PAGE_BATCH_SIZE,
+                sleep=self.SQLITE_BACKUP_RETRY_SECONDS,
+            )
+            # Publish one self-contained file. A snapshot must never depend on
+            # a WAL sidecar that is not included in the atomic rename.
+            self._set_journal_mode(destination, "DELETE")
+            self._verify_connection_integrity(destination, full=True)
+            destination_signature = self._snapshot_signature(destination)
+            if destination_signature != source_signature:
+                raise sqlite3.DatabaseError(
+                    "database snapshot metadata does not match its source"
+                )
+            destination.close()
+            destination = None
+            self._flush_file_to_disk(destination_path)
+            expected_size = source_signature.page_size * source_signature.page_count
+            actual_size = destination_path.stat().st_size
+            if actual_size != expected_size:
+                raise sqlite3.DatabaseError(
+                    "database snapshot file size does not match its page metadata: "
+                    f"expected {expected_size} bytes, found {actual_size}"
+                )
+            return source_signature
         except BaseException:
             if destination is not None:
                 destination.close()
-            for suffix in ("", "-wal", "-shm", "-journal"):
-                partial_path = Path(f"{temporary_path}{suffix}")
-                try:
-                    partial_path.unlink(missing_ok=True)
-                except OSError:
-                    logging.getLogger("playaural.db").warning(
-                        "Could not remove incomplete database backup %s",
-                        partial_path,
-                        exc_info=True,
-                    )
             raise
+
+    @classmethod
+    def _snapshot_signature(
+        cls,
+        connection: sqlite3.Connection,
+    ) -> _DatabaseSnapshotSignature:
+        """Capture exact schema metadata and per-table cardinality."""
+        schema_rows = connection.execute(
+            """
+            SELECT type, name, tbl_name, COALESCE(sql, '')
+            FROM sqlite_master
+            WHERE name NOT LIKE 'sqlite_%'
+            ORDER BY type, name
+            """
+        ).fetchall()
+        schema_objects = tuple(
+            tuple(str(value) for value in row) for row in schema_rows
+        )
+        table_names = sorted(
+            str(row[1]) for row in schema_rows if str(row[0]) == "table"
+        )
+        table_row_counts = tuple(
+            (
+                table_name,
+                int(
+                    connection.execute(
+                        f"SELECT COUNT(*) FROM {cls._quote_identifier(table_name)}"
+                    ).fetchone()[0]
+                ),
+            )
+            for table_name in table_names
+        )
+        return _DatabaseSnapshotSignature(
+            application_id=int(
+                connection.execute("PRAGMA application_id").fetchone()[0]
+            ),
+            schema_version=int(
+                connection.execute("PRAGMA user_version").fetchone()[0]
+            ),
+            page_size=int(connection.execute("PRAGMA page_size").fetchone()[0]),
+            page_count=int(connection.execute("PRAGMA page_count").fetchone()[0]),
+            schema_objects=schema_objects,
+            table_row_counts=table_row_counts,
+        )
+
+    @staticmethod
+    def _add_sqlite_failure_note(
+        exc: BaseException,
+        *,
+        operation: str,
+        stage: str,
+        path: Path,
+        replacement_applied: bool,
+    ) -> None:
+        details = [
+            f"PlayAural database {operation} stage: {stage}",
+            f"database: {path}",
+            f"SQLite runtime: {sqlite3.sqlite_version}",
+            f"replacement applied: {replacement_applied}",
+        ]
+        error_name = getattr(exc, "sqlite_errorname", None)
+        error_code = getattr(exc, "sqlite_errorcode", None)
+        if error_name is not None or error_code is not None:
+            details.append(f"SQLite result: {error_name or 'unknown'} ({error_code})")
+        if replacement_applied:
+            setattr(exc, _DATABASE_STATE_UNCERTAIN_ATTRIBUTE, True)
+        exc.add_note("; ".join(details))
+
+    @staticmethod
+    def _remove_sqlite_file_set(path: Path, *, strict: bool = False) -> None:
+        """Remove one operation-owned SQLite file and only its own sidecars."""
+        first_error: OSError | None = None
+        for suffix in ("", "-wal", "-shm", "-journal"):
+            candidate = Path(f"{path}{suffix}")
+            try:
+                candidate.unlink(missing_ok=True)
+            except OSError as exc:
+                if first_error is None:
+                    first_error = exc
+                logging.getLogger("playaural.db").warning(
+                    "Could not remove unpublished SQLite file %s",
+                    candidate,
+                    exc_info=True,
+                )
+        if strict and first_error is not None:
+            raise first_error
 
     @classmethod
     def _incomplete_backup_files(cls, directory: Path) -> tuple[Path, ...]:
         """Return old regular unpublished PlayAural backup fragments only."""
+        return cls._incomplete_database_fragments(
+            directory,
+            prefix=f".{cls.BACKUP_FILE_PREFIX}-",
+        )
+
+    @classmethod
+    def _incomplete_compaction_files(
+        cls,
+        directory: Path,
+        database_name: str,
+    ) -> tuple[Path, ...]:
+        """Return only abandoned candidates belonging to this database."""
+        return cls._incomplete_database_fragments(
+            directory,
+            prefix=f".{database_name}.compaction-",
+        )
+
+    @classmethod
+    def _incomplete_database_fragments(
+        cls,
+        directory: Path,
+        *,
+        prefix: str,
+    ) -> tuple[Path, ...]:
+        """Find narrowly named old regular maintenance fragments."""
         if not directory.exists():
             return ()
         if not directory.is_dir():
             raise NotADirectoryError(directory)
 
-        prefix = f".{cls.BACKUP_FILE_PREFIX}-"
         oldest_active_timestamp = (
-            time.time() - ABANDONED_BACKUP_FRAGMENT_MINIMUM_AGE_SECONDS
+            time.time() - ABANDONED_DATABASE_FRAGMENT_MINIMUM_AGE_SECONDS
         )
         candidates: list[Path] = []
         for candidate in directory.iterdir():
@@ -747,6 +1103,35 @@ class Database:
                 continue
             file_count += 1
             bytes_removed += size_bytes
+        return file_count, bytes_removed
+
+    @classmethod
+    def _remove_incomplete_compactions(
+        cls,
+        directory: Path,
+        database_name: str,
+    ) -> tuple[int, int]:
+        """Remove only abandoned unpublished candidates for this database."""
+        file_count = 0
+        bytes_removed = 0
+        for candidate in cls._incomplete_compaction_files(
+            directory,
+            database_name,
+        ):
+            try:
+                size_bytes = candidate.stat().st_size
+                candidate.unlink()
+            except FileNotFoundError:
+                continue
+            file_count += 1
+            bytes_removed += size_bytes
+        if file_count:
+            logging.getLogger("playaural.db").info(
+                "Removed %d abandoned compaction fragments (%d bytes) for %s",
+                file_count,
+                bytes_removed,
+                database_name,
+            )
         return file_count, bytes_removed
 
     @classmethod
@@ -797,13 +1182,16 @@ class Database:
         try:
             descriptor = os.open(path, os.O_RDONLY)
         except OSError:
-            return
+            if os.name == "nt":
+                return
+            raise
         try:
             os.fsync(descriptor)
         except OSError:
             # Windows does not expose directory fsync through os.open. The
             # backup file itself has already been flushed with FileFlushBuffers.
-            pass
+            if os.name != "nt":
+                raise
         finally:
             os.close(descriptor)
 
@@ -893,18 +1281,33 @@ class Database:
                     "current-version database is missing the PlayAural "
                     "application identifier"
                 )
-            self._validate_current_schema()
+            self._validate_schema()
             return
 
-        # Version zero is the only unversioned production layout. Historical
-        # tests and deployment tools may contain one isolated PlayAural table,
-        # so recognize any non-empty subset of the canonical table names while
-        # rejecting an unrelated SQLite schema.
-        if schema_version != 0:
+        # Version zero is the unversioned production layout. Version one first
+        # introduced identity/version headers, but its compatibility migration
+        # could leave users.username_key nullable. Both layouts migrate through
+        # the same backed-up transaction into the strict current contract.
+        if schema_version not in {0, 1}:
             raise sqlite3.DatabaseError(
                 f"no migration path exists from schema version {schema_version}"
             )
-        unknown_tables = table_names - set(self.SCHEMA_TABLE_COLUMNS)
+        if schema_version == 1 and application_id != self.APPLICATION_ID:
+            raise sqlite3.DatabaseError(
+                "version-one database is missing the PlayAural application "
+                "identifier"
+            )
+        unexpected_migration_objects = sorted(
+            f"{row['type']} {row['name']}"
+            for row in schema_rows
+            if str(row["type"]) in {"trigger", "view"}
+        )
+        if unexpected_migration_objects:
+            raise sqlite3.DatabaseError(
+                "legacy database schema contains unexpected objects: "
+                + ", ".join(unexpected_migration_objects)
+            )
+        unknown_tables = table_names - self.LEGACY_V0_TABLE_NAMES
         if has_application_schema and (not table_names or unknown_tables):
             detail = (
                 ": " + ", ".join(sorted(unknown_tables))
@@ -914,6 +1317,15 @@ class Database:
             raise sqlite3.DatabaseError(
                 "unversioned SQLite database is not a recognizable PlayAural "
                 f"database; refusing to modify it{detail}"
+            )
+        if schema_version == 1:
+            self._validate_schema(
+                expected_schema_version=1,
+                allowed_column_attributes={
+                    ("users", "username_key"): frozenset(
+                        {("TEXT", False, None, 0)}
+                    )
+                },
             )
 
         if has_application_schema and self._is_file_database():
@@ -937,11 +1349,202 @@ class Database:
 
         self._create_tables()
 
-    def _validate_current_schema(
+    @staticmethod
+    def _column_attributes(
+        rows: list[sqlite3.Row] | tuple[sqlite3.Row, ...],
+    ) -> dict[str, _ColumnAttributes]:
+        """Return the compatibility-relevant contract for table columns."""
+        return {
+            str(row[1]): (
+                str(row[2]).strip().upper(),
+                bool(row[3]),
+                None if row[4] is None else str(row[4]),
+                int(row[5]),
+            )
+            for row in rows
+        }
+
+    @classmethod
+    def _named_index_attributes(
+        cls,
+        executor: sqlite3.Connection | sqlite3.Cursor,
+    ) -> dict[str, _NamedIndexAttributes]:
+        """Return complete contracts for application-owned named indexes."""
+        result: dict[str, _NamedIndexAttributes] = {}
+        rows = executor.execute(
+            """
+            SELECT name, tbl_name, sql
+            FROM sqlite_master
+            WHERE type = 'index' AND name NOT LIKE 'sqlite_%'
+            """
+        ).fetchall()
+        for row in rows:
+            index_name = str(row[0])
+            table_name = str(row[1])
+            metadata = next(
+                index_row
+                for index_row in executor.execute(
+                    f"PRAGMA index_list({cls._quote_identifier(table_name)})"
+                ).fetchall()
+                if str(index_row[1]) == index_name
+            )
+            key_terms = tuple(
+                (
+                    index_row[2],
+                    bool(index_row[3]),
+                    str(index_row[4]).upper(),
+                )
+                for index_row in executor.execute(
+                    f"PRAGMA index_xinfo({cls._quote_identifier(index_name)})"
+                ).fetchall()
+                if bool(index_row[5])
+            )
+            expression_sql = (
+                cls._normalize_schema_sql(str(row[2] or ""))
+                if any(term[0] is None for term in key_terms)
+                else ""
+            )
+            result[index_name] = (
+                table_name,
+                bool(metadata[2]),
+                bool(metadata[4]),
+                key_terms,
+                expression_sql,
+            )
+        return result
+
+    @classmethod
+    def _unique_key_attributes(
+        cls,
+        executor: sqlite3.Connection | sqlite3.Cursor,
+        table_names: set[str] | frozenset[str],
+    ) -> dict[str, frozenset[_UniqueKeyAttributes]]:
+        """Return declared non-primary unique keys for each application table."""
+        result: dict[str, frozenset[_UniqueKeyAttributes]] = {}
+        for table_name in table_names:
+            unique_keys: set[_UniqueKeyAttributes] = set()
+            for row in executor.execute(
+                f"PRAGMA index_list({cls._quote_identifier(table_name)})"
+            ).fetchall():
+                if not bool(row[2]) or str(row[3]).lower() == "pk":
+                    continue
+                unique_keys.add(
+                    tuple(
+                        (
+                            index_row[2],
+                            bool(index_row[3]),
+                            str(index_row[4]).upper(),
+                        )
+                        for index_row in executor.execute(
+                            f"PRAGMA index_xinfo("
+                            f"{cls._quote_identifier(str(row[1]))})"
+                        ).fetchall()
+                        if bool(index_row[5])
+                    )
+                )
+            result[table_name] = frozenset(unique_keys)
+        return result
+
+    @classmethod
+    def _foreign_key_attributes(
+        cls,
+        executor: sqlite3.Connection | sqlite3.Cursor,
+        table_names: set[str] | frozenset[str],
+    ) -> dict[str, frozenset[_ForeignKeyAttributes]]:
+        """Return complete foreign-key actions for each application table."""
+        return {
+            table_name: frozenset(
+                (
+                    str(row[3]),
+                    str(row[2]),
+                    str(row[4]),
+                    str(row[5]).upper(),
+                    str(row[6]).upper(),
+                    str(row[7]).upper(),
+                )
+                for row in executor.execute(
+                    f"PRAGMA foreign_key_list("
+                    f"{cls._quote_identifier(table_name)})"
+                ).fetchall()
+            )
+            for table_name in table_names
+        }
+
+    def _canonical_schema_contract(
+        self,
+    ) -> tuple[
+        dict[str, dict[str, _ColumnAttributes]],
+        dict[str, _NamedIndexAttributes],
+        dict[str, frozenset[_UniqueKeyAttributes]],
+        dict[str, frozenset[_ForeignKeyAttributes]],
+    ]:
+        """Build structural contracts from the authoritative DDL itself.
+
+        Deriving these values avoids a second handwritten copy of every type,
+        nullability rule, default, primary-key position, and named-index
+        definition that could drift away from `_create_tables_in_transaction()`.
+        """
+        connection = self._open_connection(
+            ":memory:",
+            timeout=self.DEFAULT_CONNECTION_TIMEOUT_SECONDS,
+        )
+        cursor = connection.cursor()
+        try:
+            connection.execute("PRAGMA foreign_keys = ON")
+            cursor.execute("BEGIN IMMEDIATE")
+            self._create_tables_in_transaction(cursor)
+            connection.commit()
+            canonical_table_names = frozenset(
+                str(row[0])
+                for row in connection.execute(
+                    """
+                    SELECT name
+                    FROM sqlite_master
+                    WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
+                    """
+                ).fetchall()
+            )
+            return (
+                {
+                    table_name: self._column_attributes(
+                        connection.execute(
+                            f"PRAGMA table_info({self._quote_identifier(table_name)})"
+                        ).fetchall()
+                    )
+                    for table_name in canonical_table_names
+                },
+                self._named_index_attributes(connection),
+                self._unique_key_attributes(
+                    connection,
+                    canonical_table_names,
+                ),
+                self._foreign_key_attributes(
+                    connection,
+                    canonical_table_names,
+                ),
+            )
+        finally:
+            if connection.in_transaction:
+                connection.rollback()
+            cursor.close()
+            connection.close()
+
+    @staticmethod
+    def _normalize_schema_sql(sql: str) -> str:
+        """Normalize insignificant DDL whitespace for required-fragment checks."""
+        return "".join(str(sql).lower().split())
+
+    def _validate_schema(
         self,
         cursor: sqlite3.Cursor | None = None,
+        *,
+        expected_schema_version: int | None = None,
+        allowed_column_attributes: dict[
+            tuple[str, str], frozenset[_ColumnAttributes]
+        ]
+        | None = None,
     ) -> None:
-        """Require every current table and column without repairing drift."""
+        """Require the canonical schema contract without repairing drift."""
         executor = cursor if cursor is not None else self._conn
         application_id = int(executor.execute("PRAGMA application_id").fetchone()[0])
         schema_version = int(executor.execute("PRAGMA user_version").fetchone()[0])
@@ -949,38 +1552,158 @@ class Database:
             raise sqlite3.DatabaseError(
                 "database is missing the PlayAural application identifier"
             )
-        if schema_version != self.CURRENT_SCHEMA_VERSION:
+        required_schema_version = (
+            self.CURRENT_SCHEMA_VERSION
+            if expected_schema_version is None
+            else expected_schema_version
+        )
+        if schema_version != required_schema_version:
             raise sqlite3.DatabaseError(
                 "database schema version changed unexpectedly during validation"
             )
+        allowed_attributes = allowed_column_attributes or {}
 
-        actual_tables = {
-            str(row[0])
+        (
+            canonical_columns,
+            canonical_indexes,
+            canonical_unique_keys,
+            canonical_foreign_keys,
+        ) = self._canonical_schema_contract()
+        canonical_table_names = frozenset(canonical_columns)
+
+        actual_table_sql = {
+            str(row[0]): str(row[1] or "")
             for row in executor.execute(
                 """
-                SELECT name
+                SELECT name, sql
                 FROM sqlite_master
                 WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
                 """
             ).fetchall()
         }
-        missing_tables = sorted(set(self.SCHEMA_TABLE_COLUMNS) - actual_tables)
-        if missing_tables:
+        actual_tables = set(actual_table_sql)
+        missing_tables = sorted(canonical_table_names - actual_tables)
+        unexpected_tables = sorted(actual_tables - canonical_table_names)
+        if missing_tables or unexpected_tables:
+            details: list[str] = []
+            if missing_tables:
+                details.append("missing: " + ", ".join(missing_tables))
+            if unexpected_tables:
+                details.append("unexpected: " + ", ".join(unexpected_tables))
             raise sqlite3.DatabaseError(
-                "database schema is missing required tables: "
-                + ", ".join(missing_tables)
+                "database schema has invalid application tables ("
+                + "; ".join(details)
+                + ")"
             )
 
-        for table_name, required_columns in self.SCHEMA_TABLE_COLUMNS.items():
+        unexpected_schema_objects = executor.execute(
+            """
+            SELECT type, name
+            FROM sqlite_master
+            WHERE type IN ('trigger', 'view')
+            ORDER BY type, name
+            """
+        ).fetchall()
+        if unexpected_schema_objects:
+            detail = ", ".join(
+                f"{row[0]} {row[1]}" for row in unexpected_schema_objects
+            )
+            raise sqlite3.DatabaseError(
+                "database schema contains unexpected objects: " + detail
+            )
+
+        for table_name, expected_columns in canonical_columns.items():
             rows = executor.execute(
                 f"PRAGMA table_info({self._quote_identifier(table_name)})"
             ).fetchall()
-            actual_columns = {str(row[1]) for row in rows}
+            actual_column_attributes = self._column_attributes(rows)
+            actual_columns = set(actual_column_attributes)
+            required_columns = set(expected_columns)
             missing_columns = sorted(required_columns - actual_columns)
-            if missing_columns:
+            unexpected_columns = sorted(actual_columns - required_columns)
+            if missing_columns or unexpected_columns:
+                details: list[str] = []
+                if missing_columns:
+                    details.append("missing: " + ", ".join(missing_columns))
+                if unexpected_columns:
+                    details.append("unexpected: " + ", ".join(unexpected_columns))
                 raise sqlite3.DatabaseError(
-                    f"database table {table_name!r} is missing required columns: "
-                    + ", ".join(missing_columns)
+                    f"database table {table_name!r} has invalid columns ("
+                    + "; ".join(details)
+                    + ")"
+                )
+            malformed_columns = sorted(
+                column_name
+                for column_name in required_columns
+                if actual_column_attributes[column_name]
+                != expected_columns[column_name]
+                and actual_column_attributes[column_name]
+                not in allowed_attributes.get((table_name, column_name), ())
+            )
+            if malformed_columns:
+                raise sqlite3.DatabaseError(
+                    f"database table {table_name!r} has malformed column "
+                    "definitions: " + ", ".join(malformed_columns)
+                )
+
+        for table_name in canonical_table_names:
+            required_fragments = self.SCHEMA_REQUIRED_TABLE_SQL_FRAGMENTS.get(
+                table_name,
+                (),
+            )
+            normalized_sql = self._normalize_schema_sql(
+                actual_table_sql[table_name]
+            )
+            missing_fragments = [
+                fragment
+                for fragment in required_fragments
+                if self._normalize_schema_sql(fragment) not in normalized_sql
+            ]
+            if (
+                missing_fragments
+                or normalized_sql.count("check(") != len(required_fragments)
+            ):
+                raise sqlite3.DatabaseError(
+                    f"database table {table_name!r} has missing or unexpected "
+                    "check constraints"
+                )
+
+        actual_indexes = self._named_index_attributes(executor)
+        invalid_indexes = sorted(
+            {
+                index_name
+                for index_name, expected_attributes in canonical_indexes.items()
+                if actual_indexes.get(index_name) != expected_attributes
+            }
+            | (set(actual_indexes) - set(canonical_indexes))
+        )
+        if invalid_indexes:
+            raise sqlite3.DatabaseError(
+                "database schema is missing required indexes or has malformed "
+                "definitions: "
+                + ", ".join(invalid_indexes)
+            )
+
+        actual_unique_keys = self._unique_key_attributes(
+            executor,
+            canonical_table_names,
+        )
+        for table_name, expected_unique_keys in canonical_unique_keys.items():
+            if actual_unique_keys[table_name] != expected_unique_keys:
+                raise sqlite3.DatabaseError(
+                    f"database table {table_name!r} has missing or unexpected "
+                    "unique keys"
+                )
+
+        actual_foreign_keys = self._foreign_key_attributes(
+            executor,
+            canonical_table_names,
+        )
+        for table_name, expected_keys in canonical_foreign_keys.items():
+            if actual_foreign_keys[table_name] != expected_keys:
+                raise sqlite3.DatabaseError(
+                    f"database table {table_name!r} has missing or unexpected "
+                    "foreign keys"
                 )
 
         stale_username_key = executor.execute(
@@ -1005,21 +1728,25 @@ class Database:
             self._create_tables_in_transaction(cursor)
             cursor.execute(f"PRAGMA application_id = {self.APPLICATION_ID}")
             cursor.execute(f"PRAGMA user_version = {self.CURRENT_SCHEMA_VERSION}")
-            self._validate_current_schema(cursor)
+            self._validate_schema(cursor)
 
-    def _create_tables_in_transaction(self, cursor: sqlite3.Cursor) -> None:
-        """Create and migrate the schema inside the caller's transaction."""
-
-        # Users table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS users (
+    @classmethod
+    def _create_users_table(
+        cls,
+        cursor: sqlite3.Cursor,
+        table_name: str,
+    ) -> None:
+        """Create the authoritative users-table contract under one safe name."""
+        cursor.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {cls._quote_identifier(table_name)} (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT COLLATE NOCASE UNIQUE NOT NULL,
                 username_key TEXT NOT NULL,
                 password_hash TEXT NOT NULL,
                 uuid TEXT NOT NULL,
                 locale TEXT DEFAULT 'en',
-                preferences_json TEXT DEFAULT '{}',
+                preferences_json TEXT DEFAULT '{{}}',
                 trust_level INTEGER DEFAULT 1,
                 approved INTEGER DEFAULT 0,
                 email TEXT DEFAULT '',
@@ -1029,8 +1756,92 @@ class Database:
                 registration_date TEXT DEFAULT '',
                 last_login_date TEXT DEFAULT ''
             )
-        """)
+            """
+        )
+
+    def _rebuild_legacy_users_table(self, cursor: sqlite3.Cursor) -> None:
+        """Make the version-one nullable lookup column structurally current."""
+        canonical_columns, canonical_indexes, _, _ = self._canonical_schema_contract()
+        ordered_columns = tuple(canonical_columns["users"])
+        actual_columns = self._column_attributes(
+            cursor.execute("PRAGMA table_info(users)").fetchall()
+        )
+        missing_columns = sorted(set(ordered_columns) - set(actual_columns))
+        unexpected_columns = sorted(set(actual_columns) - set(ordered_columns))
+        if missing_columns or unexpected_columns:
+            details: list[str] = []
+            if missing_columns:
+                details.append("missing: " + ", ".join(missing_columns))
+            if unexpected_columns:
+                details.append("unexpected: " + ", ".join(unexpected_columns))
+            raise sqlite3.DatabaseError(
+                "legacy users table has invalid columns ("
+                + "; ".join(details)
+                + ")"
+            )
+
+        expected_user_indexes = {
+            index_name
+            for index_name, attributes in canonical_indexes.items()
+            if attributes[0] == "users"
+        }
+        actual_user_indexes = {
+            str(row[0])
+            for row in cursor.execute(
+                """
+                SELECT name
+                FROM sqlite_master
+                WHERE type = 'index'
+                  AND tbl_name = 'users'
+                  AND name NOT LIKE 'sqlite_%'
+                """
+            ).fetchall()
+        }
+        unexpected_indexes = sorted(actual_user_indexes - expected_user_indexes)
+        if unexpected_indexes:
+            raise sqlite3.DatabaseError(
+                "legacy users table has unexpected named indexes: "
+                + ", ".join(unexpected_indexes)
+            )
+
+        legacy_table_name = "__playaural_users_schema_v1"
+        collision = cursor.execute(
+            "SELECT 1 FROM sqlite_master WHERE name = ?",
+            (legacy_table_name,),
+        ).fetchone()
+        if collision is not None:
+            raise sqlite3.DatabaseError(
+                f"reserved migration object already exists: {legacy_table_name}"
+            )
+
+        cursor.execute(
+            f"ALTER TABLE users RENAME TO {self._quote_identifier(legacy_table_name)}"
+        )
+        self._create_users_table(cursor, "users")
+        column_sql = ", ".join(
+            self._quote_identifier(column_name) for column_name in ordered_columns
+        )
+        cursor.execute(
+            f"INSERT INTO users ({column_sql}) SELECT {column_sql} "
+            f"FROM {self._quote_identifier(legacy_table_name)}"
+        )
+        cursor.execute(f"DROP TABLE {self._quote_identifier(legacy_table_name)}")
+
+    def _create_tables_in_transaction(self, cursor: sqlite3.Cursor) -> None:
+        """Create and migrate the schema inside the caller's transaction."""
+
+        source_schema_version = int(
+            cursor.execute("PRAGMA user_version").fetchone()[0]
+        )
+        users_existed = cursor.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'users'"
+        ).fetchone() is not None
+
+        # Users table
+        self._create_users_table(cursor, "users")
         self._migrate_username_lookup_keys(cursor)
+        if users_existed and source_schema_version < 2:
+            self._rebuild_legacy_users_table(cursor)
 
         # Tables table (game tables)
         cursor.execute("""
@@ -3526,44 +4337,37 @@ class Database:
     def get_highest_motd_version(self) -> int:
         """Get the highest motd version currently active."""
         cursor = self._conn.cursor()
-        try:
-            cursor.execute("SELECT MAX(version) FROM motd")
-            row = cursor.fetchone()
-            return row[0] if row[0] is not None else 0
-        except sqlite3.OperationalError:
-            return 0
+        cursor.execute("SELECT MAX(version) FROM motd")
+        row = cursor.fetchone()
+        return row[0] if row[0] is not None else 0
 
     def get_motd(self, version: int, language: str) -> str | None:
         """Get a motd message for a specific version and language."""
         cursor = self._conn.cursor()
-        try:
-            requested = (
-                Localization.normalize_locale_code(language) or DEFAULT_LOCALE
-            )
-            candidates = dict.fromkeys(
-                (requested, requested.split("-", 1)[0], DEFAULT_LOCALE)
-            )
-            for candidate in candidates:
-                cursor.execute(
-                    "SELECT message FROM motd WHERE version = ? AND language = ?",
-                    (version, candidate),
-                )
-                row = cursor.fetchone()
-                if row:
-                    return row["message"]
-
-            # Fallback to any language
+        requested = (
+            Localization.normalize_locale_code(language) or DEFAULT_LOCALE
+        )
+        candidates = dict.fromkeys(
+            (requested, requested.split("-", 1)[0], DEFAULT_LOCALE)
+        )
+        for candidate in candidates:
             cursor.execute(
-                "SELECT message FROM motd WHERE version = ? "
-                "ORDER BY language LIMIT 1",
-                (version,)
+                "SELECT message FROM motd WHERE version = ? AND language = ?",
+                (version, candidate),
             )
             row = cursor.fetchone()
             if row:
                 return row["message"]
-            return None
-        except sqlite3.OperationalError:
-            return None
+
+        # Fallback to any language
+        cursor.execute(
+            "SELECT message FROM motd WHERE version = ? ORDER BY language LIMIT 1",
+            (version,),
+        )
+        row = cursor.fetchone()
+        if row:
+            return row["message"]
+        return None
 
     def get_active_motd(self, language: str) -> tuple[int, str] | None:
         """Get the active (highest version) motd and message for a language."""
@@ -3598,10 +4402,7 @@ class Database:
     def delete_motd(self) -> None:
         """Delete all motd records."""
         cursor = self._conn.cursor()
-        try:
-            cursor.execute("DELETE FROM motd")
-        except sqlite3.OperationalError:
-            pass
+        cursor.execute("DELETE FROM motd")
 
     # Ban operations
 
@@ -3643,16 +4444,10 @@ class Database:
         return cursor.rowcount > 0
 
     def get_active_ban(self, username: str) -> BanRecord | None:
-        """Get the active ban for a user, if any. Clears expired bans in one SQL call."""
+        """Get the active ban without bypassing explicit retention cleanup."""
         username = self._canonical_username_or_input(username)
         now = datetime.now().isoformat()
         cursor = self._conn.cursor()
-
-        # Purge expired bans for this user in a single DELETE
-        cursor.execute(
-            "DELETE FROM bans WHERE username = ? COLLATE BINARY AND expires_at IS NOT NULL AND expires_at <= ?",
-            (username, now),
-        )
 
         # Fetch the most-recent active ban (permanent or future expiry)
         cursor.execute(
@@ -3824,16 +4619,10 @@ class Database:
         return cursor.rowcount > 0
 
     def get_active_mute(self, username: str) -> MuteRecord | None:
-        """Get the active mute for a user, if any. Clears expired mutes."""
+        """Get the active mute without bypassing explicit retention cleanup."""
         username = self._canonical_username_or_input(username)
         now = datetime.now().isoformat()
         cursor = self._conn.cursor()
-
-        # Purge expired mutes
-        cursor.execute(
-            "DELETE FROM mutes WHERE username = ? COLLATE BINARY AND expires_at IS NOT NULL AND expires_at <= ?",
-            (username, now),
-        )
 
         # Fetch the most-recent active mute
         cursor.execute(

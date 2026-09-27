@@ -737,6 +737,27 @@ maintenance, not server-power finalization. Route them through
   pre-migration backup before any existing schema is changed. Reject databases
   created by newer server versions. Opening SQLite must never run retention or
   compatibility cleanup; destructive cleanup is an explicit operation.
+- Schema version 2 atomically rebuilds legacy `users.username_key` storage so
+  version-zero and version-one databases acquire the canonical non-null identity
+  contract without losing account ids or rows. Preserve this backed-up migration
+  path until those database versions are explicitly retired.
+- Keep persistence SQL compatible with SQLite 3.25.0 and the SQLite 3.26.0
+  runtime shipped by AlmaLinux 8. Current code may use UPSERT and window
+  functions, but not newer catalog aliases such as `sqlite_schema` or newer
+  maintenance syntax such as `VACUUM INTO`, unless a future migration
+  deliberately raises and tests the minimum runtime.
+- Current-version validation must reject missing or unexpected tables, columns,
+  triggers, and views; malformed declared types, nullability, defaults, and
+  primary-key positions; unique-key collations and check constraints; required
+  index-definition drift; unexpected named indexes; and foreign-key drift.
+  Prefer deriving repeated structural expectations from the canonical creation
+  DDL so schema creation and validation cannot silently diverge.
+- Connections run in explicit autocommit mode. Every multi-statement mutation
+  must use `_transaction()`, normally with `BEGIN IMMEDIATE` when its decision
+  depends on current rows. Roll back on every exception, close transaction
+  cursors, and never silently translate unexpected storage faults into ordinary
+  empty/not-found results. Read and status methods must never perform retention
+  cleanup as a side effect.
 - Transient table checkpoints remain durable until database validation, schema
   migration, table deserialization, network binding, and tick startup have all
   succeeded. A failed startup must close SQLite and leave checkpoints intact.
@@ -754,6 +775,10 @@ maintenance, not server-power finalization. Route them through
 - Read-only storage analysis does not activate the gameplay freeze, but it owns
   the same operation lock and storage-idle barrier. Cancellation, shutdown, and
   scheduled power operations must wait until its worker connection has closed.
+- Once a blocking maintenance worker starts, coroutine cancellation cannot stop
+  it. Wait for its real terminal outcome: publish success and announce success
+  if it completed, propagate its actual error if it failed, and never let
+  cancellation hide a post-publication storage-uncertain result.
 - Announce each start and terminal outcome directly to every online user with a
   localized `system`-buffer message and notify family sound. Ongoing matches
   remain in memory and resume unchanged after success or a recoverable failure.
@@ -762,15 +787,23 @@ maintenance, not server-power finalization. Route them through
   If reopening or validation fails, remain frozen
   and disconnected from SQLite so no gameplay can continue against uncertain
   storage; operator recovery is required.
-- Backups use SQLite's online-backup API, unique hidden partial files, full
-  source/destination integrity checks, file flush, and same-directory atomic
+- Backups use SQLite's online-backup API, unique hidden partial files, exact
+  source/destination schema and row-count signatures, full integrity and
+  foreign-key checks, file and directory flushes, and same-directory atomic
   rename. The default destination is `server/backups/`, which is excluded from
   source control. A failed backup must not publish a partial snapshot, and the
   next exclusive backup removes fragments older than the shared abandonment
   threshold that were left by an abrupt process loss.
-- Compaction first creates and retains a verified safety backup, then runs
-  `VACUUM` only after a conservative free-space check. Both paths reject an
-  active transaction and concurrent maintenance or power operations.
+- Compaction first creates and retains a verified safety backup and preflights
+  enough free space for both a full staging copy and SQLite's temporary VACUUM
+  database. It copies the live database through the backup API, VACUUMs that
+  same-directory unpublished candidate in legacy DELETE-journal mode, validates
+  its integrity, schema, and logical signature, checkpoints the unchanged
+  source, and atomically replaces the authoritative file only at publication.
+  Never run VACUUM against the authoritative file. Both paths reject an active
+  transaction and concurrent maintenance or power operations. Any failure after
+  atomic replacement is storage-uncertain: keep the server frozen and SQLite
+  disconnected for operator inspection or recovery from the retained backup.
 - A backup captures persistent SQLite state only; active runtime tables are not
   added solely for backup. Backup files are disaster-recovery artifacts kept
   until an operator explicitly removes them. Later account deletion does not
@@ -784,11 +817,13 @@ maintenance, not server-power finalization. Route them through
   blocks with valid account owners, compatibility data, valid backups, and logs
   are never cleanup candidates. Saved tables persist until their owner or a
   Developer explicitly deletes them.
-- Filesystem cleanup is deliberately narrow: only regular unpublished
-  PlayAural backup fragments older than the shared abandonment threshold in
-  the configured backup directory may be removed. Never recursively scan or
-  delete arbitrary server files, SQLite sidecars, active logs, caches, valid
-  backups, or recovery artifacts from the live administration workflow.
+- Filesystem cleanup is deliberately narrow: only narrowly named unpublished
+  PlayAural backup fragments in the configured backup directory and
+  database-specific compaction candidates in the live database directory may
+  be removed after the shared abandonment threshold. Never recursively scan or
+  delete arbitrary server files, authoritative SQLite sidecars, active logs,
+  caches, valid backups, or recovery artifacts from the live administration
+  workflow.
 
 #### TTS Buffer Categorization
 Every `user.speak_l()` and `broadcast_l()` call must include an explicit `buffer=`:

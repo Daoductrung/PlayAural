@@ -29,14 +29,14 @@ from ..administration.manager import (
 from ..users.test_user import MockUser
 from ..moderation.reports import AutomatedSpamEvidence
 from ..persistence.retention import (
-    ABANDONED_BACKUP_FRAGMENT_MINIMUM_AGE_SECONDS,
+    ABANDONED_DATABASE_FRAGMENT_MINIMUM_AGE_SECONDS,
 )
 
 
 def _mark_backup_fragment_abandoned(path) -> None:
     old_timestamp = (
         datetime.now().timestamp()
-        - ABANDONED_BACKUP_FRAGMENT_MINIMUM_AGE_SECONDS
+        - ABANDONED_DATABASE_FRAGMENT_MINIMUM_AGE_SECONDS
         - 1
     )
     os.utime(path, (old_timestamp, old_timestamp))

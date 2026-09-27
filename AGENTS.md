@@ -545,6 +545,21 @@ manager, never ad-hoc database calls from an admin handler.
   pre-migration backup before any existing schema is changed. Reject databases
   created by newer server versions. Opening SQLite must never run retention or
   compatibility cleanup; destructive cleanup is an explicit operation.
+- Schema version 2 rebuilds legacy `users.username_key` storage so the canonical
+  non-null identity contract is enforced; version-zero and version-one upgrades
+  must remain atomic, backed up, and row-preserving.
+- Keep persistence SQL compatible with SQLite 3.25.0 and the SQLite 3.26.0
+  runtime shipped by AlmaLinux 8. Do not use newer catalog aliases or
+  maintenance syntax without deliberately raising and testing the baseline.
+- Current-schema validation must fail closed on missing or unexpected tables,
+  columns, triggers, and views, as well as malformed column definitions,
+  primary/unique/check constraints, required index definitions, or foreign-key
+  drift. Derive duplicated structural expectations from the canonical DDL when
+  practical so schema creation and validation cannot silently diverge.
+- Connections use explicit autocommit plus `_transaction()` for every
+  multi-statement mutation. Never silently swallow unexpected SQLite failures;
+  ordinary status/read paths must not perform retention cleanup as a side
+  effect.
 - Transient table checkpoints remain durable until database validation, schema
   migration, table deserialization, network binding, and tick startup have all
   succeeded. A failed startup must close SQLite and leave checkpoints intact.
@@ -558,15 +573,24 @@ manager, never ad-hoc database calls from an admin handler.
 - Read-only storage analysis does not freeze gameplay, but it still owns the
   shared maintenance lock and storage-idle barrier. Shutdown and scheduled
   power operations must wait for its worker-owned SQLite connection to close.
+- Once a blocking maintenance worker starts, coroutine cancellation cannot stop
+  it. Wait for the worker, report its actual success or failure, and preserve a
+  post-publication failure as storage-uncertain rather than replacing it with a
+  cancellation result.
 - Resume only after the live connection reopens and passes identity, schema,
   structural, and foreign-key validation. Reopen failure is
   fail-closed: keep gameplay frozen and require operator recovery.
-- Backups use SQLite's online-backup API, a unique partial file, full integrity
-  validation, file flush, and atomic publication in `server/backups/` by
-  default. Compaction creates a verified safety backup first and preflights
-  working disk space. Never publish partial backups; remove unpublished
-  fragments older than the shared abandonment threshold before the next
-  exclusive backup.
+- Backups use SQLite's online-backup API, a unique partial file, exact
+  source/destination snapshot metadata checks, full integrity validation, file
+  and directory flushes, and atomic publication in `server/backups/` by
+  default. Never publish partial backups.
+- Compaction creates a verified safety backup first, preflights space for both
+  a staging copy and SQLite's temporary VACUUM database, VACUUMs a
+  same-directory unpublished candidate in legacy DELETE-journal mode, and
+  atomically replaces the live file only after full integrity, schema, and
+  logical-content validation. Never run VACUUM against the authoritative file.
+  Any failure after atomic replacement is fail-closed and requires operator
+  recovery from the retained safety backup.
 - Backups contain persistent SQLite state only, not runtime-only active-table
   state. They are retained until an operator removes them, are excluded from
   source control, and are not rewritten when an account is later deleted.
@@ -578,11 +602,12 @@ manager, never ad-hoc database calls from an admin handler.
   valid user blocks, compatibility data, valid backups, and logs are never
   cleanup candidates. Saved tables persist until their owner or a Developer
   explicitly deletes them.
-- Filesystem cleanup is limited to regular unpublished PlayAural backup
-  fragments older than the shared abandonment threshold in the configured
-  backup directory. Never recursively scan or delete arbitrary server files,
-  SQLite sidecars, active logs, caches, valid backups, or recovery artifacts
-  from the live administration workflow.
+- Filesystem cleanup is limited to narrowly named regular unpublished
+  PlayAural backup fragments in the configured backup directory and
+  database-specific compaction candidates in the database directory, all older
+  than the shared abandonment threshold. Never recursively scan or delete
+  arbitrary server files, authoritative SQLite sidecars, active logs, caches,
+  valid backups, or recovery artifacts from the live administration workflow.
 
 ## Server, Web, Desktop, and Mobile Rules
 

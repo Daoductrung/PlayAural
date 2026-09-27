@@ -18,6 +18,7 @@ from ..persistence.database import (
     DatabaseCompactionResult,
     DatabaseStorageAnalysis,
     DatabaseStorageCleanupResult,
+    database_failure_requires_operator_recovery,
 )
 
 if TYPE_CHECKING:
@@ -237,6 +238,18 @@ class ServerMaintenanceManager:
         """Wait until no worker can still be reading or rewriting SQLite."""
         await self._storage_idle_event.wait()
 
+    @staticmethod
+    async def _wait_for_worker_despite_cancellation(
+        worker_task: asyncio.Task[_ResultT],
+    ) -> _ResultT:
+        """Wait until a thread-backed task really exits despite repeated cancels."""
+        while not worker_task.done():
+            try:
+                return await asyncio.shield(worker_task)
+            except asyncio.CancelledError:
+                continue
+        return worker_task.result()
+
     async def back_up_database(self, *, requested_by: str) -> DatabaseBackupResult:
         return await self._run_operation(
             DatabaseMaintenanceKind.BACKUP,
@@ -290,7 +303,9 @@ class ServerMaintenanceManager:
                 # Cancelling the coroutine cannot stop SQLite work already
                 # running in a thread. Keep shutdown blocked until it exits.
                 try:
-                    await analysis_task
+                    await self._wait_for_worker_despite_cancellation(
+                        analysis_task
+                    )
                 except BaseException as worker_exc:
                     logger.exception(
                         "Storage analysis worker failed after cancellation",
@@ -378,16 +393,25 @@ class ServerMaintenanceManager:
                 worker_task = asyncio.create_task(asyncio.to_thread(worker))
                 try:
                     result = await asyncio.shield(worker_task)
-                except asyncio.CancelledError as exc:
+                except asyncio.CancelledError:
                     # A thread cannot be safely cancelled in the middle of a
-                    # backup or VACUUM. Wait for it before reopening SQLite.
-                    operation_error = exc
+                    # backup or VACUUM. Its actual terminal outcome owns the
+                    # database state, so wait for it and report that outcome
+                    # instead of mislabeling completed work as cancelled.
                     try:
-                        await worker_task
+                        result = await self._wait_for_worker_despite_cancellation(
+                            worker_task
+                        )
                     except BaseException as worker_exc:
+                        operation_error = worker_exc
                         logger.exception(
                             "Database maintenance worker failed after cancellation",
                             exc_info=worker_exc,
+                        )
+                    else:
+                        logger.info(
+                            "Database %s completed after its caller was cancelled",
+                            kind.value,
                         )
                 except BaseException as exc:
                     operation_error = exc
@@ -417,6 +441,31 @@ class ServerMaintenanceManager:
                     raise DatabaseMaintenanceUnavailableError(
                         "The live database could not be reopened after maintenance"
                     ) from reconnect_error
+
+                if operation_error is not None and (
+                    database_failure_requires_operator_recovery(operation_error)
+                ):
+                    # The worker crossed the atomic replacement boundary before
+                    # failing. A validated recovery backup exists, but resuming
+                    # automatically could conceal an unconfirmed publication.
+                    self.server.db.close()
+                    database_available = False
+                    logger.critical(
+                        "Database maintenance failed after replacing the live "
+                        "database; the server will remain frozen",
+                        exc_info=(
+                            type(operation_error),
+                            operation_error,
+                            operation_error.__traceback__,
+                        ),
+                    )
+                    await self._broadcast_notice(
+                        "database-maintenance-reopen-failed"
+                    )
+                    terminal_notice_sent = True
+                    raise DatabaseMaintenanceUnavailableError(
+                        "Database publication could not be durably confirmed"
+                    ) from operation_error
 
                 if operation_error is not None:
                     await self._broadcast_notice(

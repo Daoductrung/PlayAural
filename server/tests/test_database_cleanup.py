@@ -3,6 +3,7 @@ import sqlite3
 import json
 import datetime
 import os
+from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
 from server.persistence.database import (
@@ -10,14 +11,14 @@ from server.persistence.database import (
     DatabaseCleanupCategoryCode,
 )
 from server.persistence.retention import (
-    ABANDONED_BACKUP_FRAGMENT_MINIMUM_AGE_SECONDS,
+    ABANDONED_DATABASE_FRAGMENT_MINIMUM_AGE_SECONDS,
 )
 
 
 def _mark_backup_fragment_abandoned(path: Path) -> None:
     old_timestamp = (
         datetime.datetime.now().timestamp()
-        - ABANDONED_BACKUP_FRAGMENT_MINIMUM_AGE_SECONDS
+        - ABANDONED_DATABASE_FRAGMENT_MINIMUM_AGE_SECONDS
         - 1
     )
     os.utime(path, (old_timestamp, old_timestamp))
@@ -246,6 +247,31 @@ def test_connect_never_runs_retention_cleanup_implicitly(tmp_path):
     database.close()
 
 
+def test_active_moderation_lookups_do_not_bypass_explicit_cleanup(db, tmp_path):
+    reference = datetime.datetime.now()
+    old_ban_expiry = reference - timedelta(days=31)
+    old_mute_expiry = reference - timedelta(hours=1)
+    db.ban_user("expired-ban", "admin", "reason", old_ban_expiry.isoformat())
+    db.mute_user("expired-mute", "admin", "reason", old_mute_expiry.isoformat())
+
+    assert db.get_active_ban("expired-ban") is None
+    assert db.get_active_mute("expired-mute") is None
+    assert db._conn.execute("SELECT COUNT(*) FROM bans").fetchone()[0] == 1
+    assert db._conn.execute("SELECT COUNT(*) FROM mutes").fetchone()[0] == 1
+
+    preview = db.analyze_storage_cleanup(
+        tmp_path / "backups",
+        reference_time=reference,
+    )
+    counts = {category.code: category.count for category in preview.categories}
+    assert counts[DatabaseCleanupCategoryCode.EXPIRED_BANS.value] == 1
+    assert counts[DatabaseCleanupCategoryCode.EXPIRED_MUTES.value] == 1
+
+    db.clean_storage(reference_time=reference)
+    assert db._conn.execute("SELECT COUNT(*) FROM bans").fetchone()[0] == 0
+    assert db._conn.execute("SELECT COUNT(*) FROM mutes").fetchone()[0] == 0
+
+
 def test_database_compaction_reclaims_free_pages_and_preserves_live_data(tmp_path):
     database = Database(tmp_path / "compact.sqlite")
     database.connect()
@@ -271,6 +297,154 @@ def test_database_compaction_reclaims_free_pages_and_preserves_live_data(tmp_pat
         assert result.after_bytes < result.before_bytes
         assert result.reclaimed_bytes == result.before_bytes - result.after_bytes
         assert database.get_user("Retained").uuid == user.uuid
+        assert database._conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+        assert not list(tmp_path.glob(".*.compaction-*.partial*"))
+    finally:
+        database.close()
+
+
+def test_database_compaction_vacuum_failure_preserves_authoritative_database(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    database = Database(tmp_path / "compact.sqlite")
+    database.connect()
+    try:
+        user = database.create_user("Still Here", "hash")
+
+        def fail_vacuum(_connection):
+            raise sqlite3.OperationalError("disk I/O error")
+
+        monkeypatch.setattr(database, "_vacuum_connection", fail_vacuum)
+        with pytest.raises(sqlite3.OperationalError, match="disk I/O error") as exc_info:
+            database.compact_database()
+
+        notes = " ".join(getattr(exc_info.value, "__notes__", ()))
+        assert "VACUUM staged candidate" in notes
+        assert "replacement applied: False" in notes
+        assert "SQLite runtime:" in notes
+        assert database.get_user("Still Here").uuid == user.uuid
+        assert database._conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+        assert not list(tmp_path.glob(".*.compaction-*.partial*"))
+    finally:
+        database.close()
+
+
+def test_database_compaction_publish_failure_reopens_original_database(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    database = Database(tmp_path / "compact.sqlite")
+    database.connect()
+    try:
+        user = database.create_user("Original Retained", "hash")
+
+        def fail_replace(_source, _destination):
+            raise OSError("simulated atomic replacement failure")
+
+        monkeypatch.setattr(database, "_atomic_replace", fail_replace)
+        with pytest.raises(OSError, match="replacement failure") as exc_info:
+            database.compact_database()
+
+        notes = " ".join(getattr(exc_info.value, "__notes__", ()))
+        assert "atomically publish compacted database" in notes
+        assert "replacement applied: False" in notes
+        assert database.get_user("Original Retained").uuid == user.uuid
+        assert database._conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+        assert not list(tmp_path.glob(".*.compaction-*.partial*"))
+    finally:
+        database.close()
+
+
+def test_database_compaction_post_publication_validation_fails_closed(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    database_path = tmp_path / "compact.sqlite"
+    database = Database(database_path)
+    database.connect()
+    retained = database.create_user("Published Retained", "hash")
+    original_signature = database._snapshot_signature
+    signature_calls = 0
+
+    def fail_post_publication_signature(connection):
+        nonlocal signature_calls
+        signature_calls += 1
+        signature = original_signature(connection)
+        if signature_calls == 6:
+            return replace(
+                signature,
+                application_id=signature.application_id + 1,
+            )
+        return signature
+
+    monkeypatch.setattr(
+        database,
+        "_snapshot_signature",
+        fail_post_publication_signature,
+    )
+    with pytest.raises(
+        sqlite3.DatabaseError,
+        match="published compacted database failed logical validation",
+    ) as exc_info:
+        database.compact_database()
+
+    assert signature_calls == 6
+    assert database._conn is None
+    assert "replacement applied: True" in " ".join(
+        getattr(exc_info.value, "__notes__", ())
+    )
+
+    reopened = Database(database_path)
+    reopened.connect()
+    try:
+        assert reopened.get_user("Published Retained").uuid == retained.uuid
+    finally:
+        reopened.close()
+
+
+def test_database_compaction_removes_only_abandoned_owned_candidates(tmp_path):
+    database_path = tmp_path / "source.sqlite"
+    stale = tmp_path / ".source.sqlite.compaction-old.sqlite3.partial"
+    recent = tmp_path / ".source.sqlite.compaction-live.sqlite3.partial"
+    unrelated = tmp_path / ".other.sqlite.compaction-old.sqlite3.partial"
+    for path in (stale, recent, unrelated):
+        path.write_bytes(b"fragment")
+    _mark_backup_fragment_abandoned(stale)
+    _mark_backup_fragment_abandoned(unrelated)
+
+    database = Database(database_path)
+    database.connect()
+    try:
+        database.compact_database()
+        assert not stale.exists()
+        assert recent.read_bytes() == b"fragment"
+        assert unrelated.read_bytes() == b"fragment"
+    finally:
+        database.close()
+
+
+def test_database_compaction_preflights_staging_and_vacuum_space(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    database = Database(tmp_path / "compact.sqlite")
+    database.connect()
+    required_sizes: list[int] = []
+    monkeypatch.setattr(database, "MINIMUM_MAINTENANCE_FREE_BYTES", 0)
+    monkeypatch.setattr(
+        database,
+        "_require_free_space",
+        lambda _directory, required_bytes: required_sizes.append(required_bytes),
+    )
+    try:
+        page_size = database._conn.execute("PRAGMA page_size").fetchone()[0]
+        page_count = database._conn.execute("PRAGMA page_count").fetchone()[0]
+        database.compact_database()
+        assert required_sizes == [
+            page_size * page_count * 3,
+            page_size * page_count * 2,
+        ]
     finally:
         database.close()
 
@@ -298,6 +472,53 @@ def test_database_connection_uses_explicit_crash_durability_settings(tmp_path):
         database.close()
 
 
+def test_transaction_preserves_original_error_when_rollback_also_fails():
+    class FailingCursor:
+        def __init__(self, connection):
+            self.connection = connection
+            self.closed = False
+
+        def execute(self, _sql):
+            self.connection.in_transaction = True
+
+        def close(self):
+            self.closed = True
+
+    class FailingConnection:
+        def __init__(self):
+            self.in_transaction = False
+            self.created_cursor = FailingCursor(self)
+
+        def cursor(self):
+            return self.created_cursor
+
+        def commit(self):
+            raise sqlite3.OperationalError("simulated commit failure")
+
+        def rollback(self):
+            raise sqlite3.OperationalError("simulated rollback failure")
+
+    database = Database(":memory:")
+    connection = FailingConnection()
+    database._conn = connection
+    try:
+        with pytest.raises(sqlite3.OperationalError, match="commit failure") as exc_info:
+            with database._transaction():
+                pass
+        assert "rollback also failed" in " ".join(
+            getattr(exc_info.value, "__notes__", ())
+        )
+        assert connection.created_cursor.closed is True
+    finally:
+        database._conn = None
+
+
+def test_sqlite_runtime_baseline_includes_almalinux_8():
+    Database._require_supported_sqlite_version((3, 26, 0))
+    with pytest.raises(RuntimeError, match="3.25.0 or newer"):
+        Database._require_supported_sqlite_version((3, 24, 9))
+
+
 def test_database_backup_is_unique_valid_and_preserves_live_data(tmp_path):
     source_path = tmp_path / "source.sqlite"
     backup_dir = tmp_path / "backups"
@@ -321,6 +542,56 @@ def test_database_backup_is_unique_valid_and_preserves_live_data(tmp_path):
             assert restored._conn.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         finally:
             restored.close()
+    finally:
+        database.close()
+
+
+def test_database_backup_rejects_snapshot_metadata_mismatch(tmp_path, monkeypatch):
+    backup_dir = tmp_path / "backups"
+    database = Database(tmp_path / "source.sqlite")
+    database.connect()
+    original_signature = database._snapshot_signature
+    signature_calls = 0
+
+    def mismatched_destination(connection):
+        nonlocal signature_calls
+        signature_calls += 1
+        signature = original_signature(connection)
+        if signature_calls == 2:
+            return replace(signature, page_count=signature.page_count + 1)
+        return signature
+
+    monkeypatch.setattr(database, "_snapshot_signature", mismatched_destination)
+    try:
+        with pytest.raises(sqlite3.DatabaseError, match="does not match") as exc_info:
+            database.backup_database(backup_dir)
+        assert "database backup stage" in " ".join(
+            getattr(exc_info.value, "__notes__", ())
+        )
+        assert not list(backup_dir.iterdir())
+    finally:
+        database.close()
+
+
+def test_database_backup_publication_failure_removes_final_file(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    backup_dir = tmp_path / "backups"
+    database = Database(tmp_path / "source.sqlite")
+    database.connect()
+
+    def fail_directory_flush(_directory):
+        raise OSError("simulated directory fsync failure")
+
+    monkeypatch.setattr(database, "_flush_directory_to_disk", fail_directory_flush)
+    try:
+        with pytest.raises(OSError, match="directory fsync failure") as exc_info:
+            database.backup_database(backup_dir)
+        assert not list(backup_dir.iterdir())
+        assert "publication durability failed" in " ".join(
+            getattr(exc_info.value, "__notes__", ())
+        )
     finally:
         database.close()
 
@@ -647,6 +918,81 @@ def test_legacy_migration_creates_backup_and_preserves_all_rows(tmp_path):
     assert len(list(backup_dir.glob("*.sqlite3"))) == 1
 
 
+def test_version_one_nullable_username_key_migrates_atomically(tmp_path):
+    db_path = tmp_path / "version-one.db"
+    backup_dir = tmp_path / "migration-backups"
+    database = Database(db_path)
+    database.connect()
+    retained_user = database.create_user("Version One User", "hash")
+    database.close()
+
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute("ALTER TABLE users RENAME TO old_users")
+        connection.execute(
+            """
+            CREATE TABLE users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT COLLATE NOCASE UNIQUE NOT NULL,
+                username_key TEXT,
+                password_hash TEXT NOT NULL,
+                uuid TEXT NOT NULL,
+                locale TEXT DEFAULT 'en',
+                preferences_json TEXT DEFAULT '{}',
+                trust_level INTEGER DEFAULT 1,
+                approved INTEGER DEFAULT 0,
+                email TEXT DEFAULT '',
+                bio TEXT DEFAULT '',
+                motd_version INTEGER DEFAULT 0,
+                gender TEXT DEFAULT 'Not set',
+                registration_date TEXT DEFAULT '',
+                last_login_date TEXT DEFAULT ''
+            )
+            """
+        )
+        connection.execute("INSERT INTO users SELECT * FROM old_users")
+        connection.execute("DROP TABLE old_users")
+        connection.execute("CREATE INDEX idx_users_uuid ON users(uuid)")
+        connection.execute(
+            "CREATE INDEX idx_users_username_key ON users(username_key)"
+        )
+        connection.execute("PRAGMA user_version = 1")
+        connection.commit()
+    finally:
+        connection.close()
+
+    database = Database(db_path)
+    database.connect(migration_backup_dir=backup_dir)
+    try:
+        assert database.get_user("Version One User").uuid == retained_user.uuid
+        assert database._conn.execute("PRAGMA user_version").fetchone()[0] == 2
+        username_key_column = next(
+            row
+            for row in database._conn.execute("PRAGMA table_info(users)")
+            if row[1] == "username_key"
+        )
+        assert username_key_column[3] == 1
+    finally:
+        database.close()
+
+    backups = list(backup_dir.glob("*.sqlite3"))
+    assert len(backups) == 1
+    backup = sqlite3.connect(backups[0])
+    try:
+        assert backup.execute("PRAGMA user_version").fetchone()[0] == 1
+        assert backup.execute(
+            "SELECT uuid FROM users WHERE username = 'Version One User'"
+        ).fetchone()[0] == retained_user.uuid
+        username_key_column = next(
+            row
+            for row in backup.execute("PRAGMA table_info(users)")
+            if row[1] == "username_key"
+        )
+        assert username_key_column[3] == 0
+    finally:
+        backup.close()
+
+
 def test_failed_migration_rolls_back_and_retains_recovery_backup(
     tmp_path,
     monkeypatch,
@@ -729,7 +1075,7 @@ def test_post_migration_validation_failure_rolls_back_header_and_schema(tmp_path
     connection.commit()
     connection.close()
 
-    with pytest.raises(sqlite3.DatabaseError, match="missing required columns"):
+    with pytest.raises(sqlite3.DatabaseError, match="invalid columns"):
         Database(db_path).connect(migration_backup_dir=backup_dir)
 
     connection = sqlite3.connect(db_path)
@@ -791,7 +1137,7 @@ def test_current_schema_drift_fails_closed_without_recreating_data(tmp_path):
     connection.commit()
     connection.close()
 
-    with pytest.raises(sqlite3.DatabaseError, match="missing required tables"):
+    with pytest.raises(sqlite3.DatabaseError, match="invalid application tables"):
         Database(db_path).connect()
 
     connection = sqlite3.connect(db_path)
@@ -800,6 +1146,259 @@ def test_current_schema_drift_fails_closed_without_recreating_data(tmp_path):
         assert connection.execute(
             "SELECT COUNT(*) FROM sqlite_master WHERE name = 'server_settings'"
         ).fetchone()[0] == 0
+    finally:
+        connection.close()
+
+
+def test_current_schema_rejects_unexpected_column_without_repair(tmp_path):
+    db_path = tmp_path / "unexpected-column.db"
+    database = Database(db_path)
+    database.connect()
+    database.create_user("Retained Column User", "hash")
+    database.close()
+
+    connection = sqlite3.connect(db_path)
+    connection.execute("ALTER TABLE users ADD COLUMN obsolete_value TEXT")
+    connection.close()
+
+    with pytest.raises(sqlite3.DatabaseError, match="unexpected: obsolete_value"):
+        Database(db_path).connect()
+
+    connection = sqlite3.connect(db_path)
+    try:
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(users)")}
+        assert "obsolete_value" in columns
+        assert connection.execute(
+            "SELECT COUNT(*) FROM users WHERE username = 'Retained Column User'"
+        ).fetchone()[0] == 1
+    finally:
+        connection.close()
+
+
+def test_current_schema_rejects_unexpected_trigger_without_repair(tmp_path):
+    db_path = tmp_path / "unexpected-trigger.db"
+    database = Database(db_path)
+    database.connect()
+    database.close()
+
+    connection = sqlite3.connect(db_path)
+    connection.execute(
+        """
+        CREATE TRIGGER unexpected_user_delete
+        AFTER INSERT ON users
+        BEGIN
+            DELETE FROM users WHERE id = NEW.id;
+        END
+        """
+    )
+    connection.close()
+
+    with pytest.raises(sqlite3.DatabaseError, match="unexpected objects"):
+        Database(db_path).connect()
+
+    connection = sqlite3.connect(db_path)
+    try:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM sqlite_master "
+            "WHERE type = 'trigger' AND name = 'unexpected_user_delete'"
+        ).fetchone()[0] == 1
+    finally:
+        connection.close()
+
+
+def test_current_schema_rejects_missing_required_index_without_repair(tmp_path):
+    db_path = tmp_path / "missing-index.db"
+    database = Database(db_path)
+    database.connect()
+    retained = database.create_user("Retained Index User", "hash")
+    database.close()
+
+    connection = sqlite3.connect(db_path)
+    connection.execute("DROP INDEX idx_users_uuid")
+    connection.close()
+
+    with pytest.raises(sqlite3.DatabaseError, match="missing required indexes"):
+        Database(db_path).connect()
+
+    connection = sqlite3.connect(db_path)
+    try:
+        assert connection.execute(
+            "SELECT uuid FROM users WHERE username = 'Retained Index User'"
+        ).fetchone()[0] == retained.uuid
+        assert connection.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE name = 'idx_users_uuid'"
+        ).fetchone()[0] == 0
+    finally:
+        connection.close()
+
+
+def test_current_schema_rejects_malformed_required_index_without_repair(tmp_path):
+    db_path = tmp_path / "malformed-index.db"
+    database = Database(db_path)
+    database.connect()
+    database.close()
+
+    connection = sqlite3.connect(db_path)
+    connection.execute("DROP INDEX idx_users_uuid")
+    connection.execute("CREATE INDEX idx_users_uuid ON users(locale)")
+    connection.close()
+
+    with pytest.raises(sqlite3.DatabaseError, match="malformed definitions"):
+        Database(db_path).connect()
+
+    connection = sqlite3.connect(db_path)
+    try:
+        columns = connection.execute("PRAGMA index_info(idx_users_uuid)").fetchall()
+        assert [row[2] for row in columns] == ["locale"]
+    finally:
+        connection.close()
+
+
+def test_current_schema_rejects_unexpected_unique_key_without_repair(tmp_path):
+    db_path = tmp_path / "unexpected-unique-key.db"
+    database = Database(db_path)
+    database.connect()
+    database.close()
+
+    connection = sqlite3.connect(db_path)
+    connection.execute("CREATE UNIQUE INDEX unexpected_unique_bio ON users(bio)")
+    connection.close()
+
+    with pytest.raises(sqlite3.DatabaseError, match="required indexes"):
+        Database(db_path).connect()
+
+    connection = sqlite3.connect(db_path)
+    try:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM sqlite_master "
+            "WHERE name = 'unexpected_unique_bio'"
+        ).fetchone()[0] == 1
+    finally:
+        connection.close()
+
+
+def test_current_schema_rejects_missing_primary_key_without_repair(tmp_path):
+    db_path = tmp_path / "missing-primary-key.db"
+    database = Database(db_path)
+    database.connect()
+    database.close()
+
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute("ALTER TABLE server_settings RENAME TO old_server_settings")
+        connection.execute(
+            """
+            CREATE TABLE server_settings (
+                setting_key TEXT NOT NULL,
+                value_json TEXT NOT NULL,
+                updated_at_utc TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            "INSERT INTO server_settings SELECT * FROM old_server_settings"
+        )
+        connection.execute("DROP TABLE old_server_settings")
+        connection.commit()
+    finally:
+        connection.close()
+
+    with pytest.raises(sqlite3.DatabaseError, match="malformed column definitions"):
+        Database(db_path).connect()
+
+    connection = sqlite3.connect(db_path)
+    try:
+        columns = connection.execute("PRAGMA table_info(server_settings)").fetchall()
+        assert all(row[5] == 0 for row in columns)
+    finally:
+        connection.close()
+
+
+def test_current_schema_rejects_missing_check_constraint_without_repair(tmp_path):
+    db_path = tmp_path / "missing-check.db"
+    database = Database(db_path)
+    database.connect()
+    database.close()
+
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute("ALTER TABLE server_settings RENAME TO old_server_settings")
+        connection.execute(
+            """
+            CREATE TABLE server_settings (
+                setting_key TEXT PRIMARY KEY,
+                value_json TEXT NOT NULL,
+                updated_at_utc TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            "INSERT INTO server_settings SELECT * FROM old_server_settings"
+        )
+        connection.execute("DROP TABLE old_server_settings")
+        connection.commit()
+    finally:
+        connection.close()
+
+    with pytest.raises(sqlite3.DatabaseError, match="check constraints"):
+        Database(db_path).connect()
+
+    connection = sqlite3.connect(db_path)
+    try:
+        table_sql = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE name = 'server_settings'"
+        ).fetchone()[0]
+        assert "CHECK" not in table_sql.upper()
+    finally:
+        connection.close()
+
+
+def test_current_schema_rejects_missing_required_foreign_key_without_repair(
+    tmp_path,
+):
+    db_path = tmp_path / "missing-foreign-key.db"
+    database = Database(db_path)
+    database.connect()
+    database.close()
+
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute("PRAGMA foreign_keys = OFF")
+        connection.execute(
+            "ALTER TABLE game_result_players RENAME TO old_game_result_players"
+        )
+        connection.execute(
+            """
+            CREATE TABLE game_result_players (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                result_id INTEGER,
+                player_id TEXT NOT NULL,
+                player_name TEXT NOT NULL,
+                is_bot INTEGER NOT NULL
+            )
+            """
+        )
+        connection.execute("DROP TABLE old_game_result_players")
+        connection.execute(
+            "CREATE INDEX idx_result_players_player "
+            "ON game_result_players(player_id)"
+        )
+        connection.execute(
+            "CREATE INDEX idx_result_players_result "
+            "ON game_result_players(result_id)"
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    with pytest.raises(sqlite3.DatabaseError, match="foreign keys"):
+        Database(db_path).connect()
+
+    connection = sqlite3.connect(db_path)
+    try:
+        assert connection.execute(
+            "PRAGMA foreign_key_list(game_result_players)"
+        ).fetchall() == []
     finally:
         connection.close()
 

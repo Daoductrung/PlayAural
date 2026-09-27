@@ -16,21 +16,17 @@ SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 VOICE_SERVICE_FILE="/etc/systemd/system/${VOICE_SERVICE_NAME}.service"
 VENV_DIR="$SERVER_DIR/.venv"
 VENV_PYTHON="$VENV_DIR/bin/python"
+DATABASE_PATH="$SERVER_DIR/PlayAural.db"
+DATABASE_BACKUP_DIR="$SERVER_DIR/backups"
+SERVICE_RESTART_DELAY_SECONDS=10
+SERVICE_START_LIMIT_INTERVAL_SECONDS=300
+SERVICE_START_LIMIT_BURST=3
 
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m'
-
-SERVER_PACKAGES=(
-  websockets
-  argon2-cffi
-  fluent-runtime
-  mashumaro
-  babel
-  openskill
-)
 
 pause_screen() {
     read -rp "Press Enter to continue..." _
@@ -64,19 +60,37 @@ command_exists() {
 }
 
 detect_python_bin() {
-    if command_exists python3.12; then
-        echo "python3.12"
-        return
-    fi
-    if command_exists python3.11; then
-        echo "python3.11"
-        return
-    fi
-    if command_exists python3; then
-        echo "python3"
-        return
-    fi
+    local candidate
+
+    for candidate in python3.12 python3.11 python3; do
+        if command_exists "$candidate" && \
+            "$candidate" -c 'import sys; raise SystemExit(sys.version_info < (3, 11))' \
+                >/dev/null 2>&1; then
+            echo "$candidate"
+            return
+        fi
+    done
     echo ""
+}
+
+load_server_dependencies() {
+    "$VENV_PYTHON" - "$SERVER_DIR/pyproject.toml" <<'PY'
+import sys
+import tomllib
+
+with open(sys.argv[1], "rb") as project_file:
+    project = tomllib.load(project_file)
+
+dependencies = project.get("project", {}).get("dependencies")
+if (
+    not isinstance(dependencies, list)
+    or not dependencies
+    or not all(isinstance(dependency, str) and dependency for dependency in dependencies)
+):
+    raise SystemExit("project.dependencies must be a non-empty list of strings")
+
+print(*dependencies, sep="\n")
+PY
 }
 
 ensure_config_dir() {
@@ -97,9 +111,113 @@ setup_voice_user() {
     fi
 }
 
+prepare_database_storage() {
+    local path
+
+    if ! install -d -o "$SERVICE_USER" -g "$SERVICE_USER" -m 0700 "$DATABASE_BACKUP_DIR"; then
+        say_error "Could not prepare the database backup directory: $DATABASE_BACKUP_DIR"
+        return 1
+    fi
+    for path in \
+        "$DATABASE_PATH" \
+        "$DATABASE_PATH-wal" \
+        "$DATABASE_PATH-shm" \
+        "$DATABASE_PATH-journal" \
+        "$SERVER_DIR/errors.log"; do
+        if [ -e "$path" ]; then
+            if ! chown "$SERVICE_USER:$SERVICE_USER" "$path"; then
+                say_error "Could not assign database storage ownership: $path"
+                return 1
+            fi
+            if ! chmod 600 "$path"; then
+                say_error "Could not apply private database storage permissions: $path"
+                return 1
+            fi
+        fi
+    done
+    if ! find "$DATABASE_BACKUP_DIR" -type f -exec chmod 600 {} +; then
+        say_error "Could not apply private permissions to existing database backups."
+        return 1
+    fi
+}
+
 fix_permissions() {
-    chown -R "$SERVICE_USER:$SERVICE_USER" "$SERVER_DIR"
-    find "$SERVER_DIR" -type d -exec chmod 755 {} +
+    if ! chown -R "$SERVICE_USER:$SERVICE_USER" "$SERVER_DIR"; then
+        say_error "Could not assign the game server files to $SERVICE_USER."
+        return 1
+    fi
+    if ! find "$SERVER_DIR" -type d -exec chmod 755 {} +; then
+        say_error "Could not normalize game server directory permissions."
+        return 1
+    fi
+    prepare_database_storage || return 1
+}
+
+probe_service_directory() {
+    local directory="$1"
+
+    runuser -u "$SERVICE_USER" -- "$VENV_PYTHON" - "$directory" <<'PY'
+import os
+import sys
+import tempfile
+
+directory = os.path.abspath(sys.argv[1])
+probe_path = None
+try:
+    descriptor, probe_path = tempfile.mkstemp(
+        prefix=".playaural-write-probe-",
+        dir=directory,
+    )
+    with os.fdopen(descriptor, "wb") as probe:
+        probe.write(b"\0" * 4096)
+        probe.flush()
+        os.fsync(probe.fileno())
+    os.unlink(probe_path)
+    probe_path = None
+    directory_descriptor = os.open(
+        directory,
+        os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
+    )
+    try:
+        os.fsync(directory_descriptor)
+    finally:
+        os.close(directory_descriptor)
+finally:
+    if probe_path is not None:
+        try:
+            os.unlink(probe_path)
+        except FileNotFoundError:
+            pass
+PY
+}
+
+verify_database_storage() {
+    local path
+
+    for path in \
+        "$DATABASE_PATH" \
+        "$DATABASE_PATH-wal" \
+        "$DATABASE_PATH-shm" \
+        "$DATABASE_PATH-journal"; do
+        if [ -e "$path" ]; then
+            if ! runuser -u "$SERVICE_USER" -- test -r "$path" || \
+                ! runuser -u "$SERVICE_USER" -- test -w "$path"; then
+                say_error "The service user cannot read and write $path"
+                return 1
+            fi
+        fi
+    done
+
+    if ! probe_service_directory "$SERVER_DIR"; then
+        say_error "The service user could not durably write in $SERVER_DIR"
+        return 1
+    fi
+    if ! probe_service_directory "$DATABASE_BACKUP_DIR"; then
+        say_error "The service user could not durably write in $DATABASE_BACKUP_DIR"
+        return 1
+    fi
+
+    say_ok "Database storage permissions and durable-write probes passed."
 }
 
 random_token() {
@@ -375,7 +493,7 @@ install_base_packages() {
     dnf install -y epel-release >/dev/null 2>&1 || true
     dnf install -y curl tar gzip openssl >/dev/null 2>&1 || true
 
-    if ! command_exists python3.12 && ! command_exists python3.11 && ! command_exists python3; then
+    if [ -z "$(detect_python_bin)" ]; then
         dnf install -y python3.12 python3.12-pip >/dev/null 2>&1 || \
         dnf install -y python3.11 python3.11-pip >/dev/null 2>&1 || \
         dnf install -y python3 python3-pip >/dev/null 2>&1 || true
@@ -383,9 +501,10 @@ install_base_packages() {
 }
 
 install_environment() {
-    local python_bin
+    local dependencies_output python_bin
+    local -a server_packages=()
 
-    setup_system_user
+    setup_system_user || return 1
     install_base_packages
 
     python_bin="$(detect_python_bin)"
@@ -397,26 +516,47 @@ install_environment() {
 
     say_info "Using Python interpreter: $python_bin"
 
-    if [ ! -d "$VENV_DIR" ]; then
-        say_info "Creating virtual environment in $VENV_DIR"
-        "$python_bin" -m venv "$VENV_DIR"
+    if [ ! -x "$VENV_PYTHON" ] || \
+        ! "$VENV_PYTHON" -c \
+            'import sys; raise SystemExit(sys.version_info < (3, 11))' \
+            >/dev/null 2>&1; then
+        say_info "Creating or repairing the virtual environment in $VENV_DIR"
+        if ! "$python_bin" -m venv "$VENV_DIR"; then
+            say_error "Could not create or repair the virtual environment: $VENV_DIR"
+            return 1
+        fi
     fi
 
     say_info "Installing server Python dependencies..."
-    "$VENV_PYTHON" -m pip install --upgrade pip setuptools wheel
-    "$VENV_PYTHON" -m pip install --upgrade "${SERVER_PACKAGES[@]}"
+    if ! "$VENV_PYTHON" -m pip install --upgrade pip setuptools wheel; then
+        say_error "Could not update the Python packaging tools."
+        return 1
+    fi
+    if ! dependencies_output="$(load_server_dependencies)"; then
+        say_error "Could not read server dependencies from $SERVER_DIR/pyproject.toml"
+        return 1
+    fi
+    if [ -z "$dependencies_output" ]; then
+        say_error "No server dependencies were declared in $SERVER_DIR/pyproject.toml"
+        return 1
+    fi
+    mapfile -t server_packages <<<"$dependencies_output"
+    if ! "$VENV_PYTHON" -m pip install --upgrade "${server_packages[@]}"; then
+        say_error "Could not install the game server dependencies."
+        return 1
+    fi
 
-    fix_permissions
+    fix_permissions || return 1
     say_ok "Game server environment is ready."
 }
 
 ensure_cli_environment() {
-    setup_system_user
+    setup_system_user || return 1
     if [ ! -x "$VENV_PYTHON" ]; then
         install_environment
         return $?
     fi
-    fix_permissions
+    fix_permissions || return 1
 }
 
 run_account_cli() {
@@ -429,23 +569,27 @@ run_account_cli() {
 }
 
 setup_service() {
-    setup_system_user
-    ensure_config_dir
+    setup_system_user || return 1
+    ensure_config_dir || return 1
 
-    cat >"$SERVICE_FILE" <<EOF
+    if ! cat >"$SERVICE_FILE" <<EOF
 [Unit]
 Description=PlayAural Game Server
 After=network-online.target
 Wants=network-online.target
+StartLimitIntervalSec=$SERVICE_START_LIMIT_INTERVAL_SECONDS
+StartLimitBurst=$SERVICE_START_LIMIT_BURST
 
 [Service]
 User=$SERVICE_USER
 Group=$SERVICE_USER
 WorkingDirectory=$SERVER_DIR
 EnvironmentFile=-$VOICE_ENV_FILE
-ExecStart=$VENV_PYTHON $SERVER_DIR/main.py --host 127.0.0.1 --port 8000
+ExecStart=$VENV_PYTHON $SERVER_DIR/main.py --host 127.0.0.1 --port 8000 --database-backup-dir $DATABASE_BACKUP_DIR
 Restart=on-failure
-RestartSec=3
+RestartSec=$SERVICE_RESTART_DELAY_SECONDS
+UMask=0077
+LimitFSIZE=infinity
 PrivateTmp=true
 NoNewPrivileges=true
 ProtectSystem=full
@@ -454,9 +598,19 @@ ReadWritePaths=$SERVER_DIR
 [Install]
 WantedBy=multi-user.target
 EOF
+    then
+        say_error "Could not write the systemd service file: $SERVICE_FILE"
+        return 1
+    fi
 
-    systemctl daemon-reload
-    systemctl enable "$SERVICE_NAME" >/dev/null 2>&1 || true
+    if ! systemctl daemon-reload; then
+        say_error "systemd could not reload the game service definition."
+        return 1
+    fi
+    if ! systemctl enable "$SERVICE_NAME" >/dev/null 2>&1; then
+        say_error "systemd could not enable the game service."
+        return 1
+    fi
 }
 
 setup_voice_service() {
@@ -586,7 +740,10 @@ configure_voice_server() {
         return 1
     }
     setup_voice_service
-    setup_service
+    setup_service || {
+        pause_screen
+        return 1
+    }
     ensure_voice_firewall_rules
 
     say_ok "Voice server configuration saved."
@@ -698,13 +855,61 @@ check_status() {
     echo "Voice URL:    ${PLAYAURAL_VOICE_URL:-not configured}"
 }
 
+stop_game_service_for_environment_change() {
+    if [ ! -e "$SERVICE_FILE" ]; then
+        if ! systemctl cat "$SERVICE_NAME" >/dev/null 2>&1; then
+            return 0
+        fi
+    fi
+
+    say_info "Stopping the game server before changing its environment..."
+    if ! systemctl stop "$SERVICE_NAME"; then
+        say_error "The game server could not be stopped; its environment was not changed."
+        return 1
+    fi
+}
+
+start_game_service() {
+    if ! systemctl reset-failed "$SERVICE_NAME"; then
+        say_error "systemd could not reset the game service failure state."
+        return 1
+    fi
+    if ! systemctl start "$SERVICE_NAME"; then
+        say_error "systemd could not start the game service."
+        return 1
+    fi
+}
+
 start_server() {
-    setup_system_user
-    install_environment || return 1
-    setup_service
+    if systemctl is-active --quiet "$SERVICE_NAME"; then
+        say_warn "The game server is already running. Performing a controlled restart instead."
+        restart_server
+        return $?
+    fi
+
+    if ! stop_game_service_for_environment_change; then
+        pause_screen
+        return 1
+    fi
+    if ! install_environment; then
+        say_error "Environment installation failed; the game server remains stopped."
+        pause_screen
+        return 1
+    fi
+    if ! setup_service; then
+        pause_screen
+        return 1
+    fi
+    verify_database_storage || {
+        pause_screen
+        return 1
+    }
 
     say_info "Starting game server..."
-    systemctl start "$SERVICE_NAME"
+    if ! start_game_service; then
+        pause_screen
+        return 1
+    fi
     sleep 2
     check_status
     pause_screen
@@ -719,14 +924,58 @@ stop_server() {
 }
 
 restart_server() {
-    setup_system_user
-    install_environment || return 1
-    setup_service
+    if ! stop_game_service_for_environment_change; then
+        pause_screen
+        return 1
+    fi
+    if ! install_environment; then
+        say_error "Environment installation failed; the game server remains stopped."
+        pause_screen
+        return 1
+    fi
+    if ! setup_service; then
+        pause_screen
+        return 1
+    fi
+    verify_database_storage || {
+        pause_screen
+        return 1
+    }
     say_info "Restarting game server..."
-    systemctl restart "$SERVICE_NAME"
+    if ! start_game_service; then
+        pause_screen
+        return 1
+    fi
     sleep 2
     check_status
     pause_screen
+}
+
+repair_game_environment() {
+    local was_active=0
+
+    if systemctl is-active --quiet "$SERVICE_NAME"; then
+        was_active=1
+    fi
+    if ! stop_game_service_for_environment_change; then
+        return 1
+    fi
+
+    if ! install_environment; then
+        say_error "Environment repair failed; the game server remains stopped."
+        return 1
+    fi
+    setup_service || return 1
+    if ! verify_database_storage; then
+        say_error "Storage preflight failed; the game server remains stopped."
+        return 1
+    fi
+
+    if [ "$was_active" -eq 1 ]; then
+        say_info "Starting the game server after environment repair..."
+        start_game_service || return 1
+    fi
+    say_ok "Game server environment repair completed."
 }
 
 start_voice_server() {
@@ -795,7 +1044,10 @@ install_voice_stack() {
             return 1
         }
         setup_voice_service
-        setup_service
+        setup_service || {
+            pause_screen
+            return 1
+        }
         ensure_voice_firewall_rules
     fi
     say_ok "Voice server installation workflow is complete."
@@ -942,7 +1194,10 @@ show_menu() {
 }
 
 check_root
-ensure_config_dir
+if ! ensure_config_dir; then
+    say_error "Could not prepare the configuration directory: $CONFIG_DIR"
+    exit 1
+fi
 
 while true; do
     show_menu
@@ -954,7 +1209,7 @@ while true; do
         5) clear_logs ;;
         6) create_user ;;
         7) reset_password ;;
-        8) install_environment; pause_screen ;;
+        8) repair_game_environment; pause_screen ;;
         9) install_voice_stack ;;
         10) configure_voice_server; pause_screen ;;
         11) change_voice_url; pause_screen ;;

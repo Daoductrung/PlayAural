@@ -571,6 +571,11 @@ manager, never ad-hoc database calls from an admin handler.
   filesystem/mount health, kernel logs, quota and file-size limits, ownership,
   and SELinux before retrying. Deployments may place validated backups on a
   separate healthy filesystem with `--database-backup-dir`.
+- Production deployment tooling must stop the game service before changing its
+  environment, restore service-user ownership on database artifacts, and pass
+  non-database fsync probes for both the live and backup directories before
+  starting. Bound automatic restart loops so a persistent startup failure
+  cannot repeatedly run migration or backup preparation unattended.
 - Transient table checkpoints remain durable until database validation, schema
   migration, table deserialization, network binding, and tick startup have all
   succeeded. A failed startup must close SQLite and leave checkpoints intact.

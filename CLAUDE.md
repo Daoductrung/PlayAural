@@ -772,6 +772,13 @@ maintenance, not server-power finalization. Route them through
   before retrying. `--database-backup-dir` may target a separate healthy
   filesystem, but the live database filesystem must also pass its migration
   workspace preflight.
+- Production deployment tooling must stop the game service before changing its
+  code, dependencies, permissions, or virtual environment. Before startup it
+  must restore service-user ownership and private modes on the database,
+  sidecars, log, and backup directory; verify durable service-user writes with
+  disposable fsync probes outside the database; and bound systemd restart loops
+  so persistent startup failures do not repeatedly execute migration or backup
+  preparation. Probes never write to or rename authoritative database files.
 - Transient table checkpoints remain durable until database validation, schema
   migration, table deserialization, network binding, and tick startup have all
   succeeded. A failed startup must close SQLite and leave checkpoints intact.

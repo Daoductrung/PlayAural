@@ -512,6 +512,7 @@ menu-page-last = Última página
 admin-search-no-results = No se encontraron usuarios coincidentes. Usa Buscar por nombre de usuario para probar con otro término.
 confirm-promote = ¿Seguro que quieres ascender a { $player } a administrador?
 confirm-demote = ¿Seguro que quieres degradar a { $player } de administrador?
+admin-role-target-changed = { $player } ya no tiene el rol esperado. Actualiza la lista e inténtalo de nuevo.
 broadcast-to-all = Anunciar a todos los usuarios
 broadcast-to-admins = Anunciar solo a administradores
 broadcast-to-nobody = Silencioso (sin anuncio)

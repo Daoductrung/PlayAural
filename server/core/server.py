@@ -74,6 +74,11 @@ from ..users.base import (
 )
 from ..users.identity import find_username_prefix, normalize_username, username_key
 from ..users.preferences import UserPreferences, DiceKeepingStyle, PREF_CATEGORIES
+from ..users.roles import (
+    ADMIN_TRUST_LEVEL,
+    DEVELOPER_TRUST_LEVEL,
+    USER_TRUST_LEVEL,
+)
 from ..chat_channels import (
     MAX_CHAT_MESSAGE_LENGTH,
     normalize_global_chat_channel,
@@ -183,7 +188,11 @@ WELCOME_SOUND = "welcome.ogg"
 ONLINE_USERS_PAGE_SIZE = DEFAULT_MENU_PAGE_SIZE
 ONLINE_USERS_SPOKEN_NAME_LIMIT = 20
 # Display order and classification shared by online summaries, menus and presence.
-USER_ROLE_MINIMUM_TRUST = {"dev": 3, "admin": 2, "user": 1}
+USER_ROLE_MINIMUM_TRUST = {
+    "dev": DEVELOPER_TRUST_LEVEL,
+    "admin": ADMIN_TRUST_LEVEL,
+    "user": USER_TRUST_LEVEL,
+}
 ACTIVE_TABLE_SPECTATOR_PREVIEW_LIMIT = 3
 TABLE_CHAT_CONVERSATIONS = frozenset({"local", "table", "game"})
 SUPPORTED_CHAT_CONVERSATIONS = frozenset({"global", *TABLE_CHAT_CONVERSATIONS})
@@ -551,8 +560,8 @@ PlayAural Server
             promoted_user = self._db.initialize_trust_levels()
             if promoted_user:
                 print(
-                    f"User '{promoted_user}' has been promoted to admin "
-                    "(trust level 2)."
+                    f"User '{promoted_user}' has been promoted to developer "
+                    f"(trust level {DEVELOPER_TRUST_LEVEL})."
                 )
 
             # Load existing tables without consuming their recovery records.
@@ -1312,7 +1321,7 @@ PlayAural Server
             if (
                 self._users.get(user.username) is not user
                 or not user.approved
-                or user.trust_level < 2
+                or user.trust_level < ADMIN_TRUST_LEVEL
                 or user.username == exclude_username
             ):
                 continue
@@ -2631,7 +2640,7 @@ PlayAural Server
             ),
         ]
         # Add administration menu for admins
-        if user.trust_level >= 2:
+        if user.trust_level >= ADMIN_TRUST_LEVEL:
             items.append(
                 MenuItem(text=Localization.get(user.locale, "administration"), id="administration")
             )
@@ -5738,7 +5747,7 @@ PlayAural Server
         elif current_menu == "online_users":
             await self._handle_online_users_selection(user, selection_id, state)
         elif current_menu in ADMIN_MENU_IDS:
-            if user.trust_level < 2:
+            if user.trust_level < ADMIN_TRUST_LEVEL:
                 user.speak_l("not-admin-anymore", buffer="system")
                 self._show_main_menu(user)
                 return
@@ -5811,7 +5820,7 @@ PlayAural Server
         elif selection_id == "documentation":
             self._nav_push(user, self._show_documentation_menu)
         elif selection_id == "administration":
-            if user.trust_level >= 2:
+            if user.trust_level >= ADMIN_TRUST_LEVEL:
                 self._nav_push(user, self.admin_manager._show_admin_menu)
         elif selection_id == "logout":
             self._nav_push(user, self._show_logout_confirm_menu)
@@ -7414,7 +7423,7 @@ PlayAural Server
         ]
 
         # Admins and Devs can see the email
-        if requesting_user.trust_level >= 2:
+        if requesting_user.trust_level >= ADMIN_TRUST_LEVEL:
              email_str = target_record.email if target_record.email else Localization.get(requesting_user.locale, "profile-email-empty")
              items.append(MenuItem(text=Localization.get(requesting_user.locale, "admin-view-email", email=email_str), id=""))
 
@@ -11974,14 +11983,14 @@ PlayAural Server
             return
 
         if message.startswith("/reboot") or message.startswith("/stop"):
-            if user and user.trust_level >= 3:
+            if user and user.trust_level >= DEVELOPER_TRUST_LEVEL:
                 user.speak_l("server-power-command-removed", buffer="system")
             return
 
         if message.startswith("/kick"):
             # Kick command
             # Format: /kick <username>
-            if user and user.trust_level >= 2:
+            if user and user.trust_level >= ADMIN_TRUST_LEVEL:
                 parts = message.split(" ", 1)
                 if len(parts) < 2:
                     user.speak_l("usage-kick", buffer="system")
@@ -13539,7 +13548,7 @@ PlayAural Server
         if not username:
             return
         user = self._users.get(username)
-        if not user or user.trust_level < 2:
+        if not user or user.trust_level < ADMIN_TRUST_LEVEL:
             return
         current_menu = self._user_states.get(username, {}).get("menu")
         if current_menu == "admin_menu":
@@ -13572,8 +13581,8 @@ PlayAural Server
             return
 
         user = self._users.get(username)
-        # Check permissions - only trust level 2 (admin) can broadcast
-        if not user or user.trust_level < 2:
+        # Administrators and developers can broadcast.
+        if not user or user.trust_level < ADMIN_TRUST_LEVEL:
             return
 
         message = packet.get("message", "")

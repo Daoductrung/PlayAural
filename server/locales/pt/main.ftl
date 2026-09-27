@@ -511,6 +511,7 @@ menu-page-last = Última página
 admin-search-no-results = Nenhum usuário correspondente encontrado. Use a pesquisa por nome de usuário para tentar um termo diferente.
 confirm-promote = Tem certeza de que deseja promover { $player } a administrador?
 confirm-demote = Tem certeza de que deseja rebaixar { $player } de administrador?
+admin-role-target-changed = { $player } não tem mais a função esperada. Atualize a lista e tente novamente.
 broadcast-to-all = Anunciar para todos os usuários
 broadcast-to-admins = Anunciar apenas para administradores
 broadcast-to-nobody = Silencioso (sem anúncio)

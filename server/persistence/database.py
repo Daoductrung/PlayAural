@@ -43,6 +43,12 @@ from ..moderation.reports import (
 )
 from ..tables.table import Table
 from ..users.identity import normalize_username, username_key
+from ..users.roles import (
+    ADMIN_TRUST_LEVEL,
+    DEVELOPER_TRUST_LEVEL,
+    USER_TRUST_LEVEL,
+    VALID_USER_TRUST_LEVELS,
+)
 from .retention import (
     ABANDONED_DATABASE_FRAGMENT_MINIMUM_AGE_SECONDS,
     EXPIRED_BAN_RETENTION_DAYS,
@@ -100,7 +106,7 @@ class UserRecord:
     uuid: str  # Persistent unique identifier for stats tracking
     locale: str = "en"
     preferences_json: str = "{}"
-    trust_level: int = 1  # 1 = player, 2 = admin
+    trust_level: int = USER_TRUST_LEVEL
     approved: bool = False  # Whether the account has been approved by an admin
     email: str = ""
     bio: str = ""
@@ -116,6 +122,19 @@ class UsernameResolution:
 
     user: UserRecord | None = None
     ambiguous: bool = False
+
+
+@dataclass(frozen=True)
+class UserTrustLevelChange:
+    """A validated account-role transition."""
+
+    username: str
+    previous_trust_level: int
+    trust_level: int
+
+    @property
+    def changed(self) -> bool:
+        return self.previous_trust_level != self.trust_level
 
 
 @dataclass
@@ -4052,7 +4071,11 @@ class Database:
             uuid=row["uuid"],
             locale=row["locale"] or "en",
             preferences_json=row["preferences_json"] or "{}",
-            trust_level=row["trust_level"] if row["trust_level"] is not None else 1,
+            trust_level=(
+                row["trust_level"]
+                if row["trust_level"] is not None
+                else USER_TRUST_LEVEL
+            ),
             approved=bool(row["approved"]) if row["approved"] is not None else False,
             email=row["email"] or "",
             bio=row["bio"] or "",
@@ -4128,7 +4151,7 @@ class Database:
         username: str,
         password_hash: str,
         locale: str = "en",
-        trust_level: int = 1,
+        trust_level: int = USER_TRUST_LEVEL,
         approved: bool = False,
         email: str = "",
         bio: str = "",
@@ -4162,7 +4185,7 @@ class Database:
                 if promote_first_user:
                     cursor.execute("SELECT 1 FROM users LIMIT 1")
                     if cursor.fetchone() is None:
-                        effective_trust_level = 3
+                        effective_trust_level = DEVELOPER_TRUST_LEVEL
                         effective_approved = True
                 cursor.execute(
                     "INSERT INTO users (username, username_key, password_hash, "
@@ -4301,11 +4324,12 @@ class Database:
         """
         Initialize trust levels for users who don't have one set.
 
-        Sets all users without a trust level to 1 (player).
-        If there's exactly one user and they have no trust level, sets them to 2 (admin).
+        Sets all users without a trust level to 1 (user).
+        If there is exactly one user and it has no trust level, sets it to 3
+        (developer).
 
         Returns:
-            The username of the user promoted to admin, or None if no promotion occurred.
+            The username promoted to developer, or None if no promotion occurred.
         """
         with self._transaction(immediate=True) as cursor:
             # Check if there's exactly one user with no trust level set.
@@ -4321,20 +4345,177 @@ class Database:
                 if total_users == 1:
                     username = users_without_trust[0]["username"]
                     cursor.execute(
-                        "UPDATE users SET trust_level = 3 WHERE id = ?",
-                        (users_without_trust[0]["id"],),
+                        "UPDATE users SET trust_level = ? WHERE id = ?",
+                        (
+                            DEVELOPER_TRUST_LEVEL,
+                            users_without_trust[0]["id"],
+                        ),
                     )
                     promoted_user = username
 
             cursor.execute(
-                "UPDATE users SET trust_level = 1 WHERE trust_level IS NULL"
+                "UPDATE users SET trust_level = ? WHERE trust_level IS NULL",
+                (USER_TRUST_LEVEL,),
             )
 
         return promoted_user
 
-    def update_user_trust_level(self, username: str, trust_level: int) -> None:
-        """Update a user's trust level."""
-        self._update_user_value(username, "trust_level", trust_level)
+    @staticmethod
+    def _validate_requested_trust_level(trust_level: int) -> int:
+        if (
+            not isinstance(trust_level, int)
+            or isinstance(trust_level, bool)
+            or trust_level not in VALID_USER_TRUST_LEVELS
+        ):
+            supported = ", ".join(
+                str(level) for level in sorted(VALID_USER_TRUST_LEVELS)
+            )
+            raise ValueError(
+                f"Unsupported user trust level {trust_level!r}; expected one of "
+                f"{supported}"
+            )
+        return int(trust_level)
+
+    @staticmethod
+    def _validated_user_trust_level_change(
+        cursor: sqlite3.Cursor,
+        row: sqlite3.Row,
+        trust_level: int,
+        *,
+        expected_trust_level: int | None = None,
+    ) -> UserTrustLevelChange:
+        raw_current_level = row["trust_level"]
+        if (
+            not isinstance(raw_current_level, int)
+            or isinstance(raw_current_level, bool)
+            or raw_current_level not in VALID_USER_TRUST_LEVELS
+        ):
+            raise ValueError(
+                f"Account {row['username']!r} has unsupported trust level "
+                f"{raw_current_level!r}; no role change was made"
+            )
+        current_level = int(raw_current_level)
+        if (
+            expected_trust_level is not None
+            and current_level != expected_trust_level
+        ):
+            raise ValueError(
+                f"Account {row['username']!r} changed from trust level "
+                f"{expected_trust_level} to {current_level} while the role "
+                "operation was being prepared; no role change was made"
+            )
+        if trust_level >= ADMIN_TRUST_LEVEL and not bool(row["approved"]):
+            raise ValueError(
+                f"Account {row['username']!r} must be approved before it can "
+                "receive an administrator or developer role"
+            )
+        if (
+            current_level == DEVELOPER_TRUST_LEVEL
+            and trust_level < DEVELOPER_TRUST_LEVEL
+            and bool(row["approved"])
+        ):
+            cursor.execute(
+                "SELECT 1 FROM users "
+                "WHERE id != ? AND approved = 1 AND trust_level = ? LIMIT 1",
+                (row["id"], DEVELOPER_TRUST_LEVEL),
+            )
+            if cursor.fetchone() is None:
+                raise ValueError(
+                    f"Account {row['username']!r} is the last approved developer; "
+                    "promote another approved account before demoting it"
+                )
+        return UserTrustLevelChange(
+            username=row["username"],
+            previous_trust_level=current_level,
+            trust_level=trust_level,
+        )
+
+    def preview_user_trust_level_change(
+        self,
+        username: str,
+        trust_level: int,
+    ) -> UserTrustLevelChange | None:
+        """Validate a role transition without changing persistent state."""
+        target_level = self._validate_requested_trust_level(trust_level)
+        resolution = self.resolve_user(username)
+        if resolution.ambiguous:
+            raise ValueError(
+                "More than one legacy account matches that username spelling; "
+                "enter the exact registered spelling"
+            )
+        if resolution.user is None:
+            return None
+
+        cursor = self._conn.cursor()
+        try:
+            cursor.execute(
+                "SELECT id, username, trust_level, approved FROM users "
+                "WHERE id = ? AND username = ? COLLATE BINARY",
+                (resolution.user.id, resolution.user.username),
+            )
+            row = cursor.fetchone()
+            if row is None:
+                return None
+            return self._validated_user_trust_level_change(
+                cursor,
+                row,
+                target_level,
+            )
+        finally:
+            cursor.close()
+
+    def update_user_trust_level(
+        self,
+        username: str,
+        trust_level: int,
+        *,
+        expected_trust_level: int | None = None,
+    ) -> UserTrustLevelChange | None:
+        """Atomically apply one validated account-role transition.
+
+        Privileged roles require an approved account, and the final approved
+        developer cannot be demoted. ``expected_trust_level`` lets an offline
+        operator workflow reject a target that changed after its safety backup.
+        """
+        target_level = self._validate_requested_trust_level(trust_level)
+        if expected_trust_level is not None:
+            expected_trust_level = self._validate_requested_trust_level(
+                expected_trust_level
+            )
+        resolution = self.resolve_user(username)
+        if resolution.ambiguous:
+            raise ValueError(
+                "More than one legacy account matches that username spelling; "
+                "enter the exact registered spelling"
+            )
+        if resolution.user is None:
+            return None
+
+        with self._transaction(immediate=True) as cursor:
+            cursor.execute(
+                "SELECT id, username, trust_level, approved FROM users "
+                "WHERE id = ? AND username = ? COLLATE BINARY",
+                (resolution.user.id, resolution.user.username),
+            )
+            row = cursor.fetchone()
+            if row is None:
+                return None
+            change = self._validated_user_trust_level_change(
+                cursor,
+                row,
+                target_level,
+                expected_trust_level=expected_trust_level,
+            )
+            if change.changed:
+                cursor.execute(
+                    "UPDATE users SET trust_level = ? WHERE id = ?",
+                    (target_level, row["id"]),
+                )
+                if cursor.rowcount != 1:
+                    raise sqlite3.DatabaseError(
+                        "Role update did not modify exactly one account row"
+                    )
+            return change
 
     def update_user_motd_version(self, username: str, motd_version: int) -> None:
         """Update a user's motd version."""
@@ -4466,22 +4647,24 @@ class Database:
         return len(table_ids)
 
     def get_non_admin_users(self) -> list[UserRecord]:
-        """Get all approved users who are not admins (trust_level < 2)."""
+        """Get all approved users below the administrator role."""
         cursor = self._conn.cursor()
         cursor.execute(
             f"SELECT {_USER_RECORD_COLUMNS} FROM users "
-            "WHERE approved = 1 AND trust_level < 2 "
-            "ORDER BY username_key, username COLLATE BINARY"
+            "WHERE approved = 1 AND trust_level < ? "
+            "ORDER BY username_key, username COLLATE BINARY",
+            (ADMIN_TRUST_LEVEL,),
         )
         return [self._user_record_from_row(row) for row in cursor.fetchall()]
 
     def get_admin_users(self) -> list[UserRecord]:
-        """Get all users who are admins (trust_level >= 2)."""
+        """Get all users with an administrator or developer role."""
         cursor = self._conn.cursor()
         cursor.execute(
             f"SELECT {_USER_RECORD_COLUMNS} FROM users "
-            "WHERE trust_level >= 2 "
-            "ORDER BY username_key, username COLLATE BINARY"
+            "WHERE trust_level >= ? "
+            "ORDER BY username_key, username COLLATE BINARY",
+            (ADMIN_TRUST_LEVEL,),
         )
         return [self._user_record_from_row(row) for row in cursor.fetchall()]
 
@@ -4507,10 +4690,12 @@ class Database:
             where.append("approved = ?")
             params.append(1 if approved else 0)
         if min_trust_level is not None:
-            where.append("COALESCE(trust_level, 1) >= ?")
+            where.append("COALESCE(trust_level, ?) >= ?")
+            params.append(USER_TRUST_LEVEL)
             params.append(min_trust_level)
         if max_trust_level is not None:
-            where.append("COALESCE(trust_level, 1) <= ?")
+            where.append("COALESCE(trust_level, ?) <= ?")
+            params.append(USER_TRUST_LEVEL)
             params.append(max_trust_level)
         if exclude_username:
             excluded_user = self.get_user(exclude_username)

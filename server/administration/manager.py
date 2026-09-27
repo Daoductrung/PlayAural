@@ -9,6 +9,11 @@ from typing import TYPE_CHECKING, Any
 from ..users.network_user import NetworkUser
 from ..users.base import MenuItem, EscapeBehavior
 from ..users.identity import username_key
+from ..users.roles import (
+    ADMIN_TRUST_LEVEL,
+    DEVELOPER_TRUST_LEVEL,
+    USER_TRUST_LEVEL,
+)
 from ..messages.localization import DEFAULT_LOCALE, Localization
 from ..messages.localized_content import (
     encode_localized_custom_text,
@@ -120,7 +125,7 @@ class AdminLocalizedTextSpec:
     submit_key: str
     multiline: bool
     max_length: int
-    required_trust_level: int = 2
+    required_trust_level: int = ADMIN_TRUST_LEVEL
 
 
 ADMIN_LOCALIZED_TEXT_SPECS = {
@@ -135,7 +140,7 @@ ADMIN_LOCALIZED_TEXT_SPECS = {
         submit_key="admin-localized-text-continue",
         multiline=False,
         max_length=500,
-        required_trust_level=3,
+        required_trust_level=DEVELOPER_TRUST_LEVEL,
     ),
     "ban": AdminLocalizedTextSpec(
         subject_key="admin-localized-text-subject-ban",
@@ -215,7 +220,7 @@ def require_admin(func):
     """Decorator that checks if the user is still an admin before executing an admin action."""
     @functools.wraps(func)
     async def wrapper(self, admin, *args, **kwargs):
-        if admin.trust_level < 2:
+        if admin.trust_level < ADMIN_TRUST_LEVEL:
             admin.speak_l("not-admin-anymore", buffer="system")
             self.server._show_main_menu(admin)
             return
@@ -253,7 +258,7 @@ class AdministrationManager:
         """Revalidate access whenever a reusable admin editor is used."""
         if user.trust_level >= spec.required_trust_level:
             return True
-        if user.trust_level < 2:
+        if user.trust_level < ADMIN_TRUST_LEVEL:
             user.speak_l("not-admin-anymore", buffer="system")
             self.server._show_main_menu(user)
         else:
@@ -823,7 +828,7 @@ class AdministrationManager:
             query,
             page,
             approved=True,
-            max_trust_level=1,
+            max_trust_level=USER_TRUST_LEVEL,
         )
 
     def _search_demote_targets(
@@ -832,15 +837,19 @@ class AdministrationManager:
         return self._search_user_targets_page(
             query,
             page,
-            min_trust_level=2,
-            max_trust_level=2,
+            min_trust_level=ADMIN_TRUST_LEVEL,
+            max_trust_level=ADMIN_TRUST_LEVEL,
             exclude_username=user.username,
         )
 
     def _search_ban_targets(
         self, user: NetworkUser, query: str, page: int
     ) -> PaginatedMenuPage[str]:
-        max_trust = 2 if user.trust_level >= 3 else 1
+        max_trust = (
+            ADMIN_TRUST_LEVEL
+            if user.trust_level >= DEVELOPER_TRUST_LEVEL
+            else USER_TRUST_LEVEL
+        )
         return self._search_user_targets_page(
             query,
             page,
@@ -853,7 +862,11 @@ class AdministrationManager:
     def _search_mute_targets(
         self, user: NetworkUser, query: str, page: int
     ) -> PaginatedMenuPage[str]:
-        max_trust = 2 if user.trust_level >= 3 else 1
+        max_trust = (
+            ADMIN_TRUST_LEVEL
+            if user.trust_level >= DEVELOPER_TRUST_LEVEL
+            else USER_TRUST_LEVEL
+        )
         return self._search_user_targets_page(
             query,
             page,
@@ -871,9 +884,12 @@ class AdministrationManager:
         for target in self.server.users.values():
             if target.username == user.username:
                 continue
-            if target.trust_level >= 3:
+            if target.trust_level >= DEVELOPER_TRUST_LEVEL:
                 continue
-            if user.trust_level < 3 and target.trust_level >= 2:
+            if (
+                user.trust_level < DEVELOPER_TRUST_LEVEL
+                and target.trust_level >= ADMIN_TRUST_LEVEL
+            ):
                 continue
             if term and term not in username_key(target.username):
                 continue
@@ -1103,7 +1119,7 @@ class AdministrationManager:
 
     def _require_developer_moderation_access(self, user: NetworkUser) -> bool:
         """Protect irreversible evidence cleanup at display and action time."""
-        if user.trust_level >= 3:
+        if user.trust_level >= DEVELOPER_TRUST_LEVEL:
             return True
         user.speak_l("dev-only-action", buffer="system")
         self._return_to_admin_root(user, "moderation")
@@ -1131,10 +1147,10 @@ class AdministrationManager:
                 id="toggle_global_chat",
                 description_key=(
                     "admin-moderation-global-chat-toggle-description"
-                    if user.trust_level >= 3
+                    if user.trust_level >= DEVELOPER_TRUST_LEVEL
                     else "admin-moderation-global-chat-status-description"
                 ),
-                read_only=user.trust_level < 3,
+                read_only=user.trust_level < DEVELOPER_TRUST_LEVEL,
             ),
             MenuItem(
                 text=Localization.get(
@@ -1201,7 +1217,7 @@ class AdministrationManager:
                 read_only=True,
             ),
         ]
-        if user.trust_level >= 3:
+        if user.trust_level >= DEVELOPER_TRUST_LEVEL:
             items.extend(
                 [
                     MenuItem(
@@ -2436,7 +2452,7 @@ class AdministrationManager:
                 id="manage_motd",
             ),
         ]
-        if user.trust_level >= 3:
+        if user.trust_level >= DEVELOPER_TRUST_LEVEL:
             items.append(
                 MenuItem(
                     text=Localization.get(user.locale, "server-power-management"),
@@ -2807,13 +2823,13 @@ class AdministrationManager:
         elif selection_id == "manage_motd":
             self.server._nav_push(user, self._show_manage_motd_menu)
         elif selection_id == "server_power":
-            if user.trust_level >= 3:
+            if user.trust_level >= DEVELOPER_TRUST_LEVEL:
                 self.server._nav_push(user, self._show_server_power_menu)
             else:
                 user.speak_l("dev-only-action", buffer="system")
                 self.server._nav_refresh(user, self._show_admin_menu)
         elif selection_id == "database_management":
-            if user.trust_level >= 3:
+            if user.trust_level >= DEVELOPER_TRUST_LEVEL:
                 self.server._nav_push(
                     user,
                     self._show_database_management_menu,
@@ -2822,7 +2838,7 @@ class AdministrationManager:
                 user.speak_l("dev-only-action", buffer="system")
                 self.server._nav_refresh(user, self._show_admin_menu)
         elif selection_id == "smtp_settings":
-            if user.trust_level >= 3:
+            if user.trust_level >= DEVELOPER_TRUST_LEVEL:
                 self.server._nav_push(user, self._show_smtp_settings_menu)
             else:
                 user.speak_l("dev-only-action", buffer="system")
@@ -2832,7 +2848,7 @@ class AdministrationManager:
 
     def _require_developer_database_access(self, user: NetworkUser) -> bool:
         """Protect database maintenance at display and action time."""
-        if user.trust_level >= 3:
+        if user.trust_level >= DEVELOPER_TRUST_LEVEL:
             return True
         user.speak_l("dev-only-action", buffer="system")
         self._return_to_admin_root(user, "database_management")
@@ -3375,7 +3391,7 @@ class AdministrationManager:
         self, user: NetworkUser, selection_id: str
     ) -> None:
         if selection_id == "toggle_global_chat":
-            if user.trust_level < 3:
+            if user.trust_level < DEVELOPER_TRUST_LEVEL:
                 user.speak_l("dev-only-action", buffer="system")
                 self.server._nav_refresh(user, self._show_moderation_menu)
                 return
@@ -3425,7 +3441,7 @@ class AdministrationManager:
         elif selection_id == "find_history":
             self._show_moderation_history_input(user)
         elif selection_id == "clear_history":
-            if user.trust_level >= 3:
+            if user.trust_level >= DEVELOPER_TRUST_LEVEL:
                 self.server._nav_push(
                     user,
                     self._show_moderation_clear_confirm_menu,
@@ -3435,7 +3451,7 @@ class AdministrationManager:
                 user.speak_l("dev-only-action", buffer="system")
                 self.server._nav_refresh(user, self._show_moderation_menu)
         elif selection_id == "clear_closed_reports":
-            if user.trust_level >= 3:
+            if user.trust_level >= DEVELOPER_TRUST_LEVEL:
                 self.server._nav_push(
                     user,
                     self._show_moderation_clear_confirm_menu,
@@ -3983,18 +3999,43 @@ class AdministrationManager:
         self.refresh_account_approval_menus(exclude_username=admin.username)
         self.server._nav_back(admin)
 
+    def _reject_stale_role_target(
+        self,
+        admin: NetworkUser,
+        username: str,
+        focus_id: str,
+    ) -> None:
+        """Explain and safely exit an outdated role-confirmation workflow."""
+        admin.speak_l(
+            "admin-role-target-changed",
+            buffer="system",
+            player=username,
+        )
+        self._return_to_admin_root(admin, focus_id)
+
     @require_admin
     async def _promote_to_admin(
         self, admin: NetworkUser, username: str, broadcast_scope: str
     ) -> None:
         """Promote a user to admin."""
-        # Update trust level in database
-        self.server.db.update_user_trust_level(username, 2)
+        try:
+            change = self.server.db.update_user_trust_level(
+                username,
+                ADMIN_TRUST_LEVEL,
+                expected_trust_level=USER_TRUST_LEVEL,
+            )
+        except ValueError:
+            self._reject_stale_role_target(admin, username, "promote_admin")
+            return
+        if change is None:
+            self._reject_stale_role_target(admin, username, "promote_admin")
+            return
+        username = change.username
 
         # Update the user's trust level if they are online
         target_user = self.server.users.get(username)
         if target_user:
-            target_user.set_trust_level(2)
+            target_user.set_trust_level(ADMIN_TRUST_LEVEL)
             self.server.on_user_presence_changed()
 
         # Always notify the target user with personalized message
@@ -4024,23 +4065,24 @@ class AdministrationManager:
         self, admin: NetworkUser, username: str, broadcast_scope: str
     ) -> None:
         """Demote an admin to regular user."""
-        # Check target trust level first
-        target_record = self.server.db.get_user(username)
-        if not target_record:
+        try:
+            change = self.server.db.update_user_trust_level(
+                username,
+                USER_TRUST_LEVEL,
+                expected_trust_level=ADMIN_TRUST_LEVEL,
+            )
+        except ValueError:
+            self._reject_stale_role_target(admin, username, "demote_admin")
             return
-            
-        if target_record.trust_level >= 3:
-            # Cannot demote developer
-            admin.speak_l("permission-denied", buffer="system") # Fallback or new key
+        if change is None:
+            self._reject_stale_role_target(admin, username, "demote_admin")
             return
-
-        # Update trust level in database
-        self.server.db.update_user_trust_level(username, 1)
+        username = change.username
 
         # Update the user's trust level if they are online
         target_user = self.server.users.get(username)
         if target_user:
-            target_user.set_trust_level(1)
+            target_user.set_trust_level(USER_TRUST_LEVEL)
             self.server.on_user_presence_changed()
 
         # Always notify the target user with personalized message
@@ -4079,7 +4121,10 @@ class AdministrationManager:
                 continue  # Don't send broadcasts to unapproved users
             if exclude_username and username == exclude_username:
                 continue  # Skip the excluded user
-            if broadcast_scope == "admins" and user.trust_level < 2:
+            if (
+                broadcast_scope == "admins"
+                and user.trust_level < ADMIN_TRUST_LEVEL
+            ):
                 continue  # Only admins if broadcasting to admins only
             user.speak_l(message_id, buffer="system", player=player_name)
             user.play_sound(sound)
@@ -4104,13 +4149,13 @@ class AdministrationManager:
         input_id = packet.get("input_id")
         value = packet.get("text", packet.get("value")) # Support both just in case
 
-        if menu_id in ADMIN_MENU_IDS and user.trust_level < 2:
+        if menu_id in ADMIN_MENU_IDS and user.trust_level < ADMIN_TRUST_LEVEL:
             user.speak_l("not-admin-anymore", buffer="system")
             self.server._show_main_menu(user)
             return True
 
         if menu_id == "smtp_setting_input":
-            if user.trust_level < 3:
+            if user.trust_level < DEVELOPER_TRUST_LEVEL:
                 user.speak_l("dev-only-action", buffer="system")
                 self.server._nav_back(user)
                 return True
@@ -4282,7 +4327,7 @@ class AdministrationManager:
 
     def _show_smtp_settings_menu(self, user: NetworkUser) -> None:
         """Show SMTP configuration menu. Dev-only."""
-        if user.trust_level < 3:
+        if user.trust_level < DEVELOPER_TRUST_LEVEL:
             user.speak_l("dev-only-action", buffer="system")
             self.server._nav_back(user)
             return
@@ -4323,7 +4368,7 @@ class AdministrationManager:
 
     async def _handle_smtp_settings_selection(self, user: NetworkUser, selection_id: str) -> None:
         """Handle selection in the SMTP settings menu. Dev-only."""
-        if user.trust_level < 3:
+        if user.trust_level < DEVELOPER_TRUST_LEVEL:
             user.speak_l("dev-only-action", buffer="system")
             self.server._nav_back(user)
             return
@@ -4396,7 +4441,7 @@ class AdministrationManager:
 
     async def _handle_smtp_encryption_selection(self, user: NetworkUser, selection_id: str) -> None:
         """Handle selection in the SMTP encryption menu. Dev-only."""
-        if user.trust_level < 3:
+        if user.trust_level < DEVELOPER_TRUST_LEVEL:
             user.speak_l("dev-only-action", buffer="system")
             self.server._nav_back(user)
             return
@@ -4434,7 +4479,7 @@ class AdministrationManager:
 
 
     def _require_dev_power(self, user: NetworkUser) -> bool:
-        if user.trust_level >= 3:
+        if user.trust_level >= DEVELOPER_TRUST_LEVEL:
             return True
         user.speak_l("dev-only-action", buffer="system")
         self._return_to_admin_root(user)
@@ -4966,13 +5011,16 @@ class AdministrationManager:
             return
 
         # Check immunity
-        if target_user.trust_level >= 3:
+        if target_user.trust_level >= DEVELOPER_TRUST_LEVEL:
             admin.speak_l("permission-denied", buffer="system")
             if show_menu:
                 self.server._nav_back(admin)
             return
         
-        if admin.trust_level < 3 and target_user.trust_level >= 2:
+        if (
+            admin.trust_level < DEVELOPER_TRUST_LEVEL
+            and target_user.trust_level >= ADMIN_TRUST_LEVEL
+        ):
             admin.speak_l("permission-denied", buffer="system")
             if show_menu:
                 self.server._nav_back(admin)
@@ -5157,7 +5205,10 @@ class AdministrationManager:
             return
         target_username = target_record.username
 
-        if target_record.trust_level >= 3 or (admin.trust_level < 3 and target_record.trust_level >= 2):
+        if target_record.trust_level >= DEVELOPER_TRUST_LEVEL or (
+            admin.trust_level < DEVELOPER_TRUST_LEVEL
+            and target_record.trust_level >= ADMIN_TRUST_LEVEL
+        ):
             admin.speak_l("permission-denied", buffer="system")
             self._return_to_admin_root(admin, "ban_user")
             return
@@ -5390,7 +5441,10 @@ class AdministrationManager:
             return
         target_username = target_record.username
 
-        if target_record.trust_level >= 3 or (admin.trust_level < 3 and target_record.trust_level >= 2):
+        if target_record.trust_level >= DEVELOPER_TRUST_LEVEL or (
+            admin.trust_level < DEVELOPER_TRUST_LEVEL
+            and target_record.trust_level >= ADMIN_TRUST_LEVEL
+        ):
             admin.speak_l("permission-denied", buffer="system")
             self._return_to_admin_root(admin, "mute_user")
             return
@@ -5400,7 +5454,7 @@ class AdministrationManager:
 
         # Broadcast to admins
         for u in self.server.users.values():
-            if u.trust_level >= 2:
+            if u.trust_level >= ADMIN_TRUST_LEVEL:
                 loc_reason = localized_penalty_reason_for_locale(
                     u.locale, reason_key
                 )
@@ -5461,7 +5515,7 @@ class AdministrationManager:
         if self.server.db.unmute_user(target_username):
             # Broadcast to admins
             for u in self.server.users.values():
-                if u.trust_level >= 2:
+                if u.trust_level >= ADMIN_TRUST_LEVEL:
                     u.speak_l("unmute-broadcast", buffer="system", target=target_username, actor=admin.username)
 
             # Notify the unmuted user if they are online

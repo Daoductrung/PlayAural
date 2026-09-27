@@ -16,6 +16,7 @@ from ..audio import (
     new_audio_handle,
 )
 from ..messages.localization import Localization
+from .roles import USER_TRUST_LEVEL
 
 if TYPE_CHECKING:
     from .preferences import UserPreferences
@@ -236,8 +237,8 @@ class User(ABC):
 
     @property
     def trust_level(self) -> int:
-        """The user's trust level (1 = player, 2 = admin). Defaults to 1 if not overridden."""
-        return 1
+        """Account role level: 1 user, 2 admin, or 3 developer."""
+        return USER_TRUST_LEVEL
 
     @property
     def preferences(self) -> "UserPreferences":

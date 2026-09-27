@@ -27,6 +27,11 @@ from ..administration.manager import (
     _localized_database_size,
 )
 from ..users.test_user import MockUser
+from ..users.roles import (
+    ADMIN_TRUST_LEVEL,
+    DEVELOPER_TRUST_LEVEL,
+    USER_TRUST_LEVEL,
+)
 from ..moderation.reports import AutomatedSpamEvidence
 from ..persistence.retention import (
     ABANDONED_DATABASE_FRAGMENT_MINIMUM_AGE_SECONDS,
@@ -1444,6 +1449,38 @@ async def test_admin_broadcast_scope_back_restores_confirmation_focus(tmp_path) 
         await _select(server, admin, "broadcast_choice_menu", "back")
         assert _current_menu(server, admin.username) == "promote_confirm_menu"
         assert admin.menus["promote_confirm_menu"]["selection_id"] == "yes"
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_stale_admin_promotion_cannot_downgrade_developer(tmp_path) -> None:
+    server, admin = _make_admin_server(tmp_path)
+    try:
+        _create_approved_user(server, "Target")
+        server._db.update_user_trust_level("Target", DEVELOPER_TRUST_LEVEL)
+
+        await server.admin_manager._promote_to_admin(admin, "Target", "nobody")
+
+        assert server._db.get_user("Target").trust_level == DEVELOPER_TRUST_LEVEL
+        assert "no longer has the expected role" in admin.get_last_spoken()
+        assert "accountpromoteadmin.ogg" not in admin.get_sounds_played()
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_stale_admin_demotion_cannot_announce_unchanged_user(tmp_path) -> None:
+    server, admin = _make_admin_server(tmp_path)
+    try:
+        _create_approved_user(server, "Target", ADMIN_TRUST_LEVEL)
+        server._db.update_user_trust_level("Target", USER_TRUST_LEVEL)
+
+        await server.admin_manager._demote_from_admin(admin, "Target", "nobody")
+
+        assert server._db.get_user("Target").trust_level == USER_TRUST_LEVEL
+        assert "no longer has the expected role" in admin.get_last_spoken()
+        assert "accountdemoteadmin.ogg" not in admin.get_sounds_played()
     finally:
         server._db.close()
 

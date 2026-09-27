@@ -236,3 +236,116 @@ def test_python_detection_rejects_unsupported_fallback(tmp_path):
     )
 
     assert result.stdout == "python3.11\n"
+
+
+def test_role_change_stops_service_and_restores_previous_running_state(tmp_path):
+    result = _run_script_functions(
+        tmp_path,
+        """
+        set -euo pipefail
+        SERVICE_FILE=$PWD/playaural.service
+        touch "$SERVICE_FILE"
+        EVENTS=()
+        IS_ACTIVE=0
+        systemctl() {
+            case "$1" in
+                is-active) [ "$IS_ACTIVE" -eq 1 ] ;;
+                stop) EVENTS+=(systemctl:stop); IS_ACTIVE=0 ;;
+                reset-failed) EVENTS+=(systemctl:reset-failed) ;;
+                start) EVENTS+=(systemctl:start); IS_ACTIVE=1 ;;
+                cat) return 0 ;;
+                *) return 0 ;;
+            esac
+        }
+        ensure_cli_environment() { EVENTS+=(environment); }
+        verify_database_storage() { EVENTS+=(verify); }
+        run_role_cli() { EVENTS+=("role:$1:$2"); }
+        sleep() { :; }
+
+        IS_ACTIVE=1
+        apply_user_role_change Rory101 developer
+        printf '%s\n' "${EVENTS[*]}"
+        """,
+    )
+
+    assert result.stdout.rstrip().endswith(
+        "systemctl:stop environment verify role:Rory101:developer verify "
+        "systemctl:reset-failed systemctl:start"
+    )
+
+
+def test_role_validation_rejection_restarts_service_but_storage_failure_does_not(
+    tmp_path,
+):
+    result = _run_script_functions(
+        tmp_path,
+        """
+        set -euo pipefail
+        SERVICE_FILE=$PWD/playaural.service
+        touch "$SERVICE_FILE"
+        EVENTS=()
+        IS_ACTIVE=1
+        ROLE_RESULT=2
+        systemctl() {
+            case "$1" in
+                is-active) [ "$IS_ACTIVE" -eq 1 ] ;;
+                stop) EVENTS+=(systemctl:stop); IS_ACTIVE=0 ;;
+                reset-failed) EVENTS+=(systemctl:reset-failed) ;;
+                start) EVENTS+=(systemctl:start); IS_ACTIVE=1 ;;
+                cat) return 0 ;;
+                *) return 0 ;;
+            esac
+        }
+        ensure_cli_environment() { EVENTS+=(environment); }
+        verify_database_storage() { EVENTS+=(verify); }
+        run_role_cli() { EVENTS+=("role:$1:$2:$ROLE_RESULT"); return "$ROLE_RESULT"; }
+        sleep() { :; }
+
+        if apply_user_role_change Rory101 developer; then exit 64; fi
+        printf 'validation=%s\n' "${EVENTS[*]}"
+
+        EVENTS=()
+        IS_ACTIVE=1
+        ROLE_RESULT=1
+        if apply_user_role_change Rory101 developer; then exit 65; fi
+        printf 'storage=%s\n' "${EVENTS[*]}"
+        """,
+    )
+
+    assert (
+        "validation=systemctl:stop environment verify role:Rory101:developer:2 "
+        "systemctl:reset-failed systemctl:start\n"
+    ) in result.stdout
+    assert (
+        "storage=systemctl:stop environment verify role:Rory101:developer:1\n"
+    ) in result.stdout
+
+
+def test_role_change_leaves_an_initially_stopped_service_stopped(tmp_path):
+    result = _run_script_functions(
+        tmp_path,
+        """
+        set -euo pipefail
+        SERVICE_FILE=$PWD/playaural.service
+        touch "$SERVICE_FILE"
+        EVENTS=()
+        systemctl() {
+            case "$1" in
+                is-active) return 1 ;;
+                stop) EVENTS+=(systemctl:stop) ;;
+                cat) return 0 ;;
+                *) EVENTS+=("systemctl:$1") ;;
+            esac
+        }
+        ensure_cli_environment() { EVENTS+=(environment); }
+        verify_database_storage() { EVENTS+=(verify); }
+        run_role_cli() { EVENTS+=("role:$1:$2"); }
+
+        apply_user_role_change Rory101 admin
+        printf '%s\n' "${EVENTS[*]}"
+        """,
+    )
+
+    assert result.stdout.rstrip().endswith(
+        "systemctl:stop environment verify role:Rory101:admin verify"
+    )

@@ -74,6 +74,14 @@ except ImportError:
     from server.users.base import MenuItem, User, generate_uuid  # noqa: E402
     from server.users.bot import Bot  # noqa: E402
 
+if HAS_SERVER_PACKAGE:
+    from server.users.roles import (  # noqa: E402
+        USER_ROLE_TRUST_LEVELS,
+        user_role_name,
+    )
+else:
+    from users.roles import USER_ROLE_TRUST_LEVELS, user_role_name  # noqa: E402
+
 # Ensure localization is initialized for standalone CLI use (idempotent).
 Localization.init(_MODULE_DIR / "locales")
 
@@ -727,18 +735,28 @@ def cmd_simulate(args):
 
 
 @contextmanager
-def open_auth_database():
+def open_auth_database(
+    *,
+    database_path: str | Path | None = None,
+    migration_backup_dir: str | Path | None = None,
+):
     """Open the production auth database for short CLI account operations."""
     if HAS_SERVER_PACKAGE:
         from server.persistence.database import Database
     else:
         from persistence.database import Database
 
-    db = Database()
+    resolved_database_path = Path(
+        database_path if database_path is not None else "PlayAural.db"
+    )
+    resolved_backup_dir = Path(
+        migration_backup_dir or (_MODULE_DIR / "backups")
+    )
+    db = Database(resolved_database_path)
     try:
         db.connect(
             timeout=30.0,
-            migration_backup_dir=Path(__file__).resolve().parent / "backups",
+            migration_backup_dir=resolved_backup_dir,
         )
         yield db
     except sqlite3.OperationalError as exc:
@@ -749,6 +767,8 @@ def open_auth_database():
             )
         else:
             print(f"Error: Database operation failed: {exc}")
+        for note in getattr(exc, "__notes__", ()):
+            print(note)
         sys.exit(1)
     except sqlite3.DatabaseError as exc:
         if Database._is_corruption_error(exc):
@@ -759,6 +779,13 @@ def open_auth_database():
             )
         else:
             print(f"Error: Database operation failed: {exc}")
+        for note in getattr(exc, "__notes__", ()):
+            print(note)
+        sys.exit(1)
+    except (OSError, RuntimeError) as exc:
+        print(f"Error: Database storage operation failed: {exc}")
+        for note in getattr(exc, "__notes__", ()):
+            print(note)
         sys.exit(1)
     finally:
         db.close()
@@ -784,8 +811,13 @@ def cmd_create_user(args):
         if result == "ok":
             print(f"Success: User '{args.username}' created.")
             user = db.get_user(args.username)
-            if user and user.trust_level >= 2:
-                print("Note: User granted ADMIN privileges (First user).")
+            if user and user.trust_level in USER_ROLE_TRUST_LEVELS.values():
+                role_name = user_role_name(user.trust_level)
+                if role_name != "user":
+                    print(
+                        f"Note: User granted {role_name.upper()} privileges "
+                        "(first user)."
+                    )
         elif result == "username_taken":
             print(f"Error: User '{args.username}' already exists.")
             sys.exit(1)
@@ -825,6 +857,95 @@ def cmd_reset_password(args):
         else:
             print(f"Error: User '{args.username}' not found.")
             sys.exit(1)
+
+
+def _exit_role_validation(message: str) -> None:
+    """Report a safe role-management rejection with a distinct exit code."""
+    print(f"Error: {message}")
+    raise SystemExit(2)
+
+
+def cmd_set_user_role(args):
+    """Apply one offline, backed-up account-role transition."""
+    if not args.confirm_server_stopped:
+        _exit_role_validation(
+            "The game service must be stopped before changing a user role. "
+            "Use sc.sh, or stop the service and pass --confirm-server-stopped."
+        )
+
+    database_path = Path(args.database).resolve()
+    backup_dir = Path(args.database_backup_dir).resolve()
+    try:
+        database_exists = database_path.is_file() and database_path.stat().st_size > 0
+    except OSError as exc:
+        print(f"Error: Could not inspect database {database_path}: {exc}")
+        raise SystemExit(1) from exc
+    if not database_exists:
+        print(
+            f"Error: Existing non-empty database not found at {database_path}. "
+            "No database was created."
+        )
+        raise SystemExit(1)
+
+    target_level = USER_ROLE_TRUST_LEVELS[args.role]
+    with open_auth_database(
+        database_path=database_path,
+        migration_backup_dir=backup_dir,
+    ) as db:
+        try:
+            preview = db.preview_user_trust_level_change(
+                args.username,
+                target_level,
+            )
+        except ValueError as exc:
+            _exit_role_validation(str(exc))
+        if preview is None:
+            _exit_role_validation(f"User '{args.username}' was not found.")
+        if preview.username != args.username:
+            _exit_role_validation(
+                f"The entered username resolves to '{preview.username}'. Enter "
+                "that exact registered spelling to confirm the target account."
+            )
+
+        previous_role = user_role_name(preview.previous_trust_level)
+        target_role = user_role_name(preview.trust_level)
+        if not preview.changed:
+            print(
+                f"No change needed: '{preview.username}' already has the "
+                f"{target_role} role (trust level {preview.trust_level})."
+            )
+            return
+
+        print(
+            f"Validated role change for '{preview.username}': "
+            f"{previous_role} ({preview.previous_trust_level}) -> "
+            f"{target_role} ({preview.trust_level})."
+        )
+        backup = db.backup_database(backup_dir, purpose="pre-role-change")
+        print(f"Verified safety backup: {backup.path}")
+
+        try:
+            change = db.update_user_trust_level(
+                preview.username,
+                target_level,
+                expected_trust_level=preview.previous_trust_level,
+            )
+        except ValueError as exc:
+            _exit_role_validation(str(exc))
+        if change is None:
+            raise sqlite3.DatabaseError(
+                "The target account disappeared before the role update"
+            )
+
+        verified = db.get_user(change.username)
+        if verified is None or verified.trust_level != target_level:
+            raise sqlite3.DatabaseError(
+                "The committed role change could not be verified"
+            )
+        print(
+            f"Success: '{verified.username}' now has the {target_role} role "
+            f"(trust level {verified.trust_level})."
+        )
 
 def main():
     parser = argparse.ArgumentParser(
@@ -899,6 +1020,33 @@ def main():
     reset_pw_parser = subparsers.add_parser("reset-password", help="Reset a user's password")
     reset_pw_parser.add_argument("username", help="Username")
 
+    # set-user-role command (offline operator maintenance only)
+    role_parser = subparsers.add_parser(
+        "set-user-role",
+        help="Change a user's role while the game service is stopped",
+    )
+    role_parser.add_argument("username", help="Username")
+    role_parser.add_argument(
+        "role",
+        choices=tuple(USER_ROLE_TRUST_LEVELS),
+        help="Target role",
+    )
+    role_parser.add_argument(
+        "--database",
+        default=str(_MODULE_DIR / "PlayAural.db"),
+        help="Existing PlayAural database path",
+    )
+    role_parser.add_argument(
+        "--database-backup-dir",
+        default=str(_MODULE_DIR / "backups"),
+        help="Directory for the verified pre-change backup",
+    )
+    role_parser.add_argument(
+        "--confirm-server-stopped",
+        action="store_true",
+        help="Confirm that the game service is stopped",
+    )
+
     args = parser.parse_args()
 
     if args.command == "list-games":
@@ -911,6 +1059,8 @@ def main():
         cmd_create_user(args)
     elif args.command == "reset-password":
         cmd_reset_password(args)
+    elif args.command == "set-user-role":
+        cmd_set_user_role(args)
     else:
         parser.print_help()
         sys.exit(1)

@@ -677,6 +677,7 @@ menu-page-last = Last page
 admin-search-no-results = No matching users found. Use Search by username to try a different term.
 confirm-promote = Are you sure you want to promote { $player } to admin?
 confirm-demote = Are you sure you want to demote { $player } from admin?
+admin-role-target-changed = { $player } no longer has the expected role. Refresh the list and try again.
 broadcast-to-all = Announce to all users
 broadcast-to-admins = Announce to admins only
 broadcast-to-nobody = Silent (no announcement)

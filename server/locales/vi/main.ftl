@@ -677,6 +677,7 @@ menu-page-last = Trang cuối
 admin-search-no-results = Không tìm thấy người dùng phù hợp. Hãy dùng Tìm theo tên người dùng để thử từ khóa khác.
 confirm-promote = Bạn có chắc muốn thăng chức admin cho { $player }?
 confirm-demote = Bạn có chắc muốn giáng chức admin của { $player }?
+admin-role-target-changed = { $player } không còn có vai trò như dự kiến. Hãy làm mới danh sách rồi thử lại.
 broadcast-to-all = Thông báo cho tất cả người dùng
 broadcast-to-admins = Chỉ thông báo cho các admin
 broadcast-to-nobody = Im lặng (không thông báo)

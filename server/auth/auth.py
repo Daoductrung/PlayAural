@@ -11,9 +11,11 @@ import logging
 try:
     from ..game_utils.bot_names import is_reserved_bot_name
     from ..users.identity import username_validation_error
+    from ..users.roles import DEVELOPER_TRUST_LEVEL
 except ImportError:  # pragma: no cover - supports direct server/cli imports
     from game_utils.bot_names import is_reserved_bot_name
     from users.identity import username_validation_error
+    from users.roles import DEVELOPER_TRUST_LEVEL
 
 if TYPE_CHECKING:
     from ..persistence.database import Database, UserRecord
@@ -92,8 +94,13 @@ class AuthManager:
                 return "username_taken"
             return "db_error"
 
-        if result.trust_level >= 3:
-            logging.info(f"User '{username}' is the first user and has been granted developer (trust level 3).")
+        if result.trust_level >= DEVELOPER_TRUST_LEVEL:
+            logging.info(
+                "User '%s' is the first user and has been granted developer "
+                "(trust level %d).",
+                username,
+                DEVELOPER_TRUST_LEVEL,
+            )
 
         return "ok"
 

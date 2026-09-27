@@ -568,6 +568,18 @@ run_account_cli() {
     (cd "$SERVER_DIR" && runuser -u "$SERVICE_USER" -- env PLAYAURAL_CLI_PW="$password" "$VENV_PYTHON" "$SERVER_DIR/cli.py" "$command_name" "$username" "$@")
 }
 
+run_role_cli() {
+    local username="$1"
+    local role_name="$2"
+
+    (cd "$SERVER_DIR" && runuser -u "$SERVICE_USER" -- \
+        "$VENV_PYTHON" "$SERVER_DIR/cli.py" set-user-role \
+        "$username" "$role_name" \
+        --database "$DATABASE_PATH" \
+        --database-backup-dir "$DATABASE_BACKUP_DIR" \
+        --confirm-server-stopped)
+}
+
 setup_service() {
     setup_system_user || return 1
     ensure_config_dir || return 1
@@ -869,6 +881,26 @@ stop_game_service_for_environment_change() {
     fi
 }
 
+stop_game_service_for_role_change() {
+    if [ ! -e "$SERVICE_FILE" ] && \
+        ! systemctl cat "$SERVICE_NAME" >/dev/null 2>&1; then
+        say_error "The managed game service is not installed, so sc.sh cannot verify that the server is offline."
+        say_error "Install the service or stop every manually launched server process before managing roles."
+        return 1
+    fi
+
+    say_info "Stopping the game server before changing persistent authorization..."
+    if ! systemctl stop "$SERVICE_NAME"; then
+        say_error "The game server could not be stopped; no role change was attempted."
+        return 1
+    fi
+    if systemctl is-active --quiet "$SERVICE_NAME"; then
+        say_error "The game server still reports as active; no role change was attempted."
+        return 1
+    fi
+    say_ok "The game server is stopped. Active sessions cannot retain stale permissions."
+}
+
 start_game_service() {
     if ! systemctl reset-failed "$SERVICE_NAME"; then
         say_error "systemd could not reset the game service failure state."
@@ -876,6 +908,17 @@ start_game_service() {
     fi
     if ! systemctl start "$SERVICE_NAME"; then
         say_error "systemd could not start the game service."
+        return 1
+    fi
+}
+
+restore_game_service_after_role_operation() {
+    if ! start_game_service; then
+        return 1
+    fi
+    sleep 2
+    if ! systemctl is-active --quiet "$SERVICE_NAME"; then
+        say_error "The game service did not remain active after startup. Review its logs before retrying."
         return 1
     fi
 }
@@ -1141,6 +1184,125 @@ reset_password() {
     return "$result"
 }
 
+apply_user_role_change() {
+    local username="$1"
+    local role_name="$2"
+    local was_active=0
+    local result=0
+
+    if systemctl is-active --quiet "$SERVICE_NAME"; then
+        was_active=1
+    fi
+    if ! stop_game_service_for_role_change; then
+        return 1
+    fi
+    if ! ensure_cli_environment; then
+        say_error "The role-management environment could not be prepared. The game server remains stopped."
+        return 1
+    fi
+    if ! verify_database_storage; then
+        say_error "Database storage verification failed. The game server remains stopped and no role change was attempted."
+        return 1
+    fi
+
+    if run_role_cli "$username" "$role_name"; then
+        result=0
+    else
+        result=$?
+    fi
+    if [ "$result" -ne 0 ]; then
+        if [ "$result" -eq 2 ]; then
+            say_warn "The requested role change was rejected without changing the account."
+            if [ "$was_active" -eq 1 ]; then
+                say_info "Restoring the previously running game service..."
+                restore_game_service_after_role_operation || return 1
+            fi
+        else
+            say_error "Role management encountered a database or storage failure."
+            say_error "For safety, the game server remains stopped. Review the error and verified backups before starting it."
+        fi
+        return 1
+    fi
+
+    if ! verify_database_storage; then
+        say_error "Post-change storage verification failed. The role change may have committed, so the game server remains stopped."
+        return 1
+    fi
+    if [ "$was_active" -eq 1 ]; then
+        say_info "Starting the game server after the verified role change..."
+        if ! restore_game_service_after_role_operation; then
+            say_error "The role change completed, but the game server could not be restarted."
+            return 1
+        fi
+        say_ok "The game server returned to its previous running state."
+    else
+        say_info "The game server was already stopped and has been left stopped."
+    fi
+    return 0
+}
+
+manage_user_role() {
+    local username role_choice role_name confirmation result
+
+    echo "--- User Role Management ---"
+    say_warn "This changes production authorization and requires the game server to be offline."
+    echo "sc.sh will stop the managed game service, create a verified database backup,"
+    echo "apply and verify one atomic role change, and restart the service only if it"
+    echo "was previously running and every safety check succeeds."
+    echo "The last approved developer cannot be demoted; promote a replacement first."
+    say_warn "Ask active users to save and log out before continuing."
+    echo
+    echo "Roles:"
+    echo " 1. User       - normal account access"
+    echo " 2. Admin      - moderation and account administration"
+    echo " 3. Developer  - full server, database, SMTP, and moderation control"
+    echo " 0. Cancel"
+    echo
+
+    read -rp "Enter the exact username: " username
+    if [ -z "$username" ]; then
+        say_error "Username cannot be empty."
+        pause_screen
+        return 1
+    fi
+    read -rp "Choose the target role: " role_choice
+    case "$role_choice" in
+        1) role_name="user" ;;
+        2) role_name="admin" ;;
+        3) role_name="developer" ;;
+        0)
+            say_info "Role management cancelled."
+            pause_screen
+            return 0
+            ;;
+        *)
+            say_error "Invalid role selection."
+            pause_screen
+            return 1
+            ;;
+    esac
+
+    echo
+    echo "Requested account: $username"
+    echo "Requested role:    $role_name"
+    read -rp "Type YES to stop the game server and continue: " confirmation
+    if [ "$confirmation" != "YES" ]; then
+        say_info "Role management cancelled; the game server was not stopped."
+        pause_screen
+        return 0
+    fi
+
+    if apply_user_role_change "$username" "$role_name"; then
+        say_ok "User role management completed."
+        result=0
+    else
+        say_error "User role management did not complete successfully."
+        result=1
+    fi
+    pause_screen
+    return "$result"
+}
+
 uninstall_voice_service() {
     say_warn "Disabling the voice service. The binary and configuration files will be kept."
     systemctl stop "$VOICE_SERVICE_NAME" >/dev/null 2>&1 || true
@@ -1188,6 +1350,7 @@ show_menu() {
     echo "16. Show Voice Configuration"
     echo "17. Uninstall Voice Service"
     echo "18. Uninstall Game Service"
+    echo "19. Manage User Role (stops game server; verified backup)"
     echo " 0. Exit"
     echo "=================================================="
     read -rp "Choose an option: " choice
@@ -1220,6 +1383,7 @@ while true; do
         16) show_voice_config; pause_screen ;;
         17) uninstall_voice_service ;;
         18) uninstall_service ;;
+        19) manage_user_role ;;
         0) exit 0 ;;
         *) say_error "Invalid option."; pause_screen ;;
     esac

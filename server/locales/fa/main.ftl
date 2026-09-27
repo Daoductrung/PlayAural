@@ -450,6 +450,7 @@ menu-page-last = صفحه‌ی آخر
 admin-search-no-results = هیچ کاربری یافت نشد. برای جستجوی عبارت دیگر از گزینه‌ی جستجو بر اساس نام کاربری استفاده کنید.
 confirm-promote = آیا مطمئن هستید که می‌خواهید { $player } را به مدیر ارتقا دهید؟
 confirm-demote = آیا مطمئن هستید که می‌خواهید { $player } را از مدیریت تنزل دهید؟
+admin-role-target-changed = { $player } دیگر نقش مورد انتظار را ندارد. فهرست را تازه‌سازی کنید و دوباره تلاش کنید.
 broadcast-to-all = اعلام به همه‌ی کاربران
 broadcast-to-admins = فقط به مدیران اعلام کن
 broadcast-to-nobody = بی‌صدا (بدون اعلام)

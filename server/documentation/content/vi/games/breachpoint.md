@@ -75,7 +75,7 @@ Bạn luôn biết vị trí và trạng thái chiến đấu công khai của �
 
 Khi đối thủ rời khỏi mọi đường ngắm của đội, họ lại bị ẩn. Nếu đội bên kia không quan sát được một hành động, trò chơi sẽ không đọc ra rằng người đó vừa di chuyển, chờ đợi, kê góc hay chuẩn bị né tránh. Âm thanh không gian ở cự ly gần vẫn có thể giúp người nghe tinh ý đoán được tình hình. Riêng thông tin hạ gục luôn công khai: tất cả mọi người đều biết ai bắn, ai bị hạ, vũ khí nào được dùng và sự việc xảy ra ở đâu, nên vị trí cuối cùng của người bị hạ vẫn được biết.
 
-Trước khi đặt bom, CT chỉ biết ai đang cầm bom nếu nhìn thấy người đó. CT có thể thấy và canh quả bom bị rơi nhưng không thể nhặt nó. T luôn biết trạng thái bom của đội mình. Khi bom đã được đặt, vị trí đặt bom trở thành thông tin công khai.
+Trước khi đặt bom, CT chỉ biết ai đang cầm bom nếu nhìn thấy người đó. CT có thể thấy và canh quả bom bị rơi nhưng không thể nhặt nó. T luôn biết trạng thái bom của đội mình. Khi một thành viên T đã tới đúng khu vực, họ được nhặt bom miễn phí; việc di chuyển tới đó và vượt qua mọi góc đang bị canh vẫn tốn hành động như thường. Khi bom đã được đặt, vị trí đặt bom trở thành thông tin công khai.
 
 \*\*Đấu súng, giáp và né tránh\*\*
 

@@ -163,7 +163,7 @@ class GameSoundMixin:
             candidates = (audience,)
 
         public_audience = audience is None
-        users: list["User"] = []
+        users: list[User] = []
         player_ids: list[str] = []
         seen_users: set[str] = set()
         seen_players: set[str] = set()
@@ -541,7 +541,7 @@ class GameSoundMixin:
         )
         seat_index = self._seat_index_of(seat_of)
         seat_count = len(self.players)
-        deliveries: list[tuple["User | None", AudioCommand, list[str]]] = []
+        deliveries: list[tuple[User | None, AudioCommand, list[str]]] = []
         table_recipient_ids: set[str] = set()
         for player_id in player_ids:
             player = self.get_player_by_id(player_id)
@@ -665,6 +665,7 @@ class GameSoundMixin:
         pan: int | None = None,
         pitch: int = 100,
         *,
+        handle: str = "",
         bus: str = "sfx",
         priority: int = 0,
         max_instances: int = 0,
@@ -678,6 +679,7 @@ class GameSoundMixin:
             command="play",
             kind="sfx",
             family=family,
+            handle=handle,
             bus=bus,
             volume=volume,
             pan=pan,

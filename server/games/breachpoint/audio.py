@@ -29,6 +29,8 @@ TICKS_PER_SECOND = 20
 AUDIO_ROOT = "game_breachpoint"
 MAP_AMBIENCE_HANDLE = "breachpoint.map.ambience"
 MAP_ZONE_AMBIENCE_HANDLE = "breachpoint.map.zone"
+AMBIENT_STINGER_HANDLE_PREFIX = "breachpoint.ambient-stinger."
+MATCH_END_AMBIENCE_FADE_MS = 250
 MOVEMENT_AUDIO_SEQUENCE_TAG = "breachpoint-movement"
 UTILITY_AUDIO_SEQUENCE_TAG = "breachpoint-utility"
 WEAPON_AUDIO_SEQUENCE_TAG = "breachpoint-weapon-fire"
@@ -1243,6 +1245,66 @@ class BreachPointAudioMixin:
             if listener and user:
                 listeners.append((listener, user))
         return listeners
+
+    def _bot_team_indexes_hearing_point(
+        self,
+        source_team_index: int,
+        source: GridPoint,
+        *,
+        source_height_meters: float,
+        attenuation: DistanceAttenuation,
+    ) -> set[int]:
+        """Return enemy bot teams with a living listener in audible range."""
+
+        audible_team_indexes: set[int] = set()
+        for player in self.get_active_players():
+            listener = self._breach_player(player)
+            if (
+                not listener
+                or not listener.is_bot
+                or listener.eliminated
+                or listener.team_index == source_team_index
+            ):
+                continue
+            if self._listener_spatialization(
+                listener,
+                source,
+                source_height_meters=source_height_meters,
+                attenuation=attenuation,
+            ) is not None:
+                audible_team_indexes.add(listener.team_index)
+        return audible_team_indexes
+
+    def _bot_team_indexes_hearing_path(
+        self,
+        source_team_index: int,
+        origin: GridPoint,
+        destination: GridPoint,
+        *,
+        source_height_meters: float,
+        attenuation: DistanceAttenuation,
+    ) -> set[int]:
+        """Return enemy bot teams that hear any portion of a moving source."""
+
+        audible_team_indexes: set[int] = set()
+        for player in self.get_active_players():
+            listener = self._breach_player(player)
+            if (
+                not listener
+                or not listener.is_bot
+                or listener.eliminated
+                or listener.team_index == source_team_index
+            ):
+                continue
+            if self._listener_can_hear_path(
+                listener,
+                origin,
+                destination,
+                source_height_meters=source_height_meters,
+                attenuation=attenuation,
+            ):
+                audible_team_indexes.add(listener.team_index)
+        return audible_team_indexes
 
     def _listener_spatialization(
         self,
@@ -2690,6 +2752,23 @@ class BreachPointAudioMixin:
             self.sound_scheduler_tick + delay_seconds * TICKS_PER_SECOND
         )
 
+    @staticmethod
+    def _ambient_stinger_handle(emitter_id: str) -> str:
+        return f"{AMBIENT_STINGER_HANDLE_PREFIX}{emitter_id}"
+
+    def _stop_match_environment_audio(self) -> None:
+        """Retire loops and already-playing environmental stingers at match end."""
+
+        self.ambient_stinger_due_ticks = {}
+        self.stop_all_ambience(
+            fade_ms=MATCH_END_AMBIENCE_FADE_MS,
+            play_outro=False,
+        )
+        for emitter in self.tactical_map.ambient_emitters:
+            handle = self._ambient_stinger_handle(emitter.id)
+            for _, user in self._audio_listeners():
+                user.stop_sound(handle, fade_ms=MATCH_END_AMBIENCE_FADE_MS)
+
     def _process_ambient_stingers(self) -> None:
         if self.status != "playing":
             return
@@ -2712,6 +2791,7 @@ class BreachPointAudioMixin:
                     source_height_meters=emitter.source_height_meters,
                 )
                 kwargs = {
+                    "handle": self._ambient_stinger_handle(emitter.id),
                     "buffer": "game",
                     "volume": emitter.volume,
                     "priority": 3,

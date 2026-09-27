@@ -155,12 +155,13 @@ def test_game_sound_family_dispatches_one_validated_family_to_every_listener(
     alice.clear_messages()
     bob.clear_messages()
 
-    game.play_sound_family("game_squares/diceroll")
+    game.play_sound_family("game_squares/diceroll", handle="dice.preview")
 
     for user in (alice, bob):
         message = user.messages[-1]
         assert message.type == "play_sound"
         assert message.data["family"] == "game_squares/diceroll"
+        assert message.data["handle"] == "dice.preview"
         assert "asset" not in message.data
 
 

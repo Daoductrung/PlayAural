@@ -90,7 +90,7 @@ STANDARD_RULES = BreachPointRules(
     disengage_cost=2,
     plant_cost=1,
     defuse_cost=2,
-    bomb_pickup_cost=1,
+    bomb_pickup_cost=0,
     weapon_pickup_cost=1,
     maximum_utility_items=4,
     repeat_objective_response_action_points=1,
@@ -149,7 +149,6 @@ def _validate_rules(rules: BreachPointRules) -> None:
         rules.disengage_cost,
         rules.plant_cost,
         rules.defuse_cost,
-        rules.bomb_pickup_cost,
         rules.weapon_pickup_cost,
         rules.maximum_utility_items,
         rules.repeat_objective_response_action_points,
@@ -157,6 +156,8 @@ def _validate_rules(rules: BreachPointRules) -> None:
     )
     if any(value <= 0 for value in positive_values):
         raise ValueError("Breach Point action and timing values must be positive")
+    if rules.bomb_pickup_cost < 0:
+        raise ValueError("Bomb pickup cost cannot be negative")
     if not rules.tactical_timing_profiles:
         raise ValueError("Breach Point requires at least one tactical timing profile")
     previous_maximum: int | None = None

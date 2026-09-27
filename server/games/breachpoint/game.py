@@ -8,6 +8,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from ...audio import DistanceAttenuation
 from ...game_utils.actions import Action, ActionSet, Visibility
 from ...game_utils.bot_helper import BotHelper
 from ...game_utils.game_result import GameResult
@@ -59,7 +60,10 @@ from .audio import (
     BOMB_EXPLOSION_HANDLE,
     BUY_COUNTDOWN_ASSET,
     BUY_ITEM_HOVER_ASSETS,
+    DISTANT_ATTENUATION,
     FINAL_ROUND_STINGER_ASSET,
+    FOOTSTEP_ATTENUATION,
+    FOOTSTEP_SOURCE_HEIGHT_METERS,
     LAST_ROUND_HALF_ASSET,
     MATCH_VICTORY_ASSET,
     MOVEMENT_AUDIO_SEQUENCE_TAG,
@@ -71,6 +75,7 @@ from .audio import (
     MUSIC_MATCH_START_ASSET,
     MUSIC_ROUND_START_ASSET,
     MUSIC_ROUND_TEN_SECOND_ASSET,
+    POSITIONAL_ATTENUATION,
     RADIO_BOMB_DEFUSED_ASSET,
     RADIO_BOMB_PLANTED_ASSET,
     RADIO_COUNTER_TERRORISTS_WIN_ASSET,
@@ -78,15 +83,23 @@ from .audio import (
     TICKS_PER_SECOND,
     TURN_NOTIFICATION_ASSET,
     UTILITY_AUDIO_SEQUENCE_TAG,
+    UTILITY_SOURCE_HEIGHT_METERS,
     WEAPON_AUDIO_SEQUENCE_TAG,
+    WEAPON_SOURCE_HEIGHT_METERS,
     BreachPointAudioMixin,
     bomb_detonation_warning_ticks,
-    round_result_transition_ticks,
     movement_audio_plan,
+    round_result_transition_ticks,
     utility_audio_timing,
     weapon_fire_delay_ticks,
 )
-from .bot import BreachPointBotCoordinator
+from .bot import (
+    ACOUSTIC_CUE_FOOTSTEPS,
+    ACOUSTIC_CUE_UTILITY,
+    ACOUSTIC_CUE_WEAPON_DROP,
+    ACOUSTIC_CUE_WEAPON_FIRE,
+    BreachPointBotCoordinator,
+)
 from .effects import AreaEffectState
 from .ground import BuyTransaction, DroppedWeapon, PendingWeaponDonation
 from .maps import (
@@ -2708,6 +2721,61 @@ class BreachPointGame(BreachPointAudioMixin, Game):
     def _player_grid_point(player: BreachPointPlayer) -> GridPoint:
         return GridPoint(player.grid_x, player.grid_y)
 
+    def _record_bot_acoustic_point(
+        self,
+        source: BreachPointPlayer,
+        node_id: str,
+        cue_kind: str,
+        point: GridPoint,
+        *,
+        source_height_meters: float,
+        attenuation: DistanceAttenuation,
+    ) -> None:
+        """Share a point cue only with enemy bot teams in audible range."""
+
+        audible_team_indexes = self._bot_team_indexes_hearing_point(
+            source.team_index,
+            point,
+            source_height_meters=source_height_meters,
+            attenuation=attenuation,
+        )
+        self._bot_coordinator.record_acoustic_cue(
+            self,
+            source_team_index=source.team_index,
+            node_id=node_id,
+            cue_kind=cue_kind,
+            audible_team_indexes=audible_team_indexes,
+        )
+
+    def _record_bot_acoustic_path(
+        self,
+        source: BreachPointPlayer,
+        destination_node_id: str,
+        cue_kind: str,
+        origin: GridPoint,
+        destination: GridPoint,
+        *,
+        source_height_meters: float,
+        attenuation: DistanceAttenuation,
+    ) -> None:
+        """Share a moving cue only with enemy bot teams that hear its path."""
+
+        audible_team_indexes = self._bot_team_indexes_hearing_path(
+            source.team_index,
+            origin,
+            destination,
+            source_height_meters=source_height_meters,
+            attenuation=attenuation,
+        )
+        self._bot_coordinator.record_acoustic_cue(
+            self,
+            source_team_index=source.team_index,
+            node_id=destination_node_id,
+            cue_kind=cue_kind,
+            audible_team_indexes=audible_team_indexes,
+            origin_node_id=source.position_id,
+        )
+
     def _bomb_grid_point(self) -> GridPoint:
         """Return the bomb's exact valid ground coordinate or its area anchor."""
 
@@ -3578,6 +3646,15 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             dropped_weapon,
             team_only=team_only,
         )
+        if not team_only and self.phase == PHASE_COMBAT:
+            self._record_bot_acoustic_point(
+                player,
+                dropped_weapon.node_id,
+                ACOUSTIC_CUE_WEAPON_DROP,
+                point,
+                source_height_meters=FOOTSTEP_SOURCE_HEIGHT_METERS,
+                attenuation=POSITIONAL_ATTENUATION,
+            )
         return dropped_weapon
 
     def _death_drop_weapon(
@@ -8328,6 +8405,14 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         thrower.utility_counts[utility.id] -= 1
         if not thrower.utility_counts[utility.id]:
             del thrower.utility_counts[utility.id]
+        self._record_bot_acoustic_point(
+            thrower,
+            thrower.position_id,
+            ACOUSTIC_CUE_UTILITY,
+            self._player_grid_point(thrower),
+            source_height_meters=UTILITY_SOURCE_HEIGHT_METERS,
+            attenuation=POSITIONAL_ATTENUATION,
+        )
         self._play_utility_audio(thrower, utility, node_id)
         self._announce_utility_throw(
             thrower,
@@ -8437,6 +8522,16 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             for index in payload.get("visible_team_indexes", [])
             if int(index) in TEAM_INDEXES
         }
+        destination_node = self._node(node_id)
+        if destination_node:
+            self._record_bot_acoustic_point(
+                thrower,
+                node_id,
+                ACOUSTIC_CUE_UTILITY,
+                destination_node.anchor,
+                source_height_meters=UTILITY_SOURCE_HEIGHT_METERS,
+                attenuation=DISTANT_ATTENUATION,
+            )
         self._play_utility_detonation(utility.id, node_id)
         round_finished = False
         if utility.effect == UTILITY_EFFECT_SMOKE:
@@ -8668,9 +8763,19 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         )
         heading = int(payload["destination_heading"]) % 360
         self._clear_held_angle(mover)
+        origin = self._player_grid_point(mover)
+        self._record_bot_acoustic_path(
+            mover,
+            str(payload["destination_node_id"]),
+            ACOUSTIC_CUE_FOOTSTEPS,
+            origin,
+            destination,
+            source_height_meters=FOOTSTEP_SOURCE_HEIGHT_METERS,
+            attenuation=FOOTSTEP_ATTENUATION,
+        )
         self._play_movement_audio(
             mover,
-            self._player_grid_point(mover),
+            origin,
             destination,
             tuple(str(asset) for asset in payload.get("assets", [])),
             float(payload["next_start_ratio"]),
@@ -8885,6 +8990,15 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             self.refresh_menus()
             return
         sequence.metadata["shots_issued"] = shot_index + 1
+        if shot_index == 0:
+            self._record_bot_acoustic_point(
+                shooter,
+                shooter.position_id,
+                ACOUSTIC_CUE_WEAPON_FIRE,
+                self._player_grid_point(shooter),
+                source_height_meters=WEAPON_SOURCE_HEIGHT_METERS,
+                attenuation=DISTANT_ATTENUATION,
+            )
         self._play_weapon_bullet_audio(
             shooter,
             target,
@@ -10874,6 +10988,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
     def _finish_match(self, squad_index: int, reason: str) -> None:
         if self.status != "playing":
             return
+        self._stop_match_environment_audio()
         self.reaction_window = ReactionWindow()
         self._clear_round_recovery()
         self._reset_dropped_weapons()

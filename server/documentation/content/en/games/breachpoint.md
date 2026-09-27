@@ -75,7 +75,7 @@ You always know your teammates' locations and public combat state. A living enem
 
 When a contact disappears from every team sightline, it becomes hidden again. If the other team cannot observe an action, it receives no spoken clue that the player moved, waited, held an angle, or prepared evasion. Nearby spatial audio can still give careful listeners useful clues. Eliminations are different: the kill feed is global and always names the shooter, victim, weapon, and area, so an eliminated player's final location remains public.
 
-Before a plant, CT learns the bomb carrier only by seeing that player. CT may see and guard a dropped bomb but cannot pick it up. T always knows its own bomb state. A planted bomb and its site are public.
+Before a plant, CT learns the bomb carrier only by seeing that player. CT may see and guard a dropped bomb but cannot pick it up. T always knows its own bomb state. Picking up a dropped bomb is free once a T reaches its area; moving there and surviving any held angle still cost the usual actions. A planted bomb and its site are public.
 
 \*\*Gunfights, armor, and evasion\*\*
 

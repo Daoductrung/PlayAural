@@ -1,21 +1,21 @@
 """Abstract User class that games interact with."""
 
+import uuid as uuid_module
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Any
-import uuid as uuid_module
 
-from ..messages.localization import Localization
 from ..audio import (
-    AudioCommand,
-    AudioSequenceSegment,
     DEFAULT_AMBIENCE_FADE_MS,
     DEFAULT_MUSIC_FADE_MS,
+    AudioCommand,
+    AudioSequenceSegment,
     DistanceAttenuation,
     new_audio_handle,
 )
+from ..messages.localization import Localization
 
 if TYPE_CHECKING:
     from .preferences import UserPreferences
@@ -442,6 +442,7 @@ class User(ABC):
         pan: int | None = None,
         pitch: int = 100,
         *,
+        handle: str = "",
         bus: str = "sfx",
         buffer: str = "",
         priority: int = 0,
@@ -456,6 +457,7 @@ class User(ABC):
                 command="play",
                 kind="sfx",
                 family=family,
+                handle=handle,
                 bus=bus,
                 buffer=buffer,
                 volume=volume,

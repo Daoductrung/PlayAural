@@ -75,7 +75,7 @@ Siempre conoces la ubicación de tus compañeros y su estado público de combate
 
 Cuando un contacto desaparece de todas las líneas de visión del equipo, vuelve a estar oculto. Si el otro equipo no puede observar una acción, no recibe ninguna pista hablada de que el jugador se movió, esperó, mantuvo un ángulo o preparó evasión. El audio espacial cercano todavía puede dar pistas a quien escuche con atención. Las eliminaciones son diferentes: el registro de eliminaciones es global y siempre nombra al tirador, la víctima, el arma y el área, así que la ubicación final de un jugador eliminado permanece pública.
 
-Antes de una plantada, CT solo se entera de quién lleva la bomba al ver a ese jugador. CT puede ver y vigilar una bomba soltada pero no puede recogerla. T siempre conoce el estado de su propia bomba. Una bomba plantada y su sitio son públicos.
+Antes de una plantada, CT solo se entera de quién lleva la bomba al ver a ese jugador. CT puede ver y vigilar una bomba soltada pero no puede recogerla. T siempre conoce el estado de su propia bomba. Recogerla es gratis cuando un T llega a su área; moverse hasta allí y sobrevivir a cualquier ángulo vigilado todavía cuesta las acciones normales. Una bomba plantada y su sitio son públicos.
 
 \*\*Tiroteos, armadura, y evasión\*\*
 

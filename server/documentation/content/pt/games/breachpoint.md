@@ -75,7 +75,7 @@ Você sempre sabe a localização dos seus colegas e o estado público de combat
 
 Quando um contato desaparece de todas as linhas de visão da equipe, ele volta a ficar oculto. Se a outra equipe não puder observar uma ação, ela não recebe nenhuma pista falada de que o jogador se moveu, esperou, segurou um ângulo ou preparou evasão. O áudio espacial próximo ainda pode dar pistas a quem escuta com atenção. Eliminações são diferentes: o feed de abates é global e sempre informa atirador, vítima, arma e área, então a localização final de um jogador eliminado permanece pública.
 
-Antes de um plant, CT só descobre o portador da bomba vendo esse jogador. CT pode ver e guardar uma bomba caída, mas não pode pegá-la. T sempre sabe o estado da própria bomba. Uma bomba plantada e seu site são públicos.
+Antes de um plant, CT só descobre o portador da bomba vendo esse jogador. CT pode ver e guardar uma bomba caída, mas não pode pegá-la. T sempre sabe o estado da própria bomba. Pegar a bomba é grátis quando um T chega à área dela; mover-se até lá e sobreviver a qualquer ângulo vigiado ainda custa as ações normais. Uma bomba plantada e seu site são públicos.
 
 \*\*Tiros, armor e evasão\*\*
 

@@ -548,6 +548,11 @@ manager, never ad-hoc database calls from an admin handler.
 - Schema version 2 rebuilds legacy `users.username_key` storage so the canonical
   non-null identity contract is enforced; version-zero and version-one upgrades
   must remain atomic, backed up, and row-preserving.
+- Migration preflight must reserve the backup and transaction workspace
+  together when they share a filesystem. A retry may reuse only a fully
+  validated pre-migration backup whose schema, row counts, and logical-content
+  digest exactly match the unchanged source; never create duplicate snapshots
+  merely because a prior migration transaction rolled back.
 - Keep persistence SQL compatible with SQLite 3.25.0 and the SQLite 3.26.0
   runtime shipped by AlmaLinux 8. Do not use newer catalog aliases or
   maintenance syntax without deliberately raising and testing the baseline.
@@ -560,6 +565,12 @@ manager, never ad-hoc database calls from an admin handler.
   multi-statement mutation. Never silently swallow unexpected SQLite failures;
   ordinary status/read paths must not perform retention cleanup as a side
   effect.
+- Treat `SQLITE_IOERR_WRITE` as an operating-system storage fault, not a
+  retryable SQLite conflict. Preserve every database artifact and report the
+  paths, required space, and SQLite extended code so operators can inspect
+  filesystem/mount health, kernel logs, quota and file-size limits, ownership,
+  and SELinux before retrying. Deployments may place validated backups on a
+  separate healthy filesystem with `--database-backup-dir`.
 - Transient table checkpoints remain durable until database validation, schema
   migration, table deserialization, network binding, and tick startup have all
   succeeded. A failed startup must close SQLite and leave checkpoints intact.

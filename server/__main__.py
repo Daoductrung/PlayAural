@@ -3,7 +3,7 @@
 import argparse
 import asyncio
 
-from .core.server import run_server, VERSION
+from .core.server import VERSION, run_server
 
 
 def main():
@@ -48,6 +48,14 @@ Examples:
         dest="ssl_key",
         help="Path to SSL private key file. For Let's Encrypt, use privkey.pem",
     )
+    parser.add_argument(
+        "--database-backup-dir",
+        dest="database_backup_dir",
+        help=(
+            "Directory for validated database backups "
+            "(default: the server backups directory)"
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -64,6 +72,7 @@ Examples:
             port=args.port,
             ssl_cert=args.ssl_cert,
             ssl_key=args.ssl_key,
+            database_backup_dir=args.database_backup_dir,
         )
     )
 

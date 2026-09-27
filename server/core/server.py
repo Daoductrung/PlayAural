@@ -13586,6 +13586,7 @@ async def run_server(
     port: int = 8000,
     ssl_cert: str | Path | None = None,
     ssl_key: str | Path | None = None,
+    database_backup_dir: str | Path | None = None,
 ) -> None:
     """Run the server.
 
@@ -13594,6 +13595,7 @@ async def run_server(
         port: Port number to listen on
         ssl_cert: Path to SSL certificate file (for WSS support)
         ssl_key: Path to SSL private key file (for WSS support)
+        database_backup_dir: Optional durable database-backup directory
     """
     logging.basicConfig(
         filename="errors.log",
@@ -13626,7 +13628,13 @@ async def run_server(
 
     loop.set_exception_handler(_asyncio_exception_handler)
 
-    server = Server(host=host, port=port, ssl_cert=ssl_cert, ssl_key=ssl_key)
+    server = Server(
+        host=host,
+        port=port,
+        ssl_cert=ssl_cert,
+        ssl_key=ssl_key,
+        database_backup_dir=database_backup_dir,
+    )
     await server.start()
 
     for sig in (signal.SIGINT, signal.SIGTERM):

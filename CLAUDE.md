@@ -741,6 +741,12 @@ maintenance, not server-power finalization. Route them through
   version-zero and version-one databases acquire the canonical non-null identity
   contract without losing account ids or rows. Preserve this backed-up migration
   path until those database versions are explicitly retired.
+- Migration preflight must reserve backup publication and live transaction
+  workspace together when both paths share a filesystem. After a rolled-back
+  attempt, reuse only a durable pre-migration snapshot whose integrity, schema,
+  row counts, and order-independent logical-content digest exactly match the
+  unchanged source. A stale, unreadable, partial, or merely same-sized backup is
+  never reusable and is never deleted automatically.
 - Keep persistence SQL compatible with SQLite 3.25.0 and the SQLite 3.26.0
   runtime shipped by AlmaLinux 8. Current code may use UPSERT and window
   functions, but not newer catalog aliases such as `sqlite_schema` or newer
@@ -758,6 +764,14 @@ maintenance, not server-power finalization. Route them through
   cursors, and never silently translate unexpected storage faults into ordinary
   empty/not-found results. Read and status methods must never perform retention
   cleanup as a side effect.
+- `SQLITE_IOERR_WRITE` is a fatal operating-system/VFS storage fault, not a
+  lock retry. Preserve the database, sidecars, and verified backups; include
+  paths, required space, and the SQLite extended result in diagnostics; and
+  require the operator to inspect filesystem and mount health, kernel I/O logs,
+  user/project quota, process file-size limits, ownership, and SELinux denials
+  before retrying. `--database-backup-dir` may target a separate healthy
+  filesystem, but the live database filesystem must also pass its migration
+  workspace preflight.
 - Transient table checkpoints remain durable until database validation, schema
   migration, table deserialization, network binding, and tick startup have all
   succeeded. A failed startup must close SQLite and leave checkpoints intact.

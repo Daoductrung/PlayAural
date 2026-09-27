@@ -2,8 +2,8 @@
 
 import argparse
 import asyncio
-import sys
 import os
+import sys
 
 # Ensure we can import from the package correctly
 _script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -18,7 +18,7 @@ os.chdir(_script_dir)
 _pkg_name = os.path.basename(_script_dir)
 
 try:
-    from server.core.server import run_server, VERSION
+    from server.core.server import VERSION, run_server
 except ImportError:
     # Fallback for when directory is renamed (e.g. on VPS)
     import importlib
@@ -75,6 +75,14 @@ Examples:
         dest="ssl_key",
         help="Path to SSL private key file. For Let's Encrypt, use privkey.pem",
     )
+    parser.add_argument(
+        "--database-backup-dir",
+        dest="database_backup_dir",
+        help=(
+            "Directory for validated database backups "
+            "(default: the server backups directory)"
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -93,6 +101,7 @@ Examples:
             port=args.port,
             ssl_cert=args.ssl_cert,
             ssl_key=args.ssl_key,
+            database_backup_dir=args.database_backup_dir,
         )
     )
 

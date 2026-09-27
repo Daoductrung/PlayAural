@@ -1,23 +1,25 @@
 """SQLite database for persistence."""
 
+import hashlib
+import json
 import logging
 import math
 import os
 import shutil
 import sqlite3
 import stat
+import struct
 import time
 import uuid as uuid_module
-import json
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
-from dataclasses import dataclass
 
-from ..messages.localization import DEFAULT_LOCALE, Localization
 from ..chat_channels import MAX_CHAT_MESSAGE_LENGTH, normalize_global_chat_channel
+from ..messages.localization import DEFAULT_LOCALE, Localization
 from ..moderation.chat_history import GLOBAL_CHAT_HISTORY_SORT_ORDERS
 from ..moderation.reports import (
     AUTOMATED_SPAM_REPORT_COOLDOWN_SECONDS,
@@ -47,7 +49,6 @@ from .retention import (
     TRANSIENT_TABLE_CHECKPOINT_RETENTION_DAYS,
     USER_NOTIFICATION_RETENTION_DAYS,
 )
-
 
 _USER_RECORD_COLUMNS = (
     "id, username, password_hash, uuid, locale, preferences_json, "
@@ -288,6 +289,7 @@ class _DatabaseSnapshotSignature:
     page_count: int
     schema_objects: tuple[tuple[str, str, str, str], ...]
     table_row_counts: tuple[tuple[str, int], ...]
+    content_digest: str
 
     @property
     def logical_identity(
@@ -297,6 +299,7 @@ class _DatabaseSnapshotSignature:
         int,
         tuple[tuple[str, str, str, str], ...],
         tuple[tuple[str, int], ...],
+        str,
     ]:
         """Return values that VACUUM must preserve while page counts change."""
         return (
@@ -304,6 +307,7 @@ class _DatabaseSnapshotSignature:
             self.schema_version,
             self.schema_objects,
             self.table_row_counts,
+            self.content_digest,
         )
 
 
@@ -433,6 +437,7 @@ class Database:
     BACKUP_FILE_SUFFIX = ".sqlite3"
     BACKUP_PAGE_BATCH_SIZE = 256
     MINIMUM_MAINTENANCE_FREE_BYTES = 16 * 1024 * 1024
+    MIGRATION_WORKING_SPACE_MULTIPLIER = 2
     VACUUM_WORKING_SPACE_MULTIPLIER = 2
     COMPACTION_STAGING_COPY_MULTIPLIER = 1
     INCOMPLETE_BACKUP_SUFFIXES = (
@@ -535,6 +540,32 @@ class Database:
             str(path),
             timeout=timeout,
             isolation_level=None,
+        )
+        connection.row_factory = sqlite3.Row
+        connection.create_function(
+            "USERNAME_KEY",
+            1,
+            username_key,
+            deterministic=True,
+        )
+        timeout_ms = max(0, int(timeout * 1000))
+        connection.execute(f"PRAGMA busy_timeout = {timeout_ms}")
+        cls._require_pragma_value(connection, "busy_timeout", timeout_ms)
+        return connection
+
+    @classmethod
+    def _open_read_only_connection(
+        cls,
+        path: Path,
+        *,
+        timeout: float,
+    ) -> sqlite3.Connection:
+        """Open an existing SQLite file without permitting recovery writes."""
+        connection = sqlite3.connect(
+            path.resolve().as_uri() + "?mode=ro",
+            timeout=timeout,
+            isolation_level=None,
+            uri=True,
         )
         connection.row_factory = sqlite3.Row
         connection.create_function(
@@ -705,7 +736,7 @@ class Database:
             after_signature = self._snapshot_signature(candidate)
             if after_signature.logical_identity != before_signature.logical_identity:
                 raise sqlite3.DatabaseError(
-                    "staged compaction changed database schema or table row counts"
+                    "staged compaction changed database schema or logical content"
                 )
             after_pages = after_signature.page_count
             after_free_pages = int(
@@ -809,6 +840,75 @@ class Database:
         """Install one fully flushed same-filesystem database candidate."""
         source.replace(destination)
 
+    @staticmethod
+    def _normalize_backup_purpose(purpose: str) -> str:
+        safe_purpose = "".join(
+            character if character.isalnum() or character == "-" else "-"
+            for character in str(purpose).strip().lower()
+        ).strip("-")
+        if not safe_purpose:
+            raise ValueError("Backup purpose must contain at least one safe character")
+        return safe_purpose
+
+    def _find_matching_backup(
+        self,
+        backup_dir: Path,
+        *,
+        purpose: str,
+        source_signature: _DatabaseSnapshotSignature,
+    ) -> DatabaseBackupResult | None:
+        """Return the newest exact validated snapshot for one retryable purpose."""
+        safe_purpose = self._normalize_backup_purpose(purpose)
+        pattern = (
+            f"{self.BACKUP_FILE_PREFIX}-{safe_purpose}-*"
+            f"{self.BACKUP_FILE_SUFFIX}"
+        )
+        candidates = sorted(backup_dir.glob(pattern), reverse=True)
+        logger = logging.getLogger("playaural.db")
+        for candidate in candidates:
+            if candidate.is_symlink() or not candidate.is_file():
+                continue
+            connection: sqlite3.Connection | None = None
+            try:
+                connection = self._open_read_only_connection(
+                    candidate,
+                    timeout=self.DEFAULT_CONNECTION_TIMEOUT_SECONDS,
+                )
+                self._verify_connection_integrity(connection, full=True)
+                candidate_signature = self._snapshot_signature(connection)
+                journal_mode = str(
+                    connection.execute("PRAGMA journal_mode").fetchone()[0]
+                ).upper()
+                expected_size = (
+                    candidate_signature.page_size * candidate_signature.page_count
+                )
+                candidate_stat = candidate.stat()
+                if (
+                    candidate_signature != source_signature
+                    or journal_mode != "DELETE"
+                    or candidate_stat.st_size != expected_size
+                ):
+                    continue
+                return DatabaseBackupResult(
+                    path=candidate,
+                    size_bytes=candidate_stat.st_size,
+                    page_count=candidate_signature.page_count,
+                    created_at_utc=datetime.fromtimestamp(
+                        candidate_stat.st_mtime,
+                        timezone.utc,
+                    ).isoformat(),
+                )
+            except (OSError, sqlite3.DatabaseError) as exc:
+                logger.warning(
+                    "Could not validate existing database backup %s",
+                    candidate,
+                    exc_info=(type(exc), exc, exc.__traceback__),
+                )
+            finally:
+                if connection is not None:
+                    connection.close()
+        return None
+
     def backup_database(
         self,
         backup_dir: str | Path,
@@ -830,12 +930,7 @@ class Database:
         if not self._is_file_database():
             raise RuntimeError("Database backups require a file-backed database")
 
-        safe_purpose = "".join(
-            character if character.isalnum() or character == "-" else "-"
-            for character in str(purpose).strip().lower()
-        ).strip("-")
-        if not safe_purpose:
-            raise ValueError("Backup purpose must contain at least one safe character")
+        safe_purpose = self._normalize_backup_purpose(purpose)
 
         self._verify_connection_integrity(self._conn, full=True)
         page_size = int(self._conn.execute("PRAGMA page_size").fetchone()[0])
@@ -893,6 +988,10 @@ class Database:
                 stage="create and publish verified snapshot",
                 path=self.db_path.resolve(),
                 replacement_applied=False,
+            )
+            exc.add_note(
+                "backup destination: "
+                f"{directory}; required snapshot space: {required_bytes} bytes"
             )
             raise
 
@@ -952,7 +1051,7 @@ class Database:
         cls,
         connection: sqlite3.Connection,
     ) -> _DatabaseSnapshotSignature:
-        """Capture exact schema metadata and per-table cardinality."""
+        """Capture physical metadata plus exact schema and logical content."""
         schema_rows = connection.execute(
             """
             SELECT type, name, tbl_name, COALESCE(sql, '')
@@ -967,6 +1066,17 @@ class Database:
         table_names = sorted(
             str(row[1]) for row in schema_rows if str(row[0]) == "table"
         )
+        internal_table_names = sorted(
+            str(row[0])
+            for row in connection.execute(
+                """
+                SELECT name
+                FROM sqlite_master
+                WHERE type = 'table' AND name LIKE 'sqlite_%'
+                """
+            ).fetchall()
+        )
+        content_table_names = sorted(set(table_names + internal_table_names))
         table_row_counts = tuple(
             (
                 table_name,
@@ -976,7 +1086,7 @@ class Database:
                     ).fetchone()[0]
                 ),
             )
-            for table_name in table_names
+            for table_name in content_table_names
         )
         return _DatabaseSnapshotSignature(
             application_id=int(
@@ -989,7 +1099,72 @@ class Database:
             page_count=int(connection.execute("PRAGMA page_count").fetchone()[0]),
             schema_objects=schema_objects,
             table_row_counts=table_row_counts,
+            content_digest=cls._logical_content_digest(
+                connection,
+                content_table_names,
+            ),
         )
+
+    @classmethod
+    def _logical_content_digest(
+        cls,
+        connection: sqlite3.Connection,
+        table_names: list[str],
+    ) -> str:
+        """Hash every persisted value as an order-independent row multiset."""
+        digest = hashlib.sha256()
+        modulus = 1 << 256
+        for table_name in table_names:
+            columns = tuple(
+                str(row[1])
+                for row in connection.execute(
+                    f"PRAGMA table_info({cls._quote_identifier(table_name)})"
+                ).fetchall()
+            )
+            digest.update(cls._digest_field(table_name))
+            for column_name in columns:
+                digest.update(cls._digest_field(column_name))
+
+            column_sql = ", ".join(
+                cls._quote_identifier(column_name) for column_name in columns
+            )
+            row_count = 0
+            digest_sum = 0
+            digest_xor = 0
+            for row in connection.execute(
+                f"SELECT {column_sql} FROM {cls._quote_identifier(table_name)}"
+            ):
+                row_digest = hashlib.sha256()
+                for value in row:
+                    row_digest.update(cls._digest_sqlite_value(value))
+                row_value = int.from_bytes(row_digest.digest(), "big")
+                digest_sum = (digest_sum + row_value) % modulus
+                digest_xor ^= row_value
+                row_count += 1
+            digest.update(row_count.to_bytes(8, "big"))
+            digest.update(digest_sum.to_bytes(32, "big"))
+            digest.update(digest_xor.to_bytes(32, "big"))
+        return digest.hexdigest()
+
+    @staticmethod
+    def _digest_field(value: str) -> bytes:
+        encoded = value.encode("utf-8", "surrogatepass")
+        return len(encoded).to_bytes(8, "big") + encoded
+
+    @classmethod
+    def _digest_sqlite_value(cls, value: object) -> bytes:
+        if value is None:
+            return b"n"
+        if isinstance(value, int):
+            return b"i" + cls._digest_field(str(value))
+        if isinstance(value, float):
+            return b"f" + struct.pack(">d", value)
+        if isinstance(value, str):
+            return b"t" + cls._digest_field(value)
+        if isinstance(value, (bytes, bytearray, memoryview)):
+            encoded = bytes(value)
+            return b"b" + len(encoded).to_bytes(8, "big") + encoded
+        raise TypeError(f"Unsupported SQLite value type: {type(value).__name__}")
 
     @staticmethod
     def _add_sqlite_failure_note(
@@ -1010,6 +1185,13 @@ class Database:
         error_code = getattr(exc, "sqlite_errorcode", None)
         if error_name is not None or error_code is not None:
             details.append(f"SQLite result: {error_name or 'unknown'} ({error_code})")
+        if error_name == "SQLITE_IOERR_WRITE" or error_code == 778:
+            details.append(
+                "the operating system refused a file write; inspect filesystem "
+                "and mount health, kernel I/O logs, user or project quota, "
+                "process file-size limits, ownership, and SELinux denials before "
+                "retrying"
+            )
         if replacement_applied:
             setattr(exc, _DATABASE_STATE_UNCERTAIN_ATTRIBUTE, True)
         exc.add_note("; ".join(details))
@@ -1328,26 +1510,103 @@ class Database:
                 },
             )
 
+        migration_backup: DatabaseBackupResult | None = None
+        migration_workspace_bytes = 0
         if has_application_schema and self._is_file_database():
+            database_directory = self.db_path.resolve().parent
             backup_directory = (
                 Path(migration_backup_dir)
                 if migration_backup_dir is not None
-                else self.db_path.resolve().parent / "backups"
+                else database_directory / "backups"
+            ).resolve()
+            backup_directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+            migration_purpose = (
+                f"pre-migration-v{schema_version}-to-"
+                f"v{self.CURRENT_SCHEMA_VERSION}"
             )
-            result = self.backup_database(
+            source_signature = self._snapshot_signature(self._conn)
+            source_bytes = source_signature.page_size * source_signature.page_count
+            backup_bytes = max(
+                source_bytes,
+                self.MINIMUM_MAINTENANCE_FREE_BYTES,
+            )
+            migration_workspace_bytes = max(
+                source_bytes * self.MIGRATION_WORKING_SPACE_MULTIPLIER,
+                self.MINIMUM_MAINTENANCE_FREE_BYTES,
+            )
+            migration_backup = self._find_matching_backup(
                 backup_directory,
-                purpose=(
-                    f"pre-migration-v{schema_version}-to-"
-                    f"v{self.CURRENT_SCHEMA_VERSION}"
-                ),
+                purpose=migration_purpose,
+                source_signature=source_signature,
+            )
+            if migration_backup is None:
+                if (
+                    os.stat(database_directory).st_dev
+                    == os.stat(backup_directory).st_dev
+                ):
+                    self._require_free_space(
+                        database_directory,
+                        backup_bytes + migration_workspace_bytes,
+                    )
+                else:
+                    self._require_free_space(backup_directory, backup_bytes)
+                    self._require_free_space(
+                        database_directory,
+                        migration_workspace_bytes,
+                    )
+                migration_backup = self.backup_database(
+                    backup_directory,
+                    purpose=migration_purpose,
+                )
+                backup_action = "Created"
+            else:
+                backup_action = "Reusing"
+
+            # Check again after backup publication. This catches ordinary free
+            # space exhaustion before SQLite opens its migration journal.
+            self._require_free_space(
+                database_directory,
+                migration_workspace_bytes,
             )
             logging.getLogger("playaural.db").warning(
-                "Created pre-migration database backup at %s",
-                result.path,
+                "%s pre-migration database backup at %s",
+                backup_action,
+                migration_backup.path,
             )
-            print(f"Created pre-migration database backup: {result.path}")
+            print(
+                f"{backup_action} pre-migration database backup: "
+                f"{migration_backup.path}"
+            )
 
-        self._create_tables()
+        try:
+            self._create_tables()
+        except BaseException as exc:
+            self._add_sqlite_failure_note(
+                exc,
+                operation="migration",
+                stage=(
+                    f"apply schema version {schema_version} to "
+                    f"{self.CURRENT_SCHEMA_VERSION}"
+                ),
+                path=self.db_path.resolve(),
+                replacement_applied=False,
+            )
+            if migration_backup is not None:
+                try:
+                    available_bytes = shutil.disk_usage(
+                        self.db_path.resolve().parent
+                    ).free
+                except OSError as diagnostic_exc:
+                    available_text = f"unavailable ({diagnostic_exc!r})"
+                else:
+                    available_text = f"{available_bytes} bytes"
+                exc.add_note(
+                    f"verified migration backup: {migration_backup.path}; "
+                    f"required live-filesystem workspace: "
+                    f"{migration_workspace_bytes} bytes; available: "
+                    f"{available_text}"
+                )
+            raise
 
     @staticmethod
     def _column_attributes(

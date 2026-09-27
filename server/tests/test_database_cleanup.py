@@ -1,11 +1,12 @@
-import pytest
-import sqlite3
-import json
 import datetime
 import os
+import sqlite3
 from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
+
+import pytest
+
 from server.persistence.database import (
     Database,
     DatabaseCleanupCategoryCode,
@@ -513,6 +514,27 @@ def test_transaction_preserves_original_error_when_rollback_also_fails():
         database._conn = None
 
 
+def test_sqlite_write_failure_note_identifies_operator_storage_checks(tmp_path):
+    error = sqlite3.OperationalError("disk I/O error")
+    error.sqlite_errorname = "SQLITE_IOERR_WRITE"
+    error.sqlite_errorcode = 778
+
+    Database._add_sqlite_failure_note(
+        error,
+        operation="migration",
+        stage="commit schema transaction",
+        path=tmp_path / "PlayAural.db",
+        replacement_applied=False,
+    )
+
+    notes = " ".join(error.__notes__)
+    assert "SQLITE_IOERR_WRITE (778)" in notes
+    assert "filesystem and mount health" in notes
+    assert "quota" in notes
+    assert "file-size limits" in notes
+    assert "SELinux" in notes
+
+
 def test_sqlite_runtime_baseline_includes_almalinux_8():
     Database._require_supported_sqlite_version((3, 26, 0))
     with pytest.raises(RuntimeError, match="3.25.0 or newer"):
@@ -1013,10 +1035,18 @@ def test_failed_migration_rolls_back_and_retains_recovery_backup(
         "_create_tables_in_transaction",
         fail_after_schema_changes,
     )
-    with pytest.raises(RuntimeError, match="simulated migration failure"):
+    with pytest.raises(
+        RuntimeError,
+        match="simulated migration failure",
+    ) as exc_info:
         database.connect(migration_backup_dir=backup_dir)
 
     assert database._conn is None
+    notes = " ".join(exc_info.value.__notes__)
+    assert "PlayAural database migration stage" in notes
+    assert "replacement applied: False" in notes
+    assert "verified migration backup" in notes
+    assert "required live-filesystem workspace" in notes
     connection = sqlite3.connect(db_path)
     try:
         assert connection.execute("PRAGMA application_id").fetchone()[0] == 0
@@ -1028,6 +1058,122 @@ def test_failed_migration_rolls_back_and_retains_recovery_backup(
     finally:
         connection.close()
     assert len(list(backup_dir.glob("*.sqlite3"))) == 1
+
+
+def test_failed_migration_retry_reuses_exact_verified_backup(
+    tmp_path,
+    monkeypatch,
+):
+    db_path = tmp_path / "PlayAural.db"
+    backup_dir = tmp_path / "migration-backups"
+    _create_unversioned_database(db_path)
+
+    first_attempt = Database(db_path)
+    original_create = first_attempt._create_tables_in_transaction
+
+    def fail_after_schema_changes(cursor):
+        original_create(cursor)
+        raise RuntimeError("simulated first migration failure")
+
+    monkeypatch.setattr(
+        first_attempt,
+        "_create_tables_in_transaction",
+        fail_after_schema_changes,
+    )
+    with pytest.raises(RuntimeError, match="first migration failure"):
+        first_attempt.connect(migration_backup_dir=backup_dir)
+
+    backups = list(backup_dir.glob("*.sqlite3"))
+    assert len(backups) == 1
+
+    retry = Database(db_path)
+
+    def reject_duplicate_backup(*_args, **_kwargs):
+        raise AssertionError("an exact migration backup should be reused")
+
+    monkeypatch.setattr(retry, "backup_database", reject_duplicate_backup)
+    retry.connect(migration_backup_dir=backup_dir)
+    try:
+        assert retry.get_user("Legacy User") is not None
+        assert retry._conn.execute("PRAGMA user_version").fetchone()[0] == 2
+    finally:
+        retry.close()
+    assert list(backup_dir.glob("*.sqlite3")) == backups
+
+
+def test_migration_retry_rejects_backup_with_same_counts_but_stale_values(
+    tmp_path,
+    monkeypatch,
+):
+    db_path = tmp_path / "PlayAural.db"
+    backup_dir = tmp_path / "migration-backups"
+    _create_unversioned_database(db_path)
+
+    first_attempt = Database(db_path)
+    original_create = first_attempt._create_tables_in_transaction
+
+    def fail_after_schema_changes(cursor):
+        original_create(cursor)
+        raise RuntimeError("simulated first migration failure")
+
+    monkeypatch.setattr(
+        first_attempt,
+        "_create_tables_in_transaction",
+        fail_after_schema_changes,
+    )
+    with pytest.raises(RuntimeError, match="first migration failure"):
+        first_attempt.connect(migration_backup_dir=backup_dir)
+    assert len(list(backup_dir.glob("*.sqlite3"))) == 1
+
+    connection = sqlite3.connect(db_path)
+    connection.execute(
+        "UPDATE users SET bio = 'changed after first backup' "
+        "WHERE username = 'Legacy User'"
+    )
+    connection.commit()
+    connection.close()
+
+    retry = Database(db_path)
+    retry.connect(migration_backup_dir=backup_dir)
+    try:
+        assert retry.get_user("Legacy User").bio == "changed after first backup"
+    finally:
+        retry.close()
+    assert len(list(backup_dir.glob("*.sqlite3"))) == 2
+
+
+def test_migration_preflights_combined_backup_and_transaction_space(
+    tmp_path,
+    monkeypatch,
+):
+    db_path = tmp_path / "PlayAural.db"
+    backup_dir = tmp_path / "migration-backups"
+    _create_unversioned_database(db_path)
+    connection = sqlite3.connect(db_path)
+    try:
+        database_bytes = (
+            connection.execute("PRAGMA page_size").fetchone()[0]
+            * connection.execute("PRAGMA page_count").fetchone()[0]
+        )
+    finally:
+        connection.close()
+
+    database = Database(db_path)
+    required_sizes: list[int] = []
+    monkeypatch.setattr(database, "MINIMUM_MAINTENANCE_FREE_BYTES", 0)
+    monkeypatch.setattr(
+        database,
+        "_require_free_space",
+        lambda _directory, required_bytes: required_sizes.append(required_bytes),
+    )
+    database.connect(migration_backup_dir=backup_dir)
+    database.close()
+
+    assert required_sizes == [
+        database_bytes * 3,
+        database_bytes,
+        database_bytes * 2,
+    ]
 
 
 def test_failed_migration_backup_prevents_any_schema_write(tmp_path, monkeypatch):

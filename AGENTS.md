@@ -571,6 +571,9 @@ manager, never ad-hoc database calls from an admin handler.
   filesystem/mount health, kernel logs, quota and file-size limits, ownership,
   and SELinux before retrying. Deployments may place validated backups on a
   separate healthy filesystem with `--database-backup-dir`.
+- Maintenance capacity preflights must test space allocatable by the running
+  service identity, not only filesystem-wide free bytes, so user, group, and
+  project quotas fail before SQLite touches authoritative data.
 - Production deployment tooling must stop the game service before changing its
   environment, restore service-user ownership on database artifacts, and pass
   non-database fsync probes for both the live and backup directories before

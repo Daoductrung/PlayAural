@@ -1,4 +1,5 @@
 import datetime
+import errno
 import os
 import sqlite3
 from dataclasses import replace
@@ -448,6 +449,64 @@ def test_database_compaction_preflights_staging_and_vacuum_space(
         ]
     finally:
         database.close()
+
+
+def test_free_space_preflight_reserves_blocks_with_service_credentials(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    required_bytes = 4096
+    reservations: list[tuple[int, int]] = []
+
+    class DiskUsage:
+        free = required_bytes * 10
+
+    monkeypatch.setattr(
+        "server.persistence.database.shutil.disk_usage",
+        lambda _directory: DiskUsage(),
+    )
+    monkeypatch.setattr(
+        os,
+        "posix_fallocate",
+        lambda _descriptor, offset, length: reservations.append((offset, length)),
+        raising=False,
+    )
+
+    Database._require_free_space(tmp_path, required_bytes)
+
+    assert reservations == [(0, required_bytes)]
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_free_space_preflight_reports_effective_account_quota(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    required_bytes = 4096
+
+    class DiskUsage:
+        free = required_bytes * 10
+
+    def reject_reservation(_descriptor: int, _offset: int, _length: int) -> None:
+        raise OSError(errno.EDQUOT, "Disk quota exceeded")
+
+    monkeypatch.setattr(
+        "server.persistence.database.shutil.disk_usage",
+        lambda _directory: DiskUsage(),
+    )
+    monkeypatch.setattr(
+        os,
+        "posix_fallocate",
+        reject_reservation,
+        raising=False,
+    )
+
+    with pytest.raises(OSError, match="current account could not reserve") as exc_info:
+        Database._require_free_space(tmp_path, required_bytes)
+
+    assert exc_info.value.__cause__.errno == errno.EDQUOT
+    assert "user, group, or project quotas" in str(exc_info.value)
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_database_compaction_rejects_an_active_transaction(tmp_path):

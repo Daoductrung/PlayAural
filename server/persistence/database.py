@@ -9,6 +9,7 @@ import shutil
 import sqlite3
 import stat
 import struct
+import tempfile
 import time
 import uuid as uuid_module
 from collections.abc import Iterator
@@ -1348,6 +1349,31 @@ class Database:
                 f"requires at least {required_bytes} bytes, "
                 f"but {available_bytes} bytes are available"
             )
+
+        # shutil.disk_usage() reports filesystem-wide capacity and does not
+        # account for per-user, per-group, or project quotas. On platforms that
+        # expose posix_fallocate(), reserve the requested blocks with the
+        # service's real credentials before touching an authoritative database.
+        # TemporaryFile keeps the reservation process-scoped, so a crash cannot
+        # strand a large probe file and worsen the condition being diagnosed.
+        if required_bytes <= 0 or not hasattr(os, "posix_fallocate"):
+            return
+
+        try:
+            with tempfile.TemporaryFile(
+                prefix=f".{cls.BACKUP_FILE_PREFIX}-maintenance-space-probe-",
+                dir=directory,
+            ) as probe_file:
+                os.posix_fallocate(probe_file.fileno(), 0, required_bytes)
+                os.fsync(probe_file.fileno())
+        except OSError as exc:
+            raise OSError(
+                "Insufficient allocatable space for safe database maintenance: "
+                f"the filesystem reports {available_bytes} bytes free, but "
+                f"the current account could not reserve {required_bytes} bytes "
+                f"in {directory}; check directory permissions, user, group, or "
+                "project quotas, and filesystem allocation limits"
+            ) from exc
 
     @staticmethod
     def _flush_file_to_disk(path: Path) -> None:

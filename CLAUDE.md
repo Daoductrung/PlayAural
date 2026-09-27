@@ -772,6 +772,11 @@ maintenance, not server-power finalization. Route them through
   before retrying. `--database-backup-dir` may target a separate healthy
   filesystem, but the live database filesystem must also pass its migration
   workspace preflight.
+- Maintenance capacity checks must verify space that the current service
+  identity can actually allocate, not just filesystem-wide free bytes. On
+  supported Unix filesystems, use a process-scoped block reservation so user,
+  group, or project quotas fail before backup, migration, cleanup, or
+  compaction touches authoritative data; never leave probe files behind.
 - Production deployment tooling must stop the game service before changing its
   code, dependencies, permissions, or virtual environment. Before startup it
   must restore service-user ownership and private modes on the database,

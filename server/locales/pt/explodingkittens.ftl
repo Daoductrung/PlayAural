@@ -21,7 +21,7 @@ explodingkittens-error-invalid-nope-response = Escolha um tempo de resposta do N
 
 explodingkittens-card-exploding-kitten = Exploding Kitten
 explodingkittens-card-defuse = Desarme
-explodingkittens-card-nope = Nope
+explodingkittens-card-nope = Não
 explodingkittens-card-attack = Ataque
 explodingkittens-card-skip = Pular
 explodingkittens-card-favor = Favor

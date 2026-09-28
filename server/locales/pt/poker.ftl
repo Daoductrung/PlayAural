@@ -2,7 +2,7 @@ poker-fold = Desistir
 poker-call = Pagar
 poker-check = Passar
 poker-raise = Aumentar
-poker-all-in = All in
+poker-all-in = All-in
 poker-enter-raise = Digite o valor do aumento
 
 poker-check-pot = Ver pote

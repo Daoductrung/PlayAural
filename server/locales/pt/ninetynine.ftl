@@ -64,7 +64,7 @@ ninetynine-choice-1 = Escolha 1
 ninetynine-choice-2 = Escolha 2
 
 ninetynine-draw-card = Comprar carta
-ninetynine-draw-prompt = Por favor, compre uma carta.
+ninetynine-draw-prompt = Compre uma carta.
 ninetynine-no-card-to-draw = Nenhuma carta disponível para compra. Continue com sua mão atual.
 
 ninetynine-set-tokens = Fichas iniciais: { $tokens }

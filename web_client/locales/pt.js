@@ -170,6 +170,7 @@ export default {
   "auth-error-version-mismatch": "Incompatibilidade de versão do cliente. O servidor foi atualizado. Por favor, atualize esta página ou limpe o cache do navegador e tente novamente.",
   "auth-error-captcha-unavailable": "A verificação não pôde iniciar porque o reCAPTCHA foi bloqueado ou falhou ao carregar. Permita o reCAPTCHA para este site e tente novamente.",
   "auth-error-captcha-execute-failed": "A verificação não pôde ser concluída. Por favor, recarregue a página e tente novamente.",
+  "auth-error-server-maintenance": "A manutenção do banco de dados do servidor está em andamento. Login, cadastro e alterações de senha estão temporariamente indisponíveis. Tente novamente depois que a manutenção terminar.",
   "auth-registration-success": "Registro concluído. Agora você pode entrar.",
   "auth-username-taken": "Nome de usuário já em uso.",
   "auth-username-reserved-bot": "Este nome é reservado para bots do PlayAural. Por favor, escolha outro nome de usuário.",

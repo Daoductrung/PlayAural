@@ -194,6 +194,7 @@
   "auth-error-username-invalid-chars": "O nome de usuário pode conter apenas letras, números e espaços. Não use espaços consecutivos nem caracteres especiais.",
   "auth-error-password-weak": "A senha deve ter pelo menos 8 caracteres e conter letras e números.",
   "auth-error-rate-limit": "Muitas tentativas de login malsucedidas. Tente novamente em 15 minutos.",
+  "auth-error-server-maintenance": "A manutenção do banco de dados do servidor está em andamento. Login, cadastro e alterações de senha estão temporariamente indisponíveis. Tente novamente depois que a manutenção terminar.",
   "reg-error-email": "É necessário informar um e-mail para se cadastrar.",
   "error-email-empty": "O e-mail é obrigatório e não pode ficar vazio.",
   "error-email-invalid": "Informe um endereço de e-mail válido.",

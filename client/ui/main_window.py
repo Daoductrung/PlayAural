@@ -4,6 +4,10 @@ import wx
 from .menu_list import MenuList
 from .menu_focus import resolve_menu_focus_index
 from .text_direction import apply_text_layout_direction
+from .copy_directive import (
+    NO_COPY_DIRECTIVE,
+    execute_copy_directive,
+)
 import accessible_output2.outputs.auto as auto_output
 import sys
 import os
@@ -197,6 +201,7 @@ class MainWindow(wx.Frame):
         self.current_menu_id = None  # Track which menu is currently displayed
         self.current_menu_item_ids = []  # Track item IDs for current menu (parallel to menu items)
         self.current_menu_item_read_only = []  # Focusable informational rows cannot activate
+        self.current_menu_item_copy_directives = []  # Server-driven local copies
         self.current_edit_multiline = False  # Track if current editbox is multiline
         self.current_edit_read_only = False  # Track if current editbox is read-only
         self.current_edit_input_id = None  # Track server input ID for Escape cancellation
@@ -1534,6 +1539,8 @@ class MainWindow(wx.Frame):
                             and self.current_menu_item_read_only[last_index]
                         ):
                             return
+                        if self._activate_menu_copy_at(last_index):
+                            return
                         # Play menuenter sound like a normal activation
                         if self.sound_manager:
                             self.sound_manager.play_menuenter()
@@ -1565,6 +1572,15 @@ class MainWindow(wx.Frame):
             # Only send Enter as keybind if modifiers are held
             # Plain Enter should activate the menu (handled by MenuList)
             if event.ControlDown() or event.ShiftDown() or event.AltDown():
+                if (
+                    event.ShiftDown()
+                    and not event.ControlDown()
+                    and not event.AltDown()
+                    and self._activate_menu_copy_at(
+                        self.menu_list.GetSelection()
+                    )
+                ):
+                    return
                 key_name = "enter"
         # Handle letter keys (case insensitive)
         elif 65 <= key_code <= 90:  # A-Z
@@ -1750,6 +1766,10 @@ class MainWindow(wx.Frame):
         ):
             return
 
+        if self._activate_menu_copy_at(selection):
+            event.Skip()
+            return
+
         if self.sound_manager:
             self.sound_manager.play_menuenter()
 
@@ -1770,6 +1790,31 @@ class MainWindow(wx.Frame):
             self.network.send_packet(packet)
 
         event.Skip()
+
+    def _activate_menu_copy_at(self, selection):
+        """Run a selected local copy action through every activation path."""
+        if not isinstance(selection, int) or isinstance(selection, bool):
+            return False
+        read_only = getattr(self, "current_menu_item_read_only", [])
+        if 0 <= selection < len(read_only) and read_only[selection]:
+            return False
+        directives = getattr(self, "current_menu_item_copy_directives", [])
+        if not 0 <= selection < len(directives):
+            return False
+        directive = directives[selection]
+        if directive is NO_COPY_DIRECTIVE:
+            return False
+        if self.sound_manager:
+            self.sound_manager.play_menuenter()
+        self.perform_copy_directive(directive)
+        return True
+
+    def perform_copy_directive(self, directive):
+        """Execute a copy directive from any desktop view."""
+        result = execute_copy_directive(directive)
+        if result.accepted and result.feedback:
+            self.add_history(result.feedback, "system", speak_aloud=True)
+        return result
 
     def set_multiletter_navigation(self, enabled):
         """Set multiletter navigation state (called by server)."""
@@ -3166,19 +3211,29 @@ class MainWindow(wx.Frame):
         item_ids = []
         item_sounds = []
         item_read_only = []
+        item_copy_directives = []
         for item in items_raw:
             if isinstance(item, dict):
                 items.append(item.get("text", ""))
-                item_ids.append(item.get("id"))
+                item_id = item.get("id")
+                item_ids.append(item_id if isinstance(item_id, str) else None)
                 item_sounds.append(item.get("sound"))
                 item_read_only.append(
-                    item.get("read_only") is True or not item.get("id")
+                    item.get("read_only") is True
+                    or not isinstance(item_id, str)
+                    or not item_id
+                )
+                item_copy_directives.append(
+                    item.get("copy_directive")
+                    if "copy_directive" in item
+                    else NO_COPY_DIRECTIVE
                 )
             else:
                 items.append(str(item))
                 item_ids.append(None)
                 item_sounds.append(None)
                 item_read_only.append(True)
+                item_copy_directives.append(NO_COPY_DIRECTIVE)
 
         # Save old item IDs before updating (for diff algorithm)
         old_item_ids = getattr(self, 'current_menu_item_ids', [])
@@ -3186,6 +3241,7 @@ class MainWindow(wx.Frame):
         # Store item IDs for later use
         self.current_menu_item_ids = item_ids
         self.current_menu_item_read_only = item_read_only
+        self.current_menu_item_copy_directives = item_copy_directives
 
         # Convert selection_id to position if provided
         if selection_id is not None and position is None:
@@ -3341,6 +3397,9 @@ class MainWindow(wx.Frame):
         # Clear menu
         self.menu_list.Clear()
         self.current_menu_id = None
+        self.current_menu_item_ids = []
+        self.current_menu_item_read_only = []
+        self.current_menu_item_copy_directives = []
         # Switch to list mode if in edit mode
         if self.current_mode == "edit":
             self.switch_to_list_mode()

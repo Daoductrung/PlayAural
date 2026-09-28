@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 
 from .action_context import ActionContext
 from .actions import EditboxInput, MenuInput
-from ..users.base import menu_selection_targets_read_only
+from ..users.base import menu_selection_targets_server_inert
 
 
 class EventHandlingMixin:
@@ -283,7 +283,7 @@ class EventHandlingMixin:
                     user,
                     options,
                 )
-                if menu_selection_targets_read_only(
+                if menu_selection_targets_server_inert(
                     items,
                     selection_id=choice,
                 ):

@@ -1,5 +1,6 @@
 import { createA11y } from "./a11y.js";
 import { createAudioEngine } from "./audio.js";
+import { executeCopyDirective } from "./copy_directive.js";
 import { installKeybinds } from "./keybinds.js";
 import { createNetworkClient, loadPacketValidator } from "./network.js";
 import { createStore, normalizeHistoryBuffer } from "./store.js";
@@ -16,7 +17,11 @@ import {
   BUFFER_ITEM_NAVIGATION_ASSET,
   createHistoryView,
 } from "./ui/history.js";
-import { createMenuView, isMenuItemActionable } from "./ui/menus.js";
+import {
+  createMenuView,
+  isMenuItemActionable,
+  normalizeServerMenuItems,
+} from "./ui/menus.js";
 import { resolveMenuFocusIndex, stableMenuItemId } from "./ui/menuFocus.js";
 import {
   TYPING_EXACT_ASSETS,
@@ -1154,7 +1159,13 @@ class PlayAuralWebApp {
           this.speak(text, { buffer: "misc", assertive: true, noHistory: true });
         }
       },
-      onContextAction: (item) => this.sendKeybind("enter", item?.id || "", { shift: true }),
+      onContextAction: (item, index) => {
+        if (item?.copyDirectivePresent) {
+          this.activateMenuItem(item, index);
+          return;
+        }
+        this.sendKeybind("enter", item?.id || "", { shift: true });
+      },
       getDefaultLabel: () => Localization.get("game-menu-label"),
     });
   }
@@ -2672,17 +2683,7 @@ class PlayAuralWebApp {
   }
 
   normalizeMenuItems(items) {
-    return (Array.isArray(items) ? items : []).map((item) => {
-      if (typeof item === "string") {
-        return { text: item, id: null, sound: "" };
-      }
-      return {
-        text: String(item?.text ?? item?.label ?? ""),
-        id: item?.id ?? null,
-        sound: item?.sound || "",
-        selectionValue: item?.selectionValue ?? item?.selection_value ?? null,
-      };
-    });
+    return normalizeServerMenuItems(items);
   }
 
   voiceLanguageLabel(lang) {
@@ -2891,6 +2892,10 @@ class PlayAuralWebApp {
     if (!isMenuItemActionable(item)) {
       return;
     }
+    if (item.copyDirectivePresent) {
+      this.performCopyDirective(item.copyDirective);
+      return;
+    }
     this.focusMenuOnNextPacket = true;
     const packet = {
       type: "menu",
@@ -2902,6 +2907,14 @@ class PlayAuralWebApp {
       packet.selection_value = item.selectionValue;
     }
     this.send(packet);
+  }
+
+  performCopyDirective(directive) {
+    void executeCopyDirective(directive).then((result) => {
+      if (result.accepted && result.feedback) {
+        this.speak(result.feedback, { buffer: "system", assertive: true });
+      }
+    });
   }
 
   playSelectionSound(item) {
@@ -2946,14 +2959,8 @@ class PlayAuralWebApp {
       const index = behavior === "select_last_option" ? menu.items.length - 1 : 0;
       const item = menu.items[index];
       if (isMenuItemActionable(item)) {
-        this.focusMenuOnNextPacket = true;
         this.audio.playSound({ asset: "menuenter.ogg", volume: 50 });
-        this.send({
-          type: "menu",
-          menu_id: menu.menuId,
-          selection: index + 1,
-          selection_id: item.id,
-        });
+        this.activateMenuItem(item, index);
       }
       return;
     }

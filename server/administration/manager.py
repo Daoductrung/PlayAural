@@ -2,12 +2,14 @@
 
 import functools
 import logging
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
 
+from ..copy_protocol import CopyDirective, UNSAFE_BIDI_CONTROLS
 from ..users.network_user import NetworkUser
-from ..users.base import MenuItem, EscapeBehavior
+from ..users.base import EscapeBehavior, MenuItem
 from ..users.identity import username_key
 from ..users.roles import (
     ADMIN_TRUST_LEVEL,
@@ -36,6 +38,7 @@ from ..moderation.chat_history import (
 )
 from ..moderation.reports import (
     CLOSED_REPORT_STATUSES,
+    MODERATION_CONTEXT_PAGE_SIZE,
     MODERATION_REVIEW_PAGE_SIZE,
     REPORT_CONTEXT_CODES,
     REPORT_CONTEXT_GLOBAL,
@@ -780,9 +783,11 @@ class AdministrationManager:
             self._return_to_admin_root(user)
             return True
         query = str(state.get("search_query", ""))
-        current_page = int(state.get("target_page", 1) or 1)
-        page_count = max(1, int(state.get("target_page_count", 1) or 1))
-        next_page = page_for_selection(selection_id, current_page, page_count)
+        next_page = page_for_selection(
+            selection_id,
+            state.get("target_page", 1),
+            state.get("target_page_count", 1),
+        )
         if next_page is None:
             return False
         if is_page_refresh(selection_id):
@@ -1639,15 +1644,63 @@ class AdministrationManager:
             channel=self._moderation_channel_name(
                 user.locale, message.channel_code
             ),
-            message=message.message,
+            message=self._single_line_moderation_message(message.message),
+        )
+
+    @staticmethod
+    def _single_line_moderation_message(message: str) -> str:
+        """Keep untrusted audit text on one line without bidi spoofing."""
+        safe_characters: list[str] = []
+        for character in str(message):
+            category = unicodedata.category(character)
+            if category in {"Cc", "Zl", "Zp"}:
+                safe_characters.append(" ")
+            elif character not in UNSAFE_BIDI_CONTROLS:
+                safe_characters.append(character)
+        return "".join(safe_characters)
+
+    def _moderation_copy_page_item(
+        self,
+        user: NetworkUser,
+        rows: list[str],
+    ) -> MenuItem:
+        """Build one consistent local copy action for rendered audit rows."""
+        count = len(rows)
+        return MenuItem(
+            text=Localization.get(
+                user.locale,
+                "admin-moderation-copy-page",
+                count=count,
+            ),
+            id="copy_page",
+            copy_directive=CopyDirective(
+                text="\n".join(rows),
+                success_text=Localization.get(
+                    user.locale,
+                    "admin-moderation-copy-page-success",
+                    count=count,
+                ),
+                failure_text=Localization.get(
+                    user.locale,
+                    "admin-moderation-copy-page-failed",
+                ),
+            ),
         )
 
     def _show_moderation_context_menu(
-        self, user: NetworkUser, report_id: int
+        self,
+        user: NetworkUser,
+        report_id: int,
+        page: int = 1,
+        *,
+        focus_page_start: bool = False,
     ) -> None:
         """Show bounded chronological chat context around a report instant."""
         report = self.server.db.get_moderation_report(report_id)
         items: list[MenuItem] = []
+        safe_page = 1
+        page_count = 1
+        focus_position: int | None = None
         if report is None:
             items.append(
                 MenuItem(
@@ -1677,25 +1730,63 @@ class AdministrationManager:
                     read_only=True,
                 )
             )
-            messages = self.server.db.get_global_chat_context(
+            all_messages = self.server.db.get_global_chat_context(
                 report.reported_at_utc,
+                anchor_message_id=report.context_anchor_message_id,
                 channel_code=report.channel_code,
                 before_count=REPORT_CONTEXT_MESSAGES_BEFORE,
                 after_count=REPORT_CONTEXT_MESSAGES_AFTER,
             )
-            if messages:
+            messages = paginate_sequence(
+                all_messages,
+                page,
+                page_size=MODERATION_CONTEXT_PAGE_SIZE,
+            )
+            safe_page = messages.page
+            page_count = messages.total_pages
+            if messages.items:
+                if messages.total_pages > 1:
+                    items.append(
+                        MenuItem(
+                            text=Localization.get(
+                                user.locale,
+                                "menu-page-summary",
+                                start=messages.start_index,
+                                end=messages.end_index,
+                                total=messages.total,
+                                page=messages.page,
+                                pages=messages.total_pages,
+                            ),
+                            id="page_summary",
+                            read_only=True,
+                        )
+                    )
+                rows = [
+                    self._context_message_row(
+                        user,
+                        message,
+                        report.reported_uuid,
+                        report.context_anchor_message_id,
+                    )
+                    for message in messages.items
+                ]
+                items.append(self._moderation_copy_page_item(user, rows))
+                if focus_page_start:
+                    focus_position = len(items) + 1
                 items.extend(
                     MenuItem(
-                        text=self._context_message_row(
-                            user,
-                            message,
-                            report.reported_uuid,
-                            report.context_anchor_message_id,
-                        ),
+                        text=row,
                         id=f"context_message_{message.id}",
                         read_only=True,
                     )
-                    for message in messages
+                    for message, row in zip(messages.items, rows, strict=True)
+                )
+                items.extend(
+                    pagination_menu_items(
+                        user.locale,
+                        messages,
+                        include_refresh=True,
+                    )
                 )
             else:
                 items.append(
@@ -1713,10 +1804,13 @@ class AdministrationManager:
             items,
             multiletter=True,
             escape_behavior=EscapeBehavior.SELECT_LAST,
+            position=focus_position,
         )
         self.server.user_states[user.username] = {
             "menu": ADMIN_MODERATION_CONTEXT_MENU,
             "report_id": int(report_id),
+            "moderation_page": safe_page,
+            "moderation_page_count": page_count,
         }
 
     def _show_moderation_history_input(self, user: NetworkUser) -> None:
@@ -1903,28 +1997,35 @@ class AdministrationManager:
                         read_only=True,
                     )
                 )
+            rows = [
+                Localization.get(
+                    user.locale,
+                    "admin-moderation-history-message",
+                    id=message.id,
+                    time=self._format_moderation_timestamp(
+                        user.locale,
+                        message.sent_at_utc,
+                    ),
+                    username=message.sender_username,
+                    channel=self._moderation_channel_name(
+                        user.locale, message.channel_code
+                    ),
+                    message=self._single_line_moderation_message(
+                        message.message
+                    ),
+                )
+                for message in history.items
+            ]
+            items.append(self._moderation_copy_page_item(user, rows))
             if focus_page_start:
                 focus_position = len(items) + 1
             items.extend(
                 MenuItem(
-                    text=Localization.get(
-                        user.locale,
-                        "admin-moderation-history-message",
-                        id=message.id,
-                        time=self._format_moderation_timestamp(
-                            user.locale,
-                            message.sent_at_utc
-                        ),
-                        username=message.sender_username,
-                        channel=self._moderation_channel_name(
-                            user.locale, message.channel_code
-                        ),
-                        message=message.message,
-                    ),
+                    text=row,
                     id=f"history_message_{message.id}",
                     read_only=True,
                 )
-                for message in history.items
+                for message, row in zip(history.items, rows, strict=True)
             )
             items.extend(
                 pagination_menu_items(user.locale, history, include_refresh=True)
@@ -2129,30 +2230,37 @@ class AdministrationManager:
                         read_only=True,
                     )
                 )
+            rows = [
+                Localization.get(
+                    user.locale,
+                    "admin-moderation-message-row",
+                    id=message.id,
+                    time=self._format_moderation_timestamp(
+                        user.locale,
+                        message.sent_at_utc,
+                    ),
+                    username=message.sender_username,
+                    uuid=message.sender_uuid,
+                    channel=self._moderation_channel_name(
+                        user.locale,
+                        message.channel_code,
+                    ),
+                    message=self._single_line_moderation_message(
+                        message.message
+                    ),
+                )
+                for message in messages.items
+            ]
+            items.append(self._moderation_copy_page_item(user, rows))
             if focus_page_start:
                 focus_position = len(items) + 1
             items.extend(
                 MenuItem(
-                    text=Localization.get(
-                        user.locale,
-                        "admin-moderation-message-row",
-                        id=message.id,
-                        time=self._format_moderation_timestamp(
-                            user.locale,
-                            message.sent_at_utc,
-                        ),
-                        username=message.sender_username,
-                        uuid=message.sender_uuid,
-                        channel=self._moderation_channel_name(
-                            user.locale,
-                            message.channel_code,
-                        ),
-                        message=message.message,
-                    ),
+                    text=row,
                     id=f"moderation_message_{message.id}",
                     read_only=True,
                 )
-                for message in messages.items
+                for message, row in zip(messages.items, rows, strict=True)
             )
             items.extend(
                 pagination_menu_items(
@@ -2696,8 +2804,9 @@ class AdministrationManager:
                 user, selection_id, state
             )
         elif current_menu == ADMIN_MODERATION_CONTEXT_MENU:
-            if selection_id == "back":
-                self.server._nav_back(user)
+            await self._handle_moderation_context_selection(
+                user, selection_id, state
+            )
         elif current_menu == ADMIN_MODERATION_SENDER_RESULTS_MENU:
             await self._handle_moderation_sender_results_selection(
                 user, selection_id, state
@@ -3473,12 +3582,10 @@ class AdministrationManager:
         if report_filter not in {"open", "closed", "all"}:
             report_filter = "open"
         if selection_id in MENU_PAGE_IDS:
-            current_page = int(state.get("moderation_page", 1) or 1)
-            page_count = max(
-                1, int(state.get("moderation_page_count", 1) or 1)
-            )
             next_page = page_for_selection(
-                selection_id, current_page, page_count
+                selection_id,
+                state.get("moderation_page", 1),
+                state.get("moderation_page_count", 1),
             )
             if next_page is None:
                 return
@@ -3586,12 +3693,10 @@ class AdministrationManager:
             return
         username = str(state.get("history_username", ""))
         if selection_id in MENU_PAGE_IDS:
-            current_page = int(state.get("moderation_page", 1) or 1)
-            page_count = max(
-                1, int(state.get("moderation_page_count", 1) or 1)
-            )
             next_page = page_for_selection(
-                selection_id, current_page, page_count
+                selection_id,
+                state.get("moderation_page", 1),
+                state.get("moderation_page_count", 1),
             )
             if next_page is None:
                 return
@@ -3614,6 +3719,39 @@ class AdministrationManager:
                 user, self._show_moderation_history_menu, sender_uuid
             )
 
+    async def _handle_moderation_context_selection(
+        self, user: NetworkUser, selection_id: str, state: dict[str, Any]
+    ) -> None:
+        """Navigate one bounded page of retained report context."""
+        if selection_id == "back":
+            self.server._nav_back(user)
+            return
+        if selection_id not in MENU_PAGE_IDS:
+            return
+        try:
+            report_id = int(state.get("report_id", 0) or 0)
+        except (TypeError, ValueError):
+            report_id = 0
+        if report_id <= 0:
+            self.server._nav_back(user)
+            return
+        next_page = page_for_selection(
+            selection_id,
+            state.get("moderation_page", 1),
+            state.get("moderation_page_count", 1),
+        )
+        if next_page is None:
+            return
+        if is_page_refresh(selection_id):
+            user.speak_l("menu-list-refreshed", buffer="system")
+        self.server._nav_refresh(
+            user,
+            self._show_moderation_context_menu,
+            report_id,
+            next_page,
+            focus_page_start=is_page_navigation(selection_id),
+        )
+
     async def _handle_moderation_history_selection(
         self, user: NetworkUser, selection_id: str, state: dict[str, Any]
     ) -> None:
@@ -3626,9 +3764,11 @@ class AdministrationManager:
         if not sender_uuid:
             self.server._nav_back(user)
             return
-        current_page = int(state.get("moderation_page", 1) or 1)
-        page_count = max(1, int(state.get("moderation_page_count", 1) or 1))
-        next_page = page_for_selection(selection_id, current_page, page_count)
+        next_page = page_for_selection(
+            selection_id,
+            state.get("moderation_page", 1),
+            state.get("moderation_page_count", 1),
+        )
         if next_page is None:
             return
         if is_page_refresh(selection_id):
@@ -3690,9 +3830,11 @@ class AdministrationManager:
             return
         if selection_id not in MENU_PAGE_IDS:
             return
-        current_page = int(state.get("moderation_page", 1) or 1)
-        page_count = max(1, int(state.get("moderation_page_count", 1) or 1))
-        next_page = page_for_selection(selection_id, current_page, page_count)
+        next_page = page_for_selection(
+            selection_id,
+            state.get("moderation_page", 1),
+            state.get("moderation_page_count", 1),
+        )
         if next_page is None:
             return
         if is_page_refresh(selection_id):
@@ -3785,9 +3927,11 @@ class AdministrationManager:
         if selection_id == "back":
             self.server._nav_back(user)
         elif selection_id in MENU_PAGE_IDS:
-            current_page = int(state.get("account_approval_page", 1) or 1)
-            page_count = max(1, int(state.get("account_approval_page_count", 1) or 1))
-            next_page = page_for_selection(selection_id, current_page, page_count)
+            next_page = page_for_selection(
+                selection_id,
+                state.get("account_approval_page", 1),
+                state.get("account_approval_page_count", 1),
+            )
             if next_page is None:
                 return
             if is_page_refresh(selection_id):

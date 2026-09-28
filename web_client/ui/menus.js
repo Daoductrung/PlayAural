@@ -2,6 +2,35 @@ export function isMenuItemActionable(item) {
   return typeof item?.id === "string" && item.id.length > 0 && item.read_only !== true;
 }
 
+export function normalizeServerMenuItems(items) {
+  return (Array.isArray(items) ? items : []).map((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return {
+        text: typeof item === "string" ? item : "",
+        id: null,
+        read_only: true,
+        sound: "",
+        copyDirective: null,
+        copyDirectivePresent: false,
+      };
+    }
+    const copyDirectivePresent = Object.prototype.hasOwnProperty.call(
+      item,
+      "copy_directive",
+    );
+    const itemId = typeof item.id === "string" && item.id ? item.id : null;
+    return {
+      text: String(item?.text ?? item?.label ?? ""),
+      id: itemId,
+      read_only: item?.read_only === true || !itemId,
+      sound: item?.sound || "",
+      selectionValue: item?.selectionValue ?? item?.selection_value ?? null,
+      copyDirective: copyDirectivePresent ? item.copy_directive : null,
+      copyDirectivePresent,
+    };
+  });
+}
+
 function normalizeForSearch(value) {
   const text = String(value || "")
     .replace(/\u0111/g, "d")

@@ -4,7 +4,7 @@ import test from "node:test";
 
 import { installKeybinds } from "../keybinds.js";
 import { createCollapsiblePanel, installCollapsiblePanels } from "../ui/collapsiblePanels.js";
-import { isMenuItemActionable } from "../ui/menus.js";
+import { isMenuItemActionable, normalizeServerMenuItems } from "../ui/menus.js";
 
 class FakeElement {
   constructor({ expanded = "true", hidden = false } = {}) {
@@ -44,6 +44,32 @@ test("read-only and legacy text menu rows are never actionable", () => {
   assert.equal(isMenuItemActionable({ id: "summary", read_only: true, text: "Summary" }), false);
   assert.equal(isMenuItemActionable({ text: "Legacy information" }), false);
   assert.equal(isMenuItemActionable("Legacy information"), false);
+});
+
+test("server menu normalization preserves read-only and copy directive semantics", () => {
+  const directive = {
+    version: 1,
+    text: "first\nsecond",
+    success_text: "Copied.",
+    failure_text: "Failed.",
+  };
+  const items = normalizeServerMenuItems([
+    { id: "summary", read_only: true, text: "Summary" },
+    { id: "copy_page", text: "Copy", copy_directive: directive },
+    { id: "invalid_copy", text: "Invalid copy", copy_directive: null },
+    "Legacy information",
+    null,
+  ]);
+
+  assert.equal(isMenuItemActionable(items[0]), false);
+  assert.equal(isMenuItemActionable(items[1]), true);
+  assert.equal(items[1].copyDirectivePresent, true);
+  assert.deepEqual(items[1].copyDirective, directive);
+  assert.equal(items[2].copyDirectivePresent, true);
+  assert.equal(items[2].copyDirective, null);
+  assert.equal(isMenuItemActionable(items[2]), true);
+  assert.equal(isMenuItemActionable(items[3]), false);
+  assert.equal(isMenuItemActionable(items[4]), false);
 });
 
 test("collapsible panels honor markup defaults and keep state synchronized", () => {

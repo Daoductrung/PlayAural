@@ -1,6 +1,13 @@
 export type SpeechBuffer = "all" | "chat" | "private" | "game" | "system" | "misc";
 export type OutputBuffer = Exclude<SpeechBuffer, "all">;
 
+export type CopyDirectiveData = {
+  version: 1;
+  text: string;
+  success_text: string;
+  failure_text: string;
+};
+
 export type MenuItemData = {
   id?: string;
   text: string;
@@ -9,6 +16,7 @@ export type MenuItemData = {
   description?: string;
   sound?: string;
   selection_value?: string | null;
+  copy_directive?: CopyDirectiveData;
 };
 
 export type MenuPacket = {

@@ -66,11 +66,12 @@ from ..auth.chat_rate_limit import (
 from ..auth.voice_rate_limit import VoiceRateLimiter
 from ..tables.manager import TableManager
 from ..tables.table import Table
+from ..copy_protocol import parse_copy_directive
 from ..users.network_user import NetworkUser
 from ..users.base import (
     EscapeBehavior,
     MenuItem,
-    menu_selection_targets_read_only,
+    menu_selection_targets_server_inert,
 )
 from ..users.identity import find_username_prefix, normalize_username, username_key
 from ..users.preferences import UserPreferences, DiceKeepingStyle, PREF_CATEGORIES
@@ -5551,7 +5552,7 @@ PlayAural Server
         )
         state = self._user_states.get(username, {})
 
-        if self._selection_targets_read_only_item(
+        if self._selection_targets_server_inert_item(
             user,
             current_menu,
             selection_id,
@@ -13338,14 +13339,14 @@ PlayAural Server
         item_ids = self._menu_item_ids(menu_state)
         return not item_ids or selection_id in item_ids
 
-    def _selection_targets_read_only_item(
+    def _selection_targets_server_inert_item(
         self,
         user: NetworkUser,
         current_menu: str | None,
         selection_id: str,
         packet: dict,
     ) -> bool:
-        """Reject activation of a focusable informational menu row."""
+        """Reject informational and client-local menu activations."""
         if not current_menu:
             return False
         packet_menu = packet.get("menu_id")
@@ -13354,7 +13355,7 @@ PlayAural Server
         menu_state = self._current_menu_state(user, current_menu)
         if not menu_state:
             return False
-        return menu_selection_targets_read_only(
+        return menu_selection_targets_server_inert(
             list(menu_state.get("items", [])),
             selection_id=selection_id,
             selection=packet.get("selection"),
@@ -13438,6 +13439,20 @@ PlayAural Server
             if isinstance(item, (MenuItem, str)):
                 restored.append(item)
             elif isinstance(item, dict):
+                copy_directive_present = "copy_directive" in item
+                copy_directive = None
+                if (
+                    copy_directive_present
+                    and isinstance(item.get("id"), str)
+                    and item.get("id")
+                    and not bool(item.get("read_only", False))
+                ):
+                    copy_directive = parse_copy_directive(
+                        item.get("copy_directive")
+                    )
+                read_only = bool(item.get("read_only", False)) or (
+                    copy_directive_present and copy_directive is None
+                )
                 restored.append(
                     MenuItem(
                         text=str(item.get("label", item.get("text", ""))),
@@ -13445,7 +13460,8 @@ PlayAural Server
                         sound=item.get("sound"),
                         description=item.get("description"),
                         label=item.get("label"),
-                        read_only=bool(item.get("read_only", False)),
+                        read_only=read_only,
+                        copy_directive=copy_directive,
                     )
                 )
             else:

@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import time
 from typing import Callable
 
 
@@ -42,8 +43,7 @@ class TickScheduler:
 
     async def _tick_loop(self) -> None:
         """Main tick loop."""
-        loop = asyncio.get_running_loop()
-        deadline = loop.time()
+        deadline = time.perf_counter()
         while self._running:
             try:
                 # Call tick callback synchronously
@@ -58,7 +58,14 @@ class TickScheduler:
             # back-to-back ticks: game sequences treat every tick as 50 ms and
             # must never run faster merely because a busy server fell behind.
             deadline += self.TICK_INTERVAL_S
-            now = loop.time()
+            now = time.perf_counter()
             if deadline <= now:
                 deadline = now + self.TICK_INTERVAL_S
-            await asyncio.sleep(max(0.0, deadline - now))
+            # Windows timers may wake before a requested deadline. Recheck the
+            # monotonic clock so a coarse or early wake can never accelerate
+            # gameplay ticks.
+            while self._running:
+                remaining = deadline - time.perf_counter()
+                if remaining <= 0:
+                    break
+                await asyncio.sleep(remaining)

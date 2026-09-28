@@ -3482,6 +3482,7 @@ class Database:
         self,
         reported_at_utc: str,
         *,
+        anchor_message_id: int | None = None,
         channel_code: str | None = None,
         before_count: int = 20,
         after_count: int = 10,
@@ -3502,10 +3503,32 @@ class Database:
         safe_after = max(
             0, min(int(after_count), MAX_MODERATION_QUERY_PAGE_SIZE)
         )
-        where = "sent_at_utc <= ?"
-        params: list[object] = [timestamp]
-        after_where = "sent_at_utc > ?"
-        after_params: list[object] = [timestamp]
+        if anchor_message_id is None:
+            where = "sent_at_utc <= ?"
+            params: list[object] = [timestamp]
+            after_where = "sent_at_utc > ?"
+            after_params: list[object] = [timestamp]
+        else:
+            try:
+                safe_anchor_id = int(anchor_message_id)
+            except (TypeError, ValueError, OverflowError) as exc:
+                raise ValueError(
+                    "Report context anchor must be a positive message ID"
+                ) from exc
+            if safe_anchor_id <= 0:
+                raise ValueError(
+                    "Report context anchor must be a positive message ID"
+                )
+            where = (
+                "(sent_at_utc < ? OR "
+                "(sent_at_utc = ? AND id <= ?))"
+            )
+            params = [timestamp, timestamp, safe_anchor_id]
+            after_where = (
+                "(sent_at_utc > ? OR "
+                "(sent_at_utc = ? AND id > ?))"
+            )
+            after_params = [timestamp, timestamp, safe_anchor_id]
         if channel_code is not None:
             normalized_channel = normalize_global_chat_channel(channel_code)
             if normalized_channel is None:

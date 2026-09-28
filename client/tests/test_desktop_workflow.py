@@ -1,10 +1,25 @@
+import json
 from pathlib import Path
 import tomllib
 
+from ui import main_window as main_window_module
+from ui.copy_directive import (
+    COPY_DIRECTIVE_VERSION,
+    MAX_COPY_FEEDBACK_LENGTH,
+    MAX_COPY_TEXT_LENGTH,
+    copy_text_to_clipboard,
+    execute_copy_directive,
+    validate_copy_directive,
+)
 from ui.main_window import MainWindow
 
 
 CLIENT_DIR = Path(__file__).resolve().parents[1]
+COPY_CONFORMANCE = json.loads(
+    (CLIENT_DIR.parent / "copy_directive_conformance.json").read_text(
+        encoding="utf-8"
+    )
+)
 
 
 def test_read_only_menu_rows_never_send_desktop_selections():
@@ -37,6 +52,7 @@ def test_read_only_menu_rows_never_send_desktop_selections():
             "menu_list": MenuList(),
             "network": Network(),
             "sound_manager": SoundManager(),
+            "_activate_menu_copy_at": MainWindow._activate_menu_copy_at,
         },
     )()
     event = type("EventHarness", (), {"Skip": staticmethod(lambda: None)})()
@@ -57,6 +73,258 @@ def test_read_only_menu_rows_never_send_desktop_selections():
         }
     ]
     assert activation_sounds == ["menuenter"]
+
+
+def test_desktop_copy_directives_copy_exact_text_without_server_selection(monkeypatch):
+    copied = []
+    sent_packets = []
+    feedback = []
+
+    class Clipboard:
+        def Open(self):
+            return True
+
+        def SetData(self, data):
+            copied.append(data.GetText())
+            return True
+
+        def Flush(self):
+            return True
+
+        def Close(self):
+            pass
+
+    assert copy_text_to_clipboard("first\nsecond", Clipboard()) is True
+    assert copied == ["first\nsecond"]
+
+    directive = {
+        "version": 1,
+        "text": "first\nsecond",
+        "success_text": "Copied two messages.",
+        "failure_text": "Copy failed.",
+    }
+    monkeypatch.setattr(
+        "ui.main_window.execute_copy_directive",
+        lambda value: execute_copy_directive(
+            value,
+            lambda text: copied.append(text) or True,
+        ),
+    )
+    window = type(
+        "WindowHarness",
+        (),
+        {
+            "connected": True,
+            "current_menu_id": "audit",
+            "current_menu_item_ids": ["copy_page"],
+            "current_menu_item_read_only": [False],
+            "current_menu_item_copy_directives": [directive],
+            "menu_list": type("MenuList", (), {"GetSelection": staticmethod(lambda: 0)})(),
+            "network": type("Network", (), {"send_packet": staticmethod(sent_packets.append)})(),
+            "sound_manager": type("Sound", (), {"play_menuenter": staticmethod(lambda: None)})(),
+            "add_history": staticmethod(
+                lambda text, buffer, speak_aloud: feedback.append(
+                    (text, buffer, speak_aloud)
+                )
+            ),
+            "_activate_menu_copy_at": MainWindow._activate_menu_copy_at,
+            "perform_copy_directive": MainWindow.perform_copy_directive,
+        },
+    )()
+    event = type("EventHarness", (), {"Skip": staticmethod(lambda: None)})()
+
+    MainWindow.on_menu_activate(window, event)
+
+    assert copied[-1] == "first\nsecond"
+    assert sent_packets == []
+    assert feedback == [("Copied two messages.", "system", True)]
+
+
+def test_desktop_copy_directives_cover_modified_enter_and_escape(monkeypatch):
+    copied = []
+    sent_packets = []
+    directive = {
+        "version": 1,
+        "text": "current page",
+        "success_text": "Copied.",
+        "failure_text": "Failed.",
+    }
+    monkeypatch.setattr(
+        "ui.main_window.execute_copy_directive",
+        lambda value: execute_copy_directive(
+            value,
+            lambda text: copied.append(text) or True,
+        ),
+    )
+
+    menu_list = type(
+        "MenuList",
+        (),
+        {
+            "GetCount": staticmethod(lambda: 1),
+            "GetSelection": staticmethod(lambda: 0),
+        },
+    )()
+    monkeypatch.setattr(
+        main_window_module.wx,
+        "Window",
+        type("Window", (), {"FindFocus": staticmethod(lambda: menu_list)}),
+    )
+    feedback = []
+    window = type(
+        "WindowHarness",
+        (),
+        {
+            "connected": True,
+            "current_menu_id": "audit",
+            "current_menu_item_ids": ["copy_page"],
+            "current_menu_item_read_only": [False],
+            "current_menu_item_copy_directives": [directive],
+            "current_mode": "list",
+            "escape_behavior": "select_last_option",
+            "menu_list": menu_list,
+            "multiletter_enabled": True,
+            "network": type(
+                "Network",
+                (),
+                {"send_packet": staticmethod(sent_packets.append)},
+            )(),
+            "sound_manager": type(
+                "Sound",
+                (),
+                {"play_menuenter": staticmethod(lambda: None)},
+            )(),
+            "add_history": staticmethod(
+                lambda text, buffer, speak_aloud: feedback.append(text)
+            ),
+            "_activate_menu_copy_at": MainWindow._activate_menu_copy_at,
+            "perform_copy_directive": MainWindow.perform_copy_directive,
+        },
+    )()
+
+    def event(key_code, *, shift=False):
+        return type(
+            "EventHarness",
+            (),
+            {
+                "AltDown": staticmethod(lambda: False),
+                "ControlDown": staticmethod(lambda: False),
+                "GetKeyCode": staticmethod(lambda: key_code),
+                "GetModifiers": staticmethod(
+                    lambda: main_window_module.wx.MOD_SHIFT if shift else 0
+                ),
+                "ShiftDown": staticmethod(lambda: shift),
+                "Skip": staticmethod(lambda: None),
+            },
+        )()
+
+    MainWindow.on_char_hook(
+        window,
+        event(main_window_module.wx.WXK_RETURN, shift=True),
+    )
+    MainWindow.on_char_hook(window, event(main_window_module.wx.WXK_ESCAPE))
+
+    assert copied == ["current page", "current page"]
+    assert feedback == ["Copied.", "Copied."]
+    assert sent_packets == []
+
+
+def test_desktop_copy_directives_fail_closed_for_malformed_or_failed_payloads():
+    invalid = execute_copy_directive(
+        {
+            "version": 1,
+            "text": "unsafe\x00text",
+            "success_text": "Copied.",
+            "failure_text": "Failed.",
+        },
+        lambda _text: True,
+    )
+    assert invalid.accepted is False
+    assert invalid.feedback == ""
+
+    failed = execute_copy_directive(
+        {
+            "version": 1,
+            "text": "safe text",
+            "success_text": "Copied.",
+            "failure_text": "Failed.",
+        },
+        lambda _text: (_ for _ in ()).throw(RuntimeError("clipboard unavailable")),
+    )
+    assert failed.accepted is True
+    assert failed.copied is False
+    assert failed.feedback == "Failed."
+
+
+def test_desktop_copy_directive_shared_conformance_and_boundaries():
+    assert COPY_CONFORMANCE["protocol_version"] == COPY_DIRECTIVE_VERSION
+    assert COPY_CONFORMANCE["limits"] == {
+        "text_code_points": MAX_COPY_TEXT_LENGTH,
+        "feedback_code_points": MAX_COPY_FEEDBACK_LENGTH,
+    }
+    for case in COPY_CONFORMANCE["valid"]:
+        assert validate_copy_directive(case["directive"]) is not None, case["name"]
+    for case in COPY_CONFORMANCE["invalid"]:
+        assert validate_copy_directive(case["directive"]) is None, case["name"]
+
+    common = {
+        "version": COPY_DIRECTIVE_VERSION,
+        "success_text": "Copied.",
+        "failure_text": "Failed.",
+    }
+    assert validate_copy_directive(
+        {**common, "text": "😀" * MAX_COPY_TEXT_LENGTH}
+    ) is not None
+    assert validate_copy_directive(
+        {**common, "text": "x" * (MAX_COPY_TEXT_LENGTH + 1)}
+    ) is None
+    assert validate_copy_directive({**common, "text": "bad\ud800value"}) is None
+
+    class HostileMapping(dict):
+        def get(self, *_args, **_kwargs):
+            raise RuntimeError("unexpected mapping behavior")
+
+    assert validate_copy_directive(
+        HostileMapping({**common, "text": "payload"})
+    ) is None
+
+
+def test_desktop_malformed_copy_directive_stays_local_and_silent():
+    sent_packets = []
+    feedback = []
+    window = type(
+        "WindowHarness",
+        (),
+        {
+            "connected": True,
+            "current_menu_id": "audit",
+            "current_menu_item_ids": ["copy_page"],
+            "current_menu_item_read_only": [False],
+            "current_menu_item_copy_directives": [None],
+            "menu_list": type(
+                "MenuList",
+                (),
+                {"GetSelection": staticmethod(lambda: 0)},
+            )(),
+            "network": type(
+                "Network",
+                (),
+                {"send_packet": staticmethod(sent_packets.append)},
+            )(),
+            "sound_manager": None,
+            "add_history": staticmethod(
+                lambda text, buffer, speak_aloud: feedback.append(text)
+            ),
+            "_activate_menu_copy_at": MainWindow._activate_menu_copy_at,
+            "perform_copy_directive": MainWindow.perform_copy_directive,
+        },
+    )()
+    event = type("EventHarness", (), {"Skip": staticmethod(lambda: None)})()
+
+    MainWindow.on_menu_activate(window, event)
+
+    assert sent_packets == []
+    assert feedback == []
 
 
 def test_client_dev_extra_installs_test_tools():

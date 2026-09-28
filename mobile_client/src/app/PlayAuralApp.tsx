@@ -33,6 +33,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { PoliteAnnouncementQueue } from "../accessibility/PoliteAnnouncementQueue";
+import { executeCopyDirective } from "../actions/copyDirective";
 import { MobileAudioManager } from "../audio/MobileAudioManager";
 import { requestAndroidBatteryOptimizationExemptionOnce } from "../background/AndroidBatteryOptimization";
 import { androidForegroundService } from "../background/AndroidForegroundService";
@@ -190,6 +191,8 @@ type AccessibilityOrderedViewProps = ComponentProps<typeof View> & {
 const AccessibilityOrderedView = View as ComponentType<AccessibilityOrderedViewProps>;
 
 type FocusableMenuItem = {
+  copyDirective: unknown;
+  copyDirectivePresent: boolean;
   id?: string;
   readOnly: boolean;
   selectionValue?: string | null;
@@ -355,12 +358,24 @@ function clamp(value: number, min: number, max: number): number {
 
 function normalizeMenuItems(items: Array<string | MenuItemData>): FocusableMenuItem[] {
   return items.map((item) => {
-    if (typeof item === "string") {
-      return { readOnly: true, text: item };
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return {
+        copyDirective: null,
+        copyDirectivePresent: false,
+        readOnly: true,
+        text: typeof item === "string" ? item : "",
+      };
     }
+    const copyDirectivePresent = Object.prototype.hasOwnProperty.call(
+      item,
+      "copy_directive",
+    );
+    const itemId = typeof item.id === "string" && item.id ? item.id : undefined;
     return {
-      id: item.id,
-      readOnly: item.read_only === true || !item.id,
+      copyDirective: copyDirectivePresent ? item.copy_directive : null,
+      copyDirectivePresent,
+      id: itemId,
+      readOnly: item.read_only === true || !itemId,
       selectionValue: item.selection_value ?? null,
       sound: item.sound,
       text: item.text,
@@ -3575,6 +3590,14 @@ export function PlayAuralApp() {
     if (!item || item.readOnly) {
       return;
     }
+    if (item.copyDirectivePresent) {
+      void executeCopyDirective(item.copyDirective).then((result) => {
+        if (result.accepted && result.feedback) {
+          announce(result.feedback, "system");
+        }
+      });
+      return;
+    }
     if (isProtectedTransientMenu(currentMenuState.menuId)) {
       transientTurnMenuAllowanceRef.current = currentMenuState.menuId;
     }
@@ -3596,22 +3619,19 @@ export function PlayAuralApp() {
     escapeBehavior: string,
     items: FocusableMenuItem[],
   ) => {
-    if (isProtectedTransientMenu(menuId)) {
-      transientTurnMenuAllowanceRef.current = menuId;
-    }
     const selectionIndex = escapeBehavior === "select_last_option" ? items.length - 1
       : escapeBehavior === "select_first_option" ? 0 : null;
     if (selectionIndex !== null && !items[selectionIndex]) return;
     if (selectionIndex !== null && items[selectionIndex].readOnly) return;
-    requestNativeMenuFocusOnNextPacket();
     if (selectionIndex !== null) {
-      connection?.send({
-        menu_id: menuId || undefined,
-        selection: selectionIndex + 1,
-        selection_id: items[selectionIndex].id,
-        type: "menu",
-      });
-    } else if (escapeBehavior === "escape_event") {
+      sendMenuSelection(items[selectionIndex], selectionIndex);
+      return;
+    }
+    if (isProtectedTransientMenu(menuId)) {
+      transientTurnMenuAllowanceRef.current = menuId;
+    }
+    requestNativeMenuFocusOnNextPacket();
+    if (escapeBehavior === "escape_event") {
       connection?.send({ menu_id: menuId || undefined, type: "escape" });
     } else {
       connection?.send({ menu_id: menuId || undefined, type: "keybind", key: "escape" });
@@ -3644,6 +3664,22 @@ export function PlayAuralApp() {
     });
   };
 
+  const sendMenuContextAction = (
+    itemOverride?: FocusableMenuItem | null,
+    indexOverride?: number,
+  ) => {
+    const currentMenuState = menuStateRef.current;
+    const item = itemOverride ?? currentMenuState.items[currentMenuState.focusIndex];
+    if (!item || item.readOnly) {
+      return;
+    }
+    if (item.copyDirectivePresent) {
+      sendMenuSelection(item, indexOverride);
+      return;
+    }
+    sendShiftEnter(item);
+  };
+
   const getLongPressToken = (item: FocusableMenuItem, index: number) =>
     `${menuStateRef.current.menuId}:${index}:${item.id ?? "text"}`;
 
@@ -3665,7 +3701,7 @@ export function PlayAuralApp() {
       longPressResetTimerRef.current = null;
     }, 3000);
     playMenuActivateSound();
-    sendShiftEnter(item);
+    sendMenuContextAction(item, index);
   };
 
   const handleMenuItemPress = (item: FocusableMenuItem, index: number) => {
@@ -4081,7 +4117,7 @@ export function PlayAuralApp() {
     if (!connected || dialogStateRef.current || inputStateRef.current || modeRef.current !== "main") {
       return;
     }
-    sendShiftEnter();
+    sendMenuContextAction();
   };
 
   const handleBoundaryJump = (target: "bottom" | "top") => {
@@ -4944,7 +4980,7 @@ export function PlayAuralApp() {
         }
         if (event.nativeEvent.actionName === "longpress") {
           playMenuActivateSound();
-          sendShiftEnter(item);
+          sendMenuContextAction(item, index);
           return;
         }
         playMenuActivateSound();
@@ -5021,7 +5057,7 @@ export function PlayAuralApp() {
                 }
                 if (event.nativeEvent.actionName === "longpress") {
                   playMenuActivateSound();
-                  sendShiftEnter(item);
+                  sendMenuContextAction(item, index);
                   return;
                 }
                 playMenuActivateSound();

@@ -1,0 +1,128 @@
+{
+  "protocol_version": 1,
+  "limits": {
+    "text_code_points": 131072,
+    "feedback_code_points": 1000
+  },
+  "valid": [
+    {
+      "name": "multiline audit text",
+      "directive": {
+        "version": 1,
+        "text": "first row\nsecond row\t(detail)",
+        "success_text": "Copied two rows.",
+        "failure_text": "Could not copy the rows."
+      }
+    },
+    {
+      "name": "unicode scalar values",
+      "directive": {
+        "version": 1,
+        "text": "Người dùng 😀",
+        "success_text": "Đã sao chép.",
+        "failure_text": "Không thể sao chép."
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "name": "boolean protocol version",
+      "directive": {
+        "version": true,
+        "text": "payload",
+        "success_text": "Copied.",
+        "failure_text": "Failed."
+      }
+    },
+    {
+      "name": "unsupported protocol version",
+      "directive": {
+        "version": 2,
+        "text": "payload",
+        "success_text": "Copied.",
+        "failure_text": "Failed."
+      }
+    },
+    {
+      "name": "missing required field",
+      "directive": {
+        "version": 1,
+        "text": "payload",
+        "success_text": "Copied."
+      }
+    },
+    {
+      "name": "unexpected field",
+      "directive": {
+        "version": 1,
+        "text": "payload",
+        "success_text": "Copied.",
+        "failure_text": "Failed.",
+        "action": "send_to_server"
+      }
+    },
+    {
+      "name": "empty payload",
+      "directive": {
+        "version": 1,
+        "text": "",
+        "success_text": "Copied.",
+        "failure_text": "Failed."
+      }
+    },
+    {
+      "name": "payload control character",
+      "directive": {
+        "version": 1,
+        "text": "unsafe\u0000payload",
+        "success_text": "Copied.",
+        "failure_text": "Failed."
+      }
+    },
+    {
+      "name": "payload directional override",
+      "directive": {
+        "version": 1,
+        "text": "invoice\u202Etxt.exe",
+        "success_text": "Copied.",
+        "failure_text": "Failed."
+      }
+    },
+    {
+      "name": "payload unicode line separator",
+      "directive": {
+        "version": 1,
+        "text": "first\u2028second",
+        "success_text": "Copied.",
+        "failure_text": "Failed."
+      }
+    },
+    {
+      "name": "payload deprecated bidi control",
+      "directive": {
+        "version": 1,
+        "text": "left\u206Aright",
+        "success_text": "Copied.",
+        "failure_text": "Failed."
+      }
+    },
+    {
+      "name": "multiline feedback",
+      "directive": {
+        "version": 1,
+        "text": "payload",
+        "success_text": "Copied.\nTrusted message.",
+        "failure_text": "Failed."
+      }
+    },
+    {
+      "name": "feedback directional isolate",
+      "directive": {
+        "version": 1,
+        "text": "payload",
+        "success_text": "Copied.\u2066",
+        "failure_text": "Failed."
+      }
+    }
+  ]
+}

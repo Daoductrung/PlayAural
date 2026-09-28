@@ -548,6 +548,15 @@ admin-moderation-context-message = { $username }: { $message } Message #{ $id },
 admin-moderation-context-target-message = Reported user { $username }: { $message } Message #{ $id }, sent { $time }. Account ID: { $uuid }. Language: { $channel }.
 admin-moderation-context-anchor-message = Anchored reported user message from { $username }: { $message } Message #{ $id }, sent { $time }. Account ID: { $uuid }. Language: { $channel }.
 admin-moderation-context-empty = No retained global messages remain around this report time.
+admin-moderation-copy-page = { $count ->
+    [one] Copy message on this page (1)
+   *[other] Copy messages on this page ({ $count })
+}
+admin-moderation-copy-page-success = { $count ->
+    [one] Copied 1 message from this page to the clipboard.
+   *[other] Copied { $count } messages from this page to the clipboard.
+}
+admin-moderation-copy-page-failed = Could not copy this page to the clipboard. Check clipboard permission and try again.
 admin-moderation-history-prompt = Enter the exact username whose retained global chat history you want to find. Historical account IDs with the same username will be listed separately.
 admin-moderation-sender-results-heading = Retained sender identities matching the exact username "{ $username }".
 admin-moderation-sender-result = { $username }, account ID { $uuid }. { $count } messages from { $first } through { $last }.

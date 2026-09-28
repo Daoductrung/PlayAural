@@ -36,6 +36,7 @@
     "expo-asset": "~55.0.19",
     "expo-audio": "~55.0.17",
     "expo-av": "^16.0.8",
+    "expo-clipboard": "~55.0.17",
     "expo-secure-store": "~55.0.17",
     "expo-speech": "~55.0.17",
     "expo-status-bar": "~55.0.6",

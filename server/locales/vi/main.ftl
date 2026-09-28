@@ -548,6 +548,15 @@ admin-moderation-context-message = { $username }: { $message } Tin nhắn số {
 admin-moderation-context-target-message = Người dùng bị báo cáo { $username }: { $message } Tin nhắn số { $id }, gửi lúc { $time }. ID tài khoản: { $uuid }. Ngôn ngữ: { $channel }.
 admin-moderation-context-anchor-message = Tin nhắn neo của người dùng bị báo cáo { $username }: { $message } Tin nhắn số { $id }, gửi lúc { $time }. ID tài khoản: { $uuid }. Ngôn ngữ: { $channel }.
 admin-moderation-context-empty = Không còn tin nhắn chung nào được lưu quanh thời điểm báo cáo này.
+admin-moderation-copy-page = { $count ->
+    [one] Sao chép tin nhắn trên trang này (1)
+   *[other] Sao chép tin nhắn trên trang này ({ $count })
+}
+admin-moderation-copy-page-success = { $count ->
+    [one] Đã sao chép 1 tin nhắn trên trang này vào bảng nhớ tạm.
+   *[other] Đã sao chép { $count } tin nhắn trên trang này vào bảng nhớ tạm.
+}
+admin-moderation-copy-page-failed = Không thể sao chép trang này vào bảng nhớ tạm. Hãy kiểm tra quyền truy cập bảng nhớ tạm rồi thử lại.
 admin-moderation-history-prompt = Nhập chính xác tên người dùng có lịch sử trò chuyện chung bạn muốn tìm. Các ID tài khoản cũ từng dùng cùng tên sẽ được liệt kê riêng.
 admin-moderation-sender-results-heading = Các danh tính người gửi đang lưu khớp chính xác với tên người dùng "{ $username }".
 admin-moderation-sender-result = { $username }, ID tài khoản { $uuid }. { $count } tin nhắn từ { $first } đến { $last }.

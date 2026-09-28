@@ -219,6 +219,124 @@ def test_same_session_email_confirmation_restore_keeps_pending_address(
 # General Options submenus
 # ─────────────────────────────────────────────────────────────────────────────
 
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("client_type", ("python", "web", "mobile"))
+@pytest.mark.parametrize("locale", ("en", "es", "fa", "pt", "vi"))
+async def test_general_options_navigation_is_shared_across_clients_and_locales(
+    tmp_path,
+    client_type: str,
+    locale: str,
+) -> None:
+    server, user = _make_server(tmp_path, locale=locale)
+    client = SimpleNamespace(username=user.username)
+    try:
+        user.client_type = client_type
+        server._show_personal_options_menu(user)
+        assert _menu_ids(user, "personal_options_menu") == [
+            "profile",
+            "friends",
+            "my_stats",
+            "options",
+            "back",
+        ]
+
+        await server._handle_menu(
+            client,
+            {
+                "type": "menu",
+                "menu_id": "personal_options_menu",
+                "selection": _menu_ids(user, "personal_options_menu").index(
+                    "options"
+                )
+                + 1,
+                "selection_id": "options",
+            },
+        )
+        assert _menu_ids(user, "options_menu") == [
+            "language",
+            "global_chat_channel",
+            "game_options",
+            "options_audio",
+            "options_accessibility",
+            "options_notifications",
+            "back",
+        ]
+        assert all(
+            item.text
+            for item in user.get_current_menu_items("options_menu")
+            if item.id in {"global_chat_channel", "game_options"}
+        )
+        assert user.menus["options_menu"]["escape_behavior"].value == (
+            "select_last_option"
+        )
+
+        await server._handle_menu(
+            client,
+            {
+                "type": "menu",
+                "menu_id": "options_menu",
+                "selection": _menu_ids(user, "options_menu").index("game_options")
+                + 1,
+                "selection_id": "game_options",
+            },
+        )
+        assert _current_menu(server, user.username) == "game_options_menu"
+        assert [frame["menu"] for frame in _stack(server, user.username)] == [
+            "personal_options_menu",
+            "options_menu",
+        ]
+        state_before_shortcut = dict(_user_state(server, user.username))
+        await server._handle_open_options(client)
+        assert _user_state(server, user.username) == state_before_shortcut
+
+        await server._handle_authenticated_message(
+            client,
+            user,
+            {"type": "escape", "menu_id": "game_options_menu"},
+        )
+        assert _current_menu(server, user.username) == "options_menu"
+        assert user.menus["options_menu"]["selection_id"] == "game_options"
+
+        await server._handle_menu(
+            client,
+            {
+                "type": "menu",
+                "menu_id": "options_menu",
+                "selection": _menu_ids(user, "options_menu").index(
+                    "global_chat_channel"
+                )
+                + 1,
+                "selection_id": "global_chat_channel",
+            },
+        )
+        assert _current_menu(server, user.username) == "global_chat_channel_menu"
+        state_before_shortcut = dict(_user_state(server, user.username))
+        await server._handle_open_options(client)
+        assert _user_state(server, user.username) == state_before_shortcut
+
+        await server._handle_authenticated_message(
+            client,
+            user,
+            {"type": "escape", "menu_id": "global_chat_channel_menu"},
+        )
+        assert _current_menu(server, user.username) == "options_menu"
+        assert user.menus["options_menu"]["selection_id"] == (
+            "global_chat_channel"
+        )
+
+        await server._handle_authenticated_message(
+            client,
+            user,
+            {"type": "escape", "menu_id": "options_menu"},
+        )
+        assert _current_menu(server, user.username) == "personal_options_menu"
+        assert user.menus["personal_options_menu"]["selection_id"] == "options"
+        assert _stack(server, user.username) == []
+    finally:
+        server._db.close()
+
+
 @pytest.mark.asyncio
 async def test_space_speaks_general_option_row_description_only_for_active_row(tmp_path) -> None:
     server, user = _make_server(tmp_path)
@@ -229,7 +347,8 @@ async def test_space_speaks_general_option_row_description_only_for_active_row(t
         await _press_space_on(server, user, "personal_options_menu", "options")
         spoken = user.get_spoken_messages()
         assert spoken
-        assert "language, audio, accessibility" in spoken[-1]
+        assert "global chat" in spoken[-1]
+        assert "gameplay preferences" in spoken[-1]
 
         user.clear_messages()
         await _press_space_on(server, user, "personal_options_menu", "back")
@@ -290,6 +409,10 @@ async def test_options_notifications_toggle_stays_in_notifications_submenu(tmp_p
         await server._handle_open_options(SimpleNamespace(username=user.username))
         await server._handle_options_selection(user, "options_notifications")
         assert _current_menu(server, user.username) == "options_notifications_submenu"
+        assert "global_chat_channel" not in _menu_ids(
+            user,
+            "options_notifications_submenu",
+        )
 
         await server._handle_notifications_submenu_selection(user, "mute_global_chat")
         assert _current_menu(server, user.username) == "options_notifications_submenu"
@@ -307,13 +430,12 @@ async def test_global_chat_channel_menu_recommends_locale_and_persists_selection
     server, user = _make_server(tmp_path, locale="vi")
     try:
         server._show_options_menu(user)
-        server._nav_push(user, server._show_notifications_submenu)
 
         await server._handle_menu(
             SimpleNamespace(username=user.username),
             {
                 "type": "menu",
-                "menu_id": "options_notifications_submenu",
+                "menu_id": "options_menu",
                 "selection_id": "global_chat_channel",
             },
         )
@@ -340,17 +462,17 @@ async def test_global_chat_channel_menu_recommends_locale_and_persists_selection
             },
         )
 
-        assert _current_menu(server, user.username) == "options_notifications_submenu"
+        assert _current_menu(server, user.username) == "options_menu"
         assert user.preferences.global_chat_channel == "es"
         saved = json.loads(server._db.get_user(user.username).preferences_json)
         assert saved["global_chat_channel"] == "es"
         channel_item = next(
             item
-            for item in user.get_current_menu_items("options_notifications_submenu")
+            for item in user.get_current_menu_items("options_menu")
             if item.id == "global_chat_channel"
         )
         assert "Tây Ban Nha" in channel_item.text
-        assert user.menus["options_notifications_submenu"]["selection_id"] == (
+        assert user.menus["options_menu"]["selection_id"] == (
             "global_chat_channel"
         )
     finally:
@@ -363,7 +485,6 @@ async def test_global_chat_channel_can_be_explicitly_cleared(tmp_path) -> None:
     try:
         user.preferences.global_chat_channel = "en"
         server._show_options_menu(user)
-        server._nav_push(user, server._show_notifications_submenu)
         server._nav_push(user, server._show_global_chat_channel_menu)
 
         await server._handle_global_chat_channel_selection(
@@ -374,7 +495,7 @@ async def test_global_chat_channel_can_be_explicitly_cleared(tmp_path) -> None:
         assert user.preferences.global_chat_channel is None
         saved = json.loads(server._db.get_user(user.username).preferences_json)
         assert saved["global_chat_channel"] is None
-        assert _current_menu(server, user.username) == "options_notifications_submenu"
+        assert _current_menu(server, user.username) == "options_menu"
     finally:
         server._db.close()
 
@@ -429,11 +550,11 @@ async def test_menu_hints_toggle_updates_all_rows_and_persists(tmp_path) -> None
             for item in user.get_current_menu_items("personal_options_menu")
             if item.id == "options"
         )
-        assert "language, audio, accessibility" not in general_options.text
+        assert "global chat" not in general_options.text
 
         user.clear_messages()
         await _press_space_on(server, user, "personal_options_menu", "options")
-        assert "language, audio, accessibility" in user.get_spoken_messages()[-1]
+        assert "gameplay preferences" in user.get_spoken_messages()[-1]
     finally:
         server._db.close()
 
@@ -935,8 +1056,8 @@ async def test_stale_server_menu_packets_are_ignored(tmp_path) -> None:
 async def test_game_options_category_and_back(tmp_path) -> None:
     server, user = _make_server(tmp_path)
     try:
-        server._show_personal_options_menu(user)
-        await server._handle_personal_options_selection(user, "game_options")
+        server._show_options_menu(user)
+        await server._handle_options_selection(user, "game_options")
         assert _current_menu(server, user.username) == "game_options_menu"
 
         await server._handle_game_options_selection(user, "cat_gameplay")
@@ -947,7 +1068,7 @@ async def test_game_options_category_and_back(tmp_path) -> None:
         assert _current_menu(server, user.username) == "game_options_menu"
 
         await server._handle_game_options_selection(user, "back")
-        assert _current_menu(server, user.username) == "personal_options_menu"
+        assert _current_menu(server, user.username) == "options_menu"
     finally:
         server._db.close()
 
@@ -956,8 +1077,12 @@ async def test_game_options_category_and_back(tmp_path) -> None:
 async def test_simple_bool_pref_toggles_in_place(tmp_path) -> None:
     server, user = _make_server(tmp_path)
     try:
-        server._show_personal_options_menu(user)
-        await server._handle_personal_options_selection(user, "game_options")
+        synced: list[tuple[str, object]] = []
+        server._sync_pref_to_client = (
+            lambda _user, key, value: synced.append((key, value))
+        )
+        server._show_options_menu(user)
+        await server._handle_options_selection(user, "game_options")
         await server._handle_game_options_selection(user, "cat_gameplay")
 
         before = user.preferences.allow_custom_bot_names
@@ -965,6 +1090,9 @@ async def test_simple_bool_pref_toggles_in_place(tmp_path) -> None:
         await server._handle_pref_category_selection(user, "pref_allow_custom_bot_names")
         assert _current_menu(server, user.username) == "pref_category_menu"
         assert user.preferences.allow_custom_bot_names is (not before)
+        saved = json.loads(server._db.get_user(user.username).preferences_json)
+        assert saved["allow_custom_bot_names"] is (not before)
+        assert synced == [("gameplay/allow_custom_bot_names", not before)]
     finally:
         server._db.close()
 
@@ -973,8 +1101,8 @@ async def test_simple_bool_pref_toggles_in_place(tmp_path) -> None:
 async def test_pref_with_overrides_opens_detail_and_sets_per_game(tmp_path) -> None:
     server, user = _make_server(tmp_path)
     try:
-        server._show_personal_options_menu(user)
-        await server._handle_personal_options_selection(user, "game_options")
+        server._show_options_menu(user)
+        await server._handle_options_selection(user, "game_options")
         await server._handle_game_options_selection(user, "cat_gameplay")
 
         # confirm_destructive_actions is relevant to pusoydos → opens detail menu.
@@ -1002,8 +1130,8 @@ async def test_menu_pref_global_choice_via_detail(tmp_path) -> None:
 
     server, user = _make_server(tmp_path)
     try:
-        server._show_personal_options_menu(user)
-        await server._handle_personal_options_selection(user, "game_options")
+        server._show_options_menu(user)
+        await server._handle_options_selection(user, "game_options")
         await server._handle_game_options_selection(user, "cat_dice")
 
         # dice_keeping_style is a menu pref relevant to dice games → detail menu.
@@ -1027,8 +1155,8 @@ async def test_menu_pref_global_choice_via_detail(tmp_path) -> None:
 async def test_menu_pref_per_game_choice(tmp_path) -> None:
     server, user = _make_server(tmp_path)
     try:
-        server._show_personal_options_menu(user)
-        await server._handle_personal_options_selection(user, "game_options")
+        server._show_options_menu(user)
+        await server._handle_options_selection(user, "game_options")
         await server._handle_game_options_selection(user, "cat_dice")
         await server._handle_pref_category_selection(user, "pref_dice_keeping_style")
 
@@ -1055,8 +1183,8 @@ async def test_reset_all_game_prefs(tmp_path) -> None:
     try:
         user.preferences.allow_custom_bot_names = True
         user.preferences.set_game_override("confirm_destructive_actions", "pusoydos", False)
-        server._show_personal_options_menu(user)
-        await server._handle_personal_options_selection(user, "game_options")
+        server._show_options_menu(user)
+        await server._handle_options_selection(user, "game_options")
 
         await server._handle_game_options_selection(user, "reset_all")
         assert _current_menu(server, user.username) == "game_options_menu"
@@ -1070,8 +1198,8 @@ async def test_reset_all_game_prefs(tmp_path) -> None:
 async def test_space_speaks_pref_description(tmp_path) -> None:
     server, user = _make_server(tmp_path)
     try:
-        server._show_personal_options_menu(user)
-        await server._handle_personal_options_selection(user, "game_options")
+        server._show_options_menu(user)
+        await server._handle_options_selection(user, "game_options")
         await server._handle_game_options_selection(user, "cat_gameplay")
 
         spoken_before = len(user.get_spoken_messages())

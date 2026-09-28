@@ -172,7 +172,7 @@ Trong khi lần tung, bước di chuyển quân cờ hoặc hiệu ứng thẻ �
 
 Tùy chọn \*\*Gợi ý trong menu\*\* tại \*\*Tùy chỉnh chung > Hỗ trợ tiếp cận\*\* thêm lời giải thích dành cho người mới vào những hành động cần thiết. Gợi ý của nút bị vô hiệu hóa vẫn giải thích chức năng; hãy kích hoạt nút để nghe đúng lý do nó hiện chưa dùng được.
 
-Tùy chọn \*\*Thông báo ngắn gọn\*\* tại \*\*Tùy chỉnh trò chơi > Hiển thị\*\* rút gọn lời đọc thường xuyên nhưng vẫn giữ quyết định bắt buộc và giá trị quan trọng.
+Tùy chọn \*\*Thông báo ngắn gọn\*\* tại \*\*Tùy chỉnh chung > Tùy chỉnh trò chơi > Hiển thị\*\* rút gọn lời đọc thường xuyên nhưng vẫn giữ quyết định bắt buộc và giá trị quan trọng.
 
 Khán giả nhận được thông tin công khai về bàn cờ, quyền sở hữu, tiền mặt, vị trí, đấu giá, đề nghị trao đổi đã gửi và tình trạng ván. Họ không thấy bản nháp hay trạng thái tương tác riêng của người chơi và không thể dùng hành động làm thay đổi ván.
 

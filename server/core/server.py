@@ -3322,7 +3322,7 @@ PlayAural Server
     }
 
     def _show_options_menu(self, user: NetworkUser) -> None:
-        """Show options menu (top-level hub)."""
+        """Show the General Options hub."""
         languages = Localization.get_available_languages(user.locale, fallback=user.locale)
         current_lang = languages.get(user.locale, user.locale)
 
@@ -3331,6 +3331,23 @@ PlayAural Server
                 text=Localization.get(user.locale, "language-option", language=current_lang),
                 id="language",
                 description_key="general-desc-language",
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "global-chat-channel-option",
+                    channel=self._get_global_chat_channel_name(
+                        user.locale,
+                        user.preferences.global_chat_channel,
+                    ),
+                ),
+                id="global_chat_channel",
+                description_key="general-desc-global-chat-channel",
+            ),
+            MenuItem(
+                text=Localization.get(user.locale, "game-options"),
+                id="game_options",
+                description_key="general-desc-game-options",
             ),
             MenuItem(
                 text=Localization.get(user.locale, "options-category-audio"),
@@ -3647,18 +3664,6 @@ PlayAural Server
                 ),
                 id="mute_global_chat",
                 description_key="general-desc-mute-global-chat",
-            ),
-            MenuItem(
-                text=Localization.get(
-                    user.locale,
-                    "global-chat-channel-option",
-                    channel=self._get_global_chat_channel_name(
-                        user.locale,
-                        prefs.global_chat_channel,
-                    ),
-                ),
-                id="global_chat_channel",
-                description_key="general-desc-global-chat-channel",
             ),
             MenuItem(
                 text=Localization.get(
@@ -5848,11 +5853,6 @@ PlayAural Server
                 id="options",
                 description_key="general-desc-general-options",
             ),
-            MenuItem(
-                text=Localization.get(user.locale, "game-options"),
-                id="game_options",
-                description_key="general-desc-game-options",
-            ),
             MenuItem(text=Localization.get(user.locale, "back"), id="back")
         ]
         user.show_menu(
@@ -5873,8 +5873,6 @@ PlayAural Server
             self._nav_push(user, self._show_my_stats_menu)
         elif selection_id == "options":
             self._nav_push(user, self._show_options_menu)
-        elif selection_id == "game_options":
-            self._nav_push(user, self._show_game_options_menu)
         elif selection_id == "back":
             self._nav_back(user)
 
@@ -7775,6 +7773,10 @@ PlayAural Server
         """Handle options menu (hub) selection."""
         if selection_id == "language":
             self._nav_push(user, self._show_language_menu)
+        elif selection_id == "global_chat_channel":
+            self._nav_push(user, self._show_global_chat_channel_menu)
+        elif selection_id == "game_options":
+            self._nav_push(user, self._show_game_options_menu)
         elif selection_id == "options_audio":
             self._nav_push(user, self._show_audio_submenu)
         elif selection_id == "options_accessibility":
@@ -7904,8 +7906,6 @@ PlayAural Server
             self._save_user_preferences(user)
             self._sync_pref_to_client(user, "social/mute_global_chat", prefs.mute_global_chat)
             self._nav_refresh(user, self._show_notifications_submenu)
-        elif selection_id == "global_chat_channel":
-            self._nav_push(user, self._show_global_chat_channel_menu)
         elif selection_id == "mute_table_chat":
             prefs.mute_table_chat = not prefs.mute_table_chat
             self._save_user_preferences(user)

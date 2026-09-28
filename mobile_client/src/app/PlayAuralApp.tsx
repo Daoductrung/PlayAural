@@ -3872,10 +3872,8 @@ export function PlayAuralApp() {
       return;
     }
     if (shortcut.id === "options") {
-      requestNativeMenuFocusOnNextPacket();
-      modeRef.current = "main";
+      closeOverlay();
       connection?.send({ type: "open_options" });
-      setMode("main");
       return;
     }
     if (shortcut.id === "friends") {

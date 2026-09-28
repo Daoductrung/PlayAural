@@ -66,6 +66,13 @@ test("opening a different online list requests menu focus and dismisses Shortcut
   assert.equal(modeRef.current, "main");
 });
 
+test("opening Options restores menu focus without depending on a server repaint", () => {
+  const { activate, effects, modeRef } = harness("game_options_menu");
+  activate({ id: "options" });
+  assert.deepEqual(effects, ["close-overlay", { type: "open_options" }]);
+  assert.equal(modeRef.current, "main");
+});
+
 test("returning to the existing online list does not leave a pending focus request", () => {
   const { activate, effects, modeRef } = harness("online_users");
   activate({ id: "list_online_with_games" });

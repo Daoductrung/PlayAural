@@ -1150,9 +1150,11 @@ class MainWindow(wx.Frame):
     _OPTIONS_MENU_IDS = frozenset({
         "options_menu", "options_audio_submenu", "volume_selection_menu",
         "options_accessibility_submenu",
-        "options_notifications_submenu", "options_game_submenu",
+        "options_notifications_submenu", "global_chat_channel_menu",
+        "game_options_menu", "pref_category_menu", "pref_detail_menu",
+        "pref_choices_menu",
         "language_menu", "speech_settings_menu", "voice_selection_menu",
-        "audio_input_device_menu", "dice_keeping_style_menu",
+        "speech_rate_selection_menu", "audio_input_device_menu",
         "mobile_speech_settings_menu", "mobile_tts_engine_menu",
         "mobile_voice_selection_menu",
         "speech_rate_input", "mobile_tts_rate_input",

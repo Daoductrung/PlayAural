@@ -172,7 +172,7 @@ While a roll, token movement, or card effect is resolving, controls that could c
 
 The \*\*Menu Hints\*\* setting under \*\*General options > Accessibility\*\* adds beginner explanations to actions that need them. A disabled action's hint continues to explain its purpose; activate the action to hear the exact reason it is currently unavailable.
 
-The \*\*Brief announcements\*\* setting under \*\*Game options > Display\*\* shortens routine speech while keeping required choices and important values.
+The \*\*Brief announcements\*\* setting under \*\*General options > Game options > Display\*\* shortens routine speech while keeping required choices and important values.
 
 Spectators receive public board, ownership, cash, position, auction, submitted-trade, and game-status information. They cannot see a player's private draft or interaction state and cannot use actions that change the game.
 

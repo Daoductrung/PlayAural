@@ -927,6 +927,31 @@ replace the retention and cleanup rules required for genuinely persistent data.
   hardcoded English may reach players.
 - Pass raw data as kwargs and let Fluent render; do not pre-format strings.
   Use select/plural expressions when output varies by game state.
+- Account gender is represented by the canonical `Gender` model in
+  `server/gender.py`. Normalize legacy/external reads, reject unsupported
+  mutation values, and use unspecified for missing, deleted, unknown, or
+  corrupt account data. The database remains authoritative and connected users
+  carry the live value; do not serialize this mutable profile field into a game
+  or duplicate its lifecycle there.
+- Game code resolves gender through `get_player_gender()` and
+  `player_localization_kwargs()`. This preserves the live profile value for a
+  connected human and looks up a disconnected or bot-controlled human seat by
+  immutable account UUID. Synthetic bots are neutral unless deliberately given
+  a supported gender for game-owned behavior such as audio selection.
+- Identity-bearing Fluent messages use a sibling selector such as
+  `$player_gender` and the validated `GENDER_TERM(gender, form, context?)`
+  function. Standard game broadcasters infer selectors from `Player` values or
+  unique exact player-name kwargs; per-listener custom broadcasters must pass
+  their payload through `_resolve_broadcast_kwargs()`. Server-owned account
+  messages use the shared gender-kwargs helper rather than duplicating lookup
+  logic. Explicit selector kwargs take precedence when a caller intentionally
+  describes another identity.
+- Gender vocabulary and grammar remain locale data. Use one of the supported
+  shared forms; a game that needs distinct terms may pass a bounded context and
+  define `<context>-gender-term-<form>` in Fluent. Never branch on language or
+  concatenate pronouns in Python. Missing contextual forms fall back to shared
+  forms and unspecified/non-binary values fall back to the locale's neutral
+  form.
 - PlayAural ships English and Vietnamese, and — unlike upstream PlayPalace,
   where translators own everything but `en` — here the agent authors **both**.
   A new or changed `en` key must land with its `vi` counterpart, kept in

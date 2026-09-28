@@ -1,6 +1,11 @@
+import asyncio
+import os
+import tempfile
+import uuid
+
 import pytest
+
 from server.auth.auth import AuthManager
-from server.persistence.database import Database
 from server.core.server import (
     ANDROID_UPDATE_URL,
     SOUNDS_HASH,
@@ -9,11 +14,10 @@ from server.core.server import (
     VERSION,
     WELCOME_SOUND,
 )
+from server.gender import Gender
+from server.persistence.database import Database
 from server.users.network_user import NetworkUser
-import tempfile
-import os
-import asyncio
-import uuid
+
 
 class MockClient:
     def __init__(self):
@@ -548,6 +552,26 @@ class TestAuthSecurity:
         assert self.server._ws_server.get_client_by_username("Alice") is client
         assert client.sent_messages[0]["type"] == "authorize_success"
         assert client.sent_messages[0]["username"] == "Alice"
+
+    @pytest.mark.asyncio
+    async def test_authorize_hydrates_live_account_gender(self):
+        self.server._auth.register("Gendered", "Password123")
+        self.db.update_user_gender("Gendered", Gender.FEMALE.value)
+        client = MockClient()
+        self.server._ws_server.bind_client(client)
+
+        await self.server._handle_authorize(
+            client,
+            {
+                "type": "authorize",
+                "client": "python",
+                "username": "Gendered",
+                "password": "Password123",
+                "version": VERSION,
+            },
+        )
+
+        assert self.server._users["Gendered"].gender is Gender.FEMALE
 
     @pytest.mark.asyncio
     async def test_ambiguous_legacy_username_requires_exact_spelling(self):

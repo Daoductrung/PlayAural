@@ -6852,6 +6852,7 @@ class BangGame(Game):
                     key,
                     buffer="game",
                     player=player.name,
+                    player_gender=self.get_player_gender(player).selector,
                     target=target.name,
                     life=player.life,
                 )
@@ -7434,11 +7435,14 @@ class BangGame(Game):
             user = self.get_user(listener)
             if not user:
                 continue
-            localized = self._resolve_broadcast_kwargs(user.locale, kwargs)
-            localized.update(
-                actor=actor.name,
-                player=target.name,
-                target=target.name,
+            localized = self._resolve_broadcast_kwargs(
+                user.locale,
+                {
+                    **kwargs,
+                    "actor": actor,
+                    "player": target,
+                    "target": target,
+                },
             )
             if listener.id == actor.id:
                 key = actor_key
@@ -7891,6 +7895,7 @@ class BangGame(Game):
                     "bang-your-attack-costs-life",
                     buffer="game",
                     target=target.name,
+                    target_gender=self.get_player_gender(target).selector,
                     amount=amount,
                     life=target.life,
                     source=source_name,

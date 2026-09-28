@@ -151,7 +151,8 @@ class MidnightGame(Game, DiceGameMixin):
 
             payload = dict(kwargs)
             if not is_actor:
-                payload["player"] = actor.name
+                payload["player"] = actor
+            payload = self._resolve_broadcast_kwargs(user.locale, payload)
             user.speak_l(key, buffer="game", **payload)
 
     def _broadcast_global_l(
@@ -216,17 +217,20 @@ class MidnightGame(Game, DiceGameMixin):
             else ""
         )
         missing = self._format_missing_qualifiers(player.dice.values, locale)
-        return {
-            "player": player.name,
-            "dice": dice_text,
-            "locked": locked_count,
-            "kept": kept_count,
-            "remaining": remaining,
-            "score": score,
-            "scoring_dice": scoring_dice,
-            "missing": missing,
-            "qualified": "yes" if qualified else "no",
-        }
+        return self._resolve_broadcast_kwargs(
+            locale,
+            {
+                "player": player,
+                "dice": dice_text,
+                "locked": locked_count,
+                "kept": kept_count,
+                "remaining": remaining,
+                "score": score,
+                "scoring_dice": scoring_dice,
+                "missing": missing,
+                "qualified": "yes" if qualified else "no",
+            },
+        )
 
     def _sync_team_scores(self) -> None:
         for player in self.get_active_players():

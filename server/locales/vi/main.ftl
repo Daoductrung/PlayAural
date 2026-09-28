@@ -109,7 +109,7 @@ table-not-exists = Bàn chơi không còn tồn tại.
 table-full = Bàn đã đầy.
 table-closed-disconnect-timeout = Bàn đã đóng vì không có người chơi nào trở lại trong vòng { $minutes } phút.
 player-replaced-by-bot = { $bot } đang chơi thay cho { $player }.
-player-reclaimed-from-bot = { $player } đã trở lại và lấy lại chỗ từ { $bot }.
+player-reclaimed-from-bot = { $player } đã trở lại và lấy lại chỗ { GENDER_TERM($player_gender, "possessive-determiner") } từ { $bot }.
 spectator-joined = Đã tham gia bàn của { $host } với tư cách khán giả.
 
 spectate = Xem
@@ -411,7 +411,7 @@ table-member-status-bot = Bot
 table-member-status-online = Trực tuyến
 table-member-status-offline = Ngoại tuyến
 table-member-status-voice-chat = đang trong trò chuyện thoại
-table-member-status-bot-takeover = bot đang chơi thay: { $bot }
+table-member-status-bot-takeover = bot đang chơi thay cho { GENDER_TERM($member_gender, "object") }: { $bot }
 table-member-no-actions = Không có hành động nào cho { $player }.
 table-member-left = Người này không còn ở bàn này.
 table-member-bot-left = Bot này không còn ở bàn này.
@@ -790,8 +790,8 @@ report-channel-unspecified = chưa chọn kênh trò chuyện chung
 report-confirm-summary = Báo cáo { $username } vì { $reason }. Kênh làm ngữ cảnh: { $channel }. Báo cáo sẽ được lưu để xem xét thủ công. Người dùng này sẽ không nhận thông báo và không tự động bị xử phạt.
 report-submit = Gửi báo cáo
 report-change-reason = Đổi lý do
-report-submitted = Báo cáo của bạn về { $username } đã được lưu cùng thời điểm gửi chính xác để xem xét thủ công. Người dùng này không nhận được thông báo. Bạn cũng có thể chặn họ để ngăn liên hệ trực tiếp và ẩn tin nhắn chung của họ.
-report-target-cooldown = Gần đây bạn đã báo cáo { $username }. Chỉ gửi thêm báo cáo sau { $duration }; hãy dùng tính năng Chặn ngay nếu bạn không muốn nhận tin nhắn của họ.
+report-submitted = Báo cáo của bạn về { $username } đã được lưu cùng thời điểm gửi chính xác để xem xét thủ công. Người dùng này không nhận được thông báo. Bạn cũng có thể chặn { GENDER_TERM($username_gender, "object") } để ngăn liên hệ trực tiếp và ẩn tin nhắn chung { GENDER_TERM($username_gender, "possessive-determiner") }.
+report-target-cooldown = Gần đây bạn đã báo cáo { $username }. Chỉ gửi thêm báo cáo sau { $duration }; hãy dùng tính năng Chặn ngay nếu bạn không muốn nhận tin nhắn { GENDER_TERM($username_gender, "possessive-determiner") }.
 report-rate-limited = Gần đây bạn đã gửi nhiều báo cáo. Hãy thử lại sau { $duration }.
 report-failed = Không thể lưu báo cáo một cách an toàn. Vui lòng thử lại sau.
 
@@ -944,6 +944,76 @@ gender-female = Nữ
 gender-non-binary = Phi nhị giới
 gender-not-set = Chưa đặt
 
+# Các dạng ngữ pháp dùng chung theo giới tính tài khoản. Trò chơi có thể ghi
+# đè từng dạng bằng <context>-gender-term-<form> khi gọi GENDER_TERM; tên khóa
+# kỹ thuật context và form phải giữ nguyên, không dịch.
+gender-term-subject =
+    { $gender ->
+        [male] anh ấy
+        [female] cô ấy
+       *[other] họ
+    }
+gender-term-subject-capitalized =
+    { $gender ->
+        [male] Anh ấy
+        [female] Cô ấy
+       *[other] Họ
+    }
+gender-term-subject-be =
+    { $gender ->
+        [male] anh ấy
+        [female] cô ấy
+       *[other] họ
+    }
+gender-term-subject-be-capitalized =
+    { $gender ->
+        [male] Anh ấy
+        [female] Cô ấy
+       *[other] Họ
+    }
+gender-term-subject-have =
+    { $gender ->
+        [male] anh ấy có
+        [female] cô ấy có
+       *[other] họ có
+    }
+gender-term-subject-have-capitalized =
+    { $gender ->
+        [male] Anh ấy có
+        [female] Cô ấy có
+       *[other] Họ có
+    }
+gender-term-object =
+    { $gender ->
+        [male] anh ấy
+        [female] cô ấy
+       *[other] họ
+    }
+gender-term-possessive-determiner =
+    { $gender ->
+        [male] của anh ấy
+        [female] của cô ấy
+       *[other] của họ
+    }
+gender-term-possessive-determiner-capitalized =
+    { $gender ->
+        [male] Của anh ấy
+        [female] Của cô ấy
+       *[other] Của họ
+    }
+gender-term-possessive-pronoun =
+    { $gender ->
+        [male] của anh ấy
+        [female] của cô ấy
+       *[other] của họ
+    }
+gender-term-reflexive =
+    { $gender ->
+        [male] chính anh ấy
+        [female] chính cô ấy
+       *[other] chính họ
+    }
+
 action-set-edit = Đặt / Chỉnh sửa
 action-delete = Xóa
 bio-already-empty = Phần giới thiệu đã trống.
@@ -999,7 +1069,7 @@ friend-remove-confirm = Xóa { $username } khỏi danh sách bạn bè của b�
 friend-remove-not-friends = { $username } không còn trong danh sách bạn bè của bạn.
 already-in-table = Bạn đã ở trong bàn này rồi.
 friend-removed-success = Đã xóa { $username } khỏi danh sách bạn bè của bạn.
-friend-removed-notify = { $username } đã xóa bạn khỏi danh sách bạn bè.
+friend-removed-notify = { $username } đã xóa bạn khỏi danh sách bạn bè { GENDER_TERM($username_gender, "possessive-determiner") }.
 
 no-pending-requests = Không có lời mời kết bạn nào đang chờ.
 friend-request-from = Lời mời kết bạn từ { $username }
@@ -1016,13 +1086,13 @@ enter-friend-username = Nhập tên người dùng bạn muốn kết bạn:
 friend-error-self = Bạn không thể gửi lời mời kết bạn cho chính mình.
 friend-error-already-friends = Bạn đã là bạn bè với người này.
 friend-error-duplicate = Bạn đã gửi một lời mời kết bạn cho người này rồi.
-friend-error-blocked-by-you = Bạn đã chặn { $username }. Hãy bỏ chặn họ trước khi gửi lời mời kết bạn.
+friend-error-blocked-by-you = Bạn đã chặn { $username }. Hãy bỏ chặn { GENDER_TERM($username_gender, "object") } trước khi gửi lời mời kết bạn.
 friend-error-blocked = Bạn và { $username } không thể gửi lời mời kết bạn cho nhau.
 friend-request-sent = Đã gửi lời mời kết bạn đến { $username }.
 friend-request-received = Bạn đã nhận được một lời mời kết bạn mới từ { $username }.
 
 block-confirm = Chặn { $username }? Thao tác này sẽ xóa quan hệ bạn bè và mọi lời mời kết bạn đang chờ giữa hai người. Hai người sẽ không thể gửi lời mời kết bạn, tin nhắn riêng hoặc lời mời vào bàn cho nhau, đồng thời tin nhắn trò chuyện thông thường sẽ bị ẩn theo cả hai chiều. Khi lệnh chặn còn hiệu lực, mỗi người không thể vào một bàn mới do người kia làm chủ bàn hoặc khôi phục một bàn đã lưu có cả hai người. Việc chặn không đưa ai ra khỏi bàn chung, không cản trở việc trở lại chỗ đã được giữ và không tắt tiếng trò chuyện thoại trong bàn.
-block-success = Bạn đã chặn { $username }. Hai người không thể liên hệ trực tiếp qua các tính năng xã hội, tin nhắn trò chuyện thông thường của họ sẽ bị ẩn, đồng thời mỗi người không thể vào một bàn mới do người kia làm chủ bàn hoặc khôi phục một bàn đã lưu có cả hai người.
+block-success = Bạn đã chặn { $username }. Hai người không thể liên hệ trực tiếp qua các tính năng xã hội, tin nhắn trò chuyện thông thường { GENDER_TERM($username_gender, "possessive-determiner") } sẽ bị ẩn, đồng thời mỗi người không thể vào một bàn mới do người kia làm chủ bàn hoặc khôi phục một bàn đã lưu có cả hai người.
 block-error-self = Bạn không thể chặn chính mình.
 block-already-active = Bạn đã chặn { $username } rồi.
 block-no-longer-active = Lệnh chặn này không còn hiệu lực.
@@ -1068,21 +1138,21 @@ player-substitution-no-seats = (Không có chỗ người chơi nào đang hoạ
 player-substitution-seat-unavailable = Chỗ người chơi đó không còn khả dụng để thay người. Không có vai trò nào thay đổi.
 player-substitution-no-spectators = (Không có khán giả phù hợp)
 player-substitution-spectator-unavailable = Khán giả đó không còn khả dụng để thay người. Không có vai trò nào thay đổi.
-player-substitution-user-busy = { $player } đang hoàn tất một phần nhập hoặc xem trạng thái khác. Hãy thử lại sau khi họ đóng phần đó.
+player-substitution-user-busy = { $player } đang hoàn tất một phần nhập hoặc xem trạng thái khác. Hãy thử lại sau khi { GENDER_TERM($player_gender, "subject") } đóng phần đó.
 player-substitution-game-busy = Ván đang hoàn tất một lựa chọn đồng bộ hoặc khôi phục bàn nên tạm khóa việc thay người. Hãy thử lại sau khi quá trình đó kết thúc.
-player-substitution-offer-sent = Đã mời { $player } vào chỗ của { $seat }. Quyền điều khiển chỉ thay đổi sau khi họ chấp nhận.
-player-substitution-self-offer-sent = Đã mời { $player } vào chỗ của bạn. Nếu họ chấp nhận, bạn sẽ trở thành khán giả nhưng vẫn giữ quyền chủ bàn; kết quả cuối cùng của chỗ sẽ được ghi nhận cho họ.
-player-substitution-self-incoming-consent-sent = Đã hỏi { $player } có đồng ý nhường chỗ cho bạn hay không. Nếu họ đồng ý, bạn sẽ nhận quyền điều khiển ngay vì việc chọn chính mình đã xác nhận sự đồng ý của bạn.
-player-substitution-outgoing-consent-sent = Đã hỏi { $player } có đồng ý nhường chỗ cho { $substitute } hay không. Nếu họ đồng ý, { $substitute } cũng phải chấp nhận trước khi quyền điều khiển thay đổi.
+player-substitution-offer-sent = Đã mời { $player } vào chỗ của { $seat }. Quyền điều khiển chỉ thay đổi sau khi { GENDER_TERM($player_gender, "subject") } chấp nhận.
+player-substitution-self-offer-sent = Đã mời { $player } vào chỗ của bạn. Nếu { GENDER_TERM($player_gender, "subject") } chấp nhận, bạn sẽ trở thành khán giả nhưng vẫn giữ quyền chủ bàn; kết quả cuối cùng của chỗ sẽ được ghi nhận cho { GENDER_TERM($player_gender, "object") }.
+player-substitution-self-incoming-consent-sent = Đã hỏi { $player } có đồng ý nhường chỗ { GENDER_TERM($player_gender, "possessive-determiner") } cho bạn hay không. Nếu { GENDER_TERM($player_gender, "subject") } đồng ý, bạn sẽ nhận quyền điều khiển ngay vì việc chọn chính mình đã xác nhận sự đồng ý của bạn.
+player-substitution-outgoing-consent-sent = Đã hỏi { $player } có đồng ý nhường chỗ { GENDER_TERM($player_gender, "possessive-determiner") } cho { $substitute } hay không. Nếu { GENDER_TERM($player_gender, "subject") } đồng ý, { $substitute } cũng phải chấp nhận trước khi quyền điều khiển thay đổi.
 player-substitution-offer-pending = { $player } đã có một yêu cầu thay người đang chờ trả lời.
 player-substitution-seat-offer-pending = Chỗ của { $seat } đã có một yêu cầu thay người đang chờ trả lời.
 player-substitution-self-seat-offer-pending = Chỗ của bạn đã có một yêu cầu thay người đang chờ trả lời.
-player-substitution-request-outgoing = { $host } muốn { $player } thay bạn ở chỗ hiện tại. Nếu chấp nhận, bạn sẽ trở thành khán giả và { $player } sẽ nhận nguyên trạng thái ván, thông tin riêng, thời gian lượt còn lại cùng quyền được ghi nhận kết quả cuối cùng của chỗ. Không có bộ đếm giờ nào được đặt lại.
-player-substitution-request-outgoing-host-incoming = { $host } muốn thay bạn ở chỗ hiện tại. Nếu chấp nhận, bạn sẽ trở thành khán giả và chủ bàn sẽ nhận nguyên trạng thái ván, thông tin riêng, thời gian lượt còn lại cùng quyền được ghi nhận kết quả cuối cùng của chỗ. Không có bộ đếm giờ nào được đặt lại.
-player-substitution-request-player = { $host } đang mời bạn vào chỗ của { $player } với sự đồng ý của người đó. Nếu chấp nhận, bạn sẽ nhận nguyên trạng thái ván, thông tin riêng, thời gian lượt còn lại cùng quyền được ghi nhận kết quả cuối cùng của chỗ; không có bộ đếm giờ nào được đặt lại và { $player } sẽ trở thành khán giả.
-player-substitution-request-host-seat = { $host } đang mời bạn vào chính chỗ của mình. Nếu chấp nhận, bạn sẽ nhận nguyên trạng thái ván, thông tin riêng, thời gian lượt còn lại cùng quyền được ghi nhận kết quả cuối cùng của chỗ; không có bộ đếm giờ nào được đặt lại, còn { $host } sẽ trở thành khán giả nhưng vẫn giữ quyền chủ bàn.
+player-substitution-request-outgoing = { $host } muốn { $player } thay bạn ở chỗ hiện tại. Nếu chấp nhận, bạn sẽ trở thành khán giả và { GENDER_TERM($player_gender, "subject") } sẽ nhận nguyên trạng thái ván, thông tin riêng, thời gian lượt còn lại cùng quyền được ghi nhận kết quả cuối cùng của chỗ. Không có bộ đếm giờ nào được đặt lại.
+player-substitution-request-outgoing-host-incoming = { $host } muốn thay bạn ở chỗ hiện tại. Nếu chấp nhận, bạn sẽ trở thành khán giả và { GENDER_TERM($host_gender, "subject") } sẽ nhận nguyên trạng thái ván, thông tin riêng, thời gian lượt còn lại cùng quyền được ghi nhận kết quả cuối cùng của chỗ. Không có bộ đếm giờ nào được đặt lại.
+player-substitution-request-player = { $host } đang mời bạn vào chỗ của { $player } với sự đồng ý { GENDER_TERM($player_gender, "possessive-determiner") }. Nếu chấp nhận, bạn sẽ nhận nguyên trạng thái ván, thông tin riêng, thời gian lượt còn lại cùng quyền được ghi nhận kết quả cuối cùng của chỗ; không có bộ đếm giờ nào được đặt lại và { GENDER_TERM($player_gender, "subject") } sẽ trở thành khán giả.
+player-substitution-request-host-seat = { $host } đang mời bạn vào chính chỗ { GENDER_TERM($host_gender, "possessive-determiner") }. Nếu chấp nhận, bạn sẽ nhận nguyên trạng thái ván, thông tin riêng, thời gian lượt còn lại cùng quyền được ghi nhận kết quả cuối cùng của chỗ; không có bộ đếm giờ nào được đặt lại, còn { GENDER_TERM($host_gender, "subject") } sẽ trở thành khán giả nhưng vẫn giữ quyền chủ bàn.
 player-substitution-request-bot = { $host } đang mời bạn vào chỗ hiện do { $bot } điều khiển. Nếu chấp nhận, bạn sẽ nhận nguyên trạng thái ván, thông tin riêng, thời gian lượt còn lại cùng quyền được ghi nhận kết quả cuối cùng của chỗ; không có bộ đếm giờ nào được đặt lại.
-player-substitution-request-replacement = { $host } đang mời bạn vào chỗ dành riêng cho { $player }, hiện do { $bot } điều khiển. Nếu chấp nhận, bạn sẽ nhận nguyên trạng thái ván, thông tin riêng, thời gian lượt còn lại cùng quyền được ghi nhận kết quả cuối cùng của chỗ; không có bộ đếm giờ nào được đặt lại và { $player } sẽ không thể trở lại chỗ này nữa.
+player-substitution-request-replacement = { $host } đang mời bạn vào chỗ dành riêng cho { $player }, hiện do { $bot } điều khiển. Nếu chấp nhận, bạn sẽ nhận nguyên trạng thái ván, thông tin riêng, thời gian lượt còn lại cùng quyền được ghi nhận kết quả cuối cùng của chỗ; không có bộ đếm giờ nào được đặt lại và { GENDER_TERM($player_gender, "subject") } sẽ không thể trở lại chỗ này nữa.
 player-substitution-decline = Từ chối thay người
 player-substitution-accept = Chấp nhận thay người
 player-substitution-offer-expired = Yêu cầu thay người đã hết hạn. Không có vai trò nào thay đổi.
@@ -1090,24 +1160,24 @@ player-substitution-offer-expired-host = { $player } đã không trả lời tr�
 player-substitution-offer-declined = { $player } đã từ chối yêu cầu thay người. Không có vai trò nào thay đổi.
 player-substitution-no-longer-available = Yêu cầu thay người đó không còn khả dụng. Không có vai trò nào thay đổi.
 player-substitution-awaiting-incoming = { $player } giờ có thể chấp nhận hoặc từ chối việc thay người. Hiện chưa có vai trò nào thay đổi.
-player-substitution-complete-player-you = Bạn đã điều khiển chỗ trước đây của { $player }. Họ giờ là khán giả.
-player-substitution-complete-outgoing-you = { $player } đã điều khiển chỗ trước đây của bạn. Bạn giờ là khán giả.
-player-substitution-complete-player = { $player } đã điều khiển chỗ trước đây của { $outgoing }. { $outgoing } giờ là khán giả.
-player-substitution-complete-host-player-you = Bạn đã điều khiển chỗ trước đây của { $player }. Họ giờ là khán giả và vẫn giữ quyền chủ bàn.
-player-substitution-complete-outgoing-host-you = { $player } đã điều khiển chỗ trước đây của bạn. Bạn giờ là khán giả và vẫn giữ quyền chủ bàn.
-player-substitution-complete-host = { $player } đã điều khiển chỗ trước đây của { $outgoing }. { $outgoing } giờ là khán giả và vẫn giữ quyền chủ bàn.
-player-substitution-complete-bot-you = Bạn đã điều khiển chỗ của { $bot }.
-player-substitution-complete-bot = { $player } đã điều khiển chỗ của { $bot }.
-player-substitution-complete-replacement-you = Bạn đã điều khiển chỗ dành riêng cho { $replaced_player } từ { $bot }. Quyền giữ chỗ trước đây đã kết thúc.
-player-substitution-complete-replacement = { $player } đã điều khiển chỗ dành riêng cho { $replaced_player } từ { $bot }. Quyền giữ chỗ trước đây đã kết thúc.
+player-substitution-complete-player-you = Bạn đã tiếp quản chỗ trước đây của { $player }. { GENDER_TERM($player_gender, "subject-capitalized") } giờ là khán giả.
+player-substitution-complete-outgoing-you = { $player } đã tiếp quản chỗ trước đây của bạn. Giờ bạn là khán giả.
+player-substitution-complete-player = { $player } đã tiếp quản chỗ trước đây của { $outgoing }. { GENDER_TERM($outgoing_gender, "subject-capitalized") } giờ là khán giả.
+player-substitution-complete-host-player-you = Bạn đã tiếp quản chỗ trước đây của { $player }. { GENDER_TERM($player_gender, "subject-capitalized") } giờ là khán giả và vẫn giữ quyền chủ bàn.
+player-substitution-complete-outgoing-host-you = { $player } đã tiếp quản chỗ trước đây của bạn. Giờ bạn là khán giả và vẫn giữ quyền chủ bàn.
+player-substitution-complete-host = { $player } đã tiếp quản chỗ trước đây của { $outgoing }. { GENDER_TERM($outgoing_gender, "subject-capitalized") } giờ là khán giả và vẫn giữ quyền chủ bàn.
+player-substitution-complete-bot-you = Bạn đã tiếp quản chỗ của { $bot }.
+player-substitution-complete-bot = { $player } đã tiếp quản chỗ của { $bot }.
+player-substitution-complete-replacement-you = Bạn đã tiếp quản chỗ dành riêng cho { $replaced_player } từ { $bot }. Quyền giữ chỗ trước đây đã kết thúc.
+player-substitution-complete-replacement = { $player } đã tiếp quản chỗ dành riêng cho { $replaced_player } từ { $bot }. Quyền giữ chỗ trước đây đã kết thúc.
 host-invite-no-friends = (Không có bạn bè nào để mời)
 host-invite-sent = Đã gửi lời mời đến { $player }.
 host-invite-friend-unavailable = Người bạn đó hiện không trực tuyến.
 host-invite-already-pending = Lời mời đang chờ xử lý đã được gửi cho người bạn đó.
 host-invite-friend-busy = Người bạn đó đang trong một trò chơi.
 host-invite-declined = { $player } đã từ chối lời mời bàn của bạn.
-table-invite-received = { $host } đã mời bạn tham gia bàn { $game } của họ.
-table-invite-queued = { $host } đã mời bạn tham gia bàn { $game } của họ. Hãy hoàn tất phần nhập hiện tại để trả lời.
+table-invite-received = { $host } đã mời bạn tham gia bàn { $game } { GENDER_TERM($host_gender, "possessive-determiner") }.
+table-invite-queued = { $host } đã mời bạn tham gia bàn { $game } { GENDER_TERM($host_gender, "possessive-determiner") }. Hãy hoàn tất phần nhập hiện tại để trả lời.
 table-invite-expired = Lời mời bàn đã hết hạn.
 invite-accept = Chấp nhận lời mời
 invite-decline = Từ chối lời mời

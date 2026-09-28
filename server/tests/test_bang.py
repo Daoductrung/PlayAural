@@ -2788,10 +2788,15 @@ def test_failed_barrel_cue_is_staggered_before_the_hit_sound():
         f"{target.name}'s Barrel fails to stop {actor.name}'s BANG!"
         in observer_text
     )
-    assert (
-        f"Your BANG! costs {target.name} 1 life; they now have {target.life}"
-        in actor_text
-    )
+    assert Localization.get(
+        "en",
+        "bang-your-attack-costs-life",
+        source="BANG!",
+        target=target.name,
+        amount=1,
+        life=target.life,
+        target_gender="unspecified",
+    ) in actor_text
     assert "You lose 1 life" in target_text
     assert f"{target.name} loses 1 life" in observer_text
 

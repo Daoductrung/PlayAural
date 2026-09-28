@@ -43,6 +43,7 @@ from ..moderation.reports import (
 )
 from ..tables.table import Table
 from ..users.identity import normalize_username, username_key
+from ..gender import Gender, normalize_gender, require_gender
 from ..users.roles import (
     ADMIN_TRUST_LEVEL,
     DEVELOPER_TRUST_LEVEL,
@@ -4103,7 +4104,9 @@ class Database:
             email=row["email"] or "",
             bio=row["bio"] or "",
             motd_version=row["motd_version"] if "motd_version" in row.keys() else 0,
-            gender=row["gender"] if "gender" in row.keys() else "Not set",
+            gender=normalize_gender(
+                row["gender"] if "gender" in row.keys() else None
+            ).value,
             registration_date=(
                 row["registration_date"] if "registration_date" in row.keys() else ""
             ),
@@ -4328,9 +4331,9 @@ class Database:
         """Update a user's bio."""
         self._update_user_value(username, "bio", bio)
 
-    def update_user_gender(self, username: str, gender: str) -> None:
-        """Update a user's gender."""
-        self._update_user_value(username, "gender", gender)
+    def update_user_gender(self, username: str, gender: Gender | str) -> None:
+        """Update a user's gender after enforcing the canonical value set."""
+        self._update_user_value(username, "gender", require_gender(gender).value)
 
     def update_user_last_login(self, username: str) -> None:
         """Update a user's last login date."""
@@ -6041,6 +6044,17 @@ class Database:
         cursor.execute("SELECT username FROM users WHERE uuid = ?", (uuid,))
         row = cursor.fetchone()
         return row["username"] if row else None
+
+    def get_user_gender_by_uuid(self, uuid: str) -> Gender:
+        """Return an account's canonical gender, or the neutral default.
+
+        This lookup supports disconnected and bot-controlled human seats
+        without copying mutable account metadata into serialized game state.
+        """
+        cursor = self._conn.cursor()
+        cursor.execute("SELECT gender FROM users WHERE uuid = ?", (uuid,))
+        row = cursor.fetchone()
+        return normalize_gender(row["gender"] if row else None)
 
     def get_all_player_game_stats(self, player_id: str, game_type: str) -> dict[str, float]:
         """Get all pre-calculated stats for a specific player and game."""

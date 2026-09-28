@@ -34,7 +34,7 @@ nine-you-extend-sequence-brief = You play { $card } on { $suit }.
 nine-player-extend-sequence-brief = { $player }: { $card } on { $suit }.
 
 nine-you-skips-turn = You have no legal card to play, so your turn is skipped.
-nine-player-skips-turn = { $player } has no legal card to play and skips their turn.
+nine-player-skips-turn = { $player } has no legal card to play, so { GENDER_TERM($player_gender, "possessive-determiner") } turn is skipped.
 nine-you-skips-turn-brief = You skip; no legal card.
 nine-player-skips-turn-brief = { $player } skips; no legal card.
 

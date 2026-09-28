@@ -27,7 +27,7 @@ senet-water-other = { $player } landed in the House of Water! Piece sent to squa
 senet-happiness-you = You reached the House of Happiness.
 senet-happiness-other = { $player } reached the House of Happiness.
 senet-horus-auto-you = Your piece leaves the House of Horus because your first row is clear. { $remaining } remaining.
-senet-horus-auto-other = { $player }'s piece leaves the House of Horus because their first row is clear. { $remaining } remaining.
+senet-horus-auto-other = { $player }'s piece leaves the House of Horus because { GENDER_TERM($player_gender, "possessive-determiner") } first row is clear. { $remaining } remaining.
 
 # No moves
 senet-no-moves-you = You have no legal moves.
@@ -59,7 +59,7 @@ senet-sticks-none = No throw yet.
 
 # Win
 senet-wins-you = You win! All of your pieces have crossed the final house.
-senet-wins-other = { $player } wins! All of their pieces have crossed the final house.
+senet-wins-other = { $player } wins! All of { GENDER_TERM($player_gender, "possessive-determiner") } pieces have crossed the final house.
 
 # Action labels
 senet-check-status = Status

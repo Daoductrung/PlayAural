@@ -2,9 +2,11 @@
 
 from typing import TYPE_CHECKING, Callable
 
+from ..gender import Gender
+from .player import Player
+
 if TYPE_CHECKING:
     from ..games.base import Game
-    from .player import Player
     from ..users.base import User
 
 from ..messages.localization import Localization
@@ -82,22 +84,56 @@ class GameCommunicationMixin:
                 continue
             u = self.get_user(p)
             if u:
-                localized = self._resolve_broadcast_kwargs(u.locale, kwargs)
+                localized = self._resolve_broadcast_kwargs(
+                    u.locale,
+                    {
+                        **kwargs,
+                        "player": player,
+                    },
+                )
                 u.speak_l(
                     others_message_id,
                     buffer,
-                    player=player.name,
                     **localized,
                 )
 
-    @staticmethod
-    def _resolve_broadcast_kwargs(locale: str, kwargs: dict) -> dict:
-        """Resolve locale-builder callables for one broadcast recipient."""
+    def _resolve_broadcast_kwargs(self, locale: str, kwargs: dict) -> dict:
+        """Resolve per-locale values and add canonical player-gender selectors.
 
-        return {
+        A call site may pass a ``Player`` directly, or retain the established
+        pattern of passing its display name. Exact uniquely matched names gain
+        a sibling ``<variable>_gender`` argument automatically. Explicit
+        gender arguments always win, which lets games deliberately describe a
+        different identity or use a game-specific grammatical context.
+        """
+        resolved = {
             name: value(locale) if callable(value) else value
             for name, value in kwargs.items()
         }
+        players_by_name: dict[str, list[Player]] = {}
+        for player in self.players:
+            players_by_name.setdefault(player.name, []).append(player)
+
+        for name, value in list(resolved.items()):
+            matched_player: Player | None = None
+            if isinstance(value, Player):
+                matched_player = value
+                resolved[name] = value.name
+            elif isinstance(value, str):
+                candidates = players_by_name.get(value, [])
+                if len(candidates) == 1:
+                    matched_player = candidates[0]
+                elif candidates:
+                    resolved.setdefault(
+                        f"{name}_gender",
+                        Gender.UNSPECIFIED.selector,
+                    )
+            if matched_player is not None:
+                resolved.setdefault(
+                    f"{name}_gender",
+                    self.get_player_gender(matched_player).selector,
+                )
+        return resolved
 
     def label_l(self, message_id: str) -> Callable[["Game", "Player"], str]:
         """

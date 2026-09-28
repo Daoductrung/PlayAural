@@ -133,7 +133,7 @@ sorry-you-bumped-own-pawn =
 sorry-player-bumped-own-pawn =
     { $brief ->
         [yes] { $player }: quân mình { $pawn } về xuất phát.
-       *[no] { $player } đẩy chính quân { $pawn } của mình về điểm xuất phát.
+       *[no] { $player } đẩy chính quân { $pawn } { GENDER_TERM($player_gender, "possessive-determiner") } về điểm xuất phát.
     }
 
 sorry-current-card = Thẻ hiện tại: { $card }.

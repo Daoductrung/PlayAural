@@ -5,9 +5,9 @@ snakes-roll = Gieo xúc xắc
 snakes-check-positions = Xem vị trí
 
 snakes-turn-start-you = Đến lượt bạn. Quân của bạn đang ở khu vực xuất phát, trước ô 1.
-snakes-turn-start-other = Đến lượt { $player }. Quân của họ đang ở khu vực xuất phát, trước ô 1.
+snakes-turn-start-other = Đến lượt { $player }. Quân { GENDER_TERM($player_gender, "possessive-determiner") } đang ở khu vực xuất phát, trước ô 1.
 snakes-turn-you = Đến lượt bạn. Bạn đang ở ô { $position }.
-snakes-turn-other = Đến lượt { $player }. Họ đang ở ô { $position }.
+snakes-turn-other = Đến lượt { $player }. { GENDER_TERM($player_gender, "subject-capitalized") } đang ở ô { $position }.
 
 snakes-roll-you = Bạn gieo được { $roll }.
 snakes-roll-other = { $player } gieo được { $roll }.
@@ -24,9 +24,9 @@ snakes-bounce-other = Từ ô { $start }, { $player } gieo được { $roll } v�
 snakes-bounce-you-brief = Bạn bật ngược về ô { $position }.
 snakes-bounce-other-brief = { $player } bật ngược về ô { $position }.
 snakes-restored-bounce-you = Lần gieo đã lưu của bạn tiếp tục và bật ngược quân về ô { $position }.
-snakes-restored-bounce-other = Lần gieo đã lưu của { $player } tiếp tục và bật ngược quân của họ về ô { $position }.
+snakes-restored-bounce-other = Lần gieo đã lưu của { $player } tiếp tục và bật ngược quân { GENDER_TERM($player_gender, "possessive-determiner") } về ô { $position }.
 snakes-exact-miss-you = Bạn cần { $needed } để đến ô { $target }, nhưng gieo được { $roll }, nên vẫn đứng ở ô { $position }.
-snakes-exact-miss-other = { $player } cần { $needed } để đến ô { $target }, nhưng gieo được { $roll }, nên vẫn đứng ở ô { $position }.
+snakes-exact-miss-other = { $player } cần { $needed } để đến ô { $target }, nhưng gieo được { $roll }, nên { GENDER_TERM($player_gender, "subject") } vẫn đứng ở ô { $position }.
 snakes-exact-miss-you-brief = Bạn cần { $needed }, gieo được { $roll } và vẫn ở ô { $position }.
 snakes-exact-miss-other-brief = { $player } cần { $needed }, gieo được { $roll } và vẫn ở ô { $position }.
 snakes-ladder-you = Bạn dừng ở chân thang tại ô { $start } và leo lên ô { $end }, tiến thêm { $distance } ô.
@@ -38,7 +38,7 @@ snakes-snake-other = { $player } dừng ở đầu rắn tại ô { $start } và
 snakes-snake-you-brief = Bạn trượt từ ô { $start } xuống ô { $end }.
 snakes-snake-other-brief = { $player } trượt từ ô { $start } xuống ô { $end }.
 snakes-extra-turn-you = Bạn gieo được 6 nên được thêm một lượt từ ô { $position }.
-snakes-extra-turn-other = { $player } gieo được 6 nên được thêm một lượt từ ô { $position }.
+snakes-extra-turn-other = { $player } gieo được 6 nên { GENDER_TERM($player_gender, "subject") } được thêm một lượt từ ô { $position }.
 snakes-win-you = Bạn đến ô { $position } và thắng ván chơi!
 snakes-win-other = { $player } đến ô { $position } và thắng ván chơi!
 

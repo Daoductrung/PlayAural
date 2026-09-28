@@ -27,7 +27,7 @@ tradeoff-player-scored = { $player } scored { $points } points with { $sets }.
 tradeoff-you-scored-brief = You scored { $points } points this round.
 tradeoff-player-scored-brief = { $player } scored { $points } points this round.
 tradeoff-you-no-sets = You scored 0 points because your 15 dice did not form any scoring set.
-tradeoff-no-sets = { $player } scored 0 points because their 15 dice did not form any scoring set.
+tradeoff-no-sets = { $player } scored 0 points because { GENDER_TERM($player_gender, "possessive-determiner") } 15 dice did not form any scoring set.
 
 tradeoff-set-triple = triple of { $value }s
 tradeoff-set-group = group of { $value }s

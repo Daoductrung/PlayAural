@@ -52,7 +52,7 @@ tossup-you-bust-brief = Bạn: { $results }; mất trắng; mất { $points } đ
 tossup-player-busts-brief = { $player }: { $results }; mất trắng; mất { $points } điểm.
 
 tossup-you-bank = Bạn chốt { $points } điểm, nâng tổng điểm lên { $total }.
-tossup-player-banks = { $player } chốt { $points } điểm, nâng tổng điểm lên { $total }.
+tossup-player-banks = { $player } chốt { $points } điểm, nâng tổng điểm { GENDER_TERM($player_gender, "possessive-determiner") } lên { $total }.
 tossup-you-bank-brief = Bạn chốt { $points }; tổng { $total }.
 tossup-player-banks-brief = { $player } chốt { $points }; tổng { $total }.
 
@@ -71,9 +71,9 @@ tossup-tiebreaker-round-start = Vòng phân định { $round } bắt đầu cho 
 tossup-tiebreaker-round-start-brief = Vòng phân định { $round }: { $players }.
 
 tossup-your-turn-awaiting-roll = Bạn chưa gieo trong lượt này. Bạn có { $score } điểm đã chốt và { $dice_count } viên xúc xắc sẵn sàng.
-tossup-player-turn-awaiting-roll = { $player } chưa gieo trong lượt này. Người chơi có { $score } điểm đã chốt và { $dice_count } viên xúc xắc sẵn sàng.
+tossup-player-turn-awaiting-roll = { $player } chưa gieo trong lượt này. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $score } điểm đã chốt và { $dice_count } viên xúc xắc sẵn sàng.
 tossup-your-turn-status = Lần gieo gần nhất của bạn là { $results }. Bạn có { $turn_points } điểm lượt chưa chốt, { $score } điểm đã chốt và { $dice_count } viên sẵn sàng gieo.
-tossup-player-turn-status = Lần gieo gần nhất của { $player } là { $results }. Người chơi có { $turn_points } điểm lượt chưa chốt, { $score } điểm đã chốt và { $dice_count } viên sẵn sàng gieo.
+tossup-player-turn-status = Lần gieo gần nhất của { $player } là { $results }. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $turn_points } điểm lượt chưa chốt, { $score } điểm đã chốt và { $dice_count } viên sẵn sàng gieo.
 
 tossup-confirm-risky-roll =
     { $winning ->

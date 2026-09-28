@@ -14,7 +14,7 @@ metalpipe-you-hit-other = You swing the metal pipe and hit { $bonked }. { $bonke
 metalpipe-player-hits-you = { $bonker } swings the metal pipe and hits you. You are eliminated.
 metalpipe-player-hits-other = { $bonker } swings the metal pipe and hits { $bonked }. { $bonked } is eliminated.
 metalpipe-you-hit-self = You somehow hit yourself with the metal pipe and are eliminated.
-metalpipe-player-hits-self = { $bonker } somehow hits themselves with the metal pipe and is eliminated.
+metalpipe-player-hits-self = { $bonker } somehow hits { GENDER_TERM($bonker_gender, "reflexive") } with the metal pipe and is eliminated.
 
 metalpipe-you-hit-other-brief = You hit { $bonked }. { $bonked } out.
 metalpipe-player-hits-you-brief = { $bonker } hits you. You are out.
@@ -36,7 +36,7 @@ metalpipe-status-mode = Mode: { $mode }; { $self_bonk }.
 metalpipe-status-progress = Bonks resolved: { $count }. Players still standing: { $alive } of { $total }.
 metalpipe-status-awaiting = The pipe has not landed yet.
 metalpipe-status-last-other = Last bonk: { $bonker } hit { $bonked }.
-metalpipe-status-last-self = Last bonk: { $bonker } hit themselves.
+metalpipe-status-last-self = Last bonk: { $bonker } hit { GENDER_TERM($bonker_gender, "reflexive") }.
 metalpipe-status-player = { $player}: { $status }.
 metalpipe-status-alive = Standing
 metalpipe-status-eliminated = Eliminated

@@ -42,6 +42,7 @@ only-include = [
     "chat_channels.py",
     "cli.py",
     "copy_protocol.py",
+    "gender.py",
     "main.py",
     "menu_pagination.py",
     "administration",

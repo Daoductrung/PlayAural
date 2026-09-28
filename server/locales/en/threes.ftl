@@ -11,7 +11,7 @@ threes-player-rolled-brief = { $player }: { $dice }.
 
 threes-turn-you = Your turn in round { $round } of { $total }. Your current total is { $score }; lowest total wins.
 threes-turn-you-brief = Your turn. Total { $score }.
-threes-turn-other = { $player }'s turn in round { $round } of { $total }. Their current total is { $score }.
+threes-turn-other = { $player }'s turn in round { $round } of { $total }. { GENDER_TERM($player_gender, "possessive-determiner-capitalized") } current total is { $score }.
 threes-turn-other-brief = { $player}'s turn. Total { $score }.
 
 threes-you-keep = You keep die { $index }, showing { $die }.
@@ -36,11 +36,11 @@ threes-die-locked-label = { $value } locked
 
 threes-you-scored = You score { $score } points this turn. Your total is now { $total }.
 threes-you-scored-brief = Scored { $score }. Total { $total }.
-threes-scored = { $player } scores { $score } points this turn. Their total is now { $total }.
+threes-scored = { $player } scores { $score } points this turn. { GENDER_TERM($player_gender, "possessive-determiner-capitalized") } total is now { $total }.
 threes-scored-brief = { $player }: { $score }, total { $total }.
 threes-you-shot-moon = You shot the moon with five sixes and score { $score } points. Your total is now { $total }.
 threes-you-shot-moon-brief = Shot the moon: { $score }. Total { $total }.
-threes-shot-moon = { $player } shot the moon with five sixes and scores { $score } points. Their total is now { $total }.
+threes-shot-moon = { $player } shot the moon with five sixes and scores { $score } points. { GENDER_TERM($player_gender, "possessive-determiner-capitalized") } total is now { $total }.
 threes-shot-moon-brief = { $player } shot the moon: { $score }, total { $total }.
 
 threes-round-start = Round { $round } of { $total } begins.

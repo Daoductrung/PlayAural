@@ -15,6 +15,7 @@ from mashumaro.mixins.json import DataClassJSONMixin
 from mashumaro.config import BaseConfig
 
 from ..users.base import User
+from ..gender import Gender, gender_localization_kwargs, normalize_gender
 from ..game_utils.actions import ActionSet
 from ..game_utils.options import (
     GameOptions as DeclarativeGameOptions,
@@ -959,6 +960,58 @@ class Game(
     def get_user(self, player: Player) -> User | None:
         """Get the user for a player."""
         return self._users.get(player.id)
+
+    def get_player_gender(self, player: Player) -> Gender:
+        """Return current account gender for a game seat.
+
+        Connected humans carry their live account value. Disconnected seats
+        and bots temporarily controlling a human seat resolve through the
+        immutable account UUID, keeping saved games free of duplicated profile
+        data while still supporting announcements and future audio choices.
+        Synthetic bots and deleted accounts use the neutral default.
+        """
+        user = self.get_user(player)
+        if user is not None and not player.is_bot:
+            return normalize_gender(getattr(user, "gender", None))
+
+        bot_gender = (
+            normalize_gender(getattr(user, "gender", None))
+            if user is not None
+            else None
+        )
+        if bot_gender is not None and bot_gender is not Gender.UNSPECIFIED:
+            return bot_gender
+
+        # Native bots do not represent an account. Avoid an unnecessary
+        # database query for every announcement involving one; only a bot
+        # explicitly holding a disconnected human's seat needs UUID lookup.
+        if player.is_bot and not player.replaced_human:
+            return Gender.UNSPECIFIED
+
+        table = getattr(self, "_table", None)
+        database = getattr(table, "_db", None) if table is not None else None
+        lookup_gender = (
+            getattr(database, "get_user_gender_by_uuid", None)
+            if database is not None
+            else None
+        )
+        if callable(lookup_gender):
+            return normalize_gender(lookup_gender(player.id))
+        return bot_gender or Gender.UNSPECIFIED
+
+    def player_localization_kwargs(
+        self,
+        player: Player,
+        variable: str = "player",
+    ) -> dict[str, str]:
+        """Build the canonical Fluent name and gender arguments for a player."""
+        return {
+            variable: player.name,
+            **gender_localization_kwargs(
+                self.get_player_gender(player),
+                variable,
+            ),
+        }
 
     def get_player_by_id(self, player_id: str) -> Player | None:
         """Get a player by ID (UUID)."""

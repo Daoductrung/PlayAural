@@ -17,6 +17,7 @@ from ..audio import (
 )
 from ..copy_protocol import CopyDirective
 from ..messages.localization import Localization
+from ..gender import Gender
 from .roles import USER_TRUST_LEVEL
 
 if TYPE_CHECKING:
@@ -272,6 +273,15 @@ class User(ABC):
     def locale(self) -> str:
         """The user's locale for localization (e.g., 'en', 'es')."""
         ...
+
+    @property
+    def gender(self) -> Gender:
+        """The account gender exposed to games and localization.
+
+        Synthetic users and older test doubles default to unspecified so every
+        consumer has a neutral, fail-safe value.
+        """
+        return Gender.UNSPECIFIED
 
     @property
     def trust_level(self) -> int:

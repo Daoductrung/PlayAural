@@ -3506,10 +3506,23 @@ def test_movement_wait_feedback_conceals_enemy_destination() -> None:
     game.execute_action(teammate, "context_finish_or_end")
     game.execute_action(mover, "context_finish_or_end")
 
-    assert spoken_text(game, 1) == ["Player1 is moving. Wait until they arrive."]
+    assert spoken_text(game, 1) == [
+        Localization.get(
+            "en",
+            "breachpoint-error-wait-movement-hidden",
+            player=mover.name,
+            player_gender="unspecified",
+        )
+    ]
     assert all("Mid" not in text for text in spoken_text(game, 1))
     assert spoken_text(game, 2) == [
-        "Player1 is moving to Mid. Wait until they arrive."
+        Localization.get(
+            "en",
+            "breachpoint-error-wait-movement-player",
+            player=mover.name,
+            player_gender="unspecified",
+            location="Mid",
+        )
     ]
     assert spoken_text(game, 0) == ["You are moving to Mid. Wait until you arrive."]
 

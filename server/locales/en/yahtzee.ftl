@@ -65,7 +65,7 @@ yahtzee-you-rolled = You rolled: { $dice }. { $remaining ->
     } left.
 }
 yahtzee-player-rolled = { $player } rolled: { $dice }. { $remaining ->
-    [0] They must choose a scoring category.
+    [0] { GENDER_TERM($player_gender, "subject-capitalized") } must choose a scoring category.
    *[other] { $remaining } { $remaining ->
         [one] roll
        *[other] rolls

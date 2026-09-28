@@ -22,12 +22,12 @@ pig-round-start = Round { $round } begins. Every active player will take one tur
 pig-round-start-brief = Round { $round }.
 
 pig-you-roll-result = You rolled { $roll }. Your turn total is now { $total } points.
-pig-player-roll-result = { $player } rolled { $roll }. Their turn total is now { $total } points.
+pig-player-roll-result = { $player } rolled { $roll }. { GENDER_TERM($player_gender, "possessive-determiner-capitalized") } turn total is now { $total } points.
 pig-you-roll-result-brief = You: { $roll }; turn total { $total }.
 pig-player-roll-result-brief = { $player }: { $roll }; turn total { $total }.
 
 pig-you-bust = You rolled a 1 and lose all { $points } unbanked points. Your turn ends with no score.
-pig-player-busts = { $player } rolled a 1 and loses all { $points } unbanked points. Their turn ends with no score.
+pig-player-busts = { $player } rolled a 1 and loses all { $points } unbanked points. { GENDER_TERM($player_gender, "possessive-determiner-capitalized") } turn ends with no score.
 pig-you-bust-brief = You rolled 1 and lose { $points } turn points.
 pig-player-busts-brief = { $player } rolled 1 and loses { $points } turn points.
 
@@ -39,7 +39,7 @@ pig-you-hold =
 pig-player-holds =
     { $player } holds { $points } points. { $team ->
         [yes] { $team_name } now has { $total } points.
-       *[no] Their total score is now { $total } points.
+       *[no] { GENDER_TERM($player_gender, "possessive-determiner-capitalized") } total score is now { $total } points.
     }
 pig-you-hold-brief =
     You hold { $points };{ $team ->

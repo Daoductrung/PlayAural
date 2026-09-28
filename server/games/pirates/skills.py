@@ -129,12 +129,14 @@ class BuffSkill(CooldownSkill):
                     )
                     if game._wants_brief(user):
                         key += "-brief"
-                    user.speak_l(
-                        key,
-                        buffer="game",
-                        player=player.name,
-                        skill=Localization.get(user.locale, self.name),
+                    payload = game._resolve_broadcast_kwargs(
+                        user.locale,
+                        {
+                            "player": player,
+                            "skill": Localization.get(user.locale, self.name),
+                        },
                     )
+                    user.speak_l(key, buffer="game", **payload)
         super().on_turn_start(game, player)
 
     def can_perform(

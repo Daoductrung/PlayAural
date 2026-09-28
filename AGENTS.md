@@ -409,6 +409,22 @@ participants; do not reuse game-player error strings for account lookups.
 - Use `speak_l`, `broadcast_l`, `broadcast_personal_l`, localized option/pref
   helpers, and localized sequence helpers.
 - Pass raw data as kwargs and let Fluent format lists, plurals, and selects.
+- Account gender uses the canonical `Gender` model in `server/gender.py`.
+  Normalize values read from legacy or external data, reject unsupported
+  mutation values, and default missing/deleted/unknown accounts to unspecified.
+  Keep this mutable profile field on live users and in the account database;
+  never duplicate it into serialized game state.
+- Games query `get_player_gender()` / `player_localization_kwargs()` so
+  disconnected and bot-controlled human seats resolve by immutable account ID.
+  Localized identity references use validated sibling variables such as
+  `$player_gender` with `GENDER_TERM(...)`; standard game broadcasters infer
+  these variables from `Player` values or unique player names. Direct server
+  messages must supply them with the shared gender-kwargs helper.
+- Grammar and game-specific forms belong in locale data, not language branches.
+  Use a supported shared `GENDER_TERM` form and, only when a game needs its own
+  vocabulary, an allowlisted context backed by
+  `<context>-gender-term-<form>`. Unspecified and non-binary values use the
+  locale's neutral fallback.
 - Maintain EN/VI parity: same keys, variables, and plural/select arms.
 - Agents author both EN and VI strings in this repo, but Vietnamese is
   provisional and should be flagged for native review when quality matters.

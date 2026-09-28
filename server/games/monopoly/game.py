@@ -2742,6 +2742,13 @@ class MonopolyGame(Game):
     ) -> str | tuple[str, dict] | None:
         if not self._is_actor(player, PHASE_TRADE_BUILD):
             return self._waiting_reason(player)
+        trade_target = (
+            self._alive_player_by_id(self.trade_state.target_id)
+            if self.trade_state
+            else None
+        )
+        if trade_target is None:
+            return "monopoly-error-invalid-trade-target"
         return (
             None
             if self._trade_request_property_options(player)
@@ -2750,7 +2757,8 @@ class MonopolyGame(Game):
                 {
                     "development": self._development_collective_text(
                         self._locale(player)
-                    )
+                    ),
+                    **self.player_localization_kwargs(trade_target, "target"),
                 },
             )
         )
@@ -6496,6 +6504,7 @@ class MonopolyGame(Game):
                 "monopoly-whose-turn-player-action",
                 buffer="game",
                 turn_player=current.name,
+                turn_player_gender=self.get_player_gender(current).selector,
                 phase=phase,
             )
             return
@@ -7246,9 +7255,10 @@ class MonopolyGame(Game):
                     key = brief_personal_key
                 elif not is_actor and brief_others_key:
                     key = brief_others_key
-            payload = self._resolve_broadcast_kwargs(user.locale, kwargs)
-            if not is_actor:
-                payload["player"] = actor.name
+            payload = self._resolve_broadcast_kwargs(
+                user.locale,
+                {"player": actor, **kwargs},
+            )
             user.speak_l(key, buffer="game", **payload)
 
     def _broadcast_actor_target(
@@ -7283,9 +7293,14 @@ class MonopolyGame(Game):
                 key = public_key
                 if is_brief and brief_others_key:
                     key = brief_others_key
-            payload = self._resolve_broadcast_kwargs(user.locale, kwargs)
-            payload["player"] = actor.name
-            payload["target"] = target_player.name
+            payload = self._resolve_broadcast_kwargs(
+                user.locale,
+                {
+                    "player": actor,
+                    "target": target_player,
+                    **kwargs,
+                },
+            )
             user.speak_l(key, buffer="game", **payload)
 
     def _announce_trade_submission(
@@ -7378,7 +7393,11 @@ class MonopolyGame(Game):
     def _speak(self, player: Player, key: str, **kwargs: Any) -> None:
         user = self.get_user(player)
         if user:
-            user.speak_l(key, buffer="game", **kwargs)
+            user.speak_l(
+                key,
+                buffer="game",
+                **self._resolve_broadcast_kwargs(user.locale, kwargs),
+            )
 
     def _alive_player_by_id(self, player_id: str) -> MonopolyPlayer | None:
         player = self.get_player_by_id(player_id) if player_id else None

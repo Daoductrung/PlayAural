@@ -2073,7 +2073,10 @@ class UnoGame(Game):
             if p.id == actor.id:
                 user.speak_l(you_key, buffer="game", **kwargs)
             else:
-                user.speak_l(other_key, buffer="game", player=actor.name, **kwargs)
+                payload = self._resolve_broadcast_kwargs(
+                    user.locale, {"player": actor, **kwargs}
+                )
+                user.speak_l(other_key, buffer="game", **payload)
 
     def _broadcast_card(self, player: UnoPlayer, card: UnoCard, you_key: str, other_key: str) -> None:
         """Announce a card play/intercept, with second-person to the actor."""

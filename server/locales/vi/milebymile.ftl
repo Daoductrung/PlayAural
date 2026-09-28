@@ -48,7 +48,7 @@ milebymile-you-play-distance-individual = Bạn đánh { $distance } dặm, tổ
 milebymile-plays-distance-individual = { $player } đánh { $distance } dặm, tổng cộng { $total } dặm.
 milebymile-you-play-distance-team = Bạn đánh { $distance } dặm; đội bạn đạt { $total } dặm.
 milebymile-teammate-plays-distance-team = { $player } đánh { $distance } dặm; đội bạn đạt { $total } dặm.
-milebymile-plays-distance-team = { $player } đánh { $distance } dặm; đội của họ đạt { $total } dặm.
+milebymile-plays-distance-team = { $player } đánh { $distance } dặm; đội { GENDER_TERM($player_gender, "possessive-determiner") } đạt { $total } dặm.
 
 milebymile-you-complete-perfect-individual = Bạn về đích đúng cự ly!
 milebymile-journey-complete-perfect-individual = { $player } về đích đúng cự ly!
@@ -70,12 +70,12 @@ milebymile-you-play-card = Bạn đánh { $card }.
 milebymile-plays-card = { $player } đánh { $card }.
 milebymile-you-play-team-card = Bạn đánh { $card } cho đội mình.
 milebymile-teammate-plays-team-card = { $player } đánh { $card } cho đội bạn.
-milebymile-opponent-plays-team-card = { $player } đánh { $card } cho đội của họ.
+milebymile-opponent-plays-team-card = { $player } đánh { $card } cho đội { GENDER_TERM($player_gender, "possessive-determiner") }.
 milebymile-you-play-dirty-trick = Bạn phản đòn bằng { $card }!
 milebymile-plays-dirty-trick = { $player } phản đòn bằng { $card }!
 milebymile-you-play-dirty-trick-team = Bạn phản đòn bằng { $card } cho đội mình!
 milebymile-teammate-plays-dirty-trick-team = { $player } phản đòn bằng { $card } cho đội bạn!
-milebymile-opponent-plays-dirty-trick-team = { $player } phản đòn bằng { $card } cho đội của họ!
+milebymile-opponent-plays-dirty-trick-team = { $player } phản đòn bằng { $card } cho đội { GENDER_TERM($player_gender, "possessive-determiner") }!
 
 milebymile-deck-reshuffled = Chồng bỏ đã được xào lại vào chồng rút.
 
@@ -115,14 +115,14 @@ milebymile-karma-clash-target-team = Đội bạn và Đội { $team } đều c�
 milebymile-karma-clash-other-teams = Đội { $attacker } và Đội { $target } đều còn Nghiệp! Đòn tấn công bị hóa giải; cả hai đội mất Nghiệp.
 
 milebymile-karma-shunned-you = Bạn mất Nghiệp vì tấn công!
-milebymile-karma-shunned-other = { $player } mất Nghiệp vì tấn công!
+milebymile-karma-shunned-other = { $player } mất Nghiệp vì sự hung hăng { GENDER_TERM($player_gender, "possessive-determiner") }!
 milebymile-karma-shunned-your-team = Đội bạn mất Nghiệp vì tấn công!
 milebymile-karma-shunned-other-team = Đội { $team } mất Nghiệp vì tấn công!
 
 milebymile-false-virtue-you = Bạn đánh Đạo đức giả và lấy lại Nghiệp!
-milebymile-false-virtue-other = { $player } đánh Đạo đức giả và lấy lại Nghiệp!
+milebymile-false-virtue-other = { $player } đánh Đạo đức giả và lấy lại Nghiệp { GENDER_TERM($player_gender, "possessive-determiner") }!
 milebymile-false-virtue-teammate = { $player } đánh Đạo đức giả; đội bạn lấy lại Nghiệp!
-milebymile-false-virtue-opponent = { $player } đánh Đạo đức giả; đội của họ lấy lại Nghiệp!
+milebymile-false-virtue-opponent = { $player } đánh Đạo đức giả; đội { GENDER_TERM($player_gender, "possessive-determiner") } lấy lại Nghiệp!
 
 milebymile-none = không có
 

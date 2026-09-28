@@ -81,7 +81,7 @@ rb-you-reshuffle = You reshuffle the first { $count } balls. { $penalty ->
 rb-player-reshuffles = { $player } reshuffles the first { $count } balls. { $penalty ->
     [0] There is no penalty
    *[other] { $player } pays a { $penalty }-point penalty
-}; their score is now { $score }, and they have { $remaining } reshuffles left.
+}; { GENDER_TERM($player_gender, "possessive-determiner") } score is now { $score }, and { GENDER_TERM($player_gender, "subject-have") } { $remaining } reshuffles left.
 rb-you-reshuffle-brief = You reshuffle { $count } balls; penalty { $penalty }, score { $score }, { $remaining } uses left.
 rb-player-reshuffles-brief = { $player } reshuffles { $count } balls; penalty { $penalty }, score { $score }, { $remaining } uses left.
 

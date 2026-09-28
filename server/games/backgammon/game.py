@@ -13,6 +13,7 @@ from ...game_utils.actions import Action, ActionSet, Visibility
 from ...game_utils.options import IntOption, MenuOption, option_field
 from ...game_utils.bot_helper import BotHelper
 from ...game_utils.game_result import GameResult, PlayerResult
+from ...gender import gender_localization_kwargs
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
 from ...users.base import User, MenuItem
@@ -249,10 +250,17 @@ class BackgammonGame(Game):
         for listener in self.players:
             user = self.get_user(listener)
             if user:
+                payload = self._resolve_broadcast_kwargs(
+                    user.locale,
+                    {
+                        "player": self._display_name_for_color(color, user.locale),
+                        **gender_localization_kwargs(None, "player"),
+                    },
+                )
                 user.speak_l(
                     public_key,
                     buffer="game",
-                    player=self._display_name_for_color(color, user.locale),
+                    **payload,
                     **kwargs,
                 )
 
@@ -1551,7 +1559,9 @@ class BackgammonGame(Game):
         """Check if player can offer the doubling cube."""
         return self._double_disabled_reason(player) is None
 
-    def _double_disabled_reason(self, player: BackgammonPlayer) -> str | None:
+    def _double_disabled_reason(
+        self, player: BackgammonPlayer
+    ) -> str | tuple[str, dict] | None:
         """Return a contextual reason that the doubling cube is unavailable."""
         gs = self.game_state
         if gs.match_length <= MIN_MATCH_LENGTH:
@@ -1564,7 +1574,10 @@ class BackgammonGame(Game):
         if player_score + gs.cube_value >= gs.match_length:
             return "backgammon-double-dead-cube"
         if gs.cube_owner and gs.cube_owner != player.color:
-            return "backgammon-double-cube-owned"
+            owner = self._get_player_by_color(gs.cube_owner)
+            if owner:
+                return "backgammon-double-cube-owned", {"opponent": owner}
+            return "backgammon-double-cube-owned-unknown"
         if gs.turn_phase != PHASE_PRE_ROLL:
             return "backgammon-double-before-roll-only"
         return None
@@ -2149,20 +2162,26 @@ class BackgammonGame(Game):
                 listener_role = "target"
             else:
                 listener_role = "observer"
+            payload = self._resolve_broadcast_kwargs(
+                user.locale,
+                {
+                    "listener": listener_role,
+                    "player": player,
+                    "opponent": (
+                        opponent.name
+                        if opponent
+                        else self._display_name_for_color(
+                            opponent_color(player.color), user.locale
+                        )
+                    ),
+                    "source": source,
+                    "destination": destination,
+                },
+            )
             user.speak_l(
                 "backgammon-undo-hit" if move.is_hit else "backgammon-undo-move",
                 buffer="game",
-                listener=listener_role,
-                player=player.name,
-                opponent=(
-                    opponent.name
-                    if opponent
-                    else self._display_name_for_color(
-                        opponent_color(player.color), user.locale
-                    )
-                ),
-                source=source,
-                destination=destination,
+                **payload,
             )
 
     def _announce_sub_move(self, player: BackgammonPlayer, move: BackgammonMove) -> None:
@@ -2470,7 +2489,9 @@ class BackgammonGame(Game):
         if sound:
             user.play_sound(sound)
 
-    def _is_offer_double_enabled(self, player: Player) -> str | None:
+    def _is_offer_double_enabled(
+        self, player: Player
+    ) -> str | tuple[str, dict] | None:
         if self.status != "playing":
             return "action-not-playing"
         if not isinstance(player, BackgammonPlayer):
@@ -2516,7 +2537,9 @@ class BackgammonGame(Game):
     def _is_drop_double_hidden(self, player: Player, action_id: str = "") -> Visibility:
         return self._is_accept_double_hidden(player)
 
-    def _touch_visible_when_enabled(self, player: Player, disabled_reason: str | None) -> Visibility:
+    def _touch_visible_when_enabled(
+        self, player: Player, disabled_reason: object | None
+    ) -> Visibility:
         user = self.get_user(player)
         if disabled_reason is None and self.is_touch_client(user):
             return Visibility.VISIBLE

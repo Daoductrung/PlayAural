@@ -16,27 +16,27 @@ lightturret-upgrade-label = Upgrade core; costs { $cost } coins, you have { $coi
 lightturret-check-stats = View turret status
 
 lightturret-you-shoot = You fire and gain { $gain } light plus { $coins } coins. Your turret is at { $light } of { $power } power, with { $headroom } safe capacity and { $total_coins } coins.
-lightturret-player-shoots = { $player } fires and gains { $gain } light plus { $coins } coins. Their turret is at { $light } of { $power } power, with { $headroom } safe capacity and { $total_coins } coins.
+lightturret-player-shoots = { $player } fires and gains { $gain } light plus { $coins } coins. { GENDER_TERM($player_gender, "possessive-determiner-capitalized") } turret is at { $light } of { $power } power, with { $headroom } safe capacity and { $total_coins } coins.
 lightturret-you-shoot-brief = You fire: +{ $gain } light, +{ $coins } coins. Light { $light }/{ $power}; coins { $total_coins }.
 lightturret-player-shoots-brief = { $player } fires: +{ $gain } light, +{ $coins } coins. Light { $light }/{ $power}; coins { $total_coins }.
 
 lightturret-you-shoot-overload = You fire and gain { $gain } light plus { $coins } coins, reaching { $light } light against { $power } power. You exceed capacity by { $overload } and are eliminated with { $total_coins } coins remaining.
-lightturret-player-shoots-overload = { $player } fires and gains { $gain } light plus { $coins } coins, reaching { $light } light against { $power } power. They exceed capacity by { $overload } and are eliminated with { $total_coins } coins remaining.
+lightturret-player-shoots-overload = { $player } fires and gains { $gain } light plus { $coins } coins, reaching { $light } light against { $power } power. The overload puts { GENDER_TERM($player_gender, "object") } { $overload } over capacity and eliminates { GENDER_TERM($player_gender, "object") } with { $total_coins } coins remaining.
 lightturret-you-shoot-overload-brief = You overload: +{ $gain } light, { $light }/{ $power}, over by { $overload}. Eliminated.
 lightturret-player-shoots-overload-brief = { $player } overloads: +{ $gain } light, { $light }/{ $power}, over by { $overload}. Eliminated.
 
 lightturret-you-upgrade = You spend { $cost } coins and upgrade the core by { $gain } power. Your turret is now at { $light } light, { $power } power, { $headroom } safe capacity, and { $coins } coins.
-lightturret-player-upgrades = { $player } spends { $cost } coins and upgrades the core by { $gain } power. Their turret is now at { $light } light, { $power } power, { $headroom } safe capacity, and { $coins } coins.
+lightturret-player-upgrades = { $player } spends { $cost } coins and upgrades the core by { $gain } power. { GENDER_TERM($player_gender, "possessive-determiner-capitalized") } turret is now at { $light } light, { $power } power, { $headroom } safe capacity, and { $coins } coins.
 lightturret-you-upgrade-brief = You upgrade: +{ $gain } power. Light { $light }/{ $power}; coins { $coins }.
 lightturret-player-upgrades-brief = { $player } upgrades: +{ $gain } power. Light { $light }/{ $power}; coins { $coins }.
 
 lightturret-you-upgrade-accident = You spend { $cost } coins, but the core backfires and adds { $gain } light. Your turret is at { $light } of { $power } power, with { $headroom } safe capacity and { $coins } coins.
-lightturret-player-upgrades-accident = { $player } spends { $cost } coins, but the core backfires and adds { $gain } light. Their turret is at { $light } of { $power } power, with { $headroom } safe capacity and { $coins } coins.
+lightturret-player-upgrades-accident = { $player } spends { $cost } coins, but the core backfires and adds { $gain } light. { GENDER_TERM($player_gender, "possessive-determiner-capitalized") } turret is at { $light } of { $power } power, with { $headroom } safe capacity and { $coins } coins.
 lightturret-you-upgrade-accident-brief = Your upgrade backfires: +{ $gain } light. Light { $light }/{ $power}; coins { $coins }.
 lightturret-player-upgrades-accident-brief = { $player }'s upgrade backfires: +{ $gain } light. Light { $light }/{ $power}; coins { $coins }.
 
 lightturret-you-upgrade-overload = You spend { $cost } coins, but the core backfires and adds { $gain } light. You reach { $light } light against { $power } power, exceed capacity by { $overload }, and are eliminated with { $coins } coins remaining.
-lightturret-player-upgrades-overload = { $player } spends { $cost } coins, but the core backfires and adds { $gain } light. They reach { $light } light against { $power } power, exceed capacity by { $overload }, and are eliminated with { $coins } coins remaining.
+lightturret-player-upgrades-overload = { $player } spends { $cost } coins, but the core backfires and adds { $gain } light. The backfire puts { GENDER_TERM($player_gender, "object") } at { $light } light against { $power } power, { $overload } over capacity, and eliminates { GENDER_TERM($player_gender, "object") } with { $coins } coins remaining.
 lightturret-you-upgrade-overload-brief = Upgrade overload: +{ $gain } light, { $light }/{ $power}, over by { $overload}. Eliminated.
 lightturret-player-upgrades-overload-brief = { $player } upgrade overload: +{ $gain } light, { $light }/{ $power}, over by { $overload}. Eliminated.
 
@@ -59,8 +59,8 @@ lightturret-you-win = You win with { $light } light and { $power } power. { $sur
    *[false] Your final light total leads despite the overload.
 }
 lightturret-player-wins = { $player } wins with { $light } light and { $power } power. { $survived ->
-    [true] Their turret survived.
-   *[false] Their final light total leads despite the overload.
+    [true] { GENDER_TERM($player_gender, "possessive-determiner-capitalized") } turret survived.
+   *[false] { GENDER_TERM($player_gender, "possessive-determiner-capitalized") } final light total leads despite the overload.
 }
 lightturret-you-win-brief = You win: { $light } light.
 lightturret-player-wins-brief = { $player } wins: { $light } light.

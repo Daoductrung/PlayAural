@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from ..core.server import NON_RESUMABLE_ACTION_MENUS, Server
+from ..gender import Gender
 from ..users.test_user import MockUser
 
 
@@ -749,6 +750,8 @@ async def test_action_close_restores_focus_to_parent_opener(tmp_path) -> None:
 
         assert _current_menu(server, user.username) == "profile_menu"
         assert user.menus["profile_menu"]["selection_id"] == "edit_gender"
+        assert user.gender is Gender.MALE
+        assert server._db.get_user(user.username).gender == Gender.MALE.value
     finally:
         server._db.close()
 

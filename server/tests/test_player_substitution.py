@@ -16,6 +16,7 @@ from server.core.server import (
 from server.games.crazyeights.game import CrazyEightsGame
 from server.games.pig.game import PigGame, PigOptions
 from server.games.registry import GameRegistry
+from server.gender import Gender
 from server.messages.localization import Localization
 from server.persistence.database import Database
 from server.users.bot import Bot
@@ -280,6 +281,90 @@ class TestPlayerSubstitution:
             if member.username == incoming.username
         ).is_spectator
 
+    @pytest.mark.parametrize(
+        ("outgoing_gender", "incoming_gender"),
+        [
+            (Gender.MALE, Gender.FEMALE),
+            (Gender.FEMALE, Gender.MALE),
+            (Gender.NON_BINARY, Gender.UNSPECIFIED),
+            (Gender.UNSPECIFIED, Gender.NON_BINARY),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_cross_gender_substitution_rebinds_every_future_identity_reference(
+        self,
+        outgoing_gender: Gender,
+        incoming_gender: Gender,
+    ) -> None:
+        (
+            host,
+            outgoing,
+            incoming,
+            table,
+            game,
+            seat,
+            _incoming_spectator,
+        ) = self._playing_table_with_human_and_spectator()
+        outgoing.set_gender(outgoing_gender)
+        incoming.set_gender(incoming_gender)
+        self.db.update_user_gender(outgoing.username, outgoing_gender.value)
+        self.db.update_user_gender(incoming.username, incoming_gender.value)
+
+        assert self.server._send_player_substitution_request(
+            host,
+            table,
+            seat,
+            incoming,
+        ) == "pending"
+        await self.server._handle_player_substitution_prompt_selection(
+            outgoing,
+            "accept",
+            self.server._user_states[outgoing.username],
+        )
+        await self.server._handle_player_substitution_prompt_selection(
+            incoming,
+            "accept",
+            self.server._user_states[incoming.username],
+        )
+
+        outgoing_spectator = game.get_player_by_id(outgoing.uuid)
+        assert outgoing_spectator is not None
+        assert game.get_player_gender(seat) is incoming_gender
+        assert game.get_player_gender(outgoing_spectator) is outgoing_gender
+        assert Localization.get(
+            incoming.locale,
+            "player-substitution-complete-player-you",
+            player=outgoing.username,
+            player_gender=outgoing_gender.selector,
+        ) in incoming.get_spoken_messages()
+        assert Localization.get(
+            host.locale,
+            "player-substitution-complete-player",
+            player=incoming.username,
+            outgoing=outgoing.username,
+            outgoing_gender=outgoing_gender.selector,
+        ) in host.get_spoken_messages()
+
+        host.clear_messages()
+        outgoing.clear_messages()
+        game._broadcast_actor_l(
+            seat,
+            "pig-you-roll-result",
+            "pig-player-roll-result",
+            roll=4,
+            total=4,
+        )
+        expected_future_message = Localization.get(
+            "en",
+            "pig-player-roll-result",
+            player=incoming.username,
+            player_gender=incoming_gender.selector,
+            roll=4,
+            total=4,
+        )
+        assert expected_future_message in host.get_spoken_messages()
+        assert expected_future_message in outgoing.get_spoken_messages()
+
     @pytest.mark.asyncio
     async def test_outgoing_decline_never_prompts_incoming_or_changes_roles(self) -> None:
         (
@@ -390,6 +475,10 @@ class TestPlayerSubstitution:
         host, incoming, table, game, _bot, _ = (
             self._playing_table_with_bot_and_spectator()
         )
+        host.set_gender(Gender.MALE)
+        incoming.set_gender(Gender.FEMALE)
+        self.db.update_user_gender(host.username, Gender.MALE.value)
+        self.db.update_user_gender(incoming.username, Gender.FEMALE.value)
         host_seat = game.get_player_by_id(host.uuid)
         assert host_seat is not None
         self.server._voice_presence_by_user[host.username] = {
@@ -422,11 +511,13 @@ class TestPlayerSubstitution:
             host.locale,
             "player-substitution-self-offer-sent",
             player=incoming.username,
+            player_gender=Gender.FEMALE.selector,
         ) in host.get_spoken_messages()
         assert Localization.get(
             incoming.locale,
             "player-substitution-request-host-seat",
             host=host.username,
+            host_gender=Gender.MALE.selector,
         ) in incoming.get_spoken_messages()
         await self.server._handle_player_substitution_prompt_selection(
             incoming,
@@ -437,6 +528,8 @@ class TestPlayerSubstitution:
         assert game.get_player_by_id(incoming.uuid) is host_seat
         host_spectator = game.get_player_by_id(host.uuid)
         assert host_spectator is not None and host_spectator.is_spectator
+        assert game.get_player_gender(host_seat) is Gender.FEMALE
+        assert game.get_player_gender(host_spectator) is Gender.MALE
         assert game.host == host.username
         assert table.host == host.username
         assert game._is_host_management_enabled(host_spectator) is None
@@ -455,6 +548,7 @@ class TestPlayerSubstitution:
             incoming.locale,
             "player-substitution-complete-host-player-you",
             player=host.username,
+            player_gender=Gender.MALE.selector,
         ) in incoming.get_spoken_messages()
 
     @pytest.mark.asyncio
@@ -538,6 +632,10 @@ class TestPlayerSubstitution:
             _,
         ) = self._playing_table_with_human_and_spectator()
         outgoing._locale = "vi"
+        host.set_gender(Gender.MALE)
+        outgoing.set_gender(Gender.FEMALE)
+        self.db.update_user_gender(host.username, Gender.MALE.value)
+        self.db.update_user_gender(outgoing.username, Gender.FEMALE.value)
         host_seat = game.get_player_by_id(host.uuid)
         assert host_seat is not None
 
@@ -572,17 +670,21 @@ class TestPlayerSubstitution:
             host.locale,
             "player-substitution-self-incoming-consent-sent",
             player=outgoing.username,
+            player_gender=Gender.FEMALE.selector,
         ) in host.get_spoken_messages()
         assert Localization.get(
             outgoing.locale,
             "player-substitution-request-outgoing-host-incoming",
             host=host.username,
+            host_gender=Gender.MALE.selector,
         ) in outgoing.get_spoken_messages()
         repeated_name_message = Localization.get(
             outgoing.locale,
             "player-substitution-request-outgoing",
             host=host.username,
             player=host.username,
+            host_gender=Gender.MALE.selector,
+            player_gender=Gender.MALE.selector,
         )
         assert repeated_name_message not in outgoing.get_spoken_messages()
         assert self.server._user_states[outgoing.username]["menu"] == (
@@ -599,10 +701,15 @@ class TestPlayerSubstitution:
         )
 
         assert game.get_player_by_id(host.uuid) is outgoing_seat
+        outgoing_spectator = game.get_player_by_id(outgoing.uuid)
+        assert outgoing_spectator is not None
+        assert game.get_player_gender(outgoing_seat) is Gender.MALE
+        assert game.get_player_gender(outgoing_spectator) is Gender.FEMALE
         assert Localization.get(
             host.locale,
             "player-substitution-complete-player-you",
             player=outgoing.username,
+            player_gender=Gender.FEMALE.selector,
         ) in host.get_spoken_messages()
         assert Localization.get(
             outgoing.locale,
@@ -614,6 +721,7 @@ class TestPlayerSubstitution:
             "player-substitution-complete-player",
             player=host.username,
             outgoing=outgoing.username,
+            outgoing_gender=Gender.FEMALE.selector,
         ) in first_incoming.get_spoken_messages()
 
     @pytest.mark.asyncio

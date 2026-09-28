@@ -86,7 +86,7 @@ tossup-you-bust-brief = You: { $results }; bust; lose { $points }.
 tossup-player-busts-brief = { $player }: { $results }; bust; loses { $points }.
 
 tossup-you-bank = You bank { $points } points, bringing your total score to { $total }.
-tossup-player-banks = { $player } banks { $points } points, bringing their total score to { $total }.
+tossup-player-banks = { $player } banks { $points } points, bringing { GENDER_TERM($player_gender, "possessive-determiner") } total score to { $total }.
 tossup-you-bank-brief = You bank { $points }; total { $total }.
 tossup-player-banks-brief = { $player } banks { $points }; total { $total }.
 
@@ -128,7 +128,7 @@ tossup-your-turn-awaiting-roll =
        *[other] dice
     } ready.
 tossup-player-turn-awaiting-roll =
-    { $player } has not rolled yet. They have { $score } banked points and { $dice_count } { $dice_count ->
+    { $player } has not rolled yet. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $score } banked points and { $dice_count } { $dice_count ->
         [one] die
        *[other] dice
     } ready.
@@ -138,7 +138,7 @@ tossup-your-turn-status =
        *[other] dice
     } ready to roll.
 tossup-player-turn-status =
-    { $player } last rolled { $results }. They have { $turn_points } unbanked turn points, { $score } banked points, and { $dice_count } { $dice_count ->
+    { $player } last rolled { $results }. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $turn_points } unbanked turn points, { $score } banked points, and { $dice_count } { $dice_count ->
         [one] die
        *[other] dice
     } ready to roll.

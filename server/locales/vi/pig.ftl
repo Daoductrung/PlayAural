@@ -22,12 +22,12 @@ pig-round-start = Bắt đầu vòng lượt { $round }. Mỗi người chơi đ
 pig-round-start-brief = Vòng lượt { $round }.
 
 pig-you-roll-result = Bạn gieo được { $roll }. Điểm lượt hiện tại của bạn là { $total }.
-pig-player-roll-result = { $player } gieo được { $roll }. Điểm lượt hiện tại của họ là { $total }.
+pig-player-roll-result = { $player } gieo được { $roll }. Điểm lượt hiện tại { GENDER_TERM($player_gender, "possessive-determiner") } là { $total }.
 pig-you-roll-result-brief = Bạn: { $roll }; điểm lượt { $total }.
 pig-player-roll-result-brief = { $player }: { $roll }; điểm lượt { $total }.
 
 pig-you-bust = Bạn gieo trúng mặt 1 và mất toàn bộ { $points } điểm chưa giữ. Lượt của bạn kết thúc mà không ghi được điểm.
-pig-player-busts = { $player } gieo trúng mặt 1 và mất toàn bộ { $points } điểm chưa giữ. Lượt của họ kết thúc mà không ghi được điểm.
+pig-player-busts = { $player } gieo trúng mặt 1 và mất toàn bộ { $points } điểm chưa giữ. Lượt { GENDER_TERM($player_gender, "possessive-determiner") } kết thúc mà không ghi được điểm.
 pig-you-bust-brief = Bạn gieo trúng 1 và mất { $points } điểm lượt.
 pig-player-busts-brief = { $player } gieo trúng 1 và mất { $points } điểm lượt.
 
@@ -39,7 +39,7 @@ pig-you-hold =
 pig-player-holds =
     { $player } giữ { $points } điểm. { $team ->
         [yes] { $team_name } hiện có { $total } điểm.
-       *[no] Tổng điểm của họ hiện là { $total }.
+       *[no] Tổng điểm { GENDER_TERM($player_gender, "possessive-determiner") } hiện là { $total }.
     }
 pig-you-hold-brief =
     Bạn giữ { $points };{ $team ->

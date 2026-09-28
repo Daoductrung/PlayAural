@@ -9,6 +9,7 @@ from .base import (
     generate_uuid,
     validate_menu_focus_context_id,
 )
+from ..gender import Gender, normalize_gender, require_gender
 from .preferences import UserPreferences
 from ..messages.localization import Localization
 from ..audio import AudioCommand
@@ -46,6 +47,7 @@ class NetworkUser(User):
         trust_level: int = 1,
         approved: bool = False,
         session_handover_pending: bool = False,
+        gender: Gender | str = Gender.UNSPECIFIED,
     ):
         self._uuid = uuid or generate_uuid()
         self._username = username
@@ -56,6 +58,7 @@ class NetworkUser(User):
         self._preferences = preferences or UserPreferences()
         self._trust_level = trust_level
         self._approved = approved
+        self._gender = normalize_gender(gender)
         self._active = True
         self._session_handover_pending = session_handover_pending
         self._message_queue: list[dict[str, Any]] = []
@@ -109,6 +112,15 @@ class NetworkUser(User):
     def set_trust_level(self, trust_level: int) -> None:
         """Set the user's trust level."""
         self._trust_level = trust_level
+
+    @property
+    def gender(self) -> Gender:
+        """Return the live account gender."""
+        return self._gender
+
+    def set_gender(self, gender: Gender | str) -> None:
+        """Synchronize the live session after an account gender change."""
+        self._gender = require_gender(gender)
 
     @property
     def preferences(self) -> UserPreferences:

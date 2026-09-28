@@ -34,7 +34,7 @@ nine-you-extend-sequence-brief = Bạn đánh { $card } vào dãy { $suit }.
 nine-player-extend-sequence-brief = { $player }: { $card } vào dãy { $suit }.
 
 nine-you-skips-turn = Bạn không có lá hợp lệ để đánh, nên lượt của bạn bị bỏ qua.
-nine-player-skips-turn = { $player } không có lá hợp lệ để đánh và bỏ lượt.
+nine-player-skips-turn = { $player } không có lá hợp lệ để đánh, nên lượt { GENDER_TERM($player_gender, "possessive-determiner") } bị bỏ qua.
 nine-you-skips-turn-brief = Bạn bỏ lượt; không có lá hợp lệ.
 nine-player-skips-turn-brief = { $player } bỏ lượt; không có lá hợp lệ.
 

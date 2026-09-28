@@ -100,7 +100,11 @@ class ActionExecutionMixin:
             return
         if isinstance(reason, tuple):
             key, kwargs = reason
-            user.speak_l(key, buffer="game", **kwargs)
+            user.speak_l(
+                key,
+                buffer="game",
+                **self._resolve_broadcast_kwargs(user.locale, kwargs),
+            )
         else:
             user.speak_l(reason, buffer="game")
 

@@ -147,8 +147,8 @@ pusoydos-no-instant-wins = No instant wins this round.
 # Card passing
 pusoydos-passing-phase = Card passing phase.
 pusoydos-loser-gives = { $loser } gives { $count ->
-    [one] their highest card
-   *[other] their { $count } highest cards
+    [one] { GENDER_TERM($loser_gender, "possessive-determiner") } highest card
+   *[other] { GENDER_TERM($loser_gender, "possessive-determiner") } { $count } highest cards
 } to { $winner }.
 pusoydos-winner-gives-back = { $winner } gives { $count ->
     [one] a card

@@ -69,6 +69,12 @@ from ..tables.manager import TableManager
 from ..tables.table import Table
 from ..copy_protocol import parse_copy_directive
 from ..users.network_user import NetworkUser
+from ..gender import (
+    GENDER_OPTIONS,
+    Gender,
+    gender_localization_kwargs,
+    normalize_gender,
+)
 from ..users.base import (
     EscapeBehavior,
     MenuItem,
@@ -1796,6 +1802,7 @@ PlayAural Server
             trust_level=trust_level,
             approved=is_approved,
             session_handover_pending=session_handover,
+            gender=user_record.gender if user_record else Gender.UNSPECIFIED,
         )
         self._users[canonical_username] = user
 
@@ -6601,6 +6608,9 @@ PlayAural Server
                 "friend-error-blocked-by-you",
                 buffer="system",
                 username=target_record.username,
+                **self._account_gender_localization_kwargs(
+                    target_record.username, "username"
+                ),
             )
         elif status == "blocked":
             user.speak_l(
@@ -6722,6 +6732,7 @@ PlayAural Server
                 "friend-removed-notify",
                 buffer="system",
                 username=user.username,
+                **self._account_gender_localization_kwargs(user.username, "username"),
             )
             target_user.play_sound("friend_removed.ogg")
         else:
@@ -7042,6 +7053,9 @@ PlayAural Server
                 "report-submitted",
                 buffer="system",
                 username=target_record.username,
+                **self._account_gender_localization_kwargs(
+                    target_record.username, "username"
+                ),
             )
             if result.report_id is not None:
                 self._notify_new_moderation_report(
@@ -7056,6 +7070,9 @@ PlayAural Server
                 username=target_record.username,
                 duration=ServerPowerManager.format_duration(
                     user.locale, result.retry_after_seconds
+                ),
+                **self._account_gender_localization_kwargs(
+                    target_record.username, "username"
                 ),
             )
         elif result.outcome == "reporter_limit":
@@ -7105,6 +7122,9 @@ PlayAural Server
             "block-success",
             buffer="system",
             username=target_record.username,
+            **self._account_gender_localization_kwargs(
+                target_record.username, "username"
+            ),
         )
         self.on_social_relationships_changed(user.uuid, target_record.uuid)
         return True
@@ -7444,6 +7464,20 @@ PlayAural Server
             )
             self._nav_back(user)
 
+    def _account_gender_localization_kwargs(
+        self,
+        username: str,
+        variable: str = "player",
+    ) -> dict[str, str]:
+        """Resolve one account identity for direct server-owned messages."""
+        online_user = self._users.get(username)
+        if online_user is not None:
+            gender = online_user.gender
+        else:
+            record = self._db.get_user(username)
+            gender = record.gender if record else Gender.UNSPECIFIED
+        return gender_localization_kwargs(gender, variable)
+
     def _show_public_profile(self, requesting_user: NetworkUser, target_username: str) -> None:
         """Show a read-only profile view of another user."""
         target_record = self._db.get_user(target_username)
@@ -7459,8 +7493,11 @@ PlayAural Server
             else Localization.get(requesting_user.locale, "profile-date-unknown")
         )
         bio_str = target_record.bio if target_record.bio else Localization.get(requesting_user.locale, "profile-bio-empty")
-        gender_loc_key = f"gender-{target_record.gender.lower().replace(' ', '-')}"
-        gender_str = Localization.get(requesting_user.locale, gender_loc_key)
+        gender = normalize_gender(target_record.gender)
+        gender_str = Localization.get(
+            requesting_user.locale,
+            gender.localization_key,
+        )
 
         items = [
             MenuItem(text=Localization.get(requesting_user.locale, "profile-registration-date", date=date_str), id=""),
@@ -7532,8 +7569,8 @@ PlayAural Server
         )
         email_str = user_record.email if user_record.email else Localization.get(user.locale, "profile-email-empty")
         bio_str = user_record.bio if user_record.bio else Localization.get(user.locale, "profile-bio-empty")
-        gender_loc_key = f"gender-{user_record.gender.lower().replace(' ', '-')}"
-        gender_str = Localization.get(user.locale, gender_loc_key)
+        gender = normalize_gender(user_record.gender)
+        gender_str = Localization.get(user.locale, gender.localization_key)
 
         items = [
             MenuItem(text=Localization.get(user.locale, "profile-registration-date", date=date_str), id=""),
@@ -7571,16 +7608,24 @@ PlayAural Server
 
     def _show_gender_menu(self, user: NetworkUser) -> None:
         """Show the gender selection menu."""
-        genders = ["Male", "Female", "Non-binary", "Not set"]
         user_record = self._db.get_user(user.username)
-        current_gender = user_record.gender if user_record else "Not set"
+        current_gender = normalize_gender(
+            user_record.gender if user_record else user.gender
+        )
 
         items = []
-        for g in genders:
-            prefix = "* " if g == current_gender else ""
-            loc_key = f"gender-{g.lower().replace(' ', '-')}"
-            localized_gender = Localization.get(user.locale, loc_key)
-            items.append(MenuItem(text=f"{prefix}{localized_gender}", id=f"gender_{g}"))
+        for gender in GENDER_OPTIONS:
+            prefix = "* " if gender is current_gender else ""
+            localized_gender = Localization.get(
+                user.locale,
+                gender.localization_key,
+            )
+            items.append(
+                MenuItem(
+                    text=f"{prefix}{localized_gender}",
+                    id=gender.menu_item_id,
+                )
+            )
 
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
 
@@ -7589,18 +7634,32 @@ PlayAural Server
             items,
             multiletter=True,
             escape_behavior=EscapeBehavior.SELECT_LAST,
+            selection_id=current_gender.menu_item_id,
         )
         self._user_states[user.username] = {"menu": "gender_menu"}
 
     async def _handle_gender_selection(self, user: NetworkUser, selection_id: str) -> None:
         """Handle gender selection."""
-        if selection_id.startswith("gender_"):
-            new_gender = selection_id[7:]
+        selected_gender = next(
+            (
+                gender
+                for gender in GENDER_OPTIONS
+                if gender.menu_item_id == selection_id
+            ),
+            None,
+        )
+        if selected_gender is not None:
             user_record = self._db.get_user(user.username)
-            if user_record and user_record.gender == new_gender:
+            if user_record is None:
+                user.speak_l("user-account-unavailable", buffer="system")
+                self._nav_back(user)
+                return
+            current_gender = normalize_gender(user_record.gender)
+            if current_gender is selected_gender:
                 user.speak_l("no-changes-made", buffer="system")
             else:
-                self._db.update_user_gender(user.username, new_gender)
+                self._db.update_user_gender(user.username, selected_gender.value)
+                user.set_gender(selected_gender)
                 user.speak_l("gender-updated", buffer="system")
             self._nav_back(user)
         elif selection_id == "back":
@@ -9311,12 +9370,14 @@ PlayAural Server
                 "player-substitution-self-offer-sent",
                 buffer="system",
                 player=spectator.name,
+                **self._account_gender_localization_kwargs(spectator.name),
             )
         elif spectator.name == user.username:
             user.speak_l(
                 "player-substitution-self-incoming-consent-sent",
                 buffer="system",
                 player=seat.name,
+                **self._account_gender_localization_kwargs(seat.name),
             )
         elif seat.is_bot:
             user.speak_l(
@@ -9324,6 +9385,7 @@ PlayAural Server
                 buffer="system",
                 player=spectator.name,
                 seat=seat.name,
+                **self._account_gender_localization_kwargs(spectator.name),
             )
         else:
             user.speak_l(
@@ -9331,6 +9393,7 @@ PlayAural Server
                 buffer="system",
                 player=seat.name,
                 substitute=spectator.name,
+                **self._account_gender_localization_kwargs(seat.name),
             )
         self._return_to_game_from_overlay(user, table, state)
 
@@ -9393,6 +9456,7 @@ PlayAural Server
                 "player-substitution-user-busy",
                 buffer="system",
                 player=incoming_name,
+                **self._account_gender_localization_kwargs(incoming_name),
             )
             return None
         if (
@@ -9473,6 +9537,7 @@ PlayAural Server
                     "player-substitution-user-busy",
                     buffer="system",
                     player=outgoing_username,
+                    **self._account_gender_localization_kwargs(outgoing_username),
                 )
                 return None
 
@@ -9588,6 +9653,16 @@ PlayAural Server
                     "host": request["host_username"],
                     "bot": request["seat_name"],
                 }
+
+        for variable in ("host", "player"):
+            username = message_kwargs.get(variable)
+            if username:
+                message_kwargs.update(
+                    self._account_gender_localization_kwargs(
+                        str(username),
+                        variable,
+                    )
+                )
 
         previous_state = dict(self._user_states.get(prompted_user.username, {}))
         request["previous_states"][prompted_user.username] = previous_state
@@ -9883,6 +9958,9 @@ PlayAural Server
                         ),
                         buffer="game",
                         player=outgoing_spectator.name,
+                        player_gender=game.get_player_gender(
+                            outgoing_spectator
+                        ).selector,
                     )
                 elif listener is outgoing_spectator:
                     listener_user.speak_l(
@@ -9904,6 +9982,9 @@ PlayAural Server
                         buffer="game",
                         player=seat.name,
                         outgoing=outgoing_spectator.name,
+                        outgoing_gender=game.get_player_gender(
+                            outgoing_spectator
+                        ).selector,
                     )
             return
 
@@ -10237,6 +10318,7 @@ PlayAural Server
                 buffer="system",
                 host=host_user.username,
                 game=game_name,
+                **gender_localization_kwargs(host_user.gender, "host"),
             )
             return True
 
@@ -10266,7 +10348,14 @@ PlayAural Server
             invitee_user,
             "table_invite_prompt",
             prompt_key="table-invite-received",
-            prompt_kwargs={"host": host_username, "game": game_name},
+            prompt_kwargs={
+                "host": host_username,
+                "game": game_name,
+                **self._account_gender_localization_kwargs(
+                    host_username,
+                    "host",
+                ),
+            },
             confirm_choice=ConfirmationChoice("accept", "invite-accept"),
             cancel_choice=ConfirmationChoice("decline", "invite-decline"),
             buffer="system",
@@ -10813,6 +10902,9 @@ PlayAural Server
                         locale,
                         "table-member-status-bot-takeover",
                         bot=replacement_bot,
+                        **self._account_gender_localization_kwargs(
+                            row["name"], "member"
+                        ),
                     )
                 )
         return Localization.format_list_and(locale, statuses)

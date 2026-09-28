@@ -107,7 +107,7 @@ ageofheroes-population-growth = { $player } khơi dậy Gia tăng dân số và 
 ageofheroes-population-growth-you = Bạn khơi dậy Gia tăng dân số và dựng thêm một thành phố.
 ageofheroes-discard-card = { $player } bỏ lá { $card }.
 ageofheroes-discard-card-you = Bạn bỏ lá { $card }.
-ageofheroes-earthquake = Đất trời rung chuyển trên lãnh địa của { $player }; quân đoàn phải lui về hồi phục.
+ageofheroes-earthquake = Đất trời rung chuyển trên lãnh địa của { $player }; quân đoàn { GENDER_TERM($player_gender, "possessive-determiner") } phải lui về hồi phục.
 ageofheroes-earthquake-you = Đất trời rung chuyển trên lãnh địa của bạn; quân đoàn phải lui về hồi phục.
 ageofheroes-eruption = Núi lửa phẫn nộ thiêu rụi một thành phố của { $player }.
 ageofheroes-eruption-you = Núi lửa phẫn nộ thiêu rụi một thành phố của bạn.
@@ -157,7 +157,7 @@ ageofheroes-offer-made = { $player } đề nghị đổi { $card } lấy { $want
 ageofheroes-offer-made-you = Bạn đề nghị đổi { $card } lấy { $wanted }.
 ageofheroes-trade-accepted = { $player } chấp nhận lời đề nghị của { $other } và đổi { $give } lấy { $receive }.
 ageofheroes-trade-accepted-you = Bạn chấp nhận lời đề nghị của { $other } và nhận được { $receive }.
-ageofheroes-trade-cancelled = { $player } rút lại lời đề nghị cho lá { $card }.
+ageofheroes-trade-cancelled = { $player } rút lại lời đề nghị { GENDER_TERM($player_gender, "possessive-determiner") } cho lá { $card }.
 ageofheroes-trade-cancelled-you = Bạn rút lại lời đề nghị cho lá { $card }.
 ageofheroes-stop-trading = Dừng giao dịch
 ageofheroes-select-request = Bạn đang mời đổi lá { $card }. Bạn muốn nhận lại gì?
@@ -197,7 +197,7 @@ ageofheroes-tax-collection-you = Bạn chọn Thu thuế: { $cities } { $cities 
 ageofheroes-tax-collection-brief = { $player } thu thuế: { $cards } từ { $cities }.
 ageofheroes-tax-collection-you-brief = Thu thuế: { $cards } từ { $cities }.
 ageofheroes-tax-no-city = Thu thuế: Bạn không còn thành phố nào. Hãy bỏ một lá để rút lá mới.
-ageofheroes-tax-no-city-done = { $player } chọn Thu thuế nhưng không có thành phố, nên đổi một lá bài.
+ageofheroes-tax-no-city-done = { $player } chọn Thu thuế nhưng không có thành phố, nên { GENDER_TERM($player_gender, "subject") } đổi một lá bài.
 ageofheroes-tax-no-city-done-you = Thu thuế: Bạn đã đổi lá { $card } lấy một lá mới.
 
 # Xây dựng
@@ -421,7 +421,7 @@ ageofheroes-discard-more = Bỏ thêm { $count } { $count ->
 # Chiến thắng
 ageofheroes-victory-cities = { $player } đã xây được { $cities } thành phố! Chiến thắng theo con đường Đế chế Thành Phố.
 ageofheroes-victory-cities-you = Bạn đã xây được { $cities } thành phố! Chiến thắng theo con đường Đế chế Thành Phố.
-ageofheroes-victory-monument = { $player } đã hoàn thành kỳ quan! Chiến thắng theo con đường Người Truyền Bá Văn Hóa Vĩ Đại.
+ageofheroes-victory-monument = { $player } đã hoàn thành kỳ quan { GENDER_TERM($player_gender, "possessive-determiner") }! Chiến thắng theo con đường Người Truyền Bá Văn Hóa Vĩ Đại.
 ageofheroes-victory-monument-you = Bạn đã hoàn thành kỳ quan! Chiến thắng theo con đường Người Truyền Bá Văn Hóa Vĩ Đại.
 ageofheroes-victory-last-standing = { $player } là bộ tộc cuối cùng còn trụ lại! Kẻ Kiên Cường Nhất.
 ageofheroes-victory-last-standing-you = Bạn là bộ tộc cuối cùng còn trụ lại! Kẻ Kiên Cường Nhất.

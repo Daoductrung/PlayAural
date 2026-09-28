@@ -27,7 +27,7 @@ senet-water-other = { $player } rơi vào Ngôi Nhà Nước! Quân bị đưa �
 senet-happiness-you = Bạn đã đến Ngôi Nhà Hạnh Phúc.
 senet-happiness-other = { $player } đã đến Ngôi Nhà Hạnh Phúc.
 senet-horus-auto-you = Quân của bạn rời Nhà Horus vì hàng đầu của bạn đã trống. Còn lại { $remaining } quân.
-senet-horus-auto-other = Quân của { $player } rời Nhà Horus vì hàng đầu của họ đã trống. Còn lại { $remaining } quân.
+senet-horus-auto-other = Quân của { $player } rời Nhà Horus vì hàng đầu { GENDER_TERM($player_gender, "possessive-determiner") } đã trống. Còn lại { $remaining } quân.
 
 # Không có nước đi
 senet-no-moves-you = Bạn không có nước đi hợp lệ.
@@ -59,7 +59,7 @@ senet-sticks-none = Chưa tung.
 
 # Chiến thắng
 senet-wins-you = Bạn thắng! Tất cả quân của bạn đã vượt qua ngôi nhà cuối cùng.
-senet-wins-other = { $player } thắng! Tất cả quân của họ đã vượt qua ngôi nhà cuối cùng.
+senet-wins-other = { $player } thắng! Tất cả quân { GENDER_TERM($player_gender, "possessive-determiner") } đã vượt qua ngôi nhà cuối cùng.
 
 # Nhãn hành động
 senet-check-status = Trạng thái

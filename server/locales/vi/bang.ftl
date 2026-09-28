@@ -428,13 +428,13 @@ bang-your-ricochet-discards-card = Đạn nảy của bạn phá { $card } trư�
 bang-ricochet-discards-your-card = Đạn nảy của { $attacker } phá { $card } trước mặt bạn.
 bang-player-ricochet-discards-card = Đạn nảy của { $attacker } phá { $card } trước mặt { $target}.
 bang-you-lose-life = Bạn mất { $amount } máu vì { $source}; còn lại { $life } máu.
-bang-your-attack-costs-life = { $source } của bạn làm { $target } mất { $amount } máu; họ còn { $life } máu.
+bang-your-attack-costs-life = { $source } của bạn làm { $target } mất { $amount } máu; { GENDER_TERM($target_gender, "subject") } còn { $life } máu.
 bang-player-loses-life = { $player } mất { $amount } máu vì { $source}; còn lại { $life } máu.
 bang-you-heal = Bạn hồi { $amount } máu; hiện có { $life } máu.
 bang-player-heals = { $player } hồi { $amount } máu; hiện có { $life } máu.
 bang-your-target-heals = { $target } nhờ bạn mà hồi { $amount } máu; hiện có { $life } máu.
 bang-player-heals-you = { $actor } giúp bạn hồi { $amount } máu; hiện bạn có { $life } máu.
-bang-player-heals-target = { $actor } giúp { $target } hồi { $amount } máu; họ hiện có { $life } máu.
+bang-player-heals-target = { $actor } giúp { $target } hồi { $amount } máu; { GENDER_TERM($target_gender, "subject") } hiện có { $life } máu.
 bang-your-beer-no-effect-full-life = Bạn bỏ Bia; máu đã đầy.
 bang-player-beer-no-effect-full-life = { $player } bỏ Bia khi đang đầy máu.
 bang-your-beer-no-effect-two-players = Bạn bỏ Bia; còn hai người nên không hồi máu.
@@ -462,8 +462,8 @@ bang-player-draws-public-cards = { $count ->
 }
 bang-you-discard-excess = Bạn bỏ { $cards } rồi kết thúc lượt.
 bang-player-discards-excess = { $count ->
-    [one] { $player } bỏ 1 lá thừa rồi kết thúc lượt.
-   *[other] { $player } bỏ { $count } lá thừa rồi kết thúc lượt.
+    [one] { $player } bỏ 1 lá thừa rồi kết thúc lượt { GENDER_TERM($player_gender, "possessive-determiner") }.
+   *[other] { $player } bỏ { $count } lá thừa rồi kết thúc lượt { GENDER_TERM($player_gender, "possessive-determiner") }.
 }
 bang-your-play-phase = Lượt ra tay: đánh bài, dùng năng lực, hoặc kết thúc lượt.
 bang-player-play-phase = { $player } bắt đầu ra tay.
@@ -527,7 +527,7 @@ bang-handcuffs-declared = Bị Còng tay, { $player } chọn chất { $suit}.
 bang-you-change-identity = Bạn đổi sang { $character}, còn 2 máu.
 bang-new-identity-changed = { $player } đổi sang { $character}, còn 2 máu.
 bang-you-give-blood-brother-life = Bạn trả 1 máu để { $target } hồi 1 máu; bạn còn { $life } máu.
-bang-player-gives-you-blood-brother-life = { $player } trả 1 máu để bạn hồi 1 máu; họ còn { $life } máu.
+bang-player-gives-you-blood-brother-life = { $player } trả 1 máu để bạn hồi 1 máu; { GENDER_TERM($player_gender, "subject") } còn { $life } máu.
 bang-blood-brothers-gift = { $player } trả 1 máu để { $target } hồi 1 máu; họ còn { $life } máu.
 bang-your-dynamite-passes = Thuốc nổ trước mặt bạn chuyền theo chiều kim đồng hồ sang { $target}.
 bang-dynamite-passes-to-you = Thuốc nổ của { $actor } chuyền theo chiều kim đồng hồ sang bạn.

@@ -145,7 +145,7 @@ uno-swap-with = Đổi bài với { $player }
 uno-choose-swap = Chọn người để đổi bài, hoặc từ chối.
 uno-swap-none = Không đổi
 uno-you-swap-none = Bạn giữ nguyên bài của mình.
-uno-swap-none-other = { $player } giữ nguyên bài của mình.
+uno-swap-none-other = { $player } giữ nguyên bài { GENDER_TERM($player_gender, "possessive-determiner") }.
 
 # Interceptions / straights
 uno-player-intercepts = { $player } cướp lượt bằng { $card }!
@@ -174,9 +174,9 @@ uno-round-details-none = Không lấy được điểm nào từ đối thủ.
 uno-round-summary = { $details }. { $player } nhận được { $total }.
 uno-round-summary-you = { $details }. Bạn nhận được { $total }.
 uno-you-add-penalty-points = Bạn bị cộng { $points } điểm phạt vào tổng điểm sau vòng này.
-uno-player-adds-penalty-points = { $player } bị cộng { $points } điểm phạt vào tổng điểm sau vòng này.
+uno-player-adds-penalty-points = { $player } bị cộng { $points } điểm phạt vào tổng điểm { GENDER_TERM($player_gender, "possessive-determiner") } sau vòng này.
 uno-you-add-penalty-points-with-interception = Bạn bị cộng { $points } điểm phạt vào tổng điểm sau vòng này ({ $hand_points } từ bài trên tay cộng { $penalty } điểm phạt cướp lượt).
-uno-player-adds-penalty-points-with-interception = { $player } bị cộng { $points } điểm phạt vào tổng điểm sau vòng này ({ $hand_points } từ bài trên tay cộng { $penalty } điểm phạt cướp lượt).
+uno-player-adds-penalty-points-with-interception = { $player } bị cộng { $points } điểm phạt vào tổng điểm { GENDER_TERM($player_gender, "possessive-determiner") } sau vòng này ({ $hand_points } từ bài { GENDER_TERM($player_gender, "possessive-determiner") } cộng { $penalty } điểm phạt cướp lượt).
 uno-you-are-eliminated = Bạn đã chạm mức loại { $limit } điểm và phải rời ván.
 uno-player-is-eliminated = { $player } đã chạm mức loại { $limit } điểm và phải rời ván.
 uno-you-win-game =

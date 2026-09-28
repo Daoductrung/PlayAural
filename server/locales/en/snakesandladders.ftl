@@ -5,9 +5,9 @@ snakes-roll = Roll die
 snakes-check-positions = Check positions
 
 snakes-turn-start-you = Your turn. Your piece is in the starting area before square 1.
-snakes-turn-start-other = { $player }'s turn. Their piece is in the starting area before square 1.
+snakes-turn-start-other = { $player }'s turn. { GENDER_TERM($player_gender, "possessive-determiner-capitalized") } piece is in the starting area before square 1.
 snakes-turn-you = Your turn. You are on square { $position }.
-snakes-turn-other = { $player }'s turn. They are on square { $position }.
+snakes-turn-other = { $player }'s turn. { GENDER_TERM($player_gender, "subject-be-capitalized") } on square { $position }.
 
 snakes-roll-you = You roll { $roll }.
 snakes-roll-other = { $player } rolls { $roll }.
@@ -24,9 +24,9 @@ snakes-bounce-other = From square { $start }, { $player } rolls { $roll }, passe
 snakes-bounce-you-brief = You bounce back to square { $position }.
 snakes-bounce-other-brief = { $player } bounces back to square { $position }.
 snakes-restored-bounce-you = Your saved roll finishes by bouncing you back to square { $position }.
-snakes-restored-bounce-other = { $player }'s saved roll finishes by bouncing them back to square { $position }.
+snakes-restored-bounce-other = { $player }'s saved roll finishes by bouncing { GENDER_TERM($player_gender, "object") } back to square { $position }.
 snakes-exact-miss-you = You need { $needed } to reach square { $target }, but you rolled { $roll }, so you stay on square { $position }.
-snakes-exact-miss-other = { $player } needs { $needed } to reach square { $target }, but rolls { $roll }, so they stay on square { $position }.
+snakes-exact-miss-other = { $player } needs { $needed } to reach square { $target }, but rolls { $roll }, leaving { GENDER_TERM($player_gender, "object") } on square { $position }.
 snakes-exact-miss-you-brief = You need { $needed }, rolled { $roll }, and stay on square { $position }.
 snakes-exact-miss-other-brief = { $player } needs { $needed }, rolls { $roll }, and stays on square { $position }.
 snakes-ladder-you = You land at the foot of a ladder on square { $start } and climb to square { $end }, gaining { $distance } squares.
@@ -38,7 +38,7 @@ snakes-snake-other = { $player } lands on a snake's head on square { $start } an
 snakes-snake-you-brief = You slide from square { $start } to { $end }.
 snakes-snake-other-brief = { $player } slides from square { $start } to { $end }.
 snakes-extra-turn-you = You rolled 6, so you take another turn from square { $position }.
-snakes-extra-turn-other = { $player } rolled 6, so they take another turn from square { $position }.
+snakes-extra-turn-other = { $player } rolled 6, earning { GENDER_TERM($player_gender, "object") } another turn from square { $position }.
 snakes-win-you = You reach square { $position } and win the game!
 snakes-win-other = { $player } reaches square { $position } and wins the game!
 

@@ -81,7 +81,7 @@ rb-you-reshuffle = Bạn xáo { $count } quả bóng đầu ống. { $penalty ->
 rb-player-reshuffles = { $player } xáo { $count } quả bóng đầu ống. { $penalty ->
     [0] { $player } không bị phạt điểm
    *[other] { $player } bị trừ { $penalty } điểm
-}; hiện họ có { $score } điểm và còn { $remaining } lần xáo.
+}; hiện { GENDER_TERM($player_gender, "subject-have") } { $score } điểm và còn { $remaining } lần xáo.
 rb-you-reshuffle-brief = Bạn xáo { $count } bóng; phạt { $penalty }, điểm { $score }, còn { $remaining } lần.
 rb-player-reshuffles-brief = { $player } xáo { $count } bóng; phạt { $penalty }, điểm { $score }, còn { $remaining } lần.
 

@@ -11,6 +11,7 @@ from .base import (
     validate_menu_focus_context_id,
 )
 from ..audio import AudioCommand
+from ..gender import Gender, normalize_gender, require_gender
 
 
 @dataclass
@@ -28,12 +29,20 @@ class MockUser(User):
     Used in unit tests and play tests to verify game behavior.
     """
 
-    def __init__(self, username: str, locale: str = "en", uuid: str | None = None, approved: bool = True):
+    def __init__(
+        self,
+        username: str,
+        locale: str = "en",
+        uuid: str | None = None,
+        approved: bool = True,
+        gender: Gender | str = Gender.UNSPECIFIED,
+    ):
         from .preferences import UserPreferences
         self._uuid = uuid or generate_uuid()
         self._username = username
         self._locale = locale
         self._approved = approved
+        self._gender = normalize_gender(gender)
         self.client_type = "python"
         self._trust_level = 1
         self._preferences = UserPreferences()
@@ -44,6 +53,13 @@ class MockUser(User):
     @property
     def preferences(self):
         return self._preferences
+
+    @property
+    def gender(self) -> Gender:
+        return self._gender
+
+    def set_gender(self, gender: Gender | str) -> None:
+        self._gender = require_gender(gender)
 
     @property
     def uuid(self) -> str:

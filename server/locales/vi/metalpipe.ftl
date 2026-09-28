@@ -14,7 +14,7 @@ metalpipe-you-hit-other = Bạn vung ống sắt và phang trúng { $bonked }. {
 metalpipe-player-hits-you = { $bonker } vung ống sắt và phang trúng bạn. Bạn bị loại.
 metalpipe-player-hits-other = { $bonker } vung ống sắt và phang trúng { $bonked }. { $bonked } bị loại.
 metalpipe-you-hit-self = Bạn tự phang ống sắt vào mình và bị loại.
-metalpipe-player-hits-self = { $bonker } tự phang ống sắt vào mình và bị loại.
+metalpipe-player-hits-self = { $bonker } phang ống sắt vào { GENDER_TERM($bonker_gender, "reflexive") } và bị loại.
 
 metalpipe-you-hit-other-brief = Bạn phang { $bonked }. { $bonked } bị loại.
 metalpipe-player-hits-you-brief = { $bonker } phang bạn. Bạn bị loại.
@@ -36,7 +36,7 @@ metalpipe-status-mode = Chế độ: { $mode }; { $self_bonk }.
 metalpipe-status-progress = Số cú phang đã xử lý: { $count }. Còn đứng vững: { $alive } trên { $total }.
 metalpipe-status-awaiting = Cây ống chưa giáng xuống.
 metalpipe-status-last-other = Cú phang gần nhất: { $bonker } phang { $bonked }.
-metalpipe-status-last-self = Cú phang gần nhất: { $bonker } tự phang.
+metalpipe-status-last-self = Cú phang gần nhất: { $bonker } phang { GENDER_TERM($bonker_gender, "reflexive") }.
 metalpipe-status-player = { $player}: { $status }.
 metalpipe-status-alive = Còn đứng vững
 metalpipe-status-eliminated = Đã bị loại

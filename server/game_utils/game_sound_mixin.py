@@ -357,6 +357,16 @@ class GameSoundMixin:
                 )] = state
         self.active_audio = rebuilt
 
+    def _reindex_active_audio(self) -> None:
+        """Rebuild canonical keys after authoritative recipient rekeying."""
+        rebuilt: dict[str, AudioPlaybackState] = {}
+        for state in self.active_audio.values():
+            key = self._audio_state_key(state.to_command(), state.recipient_ids)
+            if key in rebuilt:
+                raise ValueError("Rekeyed replayable audio state is not unique")
+            rebuilt[key] = state
+        self.active_audio = rebuilt
+
     def _remove_audio_states(
         self,
         predicate: Callable[[AudioPlaybackState], bool],

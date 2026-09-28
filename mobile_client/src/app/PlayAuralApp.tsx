@@ -45,7 +45,7 @@ import {
   clientAuthMetadata,
   getClientReleasePlatform,
 } from "../network/clientInfo";
-import { resolveMenuFocusIndex } from "./menuFocus";
+import { MenuFocusContextStore, resolveMenuFocusIndex } from "./menuFocus";
 import { useFocusScroll } from "./useFocusScroll";
 import { useAnchoredFocus } from "./useAnchoredFocus";
 import { gridCellSizeForViewport } from "./gridLayout";
@@ -207,6 +207,12 @@ type MenuState = {
   gridHeight: number;
   gridWidth: number;
   items: FocusableMenuItem[];
+  menuId: string;
+};
+
+type MenuFocusContext = {
+  focusIndex: number;
+  items: Array<{ id?: string }>;
   menuId: string;
 };
 
@@ -660,6 +666,9 @@ export function PlayAuralApp() {
   );
 
   const menuStateRef = useRef(menuState);
+  const menuFocusContextsRef = useRef(
+    new MenuFocusContextStore<MenuFocusContext>(),
+  );
   const inputStateRef = useRef(inputState);
   const handleSystemSwipeRef = useRef<((direction: "up" | "down" | "left" | "right") => void) | null>(null);
   const lastPingStartedAtRef = useRef<number | null>(lastPingStartedAt);
@@ -1896,6 +1905,16 @@ export function PlayAuralApp() {
       transientTurnMenuAllowanceRef.current = null;
     }
 
+    const focusContexts = menuFocusContextsRef.current;
+    focusContexts.capture(packet.capture_focus_context_id, {
+      menuId: previous.menuId,
+      items: previous.items.map((item) => ({ id: item.id })),
+      focusIndex: previous.focusIndex,
+    });
+    const restoredFocus = focusContexts.consume(packet.restore_focus_context_id);
+    const restoredFocusMatches = restoredFocus?.menuId === incomingMenuId;
+    const focusSource = restoredFocusMatches ? restoredFocus : previous;
+
     const isSameMenuId = previous.menuId === (packet.menu_id ?? previous.menuId);
     const directMenuActionRequestedFocus =
       nativeMenuFocusOnNextPacketRef.current &&
@@ -1912,12 +1931,12 @@ export function PlayAuralApp() {
     }
 
     const focusIndex = resolveMenuFocusIndex(
-      previous.items,
+      focusSource.items,
       items,
-      previous.focusIndex,
+      focusSource.focusIndex,
       {
         explicitIndex: position,
-        sameMenu: isSameMenuId,
+        sameMenu: restoredFocusMatches || isSameMenuId,
       },
     );
 
@@ -2097,6 +2116,7 @@ export function PlayAuralApp() {
     nativeMenuFocusOnNextPacketRef.current = false;
     nativeMenuFocusRequestedAtRef.current = 0;
     clearScheduledNativeFocus();
+    menuFocusContextsRef.current.clear();
     setMenuState(defaultMenuState);
     menuStateRef.current = defaultMenuState;
     setInputState(null);
@@ -2271,6 +2291,7 @@ export function PlayAuralApp() {
     nativeMenuFocusOnNextPacketRef.current = false;
     nativeMenuFocusRequestedAtRef.current = 0;
     clearScheduledNativeFocus();
+    menuFocusContextsRef.current.clear();
     setActiveTextInputKey(null);
     setVoiceCapability({
       enabled: false,

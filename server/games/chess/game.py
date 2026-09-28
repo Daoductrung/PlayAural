@@ -260,6 +260,14 @@ class ChessGame(GridGameMixin, Game):
         super().rebuild_runtime_state()
         self._chess_bot_jobs = {}
 
+    def _prepare_seat_substitution(self, player: Player) -> None:
+        """Cancel an in-flight engine search before human control begins."""
+        super()._prepare_seat_substitution(player)
+        job = self._chess_bot_jobs.pop(player.id, None)
+        future = getattr(job, "future", None)
+        if future is not None:
+            future.cancel()
+
     def finish_game(self, show_end_screen: bool = True) -> None:
         self._clear_transient_request_state()
         super().finish_game(show_end_screen=show_end_screen)

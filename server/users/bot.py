@@ -65,6 +65,7 @@ class Bot(User):
         grid_enabled: bool = False,
         grid_height: int = 0,
         grid_width: int = 1,
+        capture_focus_context_id: str | None = None,
     ) -> None:
         pass
 

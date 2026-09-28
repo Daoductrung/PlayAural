@@ -2,7 +2,7 @@
 
 import wx
 from .menu_list import MenuList
-from .menu_focus import resolve_menu_focus_index
+from .menu_focus import MenuFocusContextStore, resolve_menu_focus_index
 from .text_direction import apply_text_layout_direction
 from .copy_directive import (
     NO_COPY_DIRECTIVE,
@@ -3195,6 +3195,20 @@ class MainWindow(wx.Frame):
         if self.current_mode == "edit":
             return
 
+        focus_contexts = getattr(self, "_menu_focus_contexts", None)
+        if focus_contexts is None:
+            focus_contexts = MenuFocusContextStore()
+            self._menu_focus_contexts = focus_contexts
+        capture_context_id = packet.get("capture_focus_context_id")
+        focus_contexts.capture(
+            capture_context_id,
+            menu_id=getattr(self, "current_menu_id", None),
+            item_ids=getattr(self, "current_menu_item_ids", []),
+            selection=self.menu_list.GetSelection(),
+        )
+        restore_context_id = packet.get("restore_focus_context_id")
+        restored_focus = focus_contexts.consume(restore_context_id)
+
         items_raw = packet.get("items", [])
         menu_id = packet.get("menu_id", None)
         position = packet.get("position", None)  # Optional position to move to
@@ -3251,6 +3265,21 @@ class MainWindow(wx.Frame):
                 pass  # ID not found, ignore
 
         is_same_menu_id = self.current_menu_id == menu_id
+        restored_focus_matches = (
+            restored_focus is not None
+            and restored_focus.menu_id == menu_id
+        )
+        focus_source_ids = (
+            restored_focus.item_ids
+            if restored_focus_matches
+            else old_item_ids
+        )
+        focus_source_selection = (
+            restored_focus.selection
+            if restored_focus_matches
+            else self.menu_list.GetSelection()
+        )
+        focus_source_same_menu = is_same_menu_id or restored_focus_matches
         self.current_menu_id = menu_id
 
         # update_menu packets from the server omit escape_behavior and
@@ -3282,10 +3311,10 @@ class MainWindow(wx.Frame):
             if len(items) > 0:
                 self.menu_list.SetSelection(
                     resolve_menu_focus_index(
-                        [],
+                        focus_source_ids,
                         item_ids,
-                        0,
-                        same_menu=False,
+                        focus_source_selection,
+                        same_menu=focus_source_same_menu,
                         explicit_index=position,
                     )
                 )
@@ -3310,10 +3339,14 @@ class MainWindow(wx.Frame):
             # on the next surviving row from the old logical order.
             if len(items) > 0:
                 target = resolve_menu_focus_index(
-                    old_item_ids,
+                    focus_source_ids,
                     item_ids,
-                    old_selection,
-                    same_menu=True,
+                    (
+                        focus_source_selection
+                        if restored_focus_matches
+                        else old_selection
+                    ),
+                    same_menu=focus_source_same_menu,
                     explicit_index=position,
                 )
                 if self.menu_list.GetSelection() != target:
@@ -3332,10 +3365,10 @@ class MainWindow(wx.Frame):
             if len(items) > 0:
                 self.menu_list.SetSelection(
                     resolve_menu_focus_index(
-                        [],
+                        focus_source_ids,
                         item_ids,
-                        0,
-                        same_menu=False,
+                        focus_source_selection,
+                        same_menu=focus_source_same_menu,
                         explicit_index=position,
                     )
                 )
@@ -3400,6 +3433,9 @@ class MainWindow(wx.Frame):
         self.current_menu_item_ids = []
         self.current_menu_item_read_only = []
         self.current_menu_item_copy_directives = []
+        focus_contexts = getattr(self, "_menu_focus_contexts", None)
+        if focus_contexts is not None:
+            focus_contexts.clear()
         # Switch to list mode if in edit mode
         if self.current_mode == "edit":
             self.switch_to_list_mode()

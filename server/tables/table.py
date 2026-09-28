@@ -475,6 +475,87 @@ class Table(DataClassJSONMixin):
             self._server.on_tables_changed()
         return True
 
+    def apply_player_substitution(
+        self,
+        incoming_username: str,
+        *,
+        outgoing_username: str = "",
+        outgoing_becomes_spectator: bool = False,
+    ) -> bool:
+        """Apply table-member roles after a game-level seat substitution.
+
+        A live outgoing human remains at the table as a spectator, including
+        when that account owns the table. An offline reservation relinquished
+        from a replacement bot is removed. Voice membership is unchanged for
+        role swaps because both live accounts remain in the same context.
+        """
+        incoming_member = next(
+            (
+                member
+                for member in self.members
+                if member.username == incoming_username
+            ),
+            None,
+        )
+        if incoming_member is None or not incoming_member.is_spectator:
+            return False
+
+        outgoing_member = None
+        if outgoing_username and outgoing_username != incoming_username:
+            outgoing_member = next(
+                (
+                    member
+                    for member in self.members
+                    if member.username == outgoing_username
+                ),
+                None,
+            )
+            if outgoing_becomes_spectator and outgoing_member is None:
+                return False
+
+        incoming_member.is_spectator = False
+        self._offline_since = None
+
+        if outgoing_username and outgoing_username != incoming_username:
+            if outgoing_becomes_spectator:
+                assert outgoing_member is not None
+                outgoing_member.is_spectator = True
+                self._member_offline_since.pop(outgoing_username, None)
+            else:
+                had_outgoing_member = outgoing_member is not None
+                self.members = [
+                    member
+                    for member in self.members
+                    if member.username != outgoing_username
+                ]
+                self._users.pop(outgoing_username, None)
+                self._member_offline_since.pop(outgoing_username, None)
+                if self._manager and hasattr(self._manager, "_username_to_table"):
+                    self._manager._username_to_table.pop(outgoing_username, None)
+                if (
+                    had_outgoing_member
+                    and self._server
+                    and hasattr(self._server, "on_table_member_removed")
+                ):
+                    self._server.on_table_member_removed(
+                        self,
+                        outgoing_username,
+                        voice_reason="voice-status-left-table",
+                    )
+
+                if self.host == outgoing_username:
+                    self.host = incoming_username
+                    if self._game:
+                        self._game.host = incoming_username
+
+        if self._manager and hasattr(self._manager, "_username_to_table"):
+            self._manager._username_to_table[incoming_username] = self.table_id
+            if outgoing_becomes_spectator and outgoing_username:
+                self._manager._username_to_table[outgoing_username] = self.table_id
+        if self._server and hasattr(self._server, "on_tables_changed"):
+            self._server.on_tables_changed()
+        return True
+
     def is_banned(self, user_uuid: str) -> bool:
         """Check if a UUID is banned from this table lifecycle."""
         return user_uuid in self._banned_uuids
@@ -951,6 +1032,9 @@ class Table(DataClassJSONMixin):
         game_class = get_game_class(self.game_type)
         if not game_class:
             return False
+
+        if self._server and hasattr(self._server, "on_table_game_reset"):
+            self._server.on_table_game_reset(self)
 
         # 1. Store old game state we need
         old_game = self._game

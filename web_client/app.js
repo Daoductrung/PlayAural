@@ -22,7 +22,11 @@ import {
   isMenuItemActionable,
   normalizeServerMenuItems,
 } from "./ui/menus.js";
-import { resolveMenuFocusIndex, stableMenuItemId } from "./ui/menuFocus.js";
+import {
+  MenuFocusContextStore,
+  resolveMenuFocusIndex,
+  stableMenuItemId,
+} from "./ui/menuFocus.js";
 import {
   TYPING_EXACT_ASSETS,
   TYPING_SOUND_FAMILY,
@@ -2301,6 +2305,7 @@ class PlayAuralWebApp {
     this.webActionsMenuId = "";
     this.currentTableContextId = "";
     if (full) {
+      this.menuFocusContexts?.clear();
       this.store.clearUi();
     }
   }
@@ -2799,6 +2804,22 @@ class PlayAuralWebApp {
       ? previousMenu.items.findIndex((item) => stableMenuItemId(item) === focusedId)
       : -1;
     const previousFocusIndex = focusedIndex >= 0 ? focusedIndex : previousMenu.selection;
+    this.menuFocusContexts ??= new MenuFocusContextStore();
+    this.menuFocusContexts.capture(packet.capture_focus_context_id, {
+      menuId: previousMenu.menuId,
+      items: previousMenu.items.map((item) => ({
+        id: stableMenuItemId(item) || undefined,
+      })),
+      focusIndex: previousFocusIndex,
+    });
+    const restoredFocus = this.menuFocusContexts.consume(
+      packet.restore_focus_context_id,
+    );
+    const restoredFocusMatches = restoredFocus?.menuId === packet.menu_id;
+    const focusSource = restoredFocusMatches ? restoredFocus : previousMenu;
+    const focusSourceIndex = restoredFocusMatches
+      ? restoredFocus.focusIndex
+      : previousFocusIndex;
     let explicitIndex = null;
     if (packet.selection_id !== undefined && packet.selection_id !== null) {
       const index = items.findIndex((item) => item.id === packet.selection_id);
@@ -2809,11 +2830,11 @@ class PlayAuralWebApp {
       explicitIndex = packet.position;
     }
     const selection = resolveMenuFocusIndex(
-      previousMenu.items,
+      focusSource.items,
       items,
-      previousFocusIndex,
+      focusSourceIndex,
       {
-        sameMenu: previousMenu.menuId === packet.menu_id,
+        sameMenu: restoredFocusMatches || previousMenu.menuId === packet.menu_id,
         explicitIndex,
       },
     );

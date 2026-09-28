@@ -30,6 +30,8 @@ export type MenuPacket = {
   grid_enabled?: boolean;
   grid_height?: number;
   grid_width?: number;
+  capture_focus_context_id?: string;
+  restore_focus_context_id?: string;
 };
 
 export type SpeakPacket = {

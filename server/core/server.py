@@ -5,6 +5,7 @@ import json
 import logging
 import math
 import re
+import secrets
 import signal
 import sys
 import time
@@ -178,6 +179,8 @@ CLIENT_RELEASE_ARTIFACTS = freeze_release_registry(
 MAX_CLIENT_VOICE_IDENTIFIER_LENGTH = 512
 TABLE_CREATED_NOTIFICATION_SOUND = "table_created.ogg"
 TABLE_INVITE_NOTIFICATION_SOUND = "table_invite.ogg"
+PLAYER_SUBSTITUTION_NOTIFICATION_SOUND = TABLE_INVITE_NOTIFICATION_SOUND
+INTERACTIVE_TABLE_REQUEST_TIMEOUT_SECONDS = 30.0
 VOICE_CHAT_JOIN_SOUND = "voice_join.ogg"
 VOICE_CHAT_LEAVE_SOUND = "voice_leave.ogg"
 PRESENCE_AUDIO_PRIORITIES = {
@@ -230,6 +233,9 @@ PRESENCE_EVENT_SPECS = {
     },
 }
 HOST_RESTART_CONFIRM_MENU = "host_restart_confirm_menu"
+HOST_SUBSTITUTION_SEAT_MENU = "host_substitution_seat_menu"
+HOST_SUBSTITUTION_SPECTATOR_MENU = "host_substitution_spectator_menu"
+PLAYER_SUBSTITUTION_PROMPT_MENU = "player_substitution_prompt_menu"
 FRIEND_REMOVE_CONFIRM_MENU = "friend_remove_confirm_menu"
 USER_BLOCK_CONFIRM_MENU = "user_block_confirm_menu"
 USER_REPORT_REASON_MENU = "user_report_reason_menu"
@@ -247,6 +253,7 @@ NON_RESUMABLE_ACTION_MENUS = frozenset(
         USER_REPORT_CONFIRM_MENU,
         ADMIN_MODERATION_CLEAR_CONFIRM_MENU,
         HOST_RESTART_CONFIRM_MENU,
+        PLAYER_SUBSTITUTION_PROMPT_MENU,
         "kick_confirm_menu",
         "logout_confirm_menu",
         "promote_confirm_menu",
@@ -386,6 +393,8 @@ class Server:
         "speech_rate_input", "mobile_tts_rate_input", "waiting_for_approval",
         "host_management_menu", "host_invite_menu", "host_pass_menu",
         "host_kick_menu", "host_kick_ban_menu", HOST_RESTART_CONFIRM_MENU,
+        HOST_SUBSTITUTION_SEAT_MENU, HOST_SUBSTITUTION_SPECTATOR_MENU,
+        PLAYER_SUBSTITUTION_PROMPT_MENU,
         TABLE_MEMBERS_MENU, TABLE_MEMBER_ACTIONS_MENU,
         "table_invite_prompt", "game_over",
     }
@@ -399,6 +408,7 @@ class Server:
     IN_GAME_OVERLAY_MENUS = {
         "host_management_menu", "host_invite_menu", "host_pass_menu",
         "host_kick_menu", "host_kick_ban_menu", HOST_RESTART_CONFIRM_MENU,
+        HOST_SUBSTITUTION_SEAT_MENU, HOST_SUBSTITUTION_SPECTATOR_MENU,
         TABLE_MEMBERS_MENU, TABLE_MEMBER_ACTIONS_MENU,
     }
 
@@ -448,6 +458,10 @@ class Server:
         self._pending_session_state_cleanups: dict[str, asyncio.Task] = {}
         # Pending table invites: invitee_username -> {table_id, host_username, task, deferred, game_name}
         self._pending_invites: dict[str, dict] = {}
+        # Runtime-only consent requests. They are bounded by an expiry task and
+        # are cancelled on disconnect, table teardown, restart, host changes,
+        # blocking, or any stale acceptance precondition.
+        self._pending_player_substitutions: dict[str, dict[str, Any]] = {}
         # One deferred forward navigation per user while a read-only game
         # status box owns the UI. Last request wins.
         self._deferred_navigation: dict[
@@ -964,6 +978,7 @@ PlayAural Server
 
                 if username in self._pending_invites:
                     self._cancel_invite(username)
+                self._cancel_player_substitution_requests_for_user(username)
 
                 table = self._tables.find_user_table(username)
                 await self._clear_voice_presence(
@@ -1048,6 +1063,7 @@ PlayAural Server
         self._audio_input_devices_by_user.pop(username, None)
         if username in self._pending_invites:
             self._cancel_invite(username)
+        self._cancel_player_substitution_requests_for_user(username)
 
         table = self._tables.find_user_table(username)
         await self._clear_voice_presence(
@@ -3276,6 +3292,8 @@ PlayAural Server
             "host_pass_menu",
             "host_kick_menu",
             "host_kick_ban_menu",
+            HOST_SUBSTITUTION_SEAT_MENU,
+            HOST_SUBSTITUTION_SPECTATOR_MENU,
             TABLE_MEMBERS_MENU,
             TABLE_MEMBER_ACTIONS_MENU,
         }:
@@ -3301,6 +3319,20 @@ PlayAural Server
             user.update_menu(
                 current_menu,
                 self._get_host_kick_menu_items(user, table),
+            )
+        elif current_menu == HOST_SUBSTITUTION_SEAT_MENU:
+            user.update_menu(
+                current_menu,
+                self._get_host_substitution_seat_items(user, table),
+            )
+        elif current_menu == HOST_SUBSTITUTION_SPECTATOR_MENU:
+            user.update_menu(
+                current_menu,
+                self._get_host_substitution_spectator_items(
+                    user,
+                    table,
+                    str(state.get("seat_id") or ""),
+                ),
             )
         elif current_menu == TABLE_MEMBERS_MENU:
             user.update_menu(
@@ -5389,6 +5421,7 @@ PlayAural Server
         *,
         voice_reason: str = "voice-status-left-table",
     ) -> None:
+        self._cancel_player_substitution_requests_for_user(username)
         self._schedule_voice_context_close(
             username,
             message_key=voice_reason,
@@ -5768,6 +5801,18 @@ PlayAural Server
             await self._handle_host_kick_selection(user, selection_id, state)
         elif current_menu == HOST_RESTART_CONFIRM_MENU:
             await self._handle_host_restart_confirm_selection(user, selection_id, state)
+        elif current_menu == HOST_SUBSTITUTION_SEAT_MENU:
+            await self._handle_host_substitution_seat_selection(
+                user, selection_id, state
+            )
+        elif current_menu == HOST_SUBSTITUTION_SPECTATOR_MENU:
+            await self._handle_host_substitution_spectator_selection(
+                user, selection_id, state
+            )
+        elif current_menu == PLAYER_SUBSTITUTION_PROMPT_MENU:
+            await self._handle_player_substitution_prompt_selection(
+                user, selection_id, state
+            )
         elif current_menu == TABLE_MEMBERS_MENU:
             await self._handle_table_members_selection(user, selection_id, state)
         elif current_menu == TABLE_MEMBER_ACTIONS_MENU:
@@ -7117,12 +7162,36 @@ PlayAural Server
             }
             == pair
         )
+        self._cancel_player_substitution_requests_matching(
+            lambda incoming_name, request: pair.issubset(
+                {
+                    incoming_name,
+                    str(request.get("host_username", "")),
+                    str(request.get("outgoing_username", "")),
+                }
+            ),
+            message_key="player-substitution-no-longer-available",
+        )
 
     def _cancel_social_invites_for_user(self, username: str) -> None:
         """Cancel runtime table invites that cannot outlive an account."""
         self._cancel_matching_social_invites(
             lambda invitee_name, invite: username
             in {invitee_name, str(invite.get("host_username", ""))}
+        )
+        self._cancel_player_substitution_requests_for_user(username)
+
+    def _cancel_player_substitution_requests_for_user(self, username: str) -> None:
+        """Cancel substitutions involving one runtime account."""
+        self._cancel_player_substitution_requests_matching(
+            lambda incoming_name, request: username
+            in {
+                incoming_name,
+                str(request.get("host_username", "")),
+                str(request.get("outgoing_username", "")),
+                str(request.get("replaced_human_name", "")),
+            },
+            message_key="player-substitution-no-longer-available",
         )
 
     def _cancel_invalid_table_invites_for_table(self, table: "Table") -> None:
@@ -8665,13 +8734,20 @@ PlayAural Server
             user.speak_l("table-name-already-used", buffer="system")
             return
 
+        self._cancel_player_substitution_requests_matching(
+            lambda _name, request: (
+                request.get("table_id") == table.table_id
+                and request.get("seat_id") == reclaimed_player.id
+            ),
+            message_key="player-substitution-no-longer-available",
+        )
         self._prepare_user_for_table_audio(user)
         self._set_in_game_state(user, table.table_id)
         bot_name = reclaimed_player.name
         human_name = reclaimed_player.replaced_human_name or user.username
+        game._rekey_game_state_value(bot_name, user.username)
         reclaimed_player.is_bot = False
         reclaimed_player.replaced_human = False
-        reclaimed_player.name = user.username
         reclaimed_player.replaced_human_name = ""
         reclaimed_player.replacement_bot_name = ""
         reclaimed_player.bot_pending_action = None
@@ -8714,7 +8790,7 @@ PlayAural Server
                 is_spectator=reclaimed_player.is_spectator,
             )
         if hasattr(game, "_on_replacement_slot_reclaimed"):
-            game._on_replacement_slot_reclaimed(bot_name, human_name)
+            game._on_replacement_slot_reclaimed(bot_name, user.username)
         game.refresh_menus()
         self._flush_game_menus_now(game)
         self.on_tables_changed()
@@ -8767,11 +8843,35 @@ PlayAural Server
         else:
             self._show_main_menu(user)
 
+    def _return_to_game_from_overlay(
+        self,
+        user: NetworkUser,
+        table: "Table | None",
+        state: dict | None = None,
+    ) -> None:
+        """Close an overlay stack directly while preserving its game opener."""
+        current = state or self._user_states.get(user.username, {})
+        focus_id = None
+        stack = current.get("_stack", [])
+        if isinstance(stack, list):
+            for frame in reversed(stack):
+                if not isinstance(frame, dict):
+                    continue
+                if frame.get("menu") in {
+                    "in_game",
+                    "waiting_room",
+                    "spectating",
+                    "post_game",
+                }:
+                    focus_id = frame.get("_game_return_focus_id")
+                    break
+        self._return_to_game(user, table, focus_id=focus_id)
+
     def _restore_menu_from_state(self, user: NetworkUser, state: dict) -> None:
         """Restore a user's menu from a saved state snapshot.
 
-        Used by the table-invite flow (accept/decline/expire) to return the
-        user to wherever they were before the invite arrived.  The saved
+        Used by bounded server-request flows (accept/decline/expire) to return
+        the user to wherever they were before the prompt arrived. The saved
         ``state`` dict may contain a ``_stack`` key; we honour it so the user
         can continue navigating back through any menus they had open.
         """
@@ -8809,6 +8909,15 @@ PlayAural Server
             MenuItem(text=Localization.get(locale, "host-management-kick-ban"), id="kick_ban_player"),
         ]
         if table.game and table.game.status == "playing":
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        locale,
+                        "host-management-player-substitution",
+                    ),
+                    id="player_substitution",
+                )
+            )
             items.append(
                 MenuItem(
                     text=Localization.get(locale, "host-management-restart-game"),
@@ -8885,6 +8994,9 @@ PlayAural Server
         elif selection_id == "kick_ban_player":
             self._nav_push(user, self._show_host_kick_menu, table, ban=True)
 
+        elif selection_id == "player_substitution":
+            self._nav_push(user, self._show_host_substitution_seat_menu, table)
+
         elif selection_id == "restart_game":
             if not table.game or table.game.status != "playing":
                 user.speak_l("host-restart-not-playing", buffer="system")
@@ -8942,6 +9054,1084 @@ PlayAural Server
             return
 
         self._restart_table_to_lobby(user, table)
+
+    # --- In-game player substitution ---
+
+    @staticmethod
+    def _substitutable_player_seats(table: "Table") -> list[Any]:
+        """Return every active seat that can retain state for a substitute."""
+        game = table.game
+        if not game or game.status != "playing":
+            return []
+        return list(game.get_active_players())
+
+    def _eligible_substitution_spectators(self, table: "Table") -> list[Any]:
+        """Return online human spectators eligible to receive a seat offer."""
+        game = table.game
+        host_user = self._users.get(table.host)
+        if not game or game.status != "playing" or not host_user:
+            return []
+        spectator_members = {
+            member.username for member in table.members if member.is_spectator
+        }
+        pending = getattr(self, "_pending_player_substitutions", {})
+        result = []
+        for player in game.players:
+            if (
+                player.is_bot
+                or not player.is_spectator
+                or player.name not in spectator_members
+                or player.name in pending
+            ):
+                continue
+            spectator_user = self._users.get(player.name)
+            if (
+                not spectator_user
+                or spectator_user.uuid != player.id
+                or table.get_user(player.name) is not spectator_user
+                or self._db.has_block_between(host_user.uuid, spectator_user.uuid)
+            ):
+                continue
+            result.append(player)
+        return sorted(result, key=lambda player: (username_key(player.name), player.name))
+
+    def _get_host_substitution_seat_items(
+        self,
+        user: NetworkUser,
+        table: "Table",
+    ) -> list[MenuItem]:
+        """Build the first substitution step: choose an active player seat."""
+        locale = user.locale
+        items: list[MenuItem] = []
+        if table.host != user.username:
+            items.append(
+                MenuItem(
+                    text=Localization.get(locale, "host-management-no-longer-host"),
+                    id="substitution_not_host",
+                    read_only=True,
+                )
+            )
+        else:
+            for player in self._substitutable_player_seats(table):
+                if player.replaced_human_name:
+                    key = "player-substitution-seat-replacement"
+                    kwargs = {
+                        "bot": player.name,
+                        "player": player.replaced_human_name,
+                    }
+                elif player.is_bot:
+                    key = "player-substitution-seat-bot"
+                    kwargs = {"bot": player.name}
+                elif player.name == user.username:
+                    key = "player-substitution-seat-self"
+                    kwargs = {"player": player.name}
+                else:
+                    key = "player-substitution-seat-player"
+                    kwargs = {"player": player.name}
+                items.append(
+                    MenuItem(
+                        text=Localization.get(locale, key, **kwargs),
+                        id=f"substitution_seat_{player.id}",
+                    )
+                )
+            if not items:
+                items.append(
+                    MenuItem(
+                        text=Localization.get(
+                            locale,
+                            "player-substitution-no-seats",
+                        ),
+                        id="substitution_no_seats",
+                        read_only=True,
+                    )
+                )
+        items.append(MenuItem(text=Localization.get(locale, "back"), id="back"))
+        return items
+
+    def _show_host_substitution_seat_menu(
+        self,
+        user: NetworkUser,
+        table: "Table",
+    ) -> None:
+        """Show the host's active-seat chooser."""
+        active_table = self._tables.get_table(table.table_id)
+        if active_table is not table or not table.game:
+            self._return_to_game(user, active_table)
+            return
+        user.show_menu(
+            HOST_SUBSTITUTION_SEAT_MENU,
+            self._get_host_substitution_seat_items(user, table),
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {
+            "menu": HOST_SUBSTITUTION_SEAT_MENU,
+            "table_id": table.table_id,
+        }
+
+    def _get_host_substitution_spectator_items(
+        self,
+        user: NetworkUser,
+        table: "Table",
+        seat_id: str,
+    ) -> list[MenuItem]:
+        """Build the second substitution step: choose the incoming spectator."""
+        locale = user.locale
+        seats = {
+            player.id: player for player in self._substitutable_player_seats(table)
+        }
+        items: list[MenuItem] = []
+        if table.host != user.username:
+            items.append(
+                MenuItem(
+                    text=Localization.get(locale, "host-management-no-longer-host"),
+                    id="substitution_not_host",
+                    read_only=True,
+                )
+            )
+        elif seat_id not in seats:
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        locale,
+                        "player-substitution-seat-unavailable",
+                    ),
+                    id="substitution_stale_seat",
+                    read_only=True,
+                )
+            )
+        else:
+            spectators = self._eligible_substitution_spectators(table)
+            if spectators:
+                items.extend(
+                    MenuItem(
+                        text=player.name,
+                        id=f"substitution_spectator_{player.id}",
+                    )
+                    for player in spectators
+                )
+            else:
+                items.append(
+                    MenuItem(
+                        text=Localization.get(
+                            locale,
+                            "player-substitution-no-spectators",
+                        ),
+                        id="substitution_no_spectators",
+                        read_only=True,
+                    )
+                )
+        items.append(MenuItem(text=Localization.get(locale, "back"), id="back"))
+        return items
+
+    def _show_host_substitution_spectator_menu(
+        self,
+        user: NetworkUser,
+        table: "Table",
+        seat_id: str,
+    ) -> None:
+        """Show eligible spectators for one active seat."""
+        active_table = self._tables.get_table(table.table_id)
+        if active_table is not table or not table.game:
+            self._return_to_game(user, active_table)
+            return
+        user.show_menu(
+            HOST_SUBSTITUTION_SPECTATOR_MENU,
+            self._get_host_substitution_spectator_items(user, table, seat_id),
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {
+            "menu": HOST_SUBSTITUTION_SPECTATOR_MENU,
+            "table_id": table.table_id,
+            "seat_id": seat_id,
+        }
+
+    async def _handle_host_substitution_seat_selection(
+        self,
+        user: NetworkUser,
+        selection_id: str,
+        state: dict,
+    ) -> None:
+        """Validate a selected seat before showing eligible spectators."""
+        table = self._tables.get_table(state.get("table_id"))
+        if not table or not table.game or table.host != user.username:
+            self._return_to_game(user, table)
+            return
+        if selection_id == "back":
+            self._nav_back(user)
+            return
+        prefix = "substitution_seat_"
+        if not selection_id.startswith(prefix):
+            return
+        seat_id = selection_id[len(prefix):]
+        if not any(
+            player.id == seat_id for player in self._substitutable_player_seats(table)
+        ):
+            user.speak_l("player-substitution-seat-unavailable", buffer="system")
+            self._nav_refresh(user, self._show_host_substitution_seat_menu, table)
+            return
+        self._nav_push(
+            user,
+            self._show_host_substitution_spectator_menu,
+            table,
+            seat_id,
+        )
+
+    async def _handle_host_substitution_spectator_selection(
+        self,
+        user: NetworkUser,
+        selection_id: str,
+        state: dict,
+    ) -> None:
+        """Initiate consent, then return the host directly to the game."""
+        table = self._tables.get_table(state.get("table_id"))
+        if not table or not table.game or table.host != user.username:
+            self._return_to_game(user, table)
+            return
+        if selection_id == "back":
+            self._nav_back(user)
+            return
+        prefix = "substitution_spectator_"
+        if not selection_id.startswith(prefix):
+            return
+        spectator_id = selection_id[len(prefix):]
+        spectator = next(
+            (
+                player
+                for player in self._eligible_substitution_spectators(table)
+                if player.id == spectator_id
+            ),
+            None,
+        )
+        seat_id = str(state.get("seat_id") or "")
+        seat = next(
+            (
+                player
+                for player in self._substitutable_player_seats(table)
+                if player.id == seat_id
+            ),
+            None,
+        )
+        if not seat:
+            user.speak_l("player-substitution-seat-unavailable", buffer="system")
+            self._nav_refresh(user, self._show_host_substitution_seat_menu, table)
+            return
+        if not spectator:
+            user.speak_l("player-substitution-spectator-unavailable", buffer="system")
+            self._nav_refresh(
+                user,
+                self._show_host_substitution_spectator_menu,
+                table,
+                seat_id,
+            )
+            return
+        spectator_user = self._users.get(spectator.name)
+        if not spectator_user:
+            user.speak_l("player-substitution-spectator-unavailable", buffer="system")
+            return
+        outcome = self._send_player_substitution_request(
+            user,
+            table,
+            seat,
+            spectator_user,
+        )
+        if outcome is None:
+            return
+
+        if outcome == "completed":
+            pass
+        elif seat.name == user.username:
+            user.speak_l(
+                "player-substitution-self-offer-sent",
+                buffer="system",
+                player=spectator.name,
+            )
+        elif spectator.name == user.username:
+            user.speak_l(
+                "player-substitution-self-incoming-consent-sent",
+                buffer="system",
+                player=seat.name,
+            )
+        elif seat.is_bot:
+            user.speak_l(
+                "player-substitution-offer-sent",
+                buffer="system",
+                player=spectator.name,
+                seat=seat.name,
+            )
+        else:
+            user.speak_l(
+                "player-substitution-outgoing-consent-sent",
+                buffer="system",
+                player=seat.name,
+                substitute=spectator.name,
+            )
+        self._return_to_game_from_overlay(user, table, state)
+
+    @staticmethod
+    def _gameplay_substitution_locked(game: Any) -> bool:
+        """Respect selectors that deliberately freeze public game mutation."""
+        lock_owner = getattr(game, "_gameplay_input_lock_owner", None)
+        return bool(callable(lock_owner) and lock_owner())
+
+    def _user_has_pending_player_substitution(self, username: str) -> bool:
+        """Return whether an account already participates in a pending request."""
+        pending = getattr(self, "_pending_player_substitutions", {})
+        return any(
+            username
+            in {
+                incoming_name,
+                str(request.get("outgoing_username") or ""),
+            }
+            for incoming_name, request in pending.items()
+        )
+
+    def _send_player_substitution_request(
+        self,
+        host_user: NetworkUser,
+        table: "Table",
+        seat: Any,
+        spectator_user: NetworkUser,
+    ) -> Literal["pending", "completed"] | None:
+        """Create one bounded runtime consent workflow for a seat substitution."""
+        incoming_name = spectator_user.username
+        game = table.game
+        eligible_spectator = next(
+            (
+                player
+                for player in self._eligible_substitution_spectators(table)
+                if player.id == spectator_user.uuid
+            ),
+            None,
+        )
+        if (
+            not game
+            or table.host != host_user.username
+            or self._users.get(host_user.username) is not host_user
+            or self._users.get(incoming_name) is not spectator_user
+            or table.get_user(incoming_name) is not spectator_user
+            or not any(
+                candidate is seat
+                for candidate in self._substitutable_player_seats(table)
+            )
+            or not eligible_spectator
+        ):
+            host_user.speak_l(
+                "player-substitution-spectator-unavailable",
+                buffer="system",
+            )
+            return None
+
+        if self._user_has_blocking_modal_state(incoming_name):
+            host_user.speak_l(
+                "player-substitution-user-busy",
+                buffer="system",
+                player=incoming_name,
+            )
+            return None
+        if (
+            self._gameplay_substitution_locked(game)
+            or table.is_power_restore_grace_active()
+        ):
+            host_user.speak_l(
+                "player-substitution-game-busy",
+                buffer="system",
+            )
+            return None
+
+        pending = getattr(self, "_pending_player_substitutions", {})
+        if self._user_has_pending_player_substitution(incoming_name):
+            host_user.speak_l(
+                "player-substitution-offer-pending",
+                buffer="system",
+                player=incoming_name,
+            )
+            return None
+        if any(
+            request.get("table_id") == table.table_id
+            and request.get("seat_id") == seat.id
+            for request in pending.values()
+        ):
+            host_user.speak_l(
+                (
+                    "player-substitution-self-seat-offer-pending"
+                    if seat.name == host_user.username
+                    else "player-substitution-seat-offer-pending"
+                ),
+                buffer="system",
+                seat=seat.name,
+            )
+            return None
+        if self._db.has_block_between(host_user.uuid, spectator_user.uuid):
+            host_user.speak_l(
+                "player-substitution-spectator-unavailable",
+                buffer="system",
+            )
+            return None
+
+        outgoing_user = None
+        outgoing_username = ""
+        outgoing_uuid = ""
+        outgoing_approved = seat.is_bot or seat.name == host_user.username
+        if not seat.is_bot:
+            outgoing_username = seat.name
+            outgoing_uuid = seat.id
+            outgoing_user = self._users.get(outgoing_username)
+            outgoing_member = next(
+                (
+                    member
+                    for member in table.members
+                    if member.username == outgoing_username
+                ),
+                None,
+            )
+            if (
+                not outgoing_user
+                or outgoing_user.uuid != outgoing_uuid
+                or game.get_user(seat) is not outgoing_user
+                or table.get_user(outgoing_username) is not outgoing_user
+                or not outgoing_member
+                or outgoing_member.is_spectator
+                or self._user_has_pending_player_substitution(outgoing_username)
+            ):
+                host_user.speak_l(
+                    "player-substitution-seat-unavailable",
+                    buffer="system",
+                )
+                return None
+            if (
+                not outgoing_approved
+                and self._user_has_blocking_modal_state(outgoing_username)
+            ):
+                host_user.speak_l(
+                    "player-substitution-user-busy",
+                    buffer="system",
+                    player=outgoing_username,
+                )
+                return None
+
+            participant_uuids = {
+                host_user.uuid,
+                spectator_user.uuid,
+                outgoing_user.uuid,
+            }
+            if any(
+                self._db.has_block_between(first, second)
+                for first in participant_uuids
+                for second in participant_uuids
+                if first < second
+            ):
+                host_user.speak_l(
+                    "player-substitution-seat-unavailable",
+                    buffer="system",
+                )
+                return None
+
+        request: dict[str, Any] = {
+            "table_id": table.table_id,
+            "game_identity": id(game),
+            "host_username": host_user.username,
+            "host_uuid": host_user.uuid,
+            "seat_id": seat.id,
+            "seat_name": seat.name,
+            "seat_was_bot": seat.is_bot,
+            "replaced_human_name": seat.replaced_human_name,
+            "incoming_username": incoming_name,
+            "incoming_uuid": spectator_user.uuid,
+            "outgoing_username": outgoing_username,
+            "outgoing_uuid": outgoing_uuid,
+            "outgoing_approved": outgoing_approved,
+            # Selecting yourself from the host-only substitution UI is an
+            # explicit incoming consent. This also lets a spectator-host take
+            # a seat without displaying a prompt that the host's mandatory
+            # return-to-game navigation would immediately replace.
+            "incoming_approved": incoming_name == host_user.username,
+            "prompt_username": "",
+            "prompt_role": "",
+            "previous_states": {},
+            "focus_context_ids": {},
+            "focus_context_nonce": secrets.token_urlsafe(18),
+            "task": None,
+        }
+        pending[incoming_name] = request
+        if outgoing_approved and request["incoming_approved"]:
+            if not self._complete_player_substitution_request(
+                incoming_name,
+                request,
+                spectator_user,
+                restore_prompt=False,
+            ):
+                return None
+            return "completed"
+        if outgoing_approved:
+            self._show_player_substitution_prompt(
+                spectator_user,
+                request,
+                role="incoming",
+            )
+        else:
+            assert outgoing_user is not None
+            self._show_player_substitution_prompt(
+                outgoing_user,
+                request,
+                role="outgoing",
+            )
+        self._schedule_player_substitution_expiry(incoming_name, request)
+        return "pending"
+
+    def _show_player_substitution_prompt(
+        self,
+        prompted_user: NetworkUser,
+        request: dict[str, Any],
+        *,
+        role: Literal["incoming", "outgoing"],
+    ) -> None:
+        """Display one consent stage without trusting any client payload."""
+        if role == "outgoing":
+            if request["host_username"] == request["incoming_username"]:
+                message_key = "player-substitution-request-outgoing-host-incoming"
+                message_kwargs = {"host": request["host_username"]}
+            else:
+                message_key = "player-substitution-request-outgoing"
+                message_kwargs = {
+                    "host": request["host_username"],
+                    "player": request["incoming_username"],
+                }
+        else:
+            replaced_human_name = str(request.get("replaced_human_name") or "")
+            outgoing_username = str(request.get("outgoing_username") or "")
+            if outgoing_username == request["host_username"]:
+                message_key = "player-substitution-request-host-seat"
+                message_kwargs = {"host": request["host_username"]}
+            elif outgoing_username:
+                message_key = "player-substitution-request-player"
+                message_kwargs = {
+                    "host": request["host_username"],
+                    "player": outgoing_username,
+                }
+            elif replaced_human_name:
+                message_key = "player-substitution-request-replacement"
+                message_kwargs = {
+                    "host": request["host_username"],
+                    "bot": request["seat_name"],
+                    "player": replaced_human_name,
+                }
+            else:
+                message_key = "player-substitution-request-bot"
+                message_kwargs = {
+                    "host": request["host_username"],
+                    "bot": request["seat_name"],
+                }
+
+        previous_state = dict(self._user_states.get(prompted_user.username, {}))
+        request["previous_states"][prompted_user.username] = previous_state
+        focus_context_id = (
+            f"player-substitution:{request['focus_context_nonce']}:{role}"
+        )
+        request["focus_context_ids"][prompted_user.username] = focus_context_id
+        request["prompt_username"] = prompted_user.username
+        request["prompt_role"] = role
+        prompt_text = Localization.get(
+            prompted_user.locale,
+            message_key,
+            **message_kwargs,
+        )
+        self._user_states[prompted_user.username] = {
+            "menu": PLAYER_SUBSTITUTION_PROMPT_MENU,
+            "table_id": request["table_id"],
+            "seat_id": request["seat_id"],
+            "prompt_role": role,
+            "prev_state": previous_state,
+        }
+        prompted_user.play_sound(
+            PLAYER_SUBSTITUTION_NOTIFICATION_SOUND,
+            buffer="system",
+        )
+        prompted_user.speak_l(message_key, buffer="system", **message_kwargs)
+        prompted_user.show_menu(
+            PLAYER_SUBSTITUTION_PROMPT_MENU,
+            [
+                MenuItem(text=prompt_text, read_only=True),
+                MenuItem(
+                    text=Localization.get(
+                        prompted_user.locale,
+                        "player-substitution-accept",
+                    ),
+                    id="accept",
+                ),
+                MenuItem(
+                    text=Localization.get(
+                        prompted_user.locale,
+                        "player-substitution-decline",
+                    ),
+                    id="decline",
+                ),
+            ],
+            multiletter=False,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+            capture_focus_context_id=focus_context_id,
+        )
+
+    def _schedule_player_substitution_expiry(
+        self,
+        incoming_name: str,
+        request: dict[str, Any],
+    ) -> None:
+        """Give each consent stage the full bounded response window."""
+        previous_task = request.get("task")
+        if previous_task:
+            previous_task.cancel()
+        request["task"] = asyncio.create_task(
+            self._expire_player_substitution_request(incoming_name, request)
+        )
+
+    async def _expire_player_substitution_request(
+        self,
+        incoming_name: str,
+        request: dict[str, Any],
+    ) -> None:
+        """Expire one consent stage and restore the prompted user's UI."""
+        try:
+            await asyncio.sleep(INTERACTIVE_TABLE_REQUEST_TIMEOUT_SECONDS)
+            pending = getattr(self, "_pending_player_substitutions", {})
+            if pending.get(incoming_name) is not request:
+                return
+            self._cancel_player_substitution_request(
+                incoming_name,
+                message_key="player-substitution-offer-expired",
+            )
+            host_user = self._users.get(str(request.get("host_username") or ""))
+            if host_user:
+                host_user.speak_l(
+                    "player-substitution-offer-expired-host",
+                    buffer="system",
+                    player=str(request.get("prompt_username") or incoming_name),
+                )
+        except asyncio.CancelledError:
+            pass
+
+    def _dismiss_player_substitution_prompt(
+        self,
+        prompted_user: NetworkUser,
+        request: dict[str, Any],
+        *,
+        message_key: str | None = None,
+    ) -> None:
+        """Remove a still-current prompt and restore its exact focus context."""
+        state = self._user_states.get(prompted_user.username, {})
+        if (
+            state.get("menu") != PLAYER_SUBSTITUTION_PROMPT_MENU
+            or state.get("table_id") != request.get("table_id")
+            or state.get("seat_id") != request.get("seat_id")
+            or state.get("prompt_role") != request.get("prompt_role")
+        ):
+            return
+        prompted_user.remove_menu(
+            PLAYER_SUBSTITUTION_PROMPT_MENU,
+            send_packet=False,
+        )
+        focus_context_id = request.get("focus_context_ids", {}).get(
+            prompted_user.username
+        )
+        if focus_context_id:
+            prompted_user.restore_menu_focus_context(focus_context_id)
+        if message_key:
+            prompted_user.speak_l(message_key, buffer="system")
+        previous_state = request.get("previous_states", {}).get(
+            prompted_user.username,
+            state.get("prev_state", {}),
+        )
+        self._restore_menu_from_state(
+            prompted_user,
+            previous_state if isinstance(previous_state, dict) else {},
+        )
+
+    def _cancel_player_substitution_request(
+        self,
+        incoming_name: str,
+        *,
+        restore_prompt: bool = True,
+        message_key: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Cancel one request and its current expiry task."""
+        request = getattr(self, "_pending_player_substitutions", {}).pop(
+            incoming_name,
+            None,
+        )
+        if not request:
+            return None
+        task = request.get("task")
+        try:
+            current_task = asyncio.current_task()
+        except RuntimeError:
+            current_task = None
+        if task and task is not current_task:
+            task.cancel()
+        prompted_user = self._users.get(str(request.get("prompt_username") or ""))
+        if restore_prompt and prompted_user:
+            self._dismiss_player_substitution_prompt(
+                prompted_user,
+                request,
+                message_key=message_key,
+            )
+        return request
+
+    def _cancel_player_substitution_requests_matching(
+        self,
+        predicate: Callable[[str, dict[str, Any]], bool],
+        *,
+        message_key: str | None = None,
+    ) -> None:
+        """Cancel matching requests from a stable snapshot."""
+        pending = getattr(self, "_pending_player_substitutions", {})
+        for incoming_name, request in list(pending.items()):
+            if predicate(incoming_name, request):
+                self._cancel_player_substitution_request(
+                    incoming_name,
+                    message_key=message_key,
+                )
+
+    def _validate_player_substitution_request(
+        self,
+        request: dict[str, Any],
+        *,
+        require_outgoing_approval: bool,
+    ) -> tuple["Table", Any, Any, NetworkUser | None] | None:
+        """Revalidate every authority, role, and session identity boundary."""
+        table = self._tables.get_table(str(request.get("table_id") or ""))
+        game = table.game if table else None
+        incoming_name = str(request.get("incoming_username") or "")
+        incoming_user = self._users.get(incoming_name)
+        if (
+            not table
+            or not game
+            or not incoming_user
+            or game.status != "playing"
+            or id(game) != request.get("game_identity")
+            or table.host != request.get("host_username")
+            or self._table_host_uuid(table) != request.get("host_uuid")
+            or incoming_user.uuid != request.get("incoming_uuid")
+            or self._tables.find_user_table(incoming_name) is not table
+            or self._gameplay_substitution_locked(game)
+            or table.is_power_restore_grace_active()
+        ):
+            return None
+        host_user = self._users.get(table.host)
+        if not host_user:
+            return None
+
+        seat = game.get_player_by_id(str(request.get("seat_id") or ""))
+        spectator = game.get_player_by_id(incoming_user.uuid)
+        incoming_member = next(
+            (
+                member
+                for member in table.members
+                if member.username == incoming_name
+            ),
+            None,
+        )
+        if (
+            not any(
+                candidate is seat
+                for candidate in self._substitutable_player_seats(table)
+            )
+            or seat.name != request.get("seat_name")
+            or seat.is_bot != request.get("seat_was_bot")
+            or seat.replaced_human_name != request.get("replaced_human_name")
+            or not spectator
+            or spectator.is_bot
+            or not spectator.is_spectator
+            or not incoming_member
+            or not incoming_member.is_spectator
+            or table.get_user(incoming_name) is not incoming_user
+        ):
+            return None
+
+        outgoing_user = None
+        outgoing_username = str(request.get("outgoing_username") or "")
+        if outgoing_username:
+            outgoing_user = self._users.get(outgoing_username)
+            outgoing_member = next(
+                (
+                    member
+                    for member in table.members
+                    if member.username == outgoing_username
+                ),
+                None,
+            )
+            if (
+                seat.is_bot
+                or seat.id != request.get("outgoing_uuid")
+                or not outgoing_user
+                or outgoing_user.uuid != request.get("outgoing_uuid")
+                or game.get_user(seat) is not outgoing_user
+                or table.get_user(outgoing_username) is not outgoing_user
+                or not outgoing_member
+                or outgoing_member.is_spectator
+                or (
+                    require_outgoing_approval
+                    and not request.get("outgoing_approved")
+                )
+            ):
+                return None
+        elif not seat.is_bot:
+            return None
+
+        participant_uuids = {host_user.uuid, incoming_user.uuid}
+        if outgoing_user is not None:
+            participant_uuids.add(outgoing_user.uuid)
+        if any(
+            self._db.has_block_between(first, second)
+            for first in participant_uuids
+            for second in participant_uuids
+            if first < second
+        ):
+            return None
+
+        if seat.replaced_human_name in self._users:
+            # A returning reserved owner wins until substitution completes.
+            return None
+        return table, seat, spectator, outgoing_user
+
+    def _player_substitution_request_for_prompt(
+        self,
+        username: str,
+    ) -> tuple[str, dict[str, Any]] | None:
+        """Resolve the server-owned request currently prompting one account."""
+        for incoming_name, request in getattr(
+            self,
+            "_pending_player_substitutions",
+            {},
+        ).items():
+            if request.get("prompt_username") == username:
+                return incoming_name, request
+        return None
+
+    def _announce_completed_player_substitution(
+        self,
+        game: Any,
+        seat: Any,
+        result: Any,
+    ) -> None:
+        """Announce completion with correct incoming/outgoing perspectives."""
+        outgoing_spectator = result.outgoing_spectator
+        if outgoing_spectator is not None:
+            host_relinquished_seat = outgoing_spectator.name == game.host
+            for listener in game.players:
+                listener_user = game.get_user(listener)
+                if not listener_user:
+                    continue
+                if listener is seat:
+                    listener_user.speak_l(
+                        (
+                            "player-substitution-complete-host-player-you"
+                            if host_relinquished_seat
+                            else "player-substitution-complete-player-you"
+                        ),
+                        buffer="game",
+                        player=outgoing_spectator.name,
+                    )
+                elif listener is outgoing_spectator:
+                    listener_user.speak_l(
+                        (
+                            "player-substitution-complete-outgoing-host-you"
+                            if host_relinquished_seat
+                            else "player-substitution-complete-outgoing-you"
+                        ),
+                        buffer="game",
+                        player=seat.name,
+                    )
+                else:
+                    listener_user.speak_l(
+                        (
+                            "player-substitution-complete-host"
+                            if host_relinquished_seat
+                            else "player-substitution-complete-player"
+                        ),
+                        buffer="game",
+                        player=seat.name,
+                        outgoing=outgoing_spectator.name,
+                    )
+            return
+
+        if result.replaced_human_name:
+            game.broadcast_personal_l(
+                seat,
+                "player-substitution-complete-replacement-you",
+                "player-substitution-complete-replacement",
+                buffer="game",
+                bot=result.previous_controller_name,
+                replaced_player=result.replaced_human_name,
+            )
+        else:
+            game.broadcast_personal_l(
+                seat,
+                "player-substitution-complete-bot-you",
+                "player-substitution-complete-bot",
+                buffer="game",
+                bot=result.previous_controller_name,
+            )
+
+    def _complete_player_substitution_request(
+        self,
+        incoming_name: str,
+        request: dict[str, Any],
+        incoming_user: NetworkUser,
+        *,
+        restore_prompt: bool,
+    ) -> bool:
+        """Apply one fully consented request through the shared transaction."""
+        if not request.get("incoming_approved"):
+            return False
+        validated = self._validate_player_substitution_request(
+            request,
+            require_outgoing_approval=True,
+        )
+        if not validated:
+            self._cancel_player_substitution_request(
+                incoming_name,
+                message_key="player-substitution-no-longer-available",
+            )
+            return False
+
+        table, seat, spectator, outgoing_user = validated
+        self._cancel_player_substitution_request(
+            incoming_name,
+            restore_prompt=False,
+        )
+        if restore_prompt:
+            incoming_user.remove_menu(
+                PLAYER_SUBSTITUTION_PROMPT_MENU,
+                send_packet=False,
+            )
+            focus_context_id = request.get("focus_context_ids", {}).get(
+                incoming_user.username
+            )
+            if focus_context_id:
+                incoming_user.restore_menu_focus_context(focus_context_id)
+
+        result = table.game.substitute_player_with_spectator(
+            seat,
+            spectator,
+            incoming_user,
+            outgoing_user=outgoing_user,
+        )
+        outgoing_spectator = result.outgoing_spectator
+        outgoing_username = (
+            outgoing_spectator.name
+            if outgoing_spectator is not None
+            else result.replaced_human_name
+        )
+        if not table.apply_player_substitution(
+            incoming_user.username,
+            outgoing_username=outgoing_username,
+            outgoing_becomes_spectator=outgoing_spectator is not None,
+        ):
+            raise RuntimeError(
+                "Validated table membership disappeared during substitution"
+            )
+
+        self._set_in_game_state(incoming_user, table.table_id)
+        if outgoing_spectator is not None and outgoing_user is not None:
+            self._set_in_game_state(outgoing_user, table.table_id)
+        self._announce_completed_player_substitution(table.game, seat, result)
+        table.game.restore_session_ui(seat)
+        if outgoing_spectator is not None:
+            table.game.restore_session_ui(outgoing_spectator)
+        self._flush_game_menus_now(table.game)
+        return True
+
+    async def _handle_player_substitution_prompt_selection(
+        self,
+        user: NetworkUser,
+        selection_id: str,
+        state: dict,
+    ) -> None:
+        """Advance, apply, or decline a server-issued consent workflow."""
+        if selection_id not in {"accept", "decline"}:
+            return
+        resolved = self._player_substitution_request_for_prompt(user.username)
+        if not resolved:
+            user.remove_menu(PLAYER_SUBSTITUTION_PROMPT_MENU, send_packet=False)
+            self._restore_menu_from_state(user, state.get("prev_state", {}))
+            return
+        incoming_name, request = resolved
+        role = str(request.get("prompt_role") or "")
+        if (
+            state.get("table_id") != request.get("table_id")
+            or state.get("seat_id") != request.get("seat_id")
+            or state.get("prompt_role") != role
+        ):
+            return
+
+        if selection_id == "decline":
+            host_user = self._users.get(str(request.get("host_username") or ""))
+            self._cancel_player_substitution_request(incoming_name)
+            if host_user:
+                host_user.speak_l(
+                    "player-substitution-offer-declined",
+                    buffer="system",
+                    player=user.username,
+                )
+            return
+
+        if role == "outgoing":
+            if not self._validate_player_substitution_request(
+                request,
+                require_outgoing_approval=False,
+            ):
+                self._cancel_player_substitution_request(
+                    incoming_name,
+                    message_key="player-substitution-no-longer-available",
+                )
+                return
+            self._dismiss_player_substitution_prompt(user, request)
+            request["outgoing_approved"] = True
+            request["prompt_username"] = ""
+            request["prompt_role"] = ""
+            incoming_user = self._users.get(incoming_name)
+            if not incoming_user or self._user_has_blocking_modal_state(incoming_name):
+                self._cancel_player_substitution_request(incoming_name)
+                host_user = self._users.get(
+                    str(request.get("host_username") or "")
+                )
+                if host_user:
+                    host_user.speak_l(
+                        "player-substitution-spectator-unavailable",
+                        buffer="system",
+                    )
+                return
+            if request.get("incoming_approved"):
+                self._complete_player_substitution_request(
+                    incoming_name,
+                    request,
+                    incoming_user,
+                    restore_prompt=False,
+                )
+                return
+            self._show_player_substitution_prompt(
+                incoming_user,
+                request,
+                role="incoming",
+            )
+            self._schedule_player_substitution_expiry(incoming_name, request)
+            host_user = self._users.get(str(request.get("host_username") or ""))
+            if host_user:
+                host_user.speak_l(
+                    "player-substitution-awaiting-incoming",
+                    buffer="system",
+                    player=incoming_name,
+                )
+            return
+
+        request["incoming_approved"] = True
+        self._complete_player_substitution_request(
+            incoming_name,
+            request,
+            user,
+            restore_prompt=True,
+        )
 
     def _restart_table_to_lobby(self, user: NetworkUser, table: "Table") -> None:
         old_game = table.game
@@ -9064,7 +10254,7 @@ PlayAural Server
     async def _send_table_invite(
         self, host_user: NetworkUser, table: "Table", invitee_user: NetworkUser
     ) -> bool:
-        """Send a table invite and schedule its 30-second expiry."""
+        """Send a table invite and schedule its bounded expiry."""
         invitee_name = invitee_user.username
         if self._db.has_block_between(host_user.uuid, invitee_user.uuid):
             host_user.speak_l("host-invite-friend-unavailable", buffer="system")
@@ -9167,9 +10357,9 @@ PlayAural Server
         return True
 
     async def _expire_invite(self, invitee_name: str, table_id: str) -> None:
-        """Auto-expire an invite after 30 seconds."""
+        """Auto-expire an invite after the shared interactive timeout."""
         try:
-            await asyncio.sleep(30.0)
+            await asyncio.sleep(INTERACTIVE_TABLE_REQUEST_TIMEOUT_SECONDS)
             invite = self._pending_invites.get(invitee_name)
             if not invite or invite.get("table_id") != table_id:
                 return
@@ -9306,6 +10496,10 @@ PlayAural Server
             table.host = new_host_name
             table.game.host = new_host_name
             self._cancel_invalid_table_invites_for_table(table)
+            self._cancel_player_substitution_requests_matching(
+                lambda _name, request: request.get("table_id") == table.table_id,
+                message_key="player-substitution-no-longer-available",
+            )
             table.game.broadcast_l("host-passed", buffer="system", player=new_host_name)
             table.game.refresh_menus()
             self.on_tables_changed()
@@ -9812,13 +11006,34 @@ PlayAural Server
 
         if is_host and not is_self:
             if row["kind"] == "bot":
-                items.append(
-                    MenuItem(
-                        text=Localization.get(locale, "remove-bot"),
-                        id="table_remove_bot",
+                if table.game and table.game.status == "waiting":
+                    items.append(
+                        MenuItem(
+                            text=Localization.get(locale, "remove-bot"),
+                            id="table_remove_bot",
+                        )
                     )
-                )
+                elif table.game and table.game.status == "playing":
+                    items.append(
+                        MenuItem(
+                            text=Localization.get(
+                                locale,
+                                "player-substitution-offer-action",
+                            ),
+                            id="table_offer_substitution",
+                        )
+                    )
             elif not row["is_spectator"]:
+                if table.game and table.game.status == "playing":
+                    items.append(
+                        MenuItem(
+                            text=Localization.get(
+                                locale,
+                                "player-substitution-offer-action",
+                            ),
+                            id="table_offer_substitution",
+                        )
+                    )
                 if row.get("is_online") and not row.get("is_replaced_by_bot"):
                     items.append(
                         MenuItem(
@@ -10065,6 +11280,31 @@ PlayAural Server
                     target_kind,
                     target_id,
                 )
+        elif selection_id == "table_offer_substitution":
+            seat = row.get("player")
+            if (
+                table.host != user.username
+                or not seat
+                or not any(
+                    candidate is seat
+                    for candidate in self._substitutable_player_seats(table)
+                )
+            ):
+                user.speak_l("player-substitution-seat-unavailable", buffer="system")
+                self._nav_refresh(
+                    user,
+                    self._show_table_member_actions_menu,
+                    table,
+                    target_kind,
+                    target_id,
+                )
+                return
+            self._nav_push(
+                user,
+                self._show_host_substitution_spectator_menu,
+                table,
+                seat.id,
+            )
         elif selection_id == "view_profile" and row["kind"] == "user":
             self._nav_push(user, self._show_public_profile, target_name)
         elif selection_id == "send_friend_request" and row["kind"] == "user":
@@ -11335,6 +12575,10 @@ PlayAural Server
 
     def on_table_destroy(self, table) -> None:
         """Handle table destruction. Called by TableManager."""
+        self._cancel_player_substitution_requests_matching(
+            lambda _name, request: request.get("table_id") == table.table_id,
+            message_key="player-substitution-no-longer-available",
+        )
         for member in list(table.members):
             self._schedule_voice_context_close(
                 member.username,
@@ -11351,6 +12595,13 @@ PlayAural Server
                 player_user = self._users.get(player.name)
                 if player_user:
                     self._show_main_menu(player_user)
+
+    def on_table_game_reset(self, table: "Table") -> None:
+        """Cancel runtime consent tied to the game instance being replaced."""
+        self._cancel_player_substitution_requests_matching(
+            lambda _name, request: request.get("table_id") == table.table_id,
+            message_key="player-substitution-no-longer-available",
+        )
 
     def on_game_result(self, result) -> None:
         """Handle game result persistence. Called by Table when a game finishes."""
@@ -12490,6 +13741,8 @@ PlayAural Server
                 frame.get("target_kind", ""),
                 frame.get("target_id", ""),
             )
+        if menu == HOST_SUBSTITUTION_SPECTATOR_MENU:
+            return (menu, table_id, frame.get("seat_id", ""))
         return (menu, table_id)
 
     def _collapse_duplicate_navigation_stack(
@@ -12627,7 +13880,7 @@ PlayAural Server
     def _blocking_modal_reason(self, username: str) -> str | None:
         """Return the current modal blocker for forward navigation, if any.
 
-        Three disjoint cases are covered:
+        Four disjoint cases are covered:
 
         1. **Server-side editbox** (_transient=True): set by _enter_input_state
            whenever the server shows an editbox for things like friend
@@ -12644,6 +13897,10 @@ PlayAural Server
            the game's status-box-open flag uncleared, so returning to the game
            later can no longer rebuild the turn menu.
 
+        4. **Server consent prompt**: a short-lived request that must be
+           explicitly accepted or declined before another overlay can replace
+           it and strand its captured return state.
+
         Processing a forward nav push while any of these is active would
         desync the server's menu state from what the client can safely
         restore. Read-only status boxes may defer one forward nav request;
@@ -12651,8 +13908,11 @@ PlayAural Server
         may complete or cancel them with different intent.
         """
         # Server-side editbox (set by _enter_input_state)
-        if self._user_states.get(username, {}).get("_transient"):
+        current_state = self._user_states.get(username, {})
+        if current_state.get("_transient"):
             return "server_input"
+        if current_state.get("menu") == PLAYER_SUBSTITUTION_PROMPT_MENU:
+            return "server_prompt"
         # Game-side editbox or status box
         table = self._tables.find_user_table(username)
         if table and table.game:
@@ -12822,6 +14082,14 @@ PlayAural Server
                 self._show_host_kick_menu(user, table, ban=frame.get("ban", False))
             elif menu == HOST_RESTART_CONFIRM_MENU:
                 self._show_host_restart_confirm_menu(user, table)
+            elif menu == HOST_SUBSTITUTION_SEAT_MENU:
+                self._show_host_substitution_seat_menu(user, table)
+            elif menu == HOST_SUBSTITUTION_SPECTATOR_MENU:
+                self._show_host_substitution_spectator_menu(
+                    user,
+                    table,
+                    str(frame.get("seat_id") or ""),
+                )
             elif menu == TABLE_MEMBERS_MENU:
                 self._show_table_members_menu(user, table)
             elif menu == TABLE_MEMBER_ACTIONS_MENU:

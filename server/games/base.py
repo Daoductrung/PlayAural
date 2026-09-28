@@ -1,6 +1,13 @@
 """Base game class and player dataclass."""
 
-from dataclasses import dataclass, field
+from dataclasses import (
+    FrozenInstanceError,
+    dataclass,
+    field,
+    fields,
+    is_dataclass,
+    replace,
+)
 from typing import Any, ClassVar
 from abc import ABC, abstractmethod
 
@@ -41,6 +48,98 @@ from ..users.bot import Bot
 from .categories import CATEGORY_MISC, normalize_category
 
 BOT_NAMES = get_valid_bot_name_pool()
+
+
+def _replace_exact_state_value(value: Any, old_value: str, new_value: str) -> Any:
+    """Replace one exact player identity value inside Mashumaro-safe state.
+
+    Player UUIDs and, in a few legacy game fields, display names occur both as
+    values and mapping keys. A seat substitution changes both, so every exact
+    reference must move together. This helper deliberately does not perform
+    substring replacement; historical prose remains historical prose.
+    """
+    if isinstance(value, str):
+        return new_value if value == old_value else value
+    if isinstance(value, list):
+        for index, item in enumerate(value):
+            value[index] = _replace_exact_state_value(item, old_value, new_value)
+        return value
+    if isinstance(value, dict):
+        replaced_items = [
+            (
+                _replace_exact_state_value(key, old_value, new_value),
+                _replace_exact_state_value(item, old_value, new_value),
+            )
+            for key, item in value.items()
+            if old_value not in value or key not in {old_value, new_value}
+        ]
+        if old_value in value:
+            # A newly joined spectator can have disposable view state under
+            # the destination value. The retained seat always wins a key
+            # collision.
+            replaced_items.insert(
+                0,
+                (
+                    new_value,
+                    _replace_exact_state_value(
+                        value[old_value],
+                        old_value,
+                        new_value,
+                    ),
+                ),
+            )
+        value.clear()
+        value.update(replaced_items)
+        return value
+    if isinstance(value, set):
+        replaced_values = {
+            _replace_exact_state_value(item, old_value, new_value)
+            for item in value
+        }
+        value.clear()
+        value.update(replaced_values)
+        return value
+    if isinstance(value, frozenset):
+        updated = frozenset(
+            _replace_exact_state_value(item, old_value, new_value)
+            for item in value
+        )
+        return value if updated == value else updated
+    if isinstance(value, tuple):
+        updated_items = tuple(
+            _replace_exact_state_value(item, old_value, new_value)
+            for item in value
+        )
+        if all(updated is current for updated, current in zip(updated_items, value)):
+            return value
+        if hasattr(value, "_fields"):
+            return type(value)(*updated_items)
+        return updated_items
+    if is_dataclass(value) and not isinstance(value, type):
+        replacements: dict[str, Any] = {}
+        for declared_field in fields(value):
+            current = getattr(value, declared_field.name)
+            updated = _replace_exact_state_value(current, old_value, new_value)
+            if updated is not current:
+                replacements[declared_field.name] = updated
+        if not replacements:
+            return value
+        try:
+            for name, updated in replacements.items():
+                setattr(value, name, updated)
+            return value
+        except FrozenInstanceError:
+            return replace(value, **replacements)
+    return value
+
+
+@dataclass(frozen=True)
+class SeatSubstitutionResult:
+    """The identities affected by one completed in-game substitution."""
+
+    previous_controller_name: str
+    replaced_human_name: str
+    outgoing_spectator: Player | None
 
 
 # Re-export GameOptions from options module for backwards compatibility
@@ -577,6 +676,175 @@ class Game(
         self._notify_table_presence_changed()
         # Note: Caller is responsible for playing sounds if needed
         return True
+
+    def _prepare_seat_substitution(self, player: "Player") -> None:
+        """Cancel game-specific work before another human takes control.
+
+        Most bots are tick-driven and need no extra cleanup. Games with
+        asynchronous bot work may override this hook, cancel only work owned by
+        ``player``, and then call ``super()``.
+        """
+
+    def _rekey_game_state_value(self, old_value: str, new_value: str) -> None:
+        """Move one exact UUID or legacy display-name reference everywhere."""
+        serialized_names = {declared_field.name for declared_field in fields(self)}
+        for declared_field in fields(self):
+            current = getattr(self, declared_field.name)
+            updated = _replace_exact_state_value(current, old_value, new_value)
+            if updated is not current:
+                setattr(self, declared_field.name, updated)
+
+        # Runtime-only game containers can also key harmless view/history state
+        # by player id. Restrict traversal to built-in containers so sockets,
+        # tasks, users, and the table/server object graph are never inspected.
+        for name, current in list(vars(self).items()):
+            if name in serialized_names or name in {"_table", "_users"}:
+                continue
+            if isinstance(current, (dict, list, set, frozenset, tuple)):
+                updated = _replace_exact_state_value(
+                    current,
+                    old_value,
+                    new_value,
+                )
+                if updated is not current:
+                    setattr(self, name, updated)
+
+    def substitute_player_with_spectator(
+        self,
+        seat_player: "Player",
+        spectator: "Player",
+        spectator_user: User,
+        *,
+        outgoing_user: User | None = None,
+    ) -> SeatSubstitutionResult:
+        """Atomically give an active seat to a consenting spectator.
+
+        The seat player object is retained so every game-specific attribute on
+        it survives. A relinquishing human receives a fresh spectator object;
+        bot-held seats have no outgoing spectator. Exact UUID and legacy-name
+        references move with the seat across serialized state and bounded
+        runtime containers.
+        """
+        if self.status != "playing":
+            raise ValueError("Player substitution requires an active game")
+        if (
+            not any(player is seat_player for player in self.players)
+            or seat_player.is_spectator
+        ):
+            raise ValueError("The requested player seat is no longer available")
+        if (
+            not any(player is spectator for player in self.players)
+            or spectator.is_bot
+            or not spectator.is_spectator
+        ):
+            raise ValueError("The recipient is no longer a human spectator")
+
+        old_id = str(seat_player.id)
+        new_id = str(spectator.id)
+        if not old_id or not new_id or old_id == new_id:
+            raise ValueError("Player substitution requires distinct identifiers")
+        if str(getattr(spectator_user, "uuid", "")) != new_id:
+            raise ValueError(
+                "The spectator session does not own the requested identity"
+            )
+        if any(
+            player is not spectator
+            and player is not seat_player
+            and player.id == new_id
+            for player in self.players
+        ):
+            raise ValueError(
+                "The spectator identity is already assigned to another seat"
+            )
+        if seat_player.is_bot:
+            if outgoing_user is not None:
+                raise ValueError("A bot-controlled seat cannot have an outgoing user")
+        elif (
+            outgoing_user is None
+            or str(getattr(outgoing_user, "uuid", "")) != old_id
+            or self._users.get(old_id) is not outgoing_user
+        ):
+            raise ValueError("The outgoing session does not own the requested seat")
+
+        previous_controller_name = seat_player.name
+        replaced_human_name = seat_player.replaced_human_name
+        spectator_name = spectator.name
+        outgoing_name = "" if seat_player.is_bot else seat_player.name
+        retained_host = self.host
+
+        self._prepare_seat_substitution(seat_player)
+        self._clear_player_ui_runtime_state(new_id, player=spectator)
+        self._clear_player_ui_runtime_state(old_id, player=seat_player)
+
+        # Clear role-specific gameplay sources before authoritative public and
+        # private layers are replayed for each new role. Table voice is a
+        # separate LiveKit context and is deliberately unaffected.
+        spectator_user.stop_all_audio(fade_ms=0)
+        if outgoing_user is not None:
+            outgoing_user.stop_all_audio(fade_ms=0)
+
+        # Retire the spectator slot without emitting a misleading leave event.
+        self.players = [player for player in self.players if player is not spectator]
+        self.player_action_sets.pop(new_id, None)
+        self._users.pop(new_id, None)
+        self.prune_audio_recipient(new_id)
+        self._transcripts.pop(new_id, None)
+        discard_end_screen = getattr(self, "_discard_end_screen_player_id", None)
+        if discard_end_screen:
+            discard_end_screen(new_id)
+
+        # The old controller must never remain attached to the retained seat.
+        self._users.pop(old_id, None)
+
+        # Rekey every serialized/runtime identity reference. This includes the
+        # retained Player.id plus legacy name-based turn/tiebreak state.
+        self._rekey_game_state_value(old_id, new_id)
+        self._rekey_game_state_value(previous_controller_name, spectator_name)
+        self._reindex_active_audio()
+        # Table ownership is independent of the seat. A host who voluntarily
+        # becomes a spectator retains host permissions and identity.
+        self.host = retained_host
+
+        seat_player.is_bot = False
+        seat_player.replaced_human = False
+        seat_player.replaced_human_name = ""
+        seat_player.replacement_bot_name = ""
+        seat_player.is_spectator = False
+        seat_player.bot_pending_action = None
+        seat_player.bot_think_ticks = 0
+
+        self.attach_user(new_id, spectator_user)
+        # This explicit synchronized action must not reset or extend any
+        # authoritative game/turn timer with reconnect grace.
+        seat_player.reconnect_grace_ticks = 0
+
+        # Rebuild labels and declarative actions using the incoming user's
+        # locale and client capabilities.
+        self.player_action_sets.pop(new_id, None)
+        self.setup_player_actions(seat_player)
+        self._on_replacement_slot_reclaimed(
+            previous_controller_name,
+            spectator_name,
+        )
+
+        outgoing_spectator = None
+        if outgoing_user is not None:
+            outgoing_spectator = self.create_player(
+                old_id,
+                outgoing_name,
+                is_bot=False,
+            )
+            outgoing_spectator.is_spectator = True
+            self.players.append(outgoing_spectator)
+            self.attach_user(old_id, outgoing_user)
+            self.setup_player_actions(outgoing_spectator)
+
+        self.refresh_menus()
+        return SeatSubstitutionResult(
+            previous_controller_name=previous_controller_name,
+            replaced_human_name=replaced_human_name,
+            outgoing_spectator=outgoing_spectator,
+        )
 
     def _clear_player_ui_runtime_state(
         self,

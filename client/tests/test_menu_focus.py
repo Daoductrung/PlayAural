@@ -1,4 +1,41 @@
-from ui.menu_focus import resolve_menu_focus_index
+from ui.menu_focus import MenuFocusContextStore, resolve_menu_focus_index
+
+
+def test_modal_focus_contexts_are_bounded_validated_and_one_shot():
+    contexts = MenuFocusContextStore(capacity=2)
+    contexts.capture(
+        "first",
+        menu_id="turn_menu",
+        item_ids=["roll", "status"],
+        selection=1,
+    )
+    contexts.capture(
+        "second",
+        menu_id="turn_menu",
+        item_ids=["roll", "status"],
+        selection=0,
+    )
+    contexts.capture(
+        "third",
+        menu_id="turn_menu",
+        item_ids=["roll", "status"],
+        selection=1,
+    )
+    contexts.capture(
+        " padded ",
+        menu_id="turn_menu",
+        item_ids=[],
+        selection=0,
+    )
+
+    assert len(contexts) == 2
+    assert contexts.consume("first") is None
+    restored = contexts.consume("third")
+    assert restored is not None
+    assert restored.menu_id == "turn_menu"
+    assert restored.item_ids == ("roll", "status")
+    assert restored.selection == 1
+    assert contexts.consume("third") is None
 
 
 def test_explicit_menu_focus_wins_and_clamps() -> None:

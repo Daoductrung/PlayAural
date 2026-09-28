@@ -22,6 +22,20 @@ from .roles import USER_TRUST_LEVEL
 if TYPE_CHECKING:
     from .preferences import UserPreferences
 
+MAX_MENU_FOCUS_CONTEXT_ID_LENGTH = 128
+
+
+def validate_menu_focus_context_id(context_id: str) -> str:
+    """Validate one opaque, server-issued menu focus correlation token."""
+    if (
+        not isinstance(context_id, str)
+        or not context_id
+        or len(context_id) > MAX_MENU_FOCUS_CONTEXT_ID_LENGTH
+        or context_id.strip() != context_id
+    ):
+        raise ValueError("A menu focus context id must be a bounded token")
+    return context_id
+
 
 class EscapeBehavior(Enum):
     """How the escape key behaves in menus."""
@@ -728,6 +742,7 @@ class User(ABC):
         grid_enabled: bool = False,
         grid_height: int = 0,
         grid_width: int = 1,
+        capture_focus_context_id: str | None = None,
     ) -> None:
         """
         Display a menu to the user.
@@ -742,8 +757,22 @@ class User(ABC):
             grid_enabled: Enable grid navigation mode.
             grid_height: Number of rows in grid mode.
             grid_width: Number of columns in grid mode.
+            capture_focus_context_id: Opaque token instructing clients to
+                snapshot the currently displayed menu focus before this menu.
         """
         ...
+
+    def restore_menu_focus_context(self, context_id: str) -> None:
+        """Ask the next rendered menu to restore a client-captured focus anchor."""
+        self._next_menu_focus_restore_context_id = validate_menu_focus_context_id(
+            context_id
+        )
+
+    def _consume_menu_focus_restore_context(self) -> str | None:
+        """Consume the pending one-shot directive for the next menu packet."""
+        context_id = getattr(self, "_next_menu_focus_restore_context_id", None)
+        self._next_menu_focus_restore_context_id = None
+        return context_id
 
     @abstractmethod
     def update_menu(

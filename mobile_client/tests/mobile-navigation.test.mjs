@@ -812,12 +812,14 @@ test("Back from the landing screen exits locally and cannot send a server action
 });
 
 test("online-list refreshes preserve escape behavior and stable focus through repeated presence changes", () => {
-  const { resolveMenuFocusIndex } = compile(readFileSync(new URL("../src/app/menuFocus.ts", import.meta.url), "utf8"));
+  const { MenuFocusContextStore, resolveMenuFocusIndex } = compile(readFileSync(new URL("../src/app/menuFocus.ts", import.meta.url), "utf8"));
   const menuStateRef = { current: { menuId: "main_menu", items: [], focusIndex: 0 } };
+  const menuFocusContextsRef = { current: new MenuFocusContextStore() };
   const normalize = app.statements.find((node) => ts.isFunctionDeclaration(node) && node.name.text === "normalizeMenuItems");
   const normalizeMenuItems = compile(`module.exports = ${normalize.getText(app)};`);
   const apply = handler("applyMenuPacket", {
-    inputStateRef: { current: null }, menuStateRef, normalizeMenuItems, resolveMenuFocusIndex,
+    inputStateRef: { current: null }, menuStateRef, menuFocusContextsRef,
+    normalizeMenuItems, resolveMenuFocusIndex,
     transientTurnMenuAllowanceRef: { current: null }, isProtectedTransientMenu: () => false,
     nativeMenuFocusOnNextPacketRef: { current: false }, nativeMenuFocusRequestedAtRef: { current: 0 },
     nativeScreenReaderModeRef: { current: false }, setMenuState: (state) => { menuStateRef.current = state; },
@@ -832,6 +834,47 @@ test("online-list refreshes preserve escape behavior and stable focus through re
   }
   apply({ type: "menu", menu_id: "turn_menu", items: [{ id: "play", text: "Play" }] });
   assert.equal(menuStateRef.current.escapeBehavior, "keybind");
+});
+
+test("server modal focus contexts restore stable menu identity and are one-shot", () => {
+  const { MenuFocusContextStore, resolveMenuFocusIndex } = compile(readFileSync(new URL("../src/app/menuFocus.ts", import.meta.url), "utf8"));
+  const menuStateRef = { current: { menuId: "main_menu", items: [], focusIndex: 0 } };
+  const menuFocusContextsRef = { current: new MenuFocusContextStore() };
+  const normalize = app.statements.find((node) => ts.isFunctionDeclaration(node) && node.name.text === "normalizeMenuItems");
+  const normalizeMenuItems = compile(`module.exports = ${normalize.getText(app)};`);
+  const apply = handler("applyMenuPacket", {
+    inputStateRef: { current: null }, menuStateRef, menuFocusContextsRef,
+    normalizeMenuItems, resolveMenuFocusIndex,
+    transientTurnMenuAllowanceRef: { current: null }, isProtectedTransientMenu: () => false,
+    nativeMenuFocusOnNextPacketRef: { current: false }, nativeMenuFocusRequestedAtRef: { current: 0 },
+    nativeScreenReaderModeRef: { current: false }, setMenuState: (state) => { menuStateRef.current = state; },
+  });
+  const turnItems = [
+    { id: "roll", text: "Roll" },
+    { id: "status", text: "Status" },
+    { id: "leave", text: "Leave" },
+  ];
+  apply({ type: "menu", menu_id: "turn_menu", items: turnItems, selection_id: "status" });
+  apply({
+    type: "menu", menu_id: "player_substitution_prompt_menu",
+    capture_focus_context_id: "request-token",
+    items: [{ id: "accept", text: "Accept" }, { id: "decline", text: "Decline" }],
+  });
+  assert.equal(menuFocusContextsRef.current.size, 1);
+
+  apply({
+    type: "menu", menu_id: "turn_menu", restore_focus_context_id: "request-token",
+    items: [{ id: "roll", text: "Roll" }, { id: "new", text: "New" }, ...turnItems.slice(1)],
+  });
+  assert.equal(menuStateRef.current.items[menuStateRef.current.focusIndex].id, "status");
+  assert.equal(menuFocusContextsRef.current.size, 0);
+
+  apply({
+    type: "menu", menu_id: "player_substitution_prompt_menu",
+    capture_focus_context_id: ` ${"x".repeat(128)}`,
+    items: [{ id: "accept", text: "Accept" }],
+  });
+  assert.equal(menuFocusContextsRef.current.size, 0);
 });
 
 test("board geometry preserves readable controls for wide, tall, small, and large grids", () => {

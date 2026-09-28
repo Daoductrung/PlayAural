@@ -30,7 +30,7 @@ O anfitrião escolhe um padrão antes de a rodada começar:
 
 * **Padrão para vencer:** Qualquer linha, Quatro cantos, Letra X ou Cartela cheia (padrão Qualquer linha).
 
-* **Intervalo de sorteio:** 5, 15, 30, 45 ou 60 segundos entre cada número sorteado (padrão 15).
+* **Intervalo de sorteio:** 5, 15, 30, 45 ou 60 segundos entre cada número sorteado (padrão 15). Depois de cada número sempre restam pelo menos 4 segundos para pedir Bingo, então a opção de 5 segundos na prática leva cerca de 7 segundos por número, e o último número mantém o intervalo completo.
 
 **Ver números sorteados**
 
@@ -46,6 +46,12 @@ O anfitrião escolhe um padrão antes de a rodada começar:
 
 * **B:** Gritar Bingo.
 
+* **Toque duplo com 1 dedo e segurar (somente celular):** Gritar Bingo de qualquer lugar da cartela, sem ir até o botão Gritar Bingo. É um gesto sustentado e deliberado, então é difícil acionar sem querer. A opção Gritar Bingo do menu também continua funcionando. No computador, somente o B grita Bingo.
+
 * **R:** Repetir o último número sorteado.
 
 * **C:** Ver números sorteados.
+
+* **T:** Informa o que a rodada está fazendo agora: quantos segundos faltam para o próximo número, que um número está sendo sorteado ou que uma cartela está sendo verificada (a sua é anunciada como "sua cartela"). O Bingo não tem turnos, então este atalho substitui o habitual "de quem é a vez".
+
+* **Pedidos repetidos:** Se o seu pedido for rejeitado, você não pode pedir de novo com a mesma cartela até que um novo número seja sorteado ou você altere suas marcações. Assim uma única cartela não trava a mesa inteira.

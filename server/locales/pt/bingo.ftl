@@ -35,10 +35,13 @@ bingo-repeat-call = Repetir o último número
 bingo-check-called = Ver números sorteados
 bingo-no-calls-yet = Ainda nenhum número foi sorteado.
 bingo-claim-in-progress = Outro pedido de Bingo está sendo verificado agora. Tente novamente em instantes.
+bingo-claim-in-progress-you = Seu pedido já está sendo verificado.
 bingo-claim-wait-for-call = Espere o número sendo sorteado ser anunciado, depois tente novamente.
+bingo-claim-unchanged = Sua cartela não mudou desde que foi rejeitada. Marque outro número ou espere o próximo sorteio antes de pedir novamente.
 bingo-checking-claim-you = Você grita Bingo. Verificando sua cartela...
 bingo-checking-claim = { $player } grita Bingo. Verificando a cartela...
 bingo-whose-turn-checking = Verificando a cartela de { $player }...
+bingo-whose-turn-checking-you = Sua cartela está sendo verificada...
 bingo-whose-turn-drawing = Sorteando o próximo número...
 bingo-whose-turn-waiting = { $seconds ->
     [one] Próximo número em { $seconds } segundo.
@@ -55,7 +58,8 @@ bingo-last-call = { $letter } { $number }
 bingo-status-called-count = { $count } de { $total } números sorteados.
 bingo-status-called-entry = { $letter } { $number }
 
-bingo-game-start = O Bingo começa! Padrão: { $pattern }. Um novo número será sorteado a cada { $interval } segundos. Marque sua cartela e grite Bingo quando fizer Bingo.
+bingo-game-start = O Bingo começa! Padrão: { $pattern }. Um novo número será sorteado a cada { $interval } segundos. Marque sua cartela e pressione B para gritar Bingo quando fizer Bingo.
+bingo-game-start-touch = O Bingo começa! Padrão: { $pattern }. Um novo número será sorteado a cada { $interval } segundos. Marque sua cartela e, quando fizer Bingo, toque duas vezes e segure em qualquer lugar dela, ou escolha Gritar Bingo, para gritar Bingo.
 bingo-number-called = { $letter } { $number }
 
 bingo-claim-correct-you = Sim! Cartela correta. Você vence com { $numbers }!

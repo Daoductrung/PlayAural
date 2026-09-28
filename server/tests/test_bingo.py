@@ -5,14 +5,14 @@ from pathlib import Path
 
 from ..core.server import Server
 from ..game_utils.actions import Visibility
+from ..game_utils.audio_duration import measure_audio_duration_ticks
 from ..game_utils.grid_mixin import grid_cell_id
 from ..games.bingo.game import (
     CALL_SEQUENCE_TAG,
     CALL_SPIN_DELAY_TICKS,
     CARD_COLS,
     CARD_ROWS,
-    CLAIM_RESULT_SOUND_DELAY_TICKS,
-    CLAIM_SEQUENCE_TAG,
+    MIN_CLAIM_WINDOW_TICKS,
     COLUMN_LETTERS,
     COLUMN_RANGES,
     FREE_COL,
@@ -30,10 +30,12 @@ from ..games.bingo.game import (
     BingoOptions,
     BingoPlayer,
 )
+from ..games.bingo import audio as bingo_audio
 from ..games.registry import GameRegistry
 from ..messages.localization import Localization
 from ..users.bot import Bot
 from ..users.test_user import MockUser
+from ..ui.keybinds import KeybindState
 
 
 _locales_dir = Path(__file__).parent.parent / "locales"
@@ -144,22 +146,53 @@ def test_on_start_deals_independent_cards_and_shuffles_pool(monkeypatch) -> None
     assert game.called_numbers == []
 
 
-def test_numbers_are_called_at_configured_interval() -> None:
-    game = make_game(player_count=2, call_interval="5", start=True)
+def _ticks_between_first_two_announcements(call_interval: str) -> int:
+    game = make_game(player_count=2, call_interval=call_interval, start=True)
     assert advance_until(game, lambda: len(game.called_numbers) == 1)
-
     ticks_elapsed = 0
     while len(game.called_numbers) == 1 and ticks_elapsed < 5000:
         game.on_tick()
         ticks_elapsed += 1
+    return ticks_elapsed
 
-    # The interval is the true announcement-to-announcement cadence now:
-    # 5 seconds at 20 ticks/sec is exactly 100 ticks between the first
-    # call being announced and the second one being announced, spin
-    # sound included -- not 100 seconds' worth of countdown *plus* the
-    # spin delay on top, which is what a caller literally saying "every
-    # 5 seconds" should mean.
-    assert ticks_elapsed == 100
+
+def test_numbers_are_called_at_configured_interval() -> None:
+    # Where the interval leaves room, it is the true announcement-to-
+    # announcement cadence (spin sound included, not on top of it).
+    assert _ticks_between_first_two_announcements("15") == 15 * TICKS_PER_SECOND
+
+
+def test_shortest_interval_still_leaves_a_usable_claim_window() -> None:
+    """Regression for the dev's third-round point 2: at the 5-second
+    setting the countdown after an announcement used to be interval minus
+    spin (about 2.3s), and claims are disabled during the next spin, so
+    that was the whole time a screen-reader or touch user had to react.
+    The window is now never shorter than MIN_CLAIM_WINDOW_TICKS, which
+    makes the real cadence there spin + minimum window."""
+    assert 5 * TICKS_PER_SECOND - CALL_SPIN_DELAY_TICKS < MIN_CLAIM_WINDOW_TICKS
+    assert (
+        _ticks_between_first_two_announcements("5")
+        == CALL_SPIN_DELAY_TICKS + MIN_CLAIM_WINDOW_TICKS
+    )
+
+
+def test_final_ball_gets_the_full_interval_as_its_claim_window() -> None:
+    """After ball 75 there is no next spin to hurry toward, so the round
+    must not end after the shortened remainder every other call gets."""
+    game = make_game(player_count=2, call_interval="15", start=True)
+    game.available_numbers = [7]
+    game._start_next_call()
+    assert advance_until(game, lambda: 7 in game.called_numbers)
+    assert game.available_numbers == []
+    # advance_until stops the tick after the announcement, so allow that
+    # single decrement; the point is it is the whole interval (300), not
+    # the interval minus the spin (about 230).
+    ticks_left = 0
+    while game.status == "playing" and ticks_left < 1000:
+        game.on_tick()
+        ticks_left += 1
+    assert game.status == "finished"
+    assert 15 * TICKS_PER_SECOND - 2 <= ticks_left <= 15 * TICKS_PER_SECOND + 2
 
 
 def test_call_spin_sound_plays_before_the_number_is_announced() -> None:
@@ -1125,3 +1158,444 @@ def test_cell_label_combines_letter_and_number_directly() -> None:
     label = game.get_cell_label(row, col, player, user.locale)
     assert "not marked" not in label
     assert "marked" in label
+
+
+# ---------------------------------------------------------------------- #
+# Third-round review: repeated claims, gesture claim, real built menus,   #
+# spectators, scoreless, keybinds, save/load, audio                        #
+# ---------------------------------------------------------------------- #
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+BINGO_SOUND_FILES = (
+    "call.ogg",
+    "cymbal.ogg",
+    "daub.ogg",
+    "error.ogg",
+    "music.ogg",
+    "suspense.ogg",
+    "undaub.ogg",
+    "win.ogg",
+)
+
+
+def _mark_row_with_last_number_uncalled(game: BingoGame, player: BingoPlayer) -> int:
+    """Mark all of row 0 but call only its first four numbers; returns the
+    marked-but-uncalled number."""
+    values = [player.card[0][col] for col in range(CARD_COLS) if player.card[0][col] != FREE_VALUE]
+    for col in range(CARD_COLS):
+        player.marked[0][col] = True
+    for value in values[:-1]:
+        game.called_numbers.append(value)
+    return values[-1]
+
+
+def _locked_ticks_while_claiming(game: BingoGame, player: BingoPlayer) -> int:
+    """Try to claim; return how many ticks the gameplay lock was held."""
+    game._action_claim_bingo(player, "claim_bingo")
+    held = 0
+    while game.is_sequence_gameplay_locked() and held < 1000:
+        game.on_tick()
+        held += 1
+    return held
+
+
+def test_incomplete_claim_cannot_be_retried_or_freeze_the_call_clock() -> None:
+    """Regression for the dev's third-round point 1: an incomplete card
+    used to be able to claim, wait for rejection, and claim again forever,
+    re-taking the gameplay lock (which freezes the call clock and every
+    bot) for the whole suspense beat each time."""
+    game = make_game(player_count=2, pattern=PATTERN_LINE, start=True)
+    player = game.players[0]
+    game.call_countdown_ticks = 400
+
+    game._action_claim_bingo(player, "claim_bingo")
+    _resolve_claim(game)
+    assert player.has_bingo is False
+    assert game._is_claim_enabled(player) == "bingo-claim-unchanged"
+
+    countdown_before = game.call_countdown_ticks
+    assert _locked_ticks_while_claiming(game, player) == 0  # retry never starts
+    assert game.pending_claim_player_id is None
+    for _ in range(60):
+        game.on_tick()
+    assert game.call_countdown_ticks == countdown_before - 60  # clock kept running
+
+
+def test_uncalled_number_claim_cannot_be_retried_until_something_changes() -> None:
+    """A complete shape containing an uncalled number is the subtler case
+    the dev called out: rejecting only obviously-incomplete cards is not
+    enough. The private explanation naming the number is preserved."""
+    game = make_game(player_count=2, pattern=PATTERN_LINE, start=True)
+    player = game.players[0]
+    missing = _mark_row_with_last_number_uncalled(game, player)
+    user = game.get_user(player)
+
+    game._action_claim_bingo(player, "claim_bingo")
+    _resolve_claim(game)
+    assert player.has_bingo is False
+    explanation = Localization.get(
+        "en",
+        "bingo-marked-number-not-called",
+        letter=COLUMN_LETTERS[game._column_for_number(missing)],
+        number=missing,
+    )
+    assert explanation in user.get_spoken_messages()
+
+    assert game._is_claim_enabled(player) == "bingo-claim-unchanged"
+    assert _locked_ticks_while_claiming(game, player) == 0
+
+    # A new call is a meaningful change: the same card may claim again, and
+    # this time it is legitimately valid.
+    _force_announce(game, missing)
+    assert game._is_claim_enabled(player) is None
+    game._action_claim_bingo(player, "claim_bingo")
+    _resolve_claim(game)
+    assert player.has_bingo is True
+
+
+def test_changed_card_reopens_claim_but_returning_to_a_rejected_state_does_not() -> None:
+    game = make_game(player_count=2, pattern=PATTERN_LINE, start=True)
+    player = game.players[0]
+    game._action_claim_bingo(player, "claim_bingo")
+    _resolve_claim(game)
+    assert game._is_claim_enabled(player) == "bingo-claim-unchanged"
+
+    player.marked[1][0] = True  # a different card is a meaningful change
+    assert game._is_claim_enabled(player) is None
+    player.marked[1][0] = False  # ...but toggling back is the rejected state
+    assert game._is_claim_enabled(player) == "bingo-claim-unchanged"
+
+
+def test_many_players_contending_for_claim_cannot_freeze_call_progress() -> None:
+    game = make_game(player_count=3, pattern=PATTERN_LINE, start=True)
+    game.call_countdown_ticks = 1000
+    first, second, third = game.players
+
+    # While the first claim is being checked, the others are told so, and the
+    # claimant is told it is their own claim rather than "another" one.
+    game._action_claim_bingo(first, "claim_bingo")
+    assert game._is_claim_enabled(first) == "bingo-claim-in-progress-you"
+    assert game._is_claim_enabled(second) == "bingo-claim-in-progress"
+    assert Localization.get("en", "bingo-claim-in-progress-you") != Localization.get(
+        "en", "bingo-claim-in-progress"
+    )
+    _resolve_claim(game)
+
+    locked = _locked_ticks_while_claiming(game, second)
+    locked += _locked_ticks_while_claiming(game, third)
+    # Each false claim costs one suspense beat, once.
+    assert 0 < locked <= 2 * (CLAIM_SUSPENSE_TICKS_FOR_TESTS + 2)
+
+    # Everyone is now blocked until something changes, so nobody can hold
+    # the clock any more no matter how they hammer Claim.
+    for player in (first, second, third):
+        for _ in range(5):
+            assert _locked_ticks_while_claiming(game, player) == 0
+    assert not game.is_sequence_gameplay_locked()
+    countdown = game.call_countdown_ticks
+    for _ in range(40):
+        game.on_tick()
+    assert game.call_countdown_ticks == countdown - 40
+
+
+CLAIM_SUSPENSE_TICKS_FOR_TESTS = bingo_audio.sound_ticks(bingo_audio.SOUND_SUSPENSE)
+
+
+def test_claimant_hears_your_card_while_it_is_checked_and_observers_the_name() -> None:
+    game = make_game(player_count=2, pattern=PATTERN_LINE, start=True)
+    claimant, observer = game.players
+    game._action_claim_bingo(claimant, "claim_bingo")
+
+    game._action_whose_turn(claimant, "whose_turn")
+    game._action_whose_turn(observer, "whose_turn")
+    claimant_line = game.get_user(claimant).get_last_spoken()
+    observer_line = game.get_user(observer).get_last_spoken()
+    assert claimant_line == Localization.get("en", "bingo-whose-turn-checking-you")
+    assert claimant.name not in claimant_line
+    assert observer_line == Localization.get(
+        "en", "bingo-whose-turn-checking", player=claimant.name
+    )
+
+
+def test_touch_gesture_claims_bingo_from_any_focused_cell_without_marking_it() -> None:
+    """The mobile client's 1-finger double-tap-and-hold gesture sends
+    Shift+Enter (see mobile_client handleModifiedActivate), the same
+    binding Mile by Mile uses for its alternate action. On a touch client
+    it must claim from whatever card cell has focus and must not also
+    toggle that cell."""
+    game = make_game(player_count=2, pattern=PATTERN_LINE, start=True)
+    winner = game.players[0]
+    game.get_user(winner).client_type = "mobile"
+    _force_line_win(game, winner)
+    focused = grid_cell_id(3, 3)
+    assert winner.marked[3][3] is False
+
+    game.handle_event(
+        winner,
+        {"type": "keybind", "key": "enter", "shift": True, "menu_item_id": focused},
+    )
+    assert game.pending_claim_player_id == winner.id
+    assert winner.marked[3][3] is False
+    _resolve_claim(game)
+    assert winner.has_bingo is True
+
+
+def test_shift_enter_does_nothing_on_desktop_and_b_is_the_only_claim_key() -> None:
+    game = make_game(player_count=2, pattern=PATTERN_LINE, start=True)
+    winner = game.players[0]
+    user = game.get_user(winner)
+    _force_line_win(game, winner)
+    spoken = list(user.get_spoken_messages())
+
+    game.handle_event(
+        winner,
+        {"type": "keybind", "key": "enter", "shift": True, "menu_item_id": grid_cell_id(3, 3)},
+    )
+    assert game.pending_claim_player_id is None
+    assert winner.marked[3][3] is False
+    assert user.get_spoken_messages() == spoken  # silent, not an error
+
+    game.handle_event(winner, {"type": "keybind", "key": "b"})
+    assert game.pending_claim_player_id == winner.id
+
+
+def test_plain_enter_still_marks_and_never_claims() -> None:
+    game = make_game(player_count=2, pattern=PATTERN_LINE, start=True)
+    player = game.players[0]
+    game.handle_event(
+        player, {"type": "keybind", "key": "enter", "menu_item_id": grid_cell_id(0, 0)}
+    )
+    assert player.marked[0][0] is True
+    assert game.pending_claim_player_id is None
+
+
+def test_claim_keybinds_and_no_state_collisions() -> None:
+    game = make_game(player_count=2, start=True)
+    claim_keys = {
+        key
+        for key, binds in game._keybinds.items()
+        for bind in binds
+        if bind.actions == ["claim_bingo"]
+    }
+    assert claim_keys == {"b"}  # desktop claims with B only
+    gesture_keys = {
+        key
+        for key, binds in game._keybinds.items()
+        for bind in binds
+        if bind.actions == ["claim_bingo_gesture"]
+    }
+    assert gesture_keys == {"shift+enter"}  # what the mobile hold gesture sends
+    # Claiming is never a spectator keybind.
+    for key in claim_keys | gesture_keys:
+        assert all(
+            not bind.include_spectators
+            for bind in game._keybinds[key]
+            if bind.actions in (["claim_bingo"], ["claim_bingo_gesture"])
+        )
+    # Enter selects a cell and Shift+Enter claims -- distinct keys.
+    assert [b.actions for b in game._keybinds["enter"] if b.state == KeybindState.ACTIVE] == [
+        ["grid_select"]
+    ]
+    for key, binds in game._keybinds.items():
+        states = [bind.state for bind in binds]
+        assert len(states) == len(set(states)), f"{key} is bound twice in one state"
+
+
+def test_scoreless_game_has_no_score_actions_and_silent_score_keybinds() -> None:
+    game = make_game(player_count=2, start=True)
+    player = game.players[0]
+    user = game.get_user(player)
+    visible = {r.action.id for r in game.get_all_enabled_actions(player)}
+    assert not {"check_scores", "check_scores_detailed"} & visible
+    spoken_before = list(user.get_spoken_messages())
+    game.handle_event(player, {"type": "keybind", "key": "s"})
+    game.handle_event(player, {"type": "keybind", "key": "s", "shift": True})
+    assert user.get_spoken_messages() == spoken_before
+
+
+def _menu_ids(game: BingoGame, player: BingoPlayer) -> list[str]:
+    return [item.id for item in game.build_menu_items(player, game.get_user(player)).items]
+
+
+def test_built_menu_keeps_grid_aligned_on_web_and_mobile_with_handover() -> None:
+    """The dev's third-round point 2/6: assert the FINAL build_menu_items()
+    result (what Web and mobile actually render), not ActionSet._order."""
+    game = make_game(player_count=2, start=True)
+    player = game.players[0]
+    user = game.get_user(player)
+    cells = [grid_cell_id(r, c) for r in range(CARD_ROWS) for c in range(CARD_COLS)]
+
+    for client_type in ("web", "mobile", "python", "mobile", "web"):  # handovers
+        user.client_type = client_type
+        game.before_menu_build(player)
+        build = game.build_menu_items(player, user)
+        ids = [item.id for item in build.items]
+        assert ids[:25] == cells, client_type
+        assert build.grid_kwargs["grid_enabled"] is True
+        assert build.grid_kwargs["grid_width"] == CARD_COLS
+        assert build.grid_kwargs["grid_height"] == CARD_ROWS
+        assert "claim_bingo" in ids[25:]
+        touch = client_type in ("web", "mobile")
+        assert ("web_actions_menu" in ids) is touch
+        assert ("web_leave_table" in ids) is touch
+        # Claim comes before the static touch controls, never after.
+        if touch:
+            assert ids.index("claim_bingo") < ids.index("web_actions_menu")
+
+
+def test_claim_is_reachable_on_touch_by_gesture_and_menu_item() -> None:
+    game = make_game(player_count=2, pattern=PATTERN_LINE, start=True)
+    player = game.players[0]
+    game.get_user(player).client_type = "mobile"
+    # Gesture path: bound and enabled from any focused cell, but only for
+    # touch clients.
+    assert any(
+        b.actions == ["claim_bingo_gesture"] for b in game._keybinds["shift+enter"]
+    )
+    assert game._is_claim_gesture_enabled(player) is None
+    game.get_user(player).client_type = "python"
+    assert game._is_claim_gesture_enabled(player) == "action-not-available"
+    game.get_user(player).client_type = "mobile"
+    # Equivalent accessible path: an ordinary activatable menu item.
+    assert "claim_bingo" in _menu_ids(game, player)
+    assert game._is_claim_enabled(player) is None
+
+
+def test_game_start_tells_each_client_how_to_claim() -> None:
+    touch = make_game(player_count=2)
+    touch_user = touch.get_user(touch.players[0])
+    touch_user.client_type = "mobile"
+    touch.on_start()
+    desktop = make_game(player_count=2, start=True)
+
+    touch_line = touch_user.get_spoken_messages()[0]
+    desktop_line = desktop.get_user(desktop.players[0]).get_spoken_messages()[0]
+    assert "double-tap and hold" in touch_line and "Claim Bingo" in touch_line
+    assert "press B" in desktop_line
+    assert "Shift+Enter" not in desktop_line and "Shift+Enter" not in touch_line
+
+
+def test_spectators_see_no_card_controls_and_cannot_claim_or_mark() -> None:
+    game = make_game(player_count=2, pattern=PATTERN_LINE, start=True)
+    spectator = game.add_spectator("Watcher", MockUser("Watcher", uuid="watch1"))
+    visible = {r.action.id for r in game.get_all_visible_actions(spectator)}
+    assert not any(a.startswith("grid_cell_") or a == "claim_bingo" for a in visible)
+    _force_announce(game, 7)  # repeat_call needs at least one call
+    enabled = {r.action.id for r in game.get_all_enabled_actions(spectator)}
+    assert {"repeat_call", "check_called"} <= enabled
+    assert not any(a.startswith("grid_cell_") or a == "claim_bingo" for a in enabled)
+    assert game._is_claim_enabled(spectator) == "action-spectator"
+
+    game.handle_event(
+        spectator,
+        {"type": "keybind", "key": "enter", "shift": True, "menu_item_id": grid_cell_id(0, 0)},
+    )
+    game.handle_event(spectator, {"type": "keybind", "key": "b"})
+    assert game.pending_claim_player_id is None
+
+
+def test_bot_daub_cue_is_public_at_most_once_per_call() -> None:
+    """Several bots holding the same number used to each broadcast their
+    own identical daub cue, stacking into a burst per call."""
+    game = make_game(player_count=4, bot_indices={1, 2, 3}, start=True)
+    listener, *bots = game.players
+    for bot in bots[1:]:
+        bot.card = [row[:] for row in bots[0].card]
+        bot.marked = [row[:] for row in bots[0].marked]
+    number = next(v for row in bots[0].card for v in row if v != FREE_VALUE)
+    user = game.get_user(listener)
+
+    _force_announce(game, number)
+    assert advance_until(
+        game,
+        lambda: all(b.pending_mark_number is None for b in bots),
+    )
+    assert all(b.marked[r][c] for b in bots for r in range(CARD_ROWS) for c in range(CARD_COLS) if b.card[r][c] == number)
+    assert user.get_sounds_played().count("game_bingo/daub.ogg") == 1
+
+
+def test_call_sequence_round_trips_through_save_and_load() -> None:
+    game = make_game(player_count=2, start=True)
+    users = {p.id: game.get_user(p) for p in game.players}
+    game.available_numbers = [42]
+    game._start_next_call()
+    for _ in range(10):
+        game.on_tick()
+    assert game.pending_call_number == 42
+    assert game.has_active_sequence(tag=CALL_SEQUENCE_TAG)
+
+    restored = BingoGame.from_json(game.to_json())
+    for player_id, user in users.items():
+        restored.attach_user(player_id, user)
+    assert restored.pending_call_number == 42
+    assert restored.has_active_sequence(tag=CALL_SEQUENCE_TAG)
+
+    assert advance_until(restored, lambda: restored.pending_call_number is None)
+    assert restored.called_numbers[-1:] == [42]
+    assert restored.call_countdown_ticks > 0
+
+
+def test_claim_sequence_round_trips_through_save_and_load() -> None:
+    game = make_game(player_count=2, pattern=PATTERN_LINE, start=True)
+    users = {p.id: game.get_user(p) for p in game.players}
+    winner = game.players[0]
+    _force_line_win(game, winner)
+    game._action_claim_bingo(winner, "claim_bingo")
+    for _ in range(10):
+        game.on_tick()
+    assert game.pending_claim_player_id == winner.id
+
+    restored = BingoGame.from_json(game.to_json())
+    for player_id, user in users.items():
+        restored.attach_user(player_id, user)
+    restored_winner = next(p for p in restored.players if p.id == winner.id)
+    assert restored.pending_claim_player_id == winner.id
+    assert restored.is_sequence_gameplay_locked()
+    assert restored._is_claim_enabled(restored.players[1]) == "bingo-claim-in-progress"
+
+    assert advance_until(restored, lambda: restored.pending_claim_player_id is None)
+    assert restored_winner.has_bingo is True
+
+
+def test_rejected_claim_memory_survives_save_and_load() -> None:
+    game = make_game(player_count=2, pattern=PATTERN_LINE, start=True)
+    player = game.players[0]
+    game._action_claim_bingo(player, "claim_bingo")
+    _resolve_claim(game)
+    restored = BingoGame.from_json(game.to_json())
+    restored_player = next(p for p in restored.players if p.id == player.id)
+    assert restored._is_claim_enabled(restored_player) == "bingo-claim-unchanged"
+
+
+def test_bingo_timed_audio_is_measured_from_the_shipped_assets() -> None:
+    for sound in bingo_audio.BINGO_TIMED_ASSET_PATHS:
+        measured = measure_audio_duration_ticks(
+            REPO_ROOT / "client" / "sounds" / sound, ticks_per_second=TICKS_PER_SECOND
+        )
+        assert measured is not None
+        assert bingo_audio.sound_ticks(sound) == measured
+        # The fallback table must track the shipped assets too.
+        assert bingo_audio.AUDIO_DURATIONS_TICKS[sound] == measured
+    assert CALL_SPIN_DELAY_TICKS == bingo_audio.sound_ticks(bingo_audio.SOUND_CALL)
+    assert CLAIM_SUSPENSE_TICKS_FOR_TESTS == bingo_audio.sound_ticks(bingo_audio.SOUND_SUSPENSE)
+
+
+def test_bingo_timed_audio_falls_back_when_assets_are_missing(monkeypatch) -> None:
+    monkeypatch.setattr(bingo_audio, "_SOUND_ASSET_ROOTS", ())
+    bingo_audio.sound_ticks.cache_clear()
+    try:
+        for sound, expected in bingo_audio.AUDIO_DURATIONS_TICKS.items():
+            assert bingo_audio.sound_ticks(sound) == expected
+        assert bingo_audio.sound_ticks("game_bingo/../x.ogg") == 0
+    finally:
+        bingo_audio.sound_ticks.cache_clear()
+
+
+def test_bingo_sounds_are_identical_across_all_three_clients() -> None:
+    for name in BINGO_SOUND_FILES:
+        payloads = {
+            root: (REPO_ROOT / root / "sounds" / "game_bingo" / name).read_bytes()
+            for root in ("client", "web_client", "mobile_client")
+        }
+        assert len(set(payloads.values())) == 1, name
+        assert payloads["client"].startswith(b"OggS"), name

@@ -21,6 +21,7 @@ import random
 from ..base import Game, GameOptions, Player
 from ..categories import CATEGORY_MISC
 from ..registry import register_game
+from . import audio as bingo_audio
 from ...game_utils.actions import Action, ActionSet, Visibility
 from ...game_utils.game_result import GameResult, PlayerResult
 from ...game_utils.grid_mixin import GridGameMixin, GridCursor
@@ -76,19 +77,27 @@ CALL_INTERVAL_LABELS = {
 CALL_WARMUP_TICKS = 3 * TICKS_PER_SECOND  # pause before the first ball is drawn
 
 # A called number is announced in two beats, like a real caller pulling a
-# ball from the cage: the "spin" sound (call.ogg, 2.46s) plays first, and
-# the number is only added to called_numbers and read aloud once that
-# sound has actually finished, plus a small buffer so the two never
-# overlap. Nothing can be marked or claimed against it before that. This
+# ball from the cage: the "spin" sound (call.ogg) plays first, and the
+# number is only added to called_numbers and read aloud once that sound
+# has actually finished (its length is measured from the shipped asset,
+# see audio.py, so replacing the file can never desynchronize this). Nothing can be marked or claimed against it before that. This
 # beat is a SequenceRunnerMixin sequence (CALL_SEQUENCE_TAG) rather than a
 # hand-rolled tick counter -- see _start_next_call.
-CALL_SPIN_DELAY_SECONDS = 2.7
-CALL_SPIN_DELAY_TICKS = int(CALL_SPIN_DELAY_SECONDS * TICKS_PER_SECOND)
-# The configured call interval is the true announcement-to-announcement
-# cadence: the countdown that follows each announcement already has the
-# spin's own delay subtracted (see _handle_announce_call), so "every 15
-# seconds" means exactly that, not 15 seconds *plus* however long the
-# spin sound happens to run.
+CALL_SPIN_DELAY_TICKS = bingo_audio.sound_ticks(bingo_audio.SOUND_CALL)
+# The configured call interval is the announcement-to-announcement cadence:
+# the countdown that follows each announcement has the spin's own delay
+# subtracted (see _handle_announce_call), so "every 15 seconds" means
+# exactly that, not 15 seconds *plus* the spin sound. Claims are disabled
+# while the next number is spinning, so the countdown after an
+# announcement is the only time anyone can claim; it is never allowed to
+# drop below MIN_CLAIM_WINDOW_TICKS, or the shortest interval would leave
+# a screen-reader or touch user too little time to react. On the shortest
+# settings the real cadence is therefore spin + MIN_CLAIM_WINDOW, slightly
+# longer than the label. After the final ball there is no next spin to
+# hurry toward, so the last announcement gets the full configured interval
+# (not the interval minus the spin) as its claim window.
+MIN_CLAIM_WINDOW_SECONDS = 4
+MIN_CLAIM_WINDOW_TICKS = MIN_CLAIM_WINDOW_SECONDS * TICKS_PER_SECOND
 CALL_SEQUENCE_TAG = "bingo_call"
 
 # When a player claims Bingo, the game holds the result behind a drum-roll
@@ -111,8 +120,7 @@ CALL_SEQUENCE_TAG = "bingo_call"
 # so nothing can be marked, unmarked, or claimed by anyone else while a
 # claim is being checked, and there is no window where the verified
 # result and the live board can disagree.
-CLAIM_SUSPENSE_SECONDS = 2.5
-CLAIM_SUSPENSE_TICKS = int(CLAIM_SUSPENSE_SECONDS * TICKS_PER_SECOND)
+CLAIM_SUSPENSE_TICKS = bingo_audio.sound_ticks(bingo_audio.SOUND_SUSPENSE)
 CLAIM_SEQUENCE_TAG = "bingo_claim"
 
 # The cymbal/reveal fire the instant the claim resolves (see
@@ -147,12 +155,12 @@ BOT_MARK_DELAY_MAX_SECONDS = 5
 BOT_REACTION_MIN_TICKS = 10
 BOT_REACTION_MAX_TICKS = 40
 
-SOUND_CALL = "game_bingo/call.ogg"
+SOUND_CALL = bingo_audio.SOUND_CALL
 SOUND_DAUB = "game_bingo/daub.ogg"
 SOUND_UNDAUB = "game_bingo/undaub.ogg"
 SOUND_ERROR = "game_bingo/error.ogg"
 SOUND_WIN = "game_bingo/win.ogg"
-SOUND_SUSPENSE = "game_bingo/suspense.ogg"
+SOUND_SUSPENSE = bingo_audio.SOUND_SUSPENSE
 SOUND_CYMBAL = "game_bingo/cymbal.ogg"
 SOUND_MUSIC = "game_bingo/music.ogg"
 
@@ -169,6 +177,13 @@ class BingoPlayer(Player):
     card: list[list[int]] = field(default_factory=list)
     marked: list[list[bool]] = field(default_factory=list)
     has_bingo: bool = False
+
+    # Signatures (see BingoGame._claim_signature) of every card state this
+    # player already had rejected since the last call was announced. A
+    # rejected claim holds the whole table's clock for its suspense beat,
+    # so the same unchanged card must not be able to re-claim over and
+    # over; a new call or a genuinely different card is what re-opens it.
+    rejected_claim_signatures: list[str] = field(default_factory=list)
 
     # A bot's chip placement is itself delayed (see BOT_MARK_DELAY_*)
     # rather than happening the instant a number is announced.
@@ -245,6 +260,9 @@ class BingoGame(GridGameMixin, Game):
     # payload) so is_grid_cell_enabled/whose_turn/tests can read "is a
     # draw in flight" directly without inspecting active_sequences.
     pending_call_number: int | None = None
+    # How many calls had been announced the last time a bot's daub cue
+    # played, so a call produces at most one public daub cue.
+    daub_cue_call_count: int = -1
 
     # Set for the duration of a claim's suspense beat (see
     # CLAIM_SEQUENCE_TAG); the claim itself is verified fresh, against
@@ -341,6 +359,8 @@ class BingoGame(GridGameMixin, Game):
         if isinstance(player, BingoPlayer) and player.has_bingo:
             return "bingo-you-already-won"
         if self.is_sequence_gameplay_locked():
+            if self.pending_claim_player_id == player.id:
+                return "bingo-claim-in-progress-you"
             return "bingo-claim-in-progress"
         if row == FREE_ROW and col == FREE_COL:
             return "bingo-cell-is-free"
@@ -391,6 +411,20 @@ class BingoGame(GridGameMixin, Game):
             ["claim_bingo"],
             state=KeybindState.ACTIVE,
         )
+        # Desktop claims with B only. Shift+Enter is what the mobile
+        # client's "double tap and hold" gesture sends (see mobile_client
+        # handleModifiedActivate), so it is bound to a separate hidden
+        # action that only exists for touch clients: on desktop Shift+Enter
+        # does nothing, and B stays the one desktop claim key. The gesture
+        # works from wherever focus is on the card -- a deliberate hold, not
+        # a tap, so it is hard to trigger by accident -- and the Claim Bingo
+        # menu item remains the equivalent path for assistive activation.
+        self.define_keybind(
+            "shift+enter",
+            Localization.get("en", "bingo-claim-bingo"),
+            ["claim_bingo_gesture"],
+            state=KeybindState.ACTIVE,
+        )
         self.define_keybind(
             "r",
             Localization.get("en", "bingo-repeat-call"),
@@ -427,6 +461,17 @@ class BingoGame(GridGameMixin, Game):
                 handler="_action_claim_bingo",
                 is_enabled="_is_claim_enabled",
                 is_hidden="_is_claim_hidden",
+                show_in_actions_menu=False,
+            )
+        )
+
+        action_set.add(
+            Action(
+                id="claim_bingo_gesture",
+                label=Localization.get(self._locale(player), "bingo-claim-bingo"),
+                handler="_action_claim_bingo",
+                is_enabled="_is_claim_gesture_enabled",
+                is_hidden="_is_claim_gesture_hidden",
                 show_in_actions_menu=False,
             )
         )
@@ -523,6 +568,8 @@ class BingoGame(GridGameMixin, Game):
         if isinstance(player, BingoPlayer) and player.has_bingo:
             return "bingo-you-already-won"
         if self.is_sequence_gameplay_locked():
+            if self.pending_claim_player_id == player.id:
+                return "bingo-claim-in-progress-you"
             return "bingo-claim-in-progress"
         if self.pending_call_number is not None:
             # A drawn number's spin sound is already playing but hasn't
@@ -542,7 +589,35 @@ class BingoGame(GridGameMixin, Game):
             # blocks on_tick from starting a NEW call for as long as the
             # claim itself is being verified.
             return "bingo-claim-wait-for-call"
+        if (
+            isinstance(player, BingoPlayer)
+            and self._claim_signature(player) in player.rejected_claim_signatures
+        ):
+            # This exact card already failed verification since the last
+            # call. Without this, an incomplete (or ahead-of-the-calls)
+            # card could claim again the instant it was rejected, and
+            # every retry re-takes the gameplay lock and freezes the call
+            # clock and all bots for the whole suspense beat -- forever.
+            return "bingo-claim-unchanged"
         return None
+
+    def _claim_signature(self, player: BingoPlayer) -> str:
+        """Identifies the state a claim would be verified against: how
+        many numbers have been called and exactly which squares are
+        marked. Two claims with the same signature can only get the same
+        answer, so re-checking one is pointless."""
+        bits = "".join("1" if cell else "0" for row in player.marked for cell in row)
+        return f"{len(self.called_numbers)}:{bits}"
+
+    def _is_claim_gesture_enabled(self, player: Player) -> str | None:
+        # Silent no-op on non-touch clients, so Shift+Enter never claims
+        # (or speaks) on desktop.
+        if not self.is_touch_client(self.get_user(player)):
+            return "action-not-available"
+        return self._is_claim_enabled(player)
+
+    def _is_claim_gesture_hidden(self, player: Player) -> Visibility:
+        return Visibility.HIDDEN
 
     def _is_claim_hidden(self, player: Player) -> Visibility:
         if self.status != "playing" or player.is_spectator:
@@ -618,11 +693,14 @@ class BingoGame(GridGameMixin, Game):
                 (p for p in self.get_active_players() if p.id == self.pending_claim_player_id),
                 None,
             )
-            user.speak_l(
-                "bingo-whose-turn-checking",
-                buffer="game",
-                player=claimer.name if claimer else "",
-            )
+            if claimer is not None and claimer.id == player.id:
+                user.speak_l("bingo-whose-turn-checking-you", buffer="game")
+            else:
+                user.speak_l(
+                    "bingo-whose-turn-checking",
+                    buffer="game",
+                    player=claimer.name if claimer else "",
+                )
         elif self.pending_call_number is not None:
             user.speak_l("bingo-whose-turn-drawing", buffer="game")
         else:
@@ -787,6 +865,7 @@ class BingoGame(GridGameMixin, Game):
         self.game_active = True
         self.round = 0
         self.called_numbers = []
+        self.daub_cue_call_count = -1
         self.available_numbers = list(range(1, TOTAL_BALLS + 1))
         random.shuffle(self.available_numbers)
         self.winner_ids = []
@@ -805,6 +884,7 @@ class BingoGame(GridGameMixin, Game):
         for player in active_players:
             player.card, player.marked = self._generate_card()
             player.has_bingo = False
+            player.rejected_claim_signatures = []
             self.grid_cursors[player.id] = GridCursor(row=0, col=0)
 
         # Background music loops quietly under the whole calling phase.
@@ -816,8 +896,12 @@ class BingoGame(GridGameMixin, Game):
             user = self.get_user(listener)
             if not user:
                 continue
+            # Touch players get the gesture instruction; everyone else the
+            # keyboard one (B; see setup_keybinds).
             user.speak_l(
-                "bingo-game-start",
+                "bingo-game-start-touch"
+                if self.is_touch_client(user)
+                else "bingo-game-start",
                 buffer="game",
                 pattern=Localization.get(
                     user.locale,
@@ -920,7 +1004,12 @@ class BingoGame(GridGameMixin, Game):
         # lines per call, potentially drowning out the caller itself.
         # This is deliberately the only feedback: real bingo doesn't
         # narrate other players' marks either.
-        self.play_sound(SOUND_DAUB)
+        # Only ONE public cue per announced number, however many bots
+        # happen to hold it -- one cue per bot stacked identical sounds
+        # into a burst.
+        if self.daub_cue_call_count != len(self.called_numbers):
+            self.daub_cue_call_count = len(self.called_numbers)
+            self.play_sound(SOUND_DAUB)
 
         if self._check_pattern(player) and not player.bot_pending_action:
             player.bot_pending_action = "claim_bingo"
@@ -960,13 +1049,18 @@ class BingoGame(GridGameMixin, Game):
 
         self.called_numbers.append(number)
         col = self._column_for_number(number)
-        # The interval is the true announcement-to-announcement cadence:
-        # the spin's own delay already ran before this callback fired,
-        # so only the remainder of the configured interval is left to
-        # wait before the *next* draw begins.
-        self.call_countdown_ticks = max(
-            0, int(self.options.call_interval) * TICKS_PER_SECOND - CALL_SPIN_DELAY_TICKS
-        )
+        # The spin's own delay already ran before this callback fired, so
+        # only the remainder of the configured interval is left before the
+        # next draw begins -- but never less than the minimum claim window
+        # (claims are disabled during the next spin). The very last ball
+        # has no next spin, so it keeps the whole interval as its final
+        # claim window before the round ends.
+        interval_ticks = int(self.options.call_interval) * TICKS_PER_SECOND
+        if self.available_numbers:
+            remainder = interval_ticks - CALL_SPIN_DELAY_TICKS
+        else:
+            remainder = interval_ticks
+        self.call_countdown_ticks = max(MIN_CLAIM_WINDOW_TICKS, remainder)
 
         for listener in self.players:
             user = self.get_user(listener)
@@ -1055,6 +1149,12 @@ class BingoGame(GridGameMixin, Game):
             self.schedule_sound(SOUND_WIN, delay_ticks=CLAIM_RESULT_SOUND_DELAY_TICKS)
             self._declare_winner(player, winning_numbers or [])
         else:
+            current_count = len(self.called_numbers)
+            player.rejected_claim_signatures = [
+                sig
+                for sig in player.rejected_claim_signatures
+                if sig.startswith(f"{current_count}:")
+            ] + [self._claim_signature(player)]
             if bad_number is not None:
                 # They had a complete shape marked, but one of those
                 # marks was ahead of the actual calls. This is a

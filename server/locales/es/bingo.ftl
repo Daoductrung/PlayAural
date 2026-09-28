@@ -35,10 +35,13 @@ bingo-repeat-call = Repetir el último número
 bingo-check-called = Ver números cantados
 bingo-no-calls-yet = Todavía no se ha cantado ningún número.
 bingo-claim-in-progress = Se está verificando otro reclamo en este momento. Intenta de nuevo en un momento.
+bingo-claim-in-progress-you = Tu reclamo ya se está verificando.
 bingo-claim-wait-for-call = Espera a que se anuncie el número que se está cantando, luego intenta de nuevo.
+bingo-claim-unchanged = Tu cartón no ha cambiado desde que fue rechazado. Marca otro número o espera al siguiente canto antes de volver a reclamar.
 bingo-checking-claim-you = Cantas Bingo. Verificando tu cartón...
 bingo-checking-claim = { $player } canta Bingo. Verificando el cartón...
 bingo-whose-turn-checking = Verificando el cartón de { $player }...
+bingo-whose-turn-checking-you = Se está verificando tu cartón...
 bingo-whose-turn-drawing = Sacando el siguiente número...
 bingo-whose-turn-waiting = { $seconds ->
     [one] Próximo número en { $seconds } segundo.
@@ -55,7 +58,8 @@ bingo-last-call = { $letter } { $number }
 bingo-status-called-count = { $count } de { $total } números cantados.
 bingo-status-called-entry = { $letter } { $number }
 
-bingo-game-start = ¡Comienza el Bingo! Patrón: { $pattern }. Se cantará un número nuevo cada { $interval } segundos. Marca tu cartón y canta Bingo cuando lo tengas.
+bingo-game-start = ¡Comienza el Bingo! Patrón: { $pattern }. Se cantará un número nuevo cada { $interval } segundos. Marca tu cartón y presiona B para cantar Bingo cuando lo tengas.
+bingo-game-start-touch = ¡Comienza el Bingo! Patrón: { $pattern }. Se cantará un número nuevo cada { $interval } segundos. Marca tu cartón y, cuando lo tengas, toca dos veces y mantén en cualquier parte del cartón, o elige Cantar Bingo, para cantar Bingo.
 bingo-number-called = { $letter } { $number }
 
 bingo-claim-correct-you = ¡Sí! Cartón correcto. Ganas con { $numbers }!

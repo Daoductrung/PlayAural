@@ -30,7 +30,7 @@ The host chooses one pattern before the round starts:
 
 \* \*\*Winning Pattern:\*\* Any Line, Four Corners, Letter X, or Blackout (default Any Line).
 
-\* \*\*Call Interval:\*\* 5, 15, 30, 45, or 60 seconds between each called number (default 15).
+\* \*\*Call Interval:\*\* 5, 15, 30, 45, or 60 seconds between each called number (default 15). After every number there are always at least 4 seconds left to claim, so the 5-second setting actually runs at about 7 seconds per number, and the last number keeps the full interval.
 
 \*\*Checking Called Numbers\*\*
 
@@ -46,6 +46,12 @@ The host chooses one pattern before the round starts:
 
 \* \*\*B:\*\* Claim Bingo.
 
+\* \*\*1-finger double tap and hold (mobile only):\*\* Claim Bingo from anywhere on the card, without moving to the Claim Bingo button. It is a deliberate hold, so it is hard to trigger by accident. The Claim Bingo menu item still works too. On desktop, only B claims Bingo.
+
 \* \*\*R:\*\* Repeat the last number called.
 
 \* \*\*C:\*\* Check called numbers.
+
+\* \*\*T:\*\* Report what the round is doing right now: how many seconds until the next number, that a number is being drawn, or that a card is being checked (yours is announced as "your card"). Bingo has no turns, so this replaces the usual "whose turn" shortcut.
+
+\* \*\*Repeated claims:\*\* If your claim is rejected, you cannot claim again with the same card until a new number is called or you change your marks. This keeps one card from stalling the whole table.

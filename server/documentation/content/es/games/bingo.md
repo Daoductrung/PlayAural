@@ -30,7 +30,7 @@ El anfitrión elige un patrón antes de que comience la ronda:
 
 \* \*\*Patrón para ganar:\*\* Cualquier línea, Cuatro esquinas, Letra X, o Cartón lleno (por defecto Cualquier línea).
 
-\* \*\*Intervalo de canto:\*\* 5, 15, 30, 45, o 60 segundos entre cada número cantado (por defecto 15).
+\* \*\*Intervalo de canto:\*\* 5, 15, 30, 45, o 60 segundos entre cada número cantado (por defecto 15). Tras cada número siempre quedan al menos 4 segundos para reclamar, así que la opción de 5 segundos en realidad va a unos 7 segundos por número, y el último número conserva el intervalo completo.
 
 \*\*Ver números cantados\*\*
 
@@ -46,6 +46,12 @@ El anfitrión elige un patrón antes de que comience la ronda:
 
 \* \*\*B:\*\* Cantar Bingo.
 
+\* \*\*Doble toque con 1 dedo y mantener (solo móvil):\*\* Cantar Bingo desde cualquier parte del cartón, sin moverte al botón Cantar Bingo. Es un gesto sostenido y deliberado, por lo que es difícil activarlo sin querer. La opción Cantar Bingo del menú también sigue funcionando. En escritorio, solo B canta Bingo.
+
 \* \*\*R:\*\* Repetir el último número cantado.
 
 \* \*\*C:\*\* Ver números cantados.
+
+\* \*\*T:\*\* Informa qué está pasando en la ronda ahora mismo: cuántos segundos faltan para el siguiente número, que se está sacando un número, o que se está verificando un cartón (el tuyo se anuncia como "tu cartón"). El Bingo no tiene turnos, así que este atajo sustituye al habitual "de quién es el turno".
+
+\* \*\*Reclamos repetidos:\*\* Si tu reclamo es rechazado, no puedes volver a reclamar con el mismo cartón hasta que se cante un número nuevo o cambies tus marcas. Así un solo cartón no puede detener toda la mesa.

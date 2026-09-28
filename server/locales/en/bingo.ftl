@@ -35,10 +35,13 @@ bingo-repeat-call = Repeat last number
 bingo-check-called = Check called numbers
 bingo-no-calls-yet = No numbers have been called yet.
 bingo-claim-in-progress = Another claim is currently being checked. Try again in a moment.
+bingo-claim-in-progress-you = Your claim is already being checked.
 bingo-claim-wait-for-call = Wait for the number being drawn to be announced, then try again.
+bingo-claim-unchanged = Your card hasn't changed since it was last rejected. Mark another number or wait for the next call before claiming again.
 bingo-checking-claim-you = You call Bingo. Checking your card...
 bingo-checking-claim = { $player } calls Bingo. Checking the card...
 bingo-whose-turn-checking = Checking { $player }'s card...
+bingo-whose-turn-checking-you = Your card is being checked...
 bingo-whose-turn-drawing = Drawing the next number...
 bingo-whose-turn-waiting = { $seconds ->
     [one] Next number in { $seconds } second.
@@ -55,7 +58,8 @@ bingo-last-call = { $letter } { $number }
 bingo-status-called-count = { $count } of { $total } numbers called.
 bingo-status-called-entry = { $letter } { $number }
 
-bingo-game-start = Bingo begins! Pattern: { $pattern }. A new number will be called every { $interval } seconds. Mark your card and claim Bingo when you have it.
+bingo-game-start = Bingo begins! Pattern: { $pattern }. A new number will be called every { $interval } seconds. Mark your card, then press B to claim Bingo when you have it.
+bingo-game-start-touch = Bingo begins! Pattern: { $pattern }. A new number will be called every { $interval } seconds. Mark your card, then double-tap and hold anywhere on it, or choose Claim Bingo, to claim Bingo when you have it.
 bingo-number-called = { $letter } { $number }
 
 bingo-claim-correct-you = Yes! Correct card. You win with { $numbers }!

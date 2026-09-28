@@ -30,7 +30,7 @@ Chủ phòng chọn một mẫu trước khi vòng chơi bắt đầu:
 
 \* \*\*Mẫu thắng:\*\* Bất kỳ hàng nào, Bốn góc, Chữ X, hoặc Kín cả thẻ (mặc định là Bất kỳ hàng nào).
 
-\* \*\*Khoảng thời gian đọc số:\*\* 5, 15, 30, 45, hoặc 60 giây giữa mỗi lần đọc số (mặc định 15).
+\* \*\*Khoảng thời gian đọc số:\*\* 5, 15, 30, 45, hoặc 60 giây giữa mỗi lần đọc số (mặc định 15). Sau mỗi số luôn còn ít nhất 4 giây để hô Bingo, nên tùy chọn 5 giây thực tế mất khoảng 7 giây mỗi số, và số cuối cùng giữ nguyên khoảng thời gian đầy đủ.
 
 \*\*Xem các số đã đọc\*\*
 
@@ -46,6 +46,12 @@ Chủ phòng chọn một mẫu trước khi vòng chơi bắt đầu:
 
 \* \*\*B:\*\* Hô Bingo.
 
+\* \*\*Chạm hai lần bằng 1 ngón và giữ (chỉ điện thoại):\*\* Hô Bingo từ bất kỳ đâu trên thẻ, không cần di chuyển tới nút Hô Bingo. Đây là thao tác giữ có chủ ý nên khó kích hoạt nhầm. Mục Hô Bingo trong menu vẫn dùng được. Trên máy tính, chỉ phím B để hô Bingo.
+
 \* \*\*R:\*\* Lặp lại số vừa đọc.
 
 \* \*\*C:\*\* Xem các số đã đọc.
+
+\* \*\*T:\*\* Cho biết vòng chơi đang diễn ra thế nào: còn bao nhiêu giây đến số tiếp theo, đang rút một số, hoặc đang kiểm tra một thẻ (thẻ của bạn được báo là "thẻ của bạn"). Bingo không có lượt chơi nên phím này thay cho phím "đến lượt ai" thông thường.
+
+\* \*\*Hô nhiều lần:\*\* Nếu yêu cầu của bạn bị từ chối, bạn không thể hô lại với cùng tấm thẻ đó cho đến khi có số mới được đọc hoặc bạn đổi các ô đã đánh dấu. Nhờ vậy một tấm thẻ không thể làm cả bàn chờ mãi.

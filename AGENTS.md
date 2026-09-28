@@ -183,6 +183,11 @@ Client focus doctrine:
   stable ids. Rows without action ids normalize to explicit read-only protocol
   data automatically; do not add no-op handler branches for them. Status-box
   rows are the intentional exception because activating any row closes the box.
+- Server-owned confirmation and consent menus use
+  `server.ui.confirmation.show_confirmation_menu`. It announces the localized
+  prompt and renders that same prompt as the first stable read-only row, then
+  places decision actions after it with the safe cancel/decline action last so
+  Escape cancels. Do not hand-build Yes/No or Accept/Decline menus.
 - Open `MenuInput` selectors repaint live through sealed flushes; use stable
   option ids and declare contextual non-actions through `read_only_options`.
   Pending `EditboxInput` prompts do not repaint passively. If a

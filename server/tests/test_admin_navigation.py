@@ -26,6 +26,7 @@ from ..administration.manager import (
     ADMIN_MODERATION_SENDER_RESULTS_MENU,
     _localized_database_size,
 )
+from ..ui.confirmation import CONFIRMATION_PROMPT_ITEM_ID
 from ..users.test_user import MockUser
 from ..users.roles import (
     ADMIN_TRUST_LEVEL,
@@ -167,7 +168,7 @@ async def test_database_management_compacts_with_confirmation_and_restores_focus
             server,
             developer,
             ADMIN_DATABASE_COMPACT_CONFIRM_MENU,
-            "database_compact_summary",
+            CONFIRMATION_PROMPT_ITEM_ID,
         )
         assert (
             _current_menu(server, developer.username)
@@ -339,7 +340,7 @@ async def test_database_storage_cleanup_is_backed_up_and_preserves_saved_tables(
             for item in developer.get_current_menu_items(
                 ADMIN_DATABASE_STORAGE_CLEANUP_CONFIRM_MENU
             )
-            if item.id == "storage_cleanup_confirm_summary"
+                if item.id == CONFIRMATION_PROMPT_ITEM_ID
         )
         assert confirmation.read_only is True
 
@@ -499,7 +500,7 @@ async def test_database_backup_uses_confirmation_and_publishes_verified_snapshot
             for item in developer.get_current_menu_items(
                 ADMIN_DATABASE_BACKUP_CONFIRM_MENU
             )
-            if item.id == "database_backup_summary"
+                if item.id == CONFIRMATION_PROMPT_ITEM_ID
         )
         assert summary.read_only is True
 
@@ -1259,14 +1260,14 @@ async def test_developer_cleanup_is_confirmed_and_preserves_open_reports(
             for item in admin.get_current_menu_items(
                 ADMIN_MODERATION_CLEAR_CONFIRM_MENU
             )
-            if item.id == "clear_summary"
+            if item.id == CONFIRMATION_PROMPT_ITEM_ID
         )
         assert summary.read_only is True
         await _select(
             server,
             admin,
             ADMIN_MODERATION_CLEAR_CONFIRM_MENU,
-            "clear_summary",
+            CONFIRMATION_PROMPT_ITEM_ID,
         )
         assert _current_menu(server, admin.username) == ADMIN_MODERATION_CLEAR_CONFIRM_MENU
         assert server._db.count_global_chat_messages() == 1

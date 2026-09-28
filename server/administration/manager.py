@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 from ..copy_protocol import CopyDirective, UNSAFE_BIDI_CONTROLS
 from ..users.network_user import NetworkUser
 from ..users.base import EscapeBehavior, MenuItem
+from ..ui.confirmation import ConfirmationChoice, show_confirmation_menu
 from ..users.identity import username_key
 from ..users.roles import (
     ADMIN_TRUST_LEVEL,
@@ -2470,40 +2471,25 @@ class AdministrationManager:
         if clear_kind == "history":
             count = self.server.db.count_global_chat_messages()
             open_reports = self.server.db.count_moderation_reports(status="open")
-            summary = Localization.get(
-                user.locale,
-                "admin-moderation-clear-history-confirm",
-                count=count,
-                open=open_reports,
-            )
+            prompt_key = "admin-moderation-clear-history-confirm"
+            prompt_kwargs = {"count": count, "open": open_reports}
         elif clear_kind == "closed_reports":
             count = self.server.db.count_moderation_reports(
                 statuses=CLOSED_REPORT_STATUSES
             )
-            summary = Localization.get(
-                user.locale,
-                "admin-moderation-clear-closed-confirm",
-                count=count,
-            )
+            prompt_key = "admin-moderation-clear-closed-confirm"
+            prompt_kwargs = {"count": count}
         else:
             self._return_to_admin_root(user, "moderation")
             return
-        items = [
-            MenuItem(text=summary, id="clear_summary", read_only=True),
-            MenuItem(
-                text=Localization.get(user.locale, "confirm-yes"),
-                id="confirm",
-            ),
-            MenuItem(
-                text=Localization.get(user.locale, "confirm-no"),
-                id="back",
-            ),
-        ]
-        user.show_menu(
+        show_confirmation_menu(
+            user,
             ADMIN_MODERATION_CLEAR_CONFIRM_MENU,
-            items,
-            multiletter=True,
-            escape_behavior=EscapeBehavior.SELECT_LAST,
+            prompt_key=prompt_key,
+            prompt_kwargs=prompt_kwargs,
+            confirm_choice=ConfirmationChoice("confirm", "confirm-yes"),
+            cancel_choice=ConfirmationChoice("back", "confirm-no"),
+            buffer="system",
         )
         self.server.user_states[user.username] = {
             "menu": ADMIN_MODERATION_CLEAR_CONFIRM_MENU,
@@ -2731,16 +2717,12 @@ class AdministrationManager:
 
     def _show_promote_confirm_menu(self, user: NetworkUser, target_username: str) -> None:
         """Show confirmation menu for promoting a user to admin."""
-        user.speak_l("confirm-promote", buffer="system", player=target_username)
-        items = [
-            MenuItem(text=Localization.get(user.locale, "confirm-yes"), id="yes"),
-            MenuItem(text=Localization.get(user.locale, "confirm-no"), id="no"),
-        ]
-        user.show_menu(
+        show_confirmation_menu(
+            user,
             "promote_confirm_menu",
-            items,
-            multiletter=True,
-            escape_behavior=EscapeBehavior.SELECT_LAST,
+            prompt_key="confirm-promote",
+            prompt_kwargs={"player": target_username},
+            buffer="system",
         )
         self.server.user_states[user.username] = {
             "menu": "promote_confirm_menu",
@@ -2749,16 +2731,12 @@ class AdministrationManager:
 
     def _show_demote_confirm_menu(self, user: NetworkUser, target_username: str) -> None:
         """Show confirmation menu for demoting an admin."""
-        user.speak_l("confirm-demote", buffer="system", player=target_username)
-        items = [
-            MenuItem(text=Localization.get(user.locale, "confirm-yes"), id="yes"),
-            MenuItem(text=Localization.get(user.locale, "confirm-no"), id="no"),
-        ]
-        user.show_menu(
+        show_confirmation_menu(
+            user,
             "demote_confirm_menu",
-            items,
-            multiletter=True,
-            escape_behavior=EscapeBehavior.SELECT_LAST,
+            prompt_key="confirm-demote",
+            prompt_kwargs={"player": target_username},
+            buffer="system",
         )
         self.server.user_states[user.username] = {
             "menu": "demote_confirm_menu",
@@ -3018,29 +2996,13 @@ class AdministrationManager:
         """Confirm an exclusive, validated SQLite backup operation."""
         if not self._require_developer_database_access(user):
             return
-        items = [
-            MenuItem(
-                text=Localization.get(
-                    user.locale,
-                    "admin-database-backup-confirm",
-                ),
-                id="database_backup_summary",
-                read_only=True,
-            ),
-            MenuItem(
-                text=Localization.get(user.locale, "confirm-yes"),
-                id="confirm",
-            ),
-            MenuItem(
-                text=Localization.get(user.locale, "confirm-no"),
-                id="back",
-            ),
-        ]
-        user.show_menu(
+        show_confirmation_menu(
+            user,
             ADMIN_DATABASE_BACKUP_CONFIRM_MENU,
-            items,
-            multiletter=True,
-            escape_behavior=EscapeBehavior.SELECT_LAST,
+            prompt_key="admin-database-backup-confirm",
+            confirm_choice=ConfirmationChoice("confirm", "confirm-yes"),
+            cancel_choice=ConfirmationChoice("back", "confirm-no"),
+            buffer="system",
         )
         self.server.user_states[user.username] = {
             "menu": ADMIN_DATABASE_BACKUP_CONFIRM_MENU
@@ -3193,40 +3155,18 @@ class AdministrationManager:
         """Confirm the exclusive cleanup using a recent eligibility preview."""
         if not self._require_developer_database_access(user):
             return
-        items = [
-            MenuItem(
-                text=Localization.get(
-                    user.locale,
-                    "admin-database-storage-cleanup-confirm",
-                ),
-                id="storage_cleanup_confirm_summary",
-                read_only=True,
-            )
-        ]
-        items.extend(
-            self._database_storage_analysis_rows(
+        show_confirmation_menu(
+            user,
+            ADMIN_DATABASE_STORAGE_CLEANUP_CONFIRM_MENU,
+            prompt_key="admin-database-storage-cleanup-confirm",
+            context_items=self._database_storage_analysis_rows(
                 user,
                 analysis,
                 include_all_categories=False,
-            )
-        )
-        items.extend(
-            (
-                MenuItem(
-                    text=Localization.get(user.locale, "confirm-yes"),
-                    id="confirm",
-                ),
-                MenuItem(
-                    text=Localization.get(user.locale, "confirm-no"),
-                    id="back",
-                ),
-            )
-        )
-        user.show_menu(
-            ADMIN_DATABASE_STORAGE_CLEANUP_CONFIRM_MENU,
-            items,
-            multiletter=True,
-            escape_behavior=EscapeBehavior.SELECT_LAST,
+            ),
+            confirm_choice=ConfirmationChoice("confirm", "confirm-yes"),
+            cancel_choice=ConfirmationChoice("back", "confirm-no"),
+            buffer="system",
         )
         self.server.user_states[user.username] = {
             "menu": ADMIN_DATABASE_STORAGE_CLEANUP_CONFIRM_MENU,
@@ -3237,29 +3177,13 @@ class AdministrationManager:
         """Confirm an exclusive SQLite compaction operation."""
         if not self._require_developer_database_access(user):
             return
-        items = [
-            MenuItem(
-                text=Localization.get(
-                    user.locale,
-                    "admin-database-compact-confirm",
-                ),
-                id="database_compact_summary",
-                read_only=True,
-            ),
-            MenuItem(
-                text=Localization.get(user.locale, "confirm-yes"),
-                id="confirm",
-            ),
-            MenuItem(
-                text=Localization.get(user.locale, "confirm-no"),
-                id="back",
-            ),
-        ]
-        user.show_menu(
+        show_confirmation_menu(
+            user,
             ADMIN_DATABASE_COMPACT_CONFIRM_MENU,
-            items,
-            multiletter=True,
-            escape_behavior=EscapeBehavior.SELECT_LAST,
+            prompt_key="admin-database-compact-confirm",
+            confirm_choice=ConfirmationChoice("confirm", "confirm-yes"),
+            cancel_choice=ConfirmationChoice("back", "confirm-no"),
+            buffer="system",
         )
         self.server.user_states[user.username] = {
             "menu": ADMIN_DATABASE_COMPACT_CONFIRM_MENU
@@ -4892,29 +4816,22 @@ class AdministrationManager:
             if reason_id == "custom"
             else Localization.get(user.locale, f"server-power-reason-{reason_id}")
         )
-        items = [
-            MenuItem(
-                text=Localization.get(
-                    user.locale,
-                    "server-power-confirm-summary",
-                    action=self.server.power_manager.format_action(
-                        user.locale, action_enum
-                    ),
-                    duration=ServerPowerManager.format_duration(
-                        user.locale, delay_seconds
-                    ),
-                    reason=reason_text,
-                ),
-                id="",
-            ),
-            MenuItem(text=Localization.get(user.locale, "confirm-yes"), id="confirm"),
-            MenuItem(text=Localization.get(user.locale, "confirm-no"), id="back"),
-        ]
-        user.show_menu(
+        show_confirmation_menu(
+            user,
             "server_power_confirm_menu",
-            items,
-            multiletter=True,
-            escape_behavior=EscapeBehavior.SELECT_LAST,
+            prompt_key="server-power-confirm-summary",
+            prompt_kwargs={
+                "action": self.server.power_manager.format_action(
+                    user.locale, action_enum
+                ),
+                "duration": ServerPowerManager.format_duration(
+                    user.locale, delay_seconds
+                ),
+                "reason": reason_text,
+            },
+            confirm_choice=ConfirmationChoice("confirm", "confirm-yes"),
+            cancel_choice=ConfirmationChoice("back", "confirm-no"),
+            buffer="system",
         )
         self.server.user_states[user.username] = {
             "menu": "server_power_confirm_menu",
@@ -5113,16 +5030,12 @@ class AdministrationManager:
 
     def _show_kick_confirm_menu(self, user: NetworkUser, target_username: str) -> None:
         """Show confirmation menu for kicking a user."""
-        user.speak_l("kick-confirm", buffer="system", player=target_username)
-        items = [
-            MenuItem(text=Localization.get(user.locale, "confirm-yes"), id="yes"),
-            MenuItem(text=Localization.get(user.locale, "confirm-no"), id="no"),
-        ]
-        user.show_menu(
+        show_confirmation_menu(
+            user,
             "kick_confirm_menu",
-            items,
-            multiletter=True,
-            escape_behavior=EscapeBehavior.SELECT_LAST,
+            prompt_key="kick-confirm",
+            prompt_kwargs={"player": target_username},
+            buffer="system",
         )
         self.server.user_states[user.username] = {
             "menu": "kick_confirm_menu",

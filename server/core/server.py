@@ -74,6 +74,7 @@ from ..users.base import (
     MenuItem,
     menu_selection_targets_server_inert,
 )
+from ..ui.confirmation import ConfirmationChoice, show_confirmation_menu
 from ..users.identity import find_username_prefix, normalize_username, username_key
 from ..users.preferences import UserPreferences, DiceKeepingStyle, PREF_CATEGORIES
 from ..users.roles import (
@@ -6669,20 +6670,12 @@ PlayAural Server
             self._nav_back(user)
             return
 
-        user.speak_l(
-            "friend-remove-confirm",
-            buffer="system",
-            username=target_record.username,
-        )
-        items = [
-            MenuItem(text=Localization.get(user.locale, "confirm-yes"), id="yes"),
-            MenuItem(text=Localization.get(user.locale, "confirm-no"), id="no"),
-        ]
-        user.show_menu(
+        show_confirmation_menu(
+            user,
             FRIEND_REMOVE_CONFIRM_MENU,
-            items,
-            multiletter=False,
-            escape_behavior=EscapeBehavior.SELECT_LAST,
+            prompt_key="friend-remove-confirm",
+            prompt_kwargs={"username": target_record.username},
+            buffer="system",
         )
         self._user_states[user.username] = {
             "menu": FRIEND_REMOVE_CONFIRM_MENU,
@@ -6778,20 +6771,12 @@ PlayAural Server
             self._nav_back(user)
             return
 
-        user.speak_l(
-            "block-confirm",
-            buffer="system",
-            username=target_record.username,
-        )
-        items = [
-            MenuItem(text=Localization.get(user.locale, "confirm-yes"), id="yes"),
-            MenuItem(text=Localization.get(user.locale, "confirm-no"), id="no"),
-        ]
-        user.show_menu(
+        show_confirmation_menu(
+            user,
             USER_BLOCK_CONFIRM_MENU,
-            items,
-            multiletter=False,
-            escape_behavior=EscapeBehavior.SELECT_LAST,
+            prompt_key="block-confirm",
+            prompt_kwargs={"username": target_record.username},
+            buffer="system",
         )
         self._user_states[user.username] = {
             "menu": USER_BLOCK_CONFIRM_MENU,
@@ -6949,6 +6934,12 @@ PlayAural Server
                 MenuItem(text=Localization.get(user.locale, "back"), id="back"),
             ]
             report_channel = None
+            user.show_menu(
+                USER_REPORT_CONFIRM_MENU,
+                items,
+                multiletter=True,
+                escape_behavior=EscapeBehavior.SELECT_LAST,
+            )
         else:
             report_channel = normalize_global_chat_channel(
                 user.preferences.global_chat_channel
@@ -6962,34 +6953,22 @@ PlayAural Server
                 user.locale,
                 report_reason_localization_key(reason_code),
             )
-            items = [
-                MenuItem(
-                    text=Localization.get(
-                        user.locale,
-                        "report-confirm-summary",
-                        username=target_record.username,
-                        reason=reason_name,
-                        channel=channel_name,
-                    ),
-                    id="report_summary",
-                    read_only=True,
+            show_confirmation_menu(
+                user,
+                USER_REPORT_CONFIRM_MENU,
+                prompt_key="report-confirm-summary",
+                prompt_kwargs={
+                    "username": target_record.username,
+                    "reason": reason_name,
+                    "channel": channel_name,
+                },
+                confirm_choice=ConfirmationChoice("submit", "report-submit"),
+                alternative_choices=(
+                    ConfirmationChoice("change_reason", "report-change-reason"),
                 ),
-                MenuItem(
-                    text=Localization.get(user.locale, "report-submit"),
-                    id="submit",
-                ),
-                MenuItem(
-                    text=Localization.get(user.locale, "report-change-reason"),
-                    id="change_reason",
-                ),
-                MenuItem(text=Localization.get(user.locale, "back"), id="back"),
-            ]
-        user.show_menu(
-            USER_REPORT_CONFIRM_MENU,
-            items,
-            multiletter=True,
-            escape_behavior=EscapeBehavior.SELECT_LAST,
-        )
+                cancel_choice=ConfirmationChoice("back", "back"),
+                buffer="system",
+            )
         self._user_states[user.username] = {
             "menu": USER_REPORT_CONFIRM_MENU,
             "target_uuid": target_uuid,
@@ -7667,15 +7646,12 @@ PlayAural Server
 
     def _show_email_confirm_menu(self, user: NetworkUser, new_email: str) -> None:
         """Show email change confirmation menu."""
-        user.speak_l("confirm-email-change", buffer="system", email=new_email)
-        items = [
-            MenuItem(text=Localization.get(user.locale, "confirm-yes"), id="yes"),
-            MenuItem(text=Localization.get(user.locale, "confirm-no"), id="no"),
-        ]
-        user.show_menu(
+        show_confirmation_menu(
+            user,
             "email_confirm_menu",
-            items,
-            escape_behavior=EscapeBehavior.SELECT_LAST,
+            prompt_key="confirm-email-change",
+            prompt_kwargs={"email": new_email},
+            buffer="system",
         )
         self._user_states[user.username] = {
             "menu": "email_confirm_menu",
@@ -7694,15 +7670,13 @@ PlayAural Server
 
     def _show_logout_confirm_menu(self, user: NetworkUser) -> None:
         """Show logout confirmation menu."""
-        user.speak_l("logout-confirm-title", buffer="system")
-        items = [
-            MenuItem(text=Localization.get(user.locale, "logout-confirm-yes"), id="yes"),
-            MenuItem(text=Localization.get(user.locale, "logout-confirm-no"), id="no"),
-        ]
-        user.show_menu(
+        show_confirmation_menu(
+            user,
             "logout_confirm_menu",
-            items,
-            escape_behavior=EscapeBehavior.SELECT_LAST,
+            prompt_key="logout-confirm-title",
+            confirm_choice=ConfirmationChoice("yes", "logout-confirm-yes"),
+            cancel_choice=ConfirmationChoice("no", "logout-confirm-no"),
+            buffer="system",
         )
         self._user_states[user.username] = {"menu": "logout_confirm_menu"}
 
@@ -9009,20 +8983,11 @@ PlayAural Server
 
     def _show_host_restart_confirm_menu(self, user: NetworkUser, table: "Table") -> None:
         """Confirm a host-requested table restart."""
-        items = [
-            MenuItem(
-                text=Localization.get(user.locale, "host-restart-confirm"),
-                id="",
-            ),
-            MenuItem(text=Localization.get(user.locale, "confirm-no"), id="no"),
-            MenuItem(text=Localization.get(user.locale, "confirm-yes"), id="yes"),
-        ]
-        user.speak_l("host-restart-confirm", buffer="system")
-        user.show_menu(
+        show_confirmation_menu(
+            user,
             HOST_RESTART_CONFIRM_MENU,
-            items,
-            multiletter=False,
-            escape_behavior=EscapeBehavior.SELECT_FIRST,
+            prompt_key="host-restart-confirm",
+            buffer="system",
         )
         self._user_states[user.username] = {
             "menu": HOST_RESTART_CONFIRM_MENU,
@@ -9632,11 +9597,6 @@ PlayAural Server
         request["focus_context_ids"][prompted_user.username] = focus_context_id
         request["prompt_username"] = prompted_user.username
         request["prompt_role"] = role
-        prompt_text = Localization.get(
-            prompted_user.locale,
-            message_key,
-            **message_kwargs,
-        )
         self._user_states[prompted_user.username] = {
             "menu": PLAYER_SUBSTITUTION_PROMPT_MENU,
             "table_id": request["table_id"],
@@ -9648,28 +9608,20 @@ PlayAural Server
             PLAYER_SUBSTITUTION_NOTIFICATION_SOUND,
             buffer="system",
         )
-        prompted_user.speak_l(message_key, buffer="system", **message_kwargs)
-        prompted_user.show_menu(
+        show_confirmation_menu(
+            prompted_user,
             PLAYER_SUBSTITUTION_PROMPT_MENU,
-            [
-                MenuItem(text=prompt_text, read_only=True),
-                MenuItem(
-                    text=Localization.get(
-                        prompted_user.locale,
-                        "player-substitution-accept",
-                    ),
-                    id="accept",
-                ),
-                MenuItem(
-                    text=Localization.get(
-                        prompted_user.locale,
-                        "player-substitution-decline",
-                    ),
-                    id="decline",
-                ),
-            ],
-            multiletter=False,
-            escape_behavior=EscapeBehavior.SELECT_LAST,
+            prompt_key=message_key,
+            prompt_kwargs=message_kwargs,
+            confirm_choice=ConfirmationChoice(
+                "accept",
+                "player-substitution-accept",
+            ),
+            cancel_choice=ConfirmationChoice(
+                "decline",
+                "player-substitution-decline",
+            ),
+            buffer="system",
             capture_focus_context_id=focus_context_id,
         )
 
@@ -10309,29 +10261,15 @@ PlayAural Server
             "prev_state": prev_state,
         }
 
-        invite_text = Localization.get(
-            invitee_user.locale,
-            "table-invite-received",
-            host=host_username,
-            game=game_name,
-        )
-        items = [
-            MenuItem(text=invite_text),  # Static info line; server ignores read-only activation.
-            MenuItem(text=Localization.get(invitee_user.locale, "invite-accept"), id="accept"),
-            MenuItem(text=Localization.get(invitee_user.locale, "invite-decline"), id="decline"),
-        ]
         invitee_user.play_sound(TABLE_INVITE_NOTIFICATION_SOUND)
-        invitee_user.speak_l(
-            "table-invite-received",
-            buffer="system",
-            host=host_username,
-            game=game_name,
-        )
-        invitee_user.show_menu(
+        show_confirmation_menu(
+            invitee_user,
             "table_invite_prompt",
-            items,
-            multiletter=False,
-            escape_behavior=EscapeBehavior.SELECT_LAST,
+            prompt_key="table-invite-received",
+            prompt_kwargs={"host": host_username, "game": game_name},
+            confirm_choice=ConfirmationChoice("accept", "invite-accept"),
+            cancel_choice=ConfirmationChoice("decline", "invite-decline"),
+            buffer="system",
         )
 
         if not invite.get("task"):

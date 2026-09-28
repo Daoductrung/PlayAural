@@ -523,6 +523,12 @@ Consequences that still matter when designing a menu:
   do not duplicate that rule with no-op selection-handler branches. Static and
   live status boxes are the deliberate exception: activating any status row is
   their standard close action, so those rows are not read-only controls.
+- Server-owned confirmation and consent menus must use
+  `server.ui.confirmation.show_confirmation_menu`. The shared helper announces
+  the localized prompt and exposes the same prompt as the first stable,
+  read-only row. Decision actions follow, with the safe cancel or decline
+  action last so Escape always cancels. Do not hand-build Yes/No or
+  Accept/Decline menus.
 - `NetworkUser` content-diffs repaints: an identical same-menu repaint with
   no focus directive sends no packet at all, and the per-flush coalescer
   collapses same-tick duplicates. Bandwidth is not a reason to avoid

@@ -11,6 +11,7 @@ from server.core.server import (
     USER_REPORT_REASON_MENU,
     VERSION,
 )
+from server.ui.confirmation import CONFIRMATION_PROMPT_ITEM_ID
 from server.users.network_user import NetworkUser
 import tempfile
 import os
@@ -479,7 +480,13 @@ class TestFriendsSystem:
         menu = next(msg for msg in messages if msg.get("type") == "menu")
         assert menu["menu_id"] == FRIEND_REMOVE_CONFIRM_MENU
         assert menu["escape_behavior"] == "select_last_option"
-        assert [item["id"] for item in menu["items"]] == ["yes", "no"]
+        assert [item["id"] for item in menu["items"]] == [
+            CONFIRMATION_PROMPT_ITEM_ID,
+            "yes",
+            "no",
+        ]
+        assert menu["items"][0]["read_only"] is True
+        assert menu["selection_id"] == CONFIRMATION_PROMPT_ITEM_ID
 
     @pytest.mark.asyncio
     async def test_remove_friend_cancel_keeps_friendship_and_returns_to_actions(self):

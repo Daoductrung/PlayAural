@@ -8,6 +8,7 @@ import pytest
 
 from ..core.server import HOST_RESTART_CONFIRM_MENU, Server
 from ..games.crazyeights.game import CrazyEightsGame
+from ..ui.confirmation import CONFIRMATION_PROMPT_ITEM_ID
 from ..users.test_user import MockUser
 
 
@@ -110,7 +111,11 @@ async def test_host_restart_requires_confirmation_and_resets_to_clean_lobby() ->
         {"table_id": table.table_id},
     )
     assert server._user_states[alice.username]["menu"] == HOST_RESTART_CONFIRM_MENU
-    assert _menu_ids(alice, HOST_RESTART_CONFIRM_MENU)[-2:] == ["no", "yes"]
+    assert _menu_ids(alice, HOST_RESTART_CONFIRM_MENU) == [
+        CONFIRMATION_PROMPT_ITEM_ID,
+        "yes",
+        "no",
+    ]
 
     await server._handle_host_restart_confirm_selection(
         alice,

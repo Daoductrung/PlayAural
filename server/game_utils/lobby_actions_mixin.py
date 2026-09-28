@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 from ..users.base import MenuItem, EscapeBehavior
 from ..users.bot import Bot
 from ..messages.localization import Localization
+from ..ui.confirmation import show_confirmation_menu
 from .player import Player
 from .teams import TeamManager
 from .bot_names import (
@@ -838,16 +839,11 @@ class LobbyActionsMixin:
         if return_focus:
             self._pending_action_return_focus[player.id] = return_focus
         self._pending_actions[player.id] = "leave_game_confirm"
-        user.speak_l("confirm-leave-game", buffer="game")
-        items = [
-            MenuItem(text=Localization.get(user.locale, "confirm-no"), id="no"),
-            MenuItem(text=Localization.get(user.locale, "confirm-yes"), id="yes"),
-        ]
-        user.show_menu(
+        show_confirmation_menu(
+            user,
             "leave_game_confirm",
-            items,
-            multiletter=False,
-            escape_behavior=EscapeBehavior.SELECT_LAST,
+            prompt_key="confirm-leave-game",
+            buffer="game",
         )
 
     def _action_host_management(self, player: "Player", action_id: str) -> None:

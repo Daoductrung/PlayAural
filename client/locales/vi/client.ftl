@@ -149,6 +149,11 @@ options-reset-confirm-title = Xác nhận khôi phục
 options-reset-confirm-message = Khôi phục tùy chỉnh { $tab } về giá trị đã lưu?
 
 slash-command-error = Lỗi khi xử lý lệnh gạch chéo { $command }.
+slash-command-state-required = Cần có tham số trạng thái.
+slash-command-invalid-state = Giá trị trạng thái không hợp lệ. Các giá trị bật: { $positive }. Các giá trị tắt: { $negative }.
+slash-command-not-found = Không tìm thấy lệnh gạch chéo { $command }.
+slash-command-min-arguments = Lệnh { $command } cần ít nhất { $count } tham số.
+slash-command-max-arguments = Lệnh { $command } nhận tối đa { $count } tham số.
 reg-error-exception = Lỗi: { $error }
 main-connection-error-title = Lỗi kết nối
 main-options-error = Các tùy chọn ứng dụng không khả dụng

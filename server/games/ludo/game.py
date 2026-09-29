@@ -8,6 +8,7 @@ Roll a 6 to enter, capture opponents on unsafe squares, consecutive-6 penalty.
 from dataclasses import dataclass, field
 from datetime import datetime
 import random
+from typing import TYPE_CHECKING
 
 from ..base import Game, Player
 from ..registry import register_game
@@ -20,6 +21,9 @@ from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
 from ...users.base import MenuItem
 from .bot import bot_think
+
+if TYPE_CHECKING:
+    from ...users.base import User
 
 
 # Board constants

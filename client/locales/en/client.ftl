@@ -149,6 +149,17 @@ options-reset-confirm-title = Confirm Reset
 options-reset-confirm-message = Reset { $tab } settings to saved values?
 
 slash-command-error = Error processing slash command { $command }.
+slash-command-state-required = The state parameter is required.
+slash-command-invalid-state = Invalid state value. Values that enable it: { $positive }. Values that disable it: { $negative }.
+slash-command-not-found = Slash command { $command } was not found.
+slash-command-min-arguments = { $command } requires at least { $count ->
+    [one] one argument
+   *[other] { $count } arguments
+    }.
+slash-command-max-arguments = { $command } accepts at most { $count ->
+    [one] one argument
+   *[other] { $count } arguments
+    }.
 reg-error-exception = Error: { $error }
 main-connection-error-title = Connection Error
 main-options-error = Client options not available

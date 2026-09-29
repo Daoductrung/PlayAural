@@ -2,6 +2,7 @@
 
 import logging
 import sqlite3
+import unicodedata
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
@@ -57,6 +58,44 @@ def test_resolution_is_unicode_normalized_and_case_insensitive(db):
     assert resolved.username == "Đặng"
 
 
+def test_vietnamese_username_spelling_survives_case_insensitive_login(db):
+    auth = AuthManager(db)
+    registered_username = "Đào Đức Trung"
+    created = db.create_user(
+        registered_username,
+        auth.hash_password("SecurePassword1"),
+    )
+
+    assert created is not None
+    for entered_username in (
+        registered_username,
+        registered_username.lower(),
+        unicodedata.normalize("NFD", registered_username.lower()),
+    ):
+        assert auth.authenticate(entered_username, "SecurePassword1") is True
+        resolved = db.get_user(entered_username)
+        assert resolved is not None
+        assert resolved.uuid == created.uuid
+        assert resolved.username == registered_username
+
+
+def test_compatibility_equivalent_username_cannot_create_second_identity(db):
+    created = db.create_user("Player", "hash")
+
+    assert created is not None
+    assert db.create_user("Ｐｌａｙｅｒ", "hash") is None
+    resolved = db.get_user("ＰＬＡＹＥＲ")
+    assert resolved is not None
+    assert resolved.uuid == created.uuid
+    assert resolved.username == "Player"
+
+
+@pytest.mark.parametrize("username", ["System", "system", "Ｓｙｓｔｅｍ"])
+def test_database_creation_boundary_rejects_server_identity_names(db, username):
+    assert db.create_user(username, "hash") is None
+    assert db.get_user(username) is None
+
+
 def test_legacy_casefold_collision_requires_exact_registered_spelling(db):
     first = db.create_user("Straße", "hash")
     _insert_legacy_user(db, "STRASSE")
@@ -107,6 +146,52 @@ def test_auth_session_and_password_reset_use_resolved_canonical_account(db):
     assert auth.validate_session(token) == "Trung"
     assert auth.reset_password("TRUNG", "NewPassword2") is True
     assert auth.authenticate("trung", "NewPassword2") is True
+
+
+def test_auth_session_is_owned_by_account_id_and_expires_with_account(db):
+    auth = AuthManager(db)
+    created = db.create_user("Session Owner", auth.hash_password("Password1"))
+    assert created is not None
+
+    token = auth.create_session("session owner")
+
+    assert auth._sessions[token] == created.uuid
+    assert auth.validate_session(token) == "Session Owner"
+    assert db.delete_user("Session Owner") is True
+    assert auth.validate_session(token) is None
+    assert token not in auth._sessions
+
+
+def test_uuid_lookup_fails_closed_if_live_storage_is_corrupted(db):
+    first = db.create_user("First Account", "hash")
+    second = db.create_user("Second Account", "hash")
+    assert first is not None
+    assert second is not None
+    db._conn.execute("DROP INDEX idx_users_uuid")
+    db._conn.execute("DROP TRIGGER protect_users_immutable_identity")
+    db._conn.execute(
+        "UPDATE users SET uuid = ? WHERE username = ?",
+        (first.uuid, second.username),
+    )
+
+    with pytest.raises(sqlite3.DatabaseError, match="multiple accounts"):
+        db.get_user_by_uuid(first.uuid)
+
+
+@pytest.mark.parametrize("column", ["username", "uuid"])
+def test_persisted_account_identity_fields_are_immutable(db, column):
+    created = db.create_user("Immutable Account", "hash")
+    assert created is not None
+
+    with pytest.raises(sqlite3.IntegrityError, match="username.*immutable"):
+        db._conn.execute(
+            f"UPDATE users SET {column} = ? WHERE id = ?",
+            (f"changed-{column}", created.id),
+        )
+
+    retained = db.get_user_by_uuid(created.uuid)
+    assert retained is not None
+    assert retained.username == created.username
 
 
 def test_deleting_exact_legacy_collision_does_not_delete_peer(db):

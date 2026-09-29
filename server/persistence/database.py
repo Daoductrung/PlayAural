@@ -42,7 +42,12 @@ from ..moderation.reports import (
     ModerationReportSubmission,
 )
 from ..tables.table import Table
-from ..users.identity import normalize_username, username_key
+from ..users.identity import (
+    legacy_username_key_v2,
+    normalize_username,
+    username_key,
+)
+from ..users.system_identities import is_reserved_system_username
 from ..gender import Gender, normalize_gender, require_gender
 from ..users.roles import (
     ADMIN_TRUST_LEVEL,
@@ -75,6 +80,7 @@ _NamedIndexAttributes = tuple[
 ]
 _UniqueKeyAttributes = tuple[tuple[str | None, bool, str], ...]
 _ForeignKeyAttributes = tuple[str, str, str, str, str, str]
+_TriggerAttributes = tuple[str, str]
 
 
 def database_failure_requires_operator_recovery(exc: BaseException) -> bool:
@@ -102,9 +108,11 @@ class UserRecord:
     """A user record from the database."""
 
     id: int
+    # Immutable login/routing handle.  A future mutable display name must be a
+    # separate field and must never replace this value in identity relations.
     username: str
     password_hash: str
-    uuid: str  # Persistent unique identifier for stats tracking
+    uuid: str  # Immutable unique account identifier for all durable relations
     locale: str = "en"
     preferences_json: str = "{}"
     trust_level: int = USER_TRUST_LEVEL
@@ -378,7 +386,7 @@ class Database:
     )
     SQLITE_SIDECAR_SUFFIXES = ("-wal", "-shm", "-journal")
     APPLICATION_ID = 0x50415552  # "PAUR"
-    CURRENT_SCHEMA_VERSION = 2
+    CURRENT_SCHEMA_VERSION = 3
     # Window functions are the newest SQLite syntax used by the persistence
     # layer. They were added in SQLite 3.25.0; AlmaLinux 8's supported 3.26.0
     # runtime satisfies this baseline without relying on newer aliases such as
@@ -567,6 +575,12 @@ class Database:
         connection.create_function(
             "USERNAME_KEY",
             1,
+            legacy_username_key_v2,
+            deterministic=True,
+        )
+        connection.create_function(
+            "USERNAME_KEY_V3",
+            1,
             username_key,
             deterministic=True,
         )
@@ -592,6 +606,12 @@ class Database:
         connection.row_factory = sqlite3.Row
         connection.create_function(
             "USERNAME_KEY",
+            1,
+            legacy_username_key_v2,
+            deterministic=True,
+        )
+        connection.create_function(
+            "USERNAME_KEY_V3",
             1,
             username_key,
             deterministic=True,
@@ -1515,15 +1535,18 @@ class Database:
 
         # Version zero is the unversioned production layout. Version one first
         # introduced identity/version headers, but its compatibility migration
-        # could leave users.username_key nullable. Both layouts migrate through
-        # the same backed-up transaction into the strict current contract.
-        if schema_version not in {0, 1}:
+        # could leave users.username_key nullable. Version two made that lookup
+        # key non-null, but did not enforce immutable account-id uniqueness and
+        # used canonical rather than compatibility normalization. All supported
+        # layouts migrate through one backed-up transaction into the strict
+        # current contract.
+        if schema_version not in {0, 1, 2}:
             raise sqlite3.DatabaseError(
                 f"no migration path exists from schema version {schema_version}"
             )
-        if schema_version == 1 and application_id != self.APPLICATION_ID:
+        if schema_version in {1, 2} and application_id != self.APPLICATION_ID:
             raise sqlite3.DatabaseError(
-                "version-one database is missing the PlayAural application "
+                f"version-{schema_version} database is missing the PlayAural "
                 "identifier"
             )
         unexpected_migration_objects = sorted(
@@ -1547,14 +1570,19 @@ class Database:
                 "unversioned SQLite database is not a recognizable PlayAural "
                 f"database; refusing to modify it{detail}"
             )
-        if schema_version == 1:
+        if schema_version in {1, 2}:
             self._validate_schema(
-                expected_schema_version=1,
-                allowed_column_attributes={
-                    ("users", "username_key"): frozenset(
-                        {("TEXT", False, None, 0)}
-                    )
-                },
+                expected_schema_version=schema_version,
+                allowed_column_attributes=(
+                    {
+                        ("users", "username_key"): frozenset(
+                            {("TEXT", False, None, 0)}
+                        )
+                    }
+                    if schema_version == 1
+                    else None
+                ),
+                legacy_identity_contract=True,
             )
 
         migration_backup: DatabaseBackupResult | None = None
@@ -1776,6 +1804,26 @@ class Database:
             for table_name in table_names
         }
 
+    @classmethod
+    def _trigger_attributes(
+        cls,
+        executor: sqlite3.Connection | sqlite3.Cursor,
+    ) -> dict[str, _TriggerAttributes]:
+        """Return the owning table and normalized SQL for required triggers."""
+        return {
+            str(row[0]): (
+                str(row[1]),
+                cls._normalize_schema_sql(str(row[2] or "")),
+            )
+            for row in executor.execute(
+                """
+                SELECT name, tbl_name, sql
+                FROM sqlite_master
+                WHERE type = 'trigger'
+                """
+            ).fetchall()
+        }
+
     def _canonical_schema_contract(
         self,
     ) -> tuple[
@@ -1783,6 +1831,7 @@ class Database:
         dict[str, _NamedIndexAttributes],
         dict[str, frozenset[_UniqueKeyAttributes]],
         dict[str, frozenset[_ForeignKeyAttributes]],
+        dict[str, _TriggerAttributes],
     ]:
         """Build structural contracts from the authoritative DDL itself.
 
@@ -1828,6 +1877,7 @@ class Database:
                     connection,
                     canonical_table_names,
                 ),
+                self._trigger_attributes(connection),
             )
         finally:
             if connection.in_transaction:
@@ -1849,6 +1899,7 @@ class Database:
             tuple[str, str], frozenset[_ColumnAttributes]
         ]
         | None = None,
+        legacy_identity_contract: bool = False,
     ) -> None:
         """Require the canonical schema contract without repairing drift."""
         executor = cursor if cursor is not None else self._conn
@@ -1874,7 +1925,39 @@ class Database:
             canonical_indexes,
             canonical_unique_keys,
             canonical_foreign_keys,
+            canonical_triggers,
         ) = self._canonical_schema_contract()
+        if legacy_identity_contract:
+            # Schema versions one and two used the same named UUID index but
+            # did not declare it unique. Derive the legacy exception from the
+            # current authoritative DDL instead of maintaining a second schema
+            # contract by hand.
+            canonical_indexes = dict(canonical_indexes)
+            uuid_index = canonical_indexes["idx_users_uuid"]
+            canonical_indexes["idx_users_uuid"] = (
+                uuid_index[0],
+                False,
+                uuid_index[2],
+                uuid_index[3],
+                uuid_index[4],
+            )
+            canonical_unique_keys = dict(canonical_unique_keys)
+            canonical_unique_keys["users"] = frozenset(
+                unique_key
+                for unique_key in canonical_unique_keys["users"]
+                if unique_key != uuid_index[3]
+            )
+            canonical_triggers = {}
+            history_index = canonical_indexes[
+                "idx_global_chat_messages_username_time"
+            ]
+            canonical_indexes["idx_global_chat_messages_username_time"] = (
+                history_index[0],
+                history_index[1],
+                history_index[2],
+                history_index[3],
+                history_index[4].replace("username_key_v3(", "username_key("),
+            )
         canonical_table_names = frozenset(canonical_columns)
 
         actual_table_sql = {
@@ -1902,20 +1985,39 @@ class Database:
                 + ")"
             )
 
-        unexpected_schema_objects = executor.execute(
+        unexpected_views = executor.execute(
             """
-            SELECT type, name
+            SELECT name
             FROM sqlite_master
-            WHERE type IN ('trigger', 'view')
-            ORDER BY type, name
+            WHERE type = 'view'
+            ORDER BY name
             """
         ).fetchall()
-        if unexpected_schema_objects:
+        if unexpected_views:
+            detail = ", ".join(f"view {row[0]}" for row in unexpected_views)
+            raise sqlite3.DatabaseError(
+                "database schema contains unexpected objects: " + detail
+            )
+
+        actual_triggers = self._trigger_attributes(executor)
+        unexpected_triggers = sorted(set(actual_triggers) - set(canonical_triggers))
+        if unexpected_triggers:
             detail = ", ".join(
-                f"{row[0]} {row[1]}" for row in unexpected_schema_objects
+                f"trigger {trigger_name}" for trigger_name in unexpected_triggers
             )
             raise sqlite3.DatabaseError(
                 "database schema contains unexpected objects: " + detail
+            )
+        invalid_triggers = sorted(
+            trigger_name
+            for trigger_name, expected_attributes in canonical_triggers.items()
+            if actual_triggers.get(trigger_name) != expected_attributes
+        )
+        if invalid_triggers:
+            raise sqlite3.DatabaseError(
+                "database schema is missing required triggers or has malformed "
+                "definitions: "
+                + ", ".join(invalid_triggers)
             )
 
         for table_name, expected_columns in canonical_columns.items():
@@ -2012,20 +2114,74 @@ class Database:
                     "foreign keys"
                 )
 
-        stale_username_key = executor.execute(
-            """
-            SELECT username
-            FROM users
-            WHERE username_key IS NULL
-               OR username_key != USERNAME_KEY(username)
-            LIMIT 1
-            """
-        ).fetchone()
+        if legacy_identity_contract:
+            stale_username_key = next(
+                (
+                    row
+                    for row in executor.execute(
+                        "SELECT username, username_key FROM users"
+                    ).fetchall()
+                    if row["username_key"] is None
+                    or str(row["username_key"])
+                    != legacy_username_key_v2(row["username"])
+                ),
+                None,
+            )
+        else:
+            stale_username_key = executor.execute(
+                """
+                SELECT username
+                FROM users
+                WHERE username_key IS NULL
+                   OR username_key != USERNAME_KEY_V3(username)
+                LIMIT 1
+                """
+            ).fetchone()
         if stale_username_key is not None:
             raise sqlite3.DatabaseError(
                 "database contains an invalid canonical username key for "
                 f"{stale_username_key[0]!r}"
             )
+        self._validate_account_id_integrity(executor)
+
+    @staticmethod
+    def _validate_account_id_integrity(
+        executor: sqlite3.Connection | sqlite3.Cursor,
+    ) -> None:
+        """Require one canonical UUID owned by exactly one persisted account."""
+        invalid = executor.execute(
+            """
+            SELECT uuid, COUNT(*) AS account_count
+            FROM users
+            GROUP BY uuid
+            HAVING uuid = '' OR COUNT(*) != 1
+            LIMIT 1
+            """
+        ).fetchone()
+        if invalid is not None:
+            account_id = str(invalid[0])
+            count = int(invalid[1])
+            if not account_id:
+                raise sqlite3.DatabaseError(
+                    "database contains an account with an empty immutable id"
+                )
+            raise sqlite3.DatabaseError(
+                "database contains duplicate immutable account id "
+                f"{account_id!r} across {count} accounts"
+            )
+        for row in executor.execute("SELECT uuid FROM users").fetchall():
+            account_id = str(row[0])
+            try:
+                parsed_id = uuid_module.UUID(account_id)
+            except (AttributeError, ValueError) as exc:
+                raise sqlite3.DatabaseError(
+                    f"database contains invalid immutable account id {account_id!r}"
+                ) from exc
+            if parsed_id.int == 0 or str(parsed_id) != account_id:
+                raise sqlite3.DatabaseError(
+                    f"database contains non-canonical immutable account id "
+                    f"{account_id!r}"
+                )
 
     def _create_tables(self) -> None:
         """Create or migrate the schema in one atomic transaction."""
@@ -2067,7 +2223,9 @@ class Database:
 
     def _rebuild_legacy_users_table(self, cursor: sqlite3.Cursor) -> None:
         """Make the version-one nullable lookup column structurally current."""
-        canonical_columns, canonical_indexes, _, _ = self._canonical_schema_contract()
+        canonical_columns, canonical_indexes, _, _, _ = (
+            self._canonical_schema_contract()
+        )
         ordered_columns = tuple(canonical_columns["users"])
         actual_columns = self._column_attributes(
             cursor.execute("PRAGMA table_info(users)").fetchall()
@@ -2148,6 +2306,18 @@ class Database:
         self._migrate_username_lookup_keys(cursor)
         if users_existed and source_schema_version < 2:
             self._rebuild_legacy_users_table(cursor)
+        self._validate_account_id_integrity(cursor)
+        if users_existed and source_schema_version < 3:
+            # SQLite cannot strengthen an existing named index through
+            # CREATE ... IF NOT EXISTS. Replace it inside the migration
+            # transaction after proving the retained ids are unique. The
+            # historical-chat expression index must also be rebuilt because
+            # USERNAME_KEY's compatibility-folding semantics changed in v3;
+            # retaining its old index entries would make valid queries miss.
+            cursor.execute("DROP INDEX IF EXISTS idx_users_uuid")
+            cursor.execute(
+                "DROP INDEX IF EXISTS idx_global_chat_messages_username_time"
+            )
 
         # Tables table (game tables)
         cursor.execute("""
@@ -2471,7 +2641,7 @@ class Database:
 
         # Additional indexes for fast lookups
         cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_users_uuid
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_users_uuid
             ON users(uuid)
         """)
         cursor.execute("""
@@ -2511,7 +2681,7 @@ class Database:
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_global_chat_messages_username_time
             ON global_chat_messages(
-                USERNAME_KEY(sender_username), sent_at_utc DESC, id DESC
+                USERNAME_KEY_V3(sender_username), sent_at_utc DESC, id DESC
             )
         """)
         cursor.execute("""
@@ -2550,6 +2720,15 @@ class Database:
             CREATE INDEX IF NOT EXISTS idx_result_players_result
             ON game_result_players(result_id)
         """)
+        cursor.execute("""
+            CREATE TRIGGER IF NOT EXISTS protect_users_immutable_identity
+            BEFORE UPDATE OF username, uuid ON users
+            FOR EACH ROW
+            WHEN NEW.username IS NOT OLD.username OR NEW.uuid IS NOT OLD.uuid
+            BEGIN
+                SELECT RAISE(ABORT, 'account username and id are immutable');
+            END
+        """)
 
     def _ensure_column(
         self,
@@ -2585,12 +2764,12 @@ class Database:
         self._ensure_column(cursor, "users", "username_key", "TEXT")
         stale_predicate = (
             "WHERE username_key IS NULL "
-            "OR username_key != USERNAME_KEY(username)"
+            "OR username_key != USERNAME_KEY_V3(username)"
         )
         cursor.execute(f"SELECT 1 FROM users {stale_predicate} LIMIT 1")
         if cursor.fetchone() is not None:
             cursor.execute(
-                "UPDATE users SET username_key = USERNAME_KEY(username) "
+                "UPDATE users SET username_key = USERNAME_KEY_V3(username) "
                 f"{stale_predicate}"
             )
 
@@ -3411,7 +3590,7 @@ class Database:
             WHERE history.sender_uuid IN (
                 SELECT DISTINCT matching.sender_uuid
                 FROM global_chat_messages AS matching
-                WHERE USERNAME_KEY(matching.sender_username) = ?
+                WHERE USERNAME_KEY_V3(matching.sender_username) = ?
             )
             GROUP BY history.sender_uuid
             ORDER BY last_sent_at_utc DESC, history.sender_uuid
@@ -3439,7 +3618,7 @@ class Database:
             """
             SELECT COUNT(DISTINCT sender_uuid) AS count
             FROM global_chat_messages
-            WHERE USERNAME_KEY(sender_username) = ?
+            WHERE USERNAME_KEY_V3(sender_username) = ?
             """,
             (lookup_key,),
         ).fetchone()
@@ -4179,11 +4358,15 @@ class Database:
             return None
         cursor = self._conn.cursor()
         cursor.execute(
-            f"SELECT {_USER_RECORD_COLUMNS} FROM users WHERE uuid = ? LIMIT 1",
+            f"SELECT {_USER_RECORD_COLUMNS} FROM users WHERE uuid = ? LIMIT 2",
             (user_uuid,),
         )
-        row = cursor.fetchone()
-        return self._user_record_from_row(row) if row else None
+        rows = cursor.fetchall()
+        if len(rows) > 1:
+            raise sqlite3.DatabaseError(
+                f"multiple accounts share immutable id {user_uuid!r}"
+            )
+        return self._user_record_from_row(rows[0]) if rows else None
 
     def create_user(
         self,
@@ -4205,7 +4388,7 @@ class Database:
         """
         username = normalize_username(username)
         lookup_key = username_key(username)
-        if not username or not lookup_key:
+        if not username or not lookup_key or is_reserved_system_username(username):
             return None
         user_uuid = str(uuid_module.uuid4())
         now_iso = datetime.now().isoformat()
@@ -5040,18 +5223,18 @@ class Database:
                     ) AS row_number
                 FROM bans
                 WHERE (expires_at IS NULL OR expires_at > ?)
-                  AND INSTR(USERNAME_KEY(username), ?) > 0
+                  AND INSTR(USERNAME_KEY_V3(username), ?) > 0
             )
             SELECT id, username, admin_username, reason_key, issued_at, expires_at
             FROM ranked_active_bans
             WHERE row_number = 1
             ORDER BY
                 CASE
-                    WHEN USERNAME_KEY(username) = ? THEN 0
-                    WHEN INSTR(USERNAME_KEY(username), ?) = 1 THEN 1
+                    WHEN USERNAME_KEY_V3(username) = ? THEN 0
+                    WHEN INSTR(USERNAME_KEY_V3(username), ?) = 1 THEN 1
                     ELSE 2
                 END,
-                USERNAME_KEY(username),
+                USERNAME_KEY_V3(username),
                 username COLLATE BINARY
             LIMIT ?
             OFFSET ?
@@ -5082,7 +5265,7 @@ class Database:
                 SELECT username
                 FROM bans
                 WHERE (expires_at IS NULL OR expires_at > ?)
-                  AND INSTR(USERNAME_KEY(username), ?) > 0
+                  AND INSTR(USERNAME_KEY_V3(username), ?) > 0
                 GROUP BY username COLLATE BINARY
             )
             """,
@@ -5214,18 +5397,18 @@ class Database:
                     ) AS row_number
                 FROM mutes
                 WHERE (expires_at IS NULL OR expires_at > ?)
-                  AND INSTR(USERNAME_KEY(username), ?) > 0
+                  AND INSTR(USERNAME_KEY_V3(username), ?) > 0
             )
             SELECT id, username, admin_username, reason, issued_at, expires_at
             FROM ranked_active_mutes
             WHERE row_number = 1
             ORDER BY
                 CASE
-                    WHEN USERNAME_KEY(username) = ? THEN 0
-                    WHEN INSTR(USERNAME_KEY(username), ?) = 1 THEN 1
+                    WHEN USERNAME_KEY_V3(username) = ? THEN 0
+                    WHEN INSTR(USERNAME_KEY_V3(username), ?) = 1 THEN 1
                     ELSE 2
                 END,
-                USERNAME_KEY(username),
+                USERNAME_KEY_V3(username),
                 username COLLATE BINARY
             LIMIT ?
             OFFSET ?
@@ -5256,7 +5439,7 @@ class Database:
                 SELECT username
                 FROM mutes
                 WHERE (expires_at IS NULL OR expires_at > ?)
-                  AND INSTR(USERNAME_KEY(username), ?) > 0
+                  AND INSTR(USERNAME_KEY_V3(username), ?) > 0
                 GROUP BY username COLLATE BINARY
             )
             """,
@@ -6009,7 +6192,7 @@ class Database:
             WHERE pgs.game_type = ? AND pgs.stat_key = ?
             ORDER BY
                 CAST(pgs.stat_value AS REAL) DESC,
-                USERNAME_KEY(COALESCE(u.username, pgs.player_id)) ASC,
+                USERNAME_KEY_V3(COALESCE(u.username, pgs.player_id)) ASC,
                 COALESCE(u.username, pgs.player_id) COLLATE BINARY ASC,
                 pgs.player_id ASC
             LIMIT ?
@@ -6039,7 +6222,7 @@ class Database:
             ORDER BY
                 CAST(pgs_w.stat_value AS REAL) DESC,
                 CAST(COALESCE(pgs_l.stat_value, 0) AS REAL) ASC,
-                USERNAME_KEY(COALESCE(u.username, pgs_w.player_id)) ASC,
+                USERNAME_KEY_V3(COALESCE(u.username, pgs_w.player_id)) ASC,
                 COALESCE(u.username, pgs_w.player_id) COLLATE BINARY ASC,
                 pgs_w.player_id ASC
             LIMIT ?

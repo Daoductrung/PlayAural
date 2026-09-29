@@ -225,6 +225,27 @@ class TestAuthSecurity:
         assert result == "username_reserved_bot"
         assert self.db.get_user("Omega Alpha") is None
 
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("username", ["System", "system", "Ｓｙｓｔｅｍ"])
+    async def test_registration_rejects_server_owned_identity_name(
+        self,
+        username,
+    ):
+        client = MockClient()
+
+        await self.server._handle_register(
+            client,
+            {
+                "username": username,
+                "password": "Password123",
+                "email": f"reserved-{uuid.uuid4()}@example.com",
+            },
+        )
+
+        assert client.sent_messages[-1]["status"] == "error"
+        assert client.sent_messages[-1]["error"] == "username_reserved"
+        assert self.db.get_user(username) is None
+
     @pytest.mark.parametrize(
         ("username", "expected"),
         [

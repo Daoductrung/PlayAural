@@ -134,6 +134,22 @@ serialized game and member roster before exposing a table, retain the save on
 every failure, treat bot-held human seats as their original human accounts,
 and identify only the restorer's own blocks when giving unblock instructions.
 
+### Account Identity Boundary
+
+Account identity has three distinct roles. The database UUID is the immutable,
+globally unique account id and owns sessions, relationships, moderation targets,
+statistics, and every other durable relation. The username is an immutable,
+unique login/routing handle; it is currently also the public label, but must
+never be rewritten as a display-name change. A future `display_name` is mutable,
+non-unique presentation data only: resolve it through the UUID/username owner,
+never authenticate, authorize, route, join, or persist a relation by it. Stored
+chat, report, and result names are deliberate historical snapshots paired with
+immutable ids, not live identity keys. Server-owned identity names are reserved
+through the shared registry and cannot be registered by users. When display
+names are introduced, identity-sensitive profiles, reports, moderation views,
+and confirmations must expose the owning username, while every action id and
+payload remains bound to the UUID.
+
 ### Audio Control Protocol
 
 Server-controlled SFX, music, and ambience use the single versioned `audio`
@@ -769,6 +785,10 @@ maintenance, not server-power finalization. Route them through
   version-zero and version-one databases acquire the canonical non-null identity
   contract without losing account ids or rows. Preserve this backed-up migration
   path until those database versions are explicitly retired.
+- Schema version 3 compatibility-folds username lookup keys and makes the
+  immutable account UUID index unique. Version-two upgrades must remain backed
+  up and fail closed if invalid or duplicate account ids are found; never guess
+  which account owns corrupted relational data.
 - Migration preflight must reserve backup publication and live transaction
   workspace together when both paths share a filesystem. After a rolled-back
   attempt, reuse only a durable pre-migration snapshot whose integrity, schema,

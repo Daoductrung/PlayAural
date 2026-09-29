@@ -579,7 +579,12 @@ async def test_post_publication_compaction_failure_remains_fail_closed(
     backups = list((tmp_path / "backups").glob("*.sqlite3"))
     assert len(backups) == 1
     connection = sqlite3.connect(server.db.db_path)
-    connection.create_function("USERNAME_KEY", 1, username_key, deterministic=True)
+    connection.create_function(
+        "USERNAME_KEY_V3",
+        1,
+        username_key,
+        deterministic=True,
+    )
     try:
         assert connection.execute(
             "SELECT uuid FROM users WHERE username = 'Retained'"

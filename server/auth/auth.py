@@ -11,10 +11,12 @@ import logging
 try:
     from ..game_utils.bot_names import is_reserved_bot_name
     from ..users.identity import username_validation_error
+    from ..users.system_identities import is_reserved_system_username
     from ..users.roles import DEVELOPER_TRUST_LEVEL
 except ImportError:  # pragma: no cover - supports direct server/cli imports
     from game_utils.bot_names import is_reserved_bot_name
     from users.identity import username_validation_error
+    from users.system_identities import is_reserved_system_username
     from users.roles import DEVELOPER_TRUST_LEVEL
 
 if TYPE_CHECKING:
@@ -30,7 +32,10 @@ class AuthManager:
 
     def __init__(self, database: "Database"):
         self._db = database
-        self._sessions: dict[str, str] = {}  # session_token -> username
+        # Session ownership follows the immutable account id.  The public
+        # validation API resolves the current username at the boundary, so a
+        # future mutable display name cannot orphan or transfer a token.
+        self._sessions: dict[str, str] = {}  # session_token -> account UUID
         self._hasher = PasswordHasher()
 
     def hash_password(self, password: str) -> str:
@@ -64,6 +69,7 @@ class AuthManager:
         Returns "ok" on success, or an error key:
         - "username_taken" if the username already exists
         - "username_reserved_bot" if the username is reserved for generated bots
+        - "username_reserved" if the username belongs to a server identity
         - "username_length" or "username_invalid_chars" if the name is invalid
         - "db_error" if the INSERT failed unexpectedly
         The first user ever registered becomes a developer (trust level 3) and is auto-approved.
@@ -75,6 +81,8 @@ class AuthManager:
             return "username_taken"
         if is_reserved_bot_name(username):
             return "username_reserved_bot"
+        if is_reserved_system_username(username):
+            return "username_reserved"
 
         password_hash = self.hash_password(password)
         result = self._db.create_user(
@@ -161,17 +169,24 @@ class AuthManager:
         return self._db.get_user(username)
 
     def create_session(self, username: str) -> str:
-        """Create a session token for a user, normalizing to the canonical database username."""
+        """Create a session token bound to one immutable account id."""
         user = self._db.get_user(username)
         if not user:
             raise ValueError("Cannot create a session for an unresolved username")
         token = secrets.token_hex(32)
-        self._sessions[token] = user.username
+        self._sessions[token] = user.uuid
         return token
 
     def validate_session(self, token: str) -> str | None:
-        """Validate a session token and return the username."""
-        return self._sessions.get(token)
+        """Validate a session token and return the account's current username."""
+        account_id = self._sessions.get(token)
+        if account_id is None:
+            return None
+        user = self._db.get_user_by_uuid(account_id)
+        if user is None:
+            self._sessions.pop(token, None)
+            return None
+        return user.username
 
     def invalidate_session(self, token: str) -> None:
         """Invalidate a session token."""
@@ -180,11 +195,16 @@ class AuthManager:
     def invalidate_user_sessions(self, username: str) -> None:
         """Invalidate all sessions for a user."""
         user = self._db.get_user(username)
-        canonical_username = user.username if user else username
+        if user is None:
+            return
+        self.invalidate_account_sessions(user.uuid)
+
+    def invalidate_account_sessions(self, account_id: str) -> None:
+        """Invalidate all runtime sessions owned by one immutable account id."""
         to_remove = [
             token
-            for token, session_username in self._sessions.items()
-            if session_username == canonical_username
+            for token, session_account_id in self._sessions.items()
+            if session_account_id == account_id
         ]
         for token in to_remove:
             del self._sessions[token]

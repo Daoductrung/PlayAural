@@ -1908,6 +1908,7 @@ class PlayAuralWebApp {
       captcha_failed: "auth-error-captcha-execute-failed",
       username_taken: "auth-username-taken",
       username_reserved_bot: "auth-username-reserved-bot",
+      username_reserved: "auth-username-reserved",
       username_length: "auth-error-username-length",
       password_weak: "auth-error-password-weak",
       email_empty: "error-email-empty",

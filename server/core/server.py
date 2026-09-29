@@ -2490,7 +2490,7 @@ PlayAural Server
             self._auth.reset_password(user_record.username, new_password)
 
             # Invalidate active sessions to force re-login
-            self._auth.invalidate_user_sessions(user_record.username)
+            self._auth.invalidate_account_sessions(user_record.uuid)
 
             # Delete token
             self._auth.clear_reset_token(user_record.uuid)
@@ -2645,6 +2645,13 @@ PlayAural Server
                 "status": "error",
                 "error": "username_reserved_bot",
                 "text": Localization.get(locale, "auth-username-reserved-bot")
+            })
+        elif reg_result == "username_reserved":
+            await client.send({
+                "type": "register_response",
+                "status": "error",
+                "error": "username_reserved",
+                "text": Localization.get(locale, "auth-username-reserved")
             })
         elif reg_result in {"username_length", "username_invalid_chars"}:
             locale_key = f"auth-error-{reg_result.replace('_', '-')}"

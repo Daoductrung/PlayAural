@@ -45,6 +45,20 @@ all-or-nothing: validate the complete game/member payload and current social
 admission before creating a table, preserve the save on every failure, and
 give actionable unblock guidance only for blocks the restorer controls.
 
+Account identity has three distinct roles. The database UUID is the immutable,
+globally unique account id and owns sessions, relationships, moderation targets,
+statistics, and every other durable relation. The username is an immutable,
+unique login/routing handle; it is currently also the public label, but must
+never be rewritten as a display-name change. A future `display_name` is mutable,
+non-unique presentation data only: resolve it through the UUID/username owner,
+never authenticate, authorize, route, join, or persist a relation by it. Stored
+chat, report, and result names are deliberate historical snapshots paired with
+immutable ids, not live identity keys. Server-owned identity names are reserved
+through the shared registry and cannot be registered by users. When display
+names are introduced, identity-sensitive profiles, reports, moderation views,
+and confirmations must expose the owning username, while every action id and
+payload remains bound to the UUID.
+
 ## Commands
 
 Run server tests from the repo root through uv:
@@ -575,6 +589,10 @@ manager, never ad-hoc database calls from an admin handler.
 - Schema version 2 rebuilds legacy `users.username_key` storage so the canonical
   non-null identity contract is enforced; version-zero and version-one upgrades
   must remain atomic, backed up, and row-preserving.
+- Schema version 3 compatibility-folds username lookup keys and makes the
+  immutable account UUID index unique. Version-two upgrades must remain
+  backed up and fail closed if invalid or duplicate account ids are found; never
+  guess which account owns corrupted relational data.
 - Migration preflight must reserve the backup and transaction workspace
   together when they share a filesystem. A retry may reuse only a fully
   validated pre-migration backup whose schema, row counts, and logical-content

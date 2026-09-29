@@ -2,6 +2,7 @@ auth-username-password-required = Username and password are required.
 auth-registration-success = Registration successful! You can now log in with your credentials.
 auth-username-taken = Username already taken. Please choose a different username.
 auth-username-reserved-bot = This name is reserved for PlayAural bots. Please choose a different username.
+auth-username-reserved = This name is reserved by PlayAural. Please choose a different username.
 auth-registration-error = Registration failed due to a server error. Please try again.
 auth-error-wrong-password = Incorrect password.
 auth-error-user-not-found = User does not exist.

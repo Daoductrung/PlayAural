@@ -824,6 +824,9 @@ def cmd_create_user(args):
         elif result == "username_reserved_bot":
             print(f"Error: User '{args.username}' is reserved for generated bots.")
             sys.exit(1)
+        elif result == "username_reserved":
+            print(f"Error: User '{args.username}' is reserved by PlayAural.")
+            sys.exit(1)
         else:
             print(f"Error: Registration failed ({result}).")
             sys.exit(1)

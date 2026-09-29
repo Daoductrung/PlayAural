@@ -2,6 +2,7 @@ auth-username-password-required = Yêu cầu tên đăng nhập và mật khẩu
 auth-registration-success = Đăng ký thành công! Giờ bạn có thể đăng nhập.
 auth-username-taken = Tên đăng nhập đã có người dùng. Vui lòng chọn tên khác.
 auth-username-reserved-bot = Tên này được dành riêng cho bot PlayAural. Vui lòng chọn tên đăng nhập khác.
+auth-username-reserved = Tên này được PlayAural dành riêng. Vui lòng chọn tên đăng nhập khác.
 auth-registration-error = Đăng ký thất bại do lỗi máy chủ. Vui lòng thử lại.
 auth-error-wrong-password = Sai mật khẩu.
 auth-error-user-not-found = Người dùng không tồn tại.

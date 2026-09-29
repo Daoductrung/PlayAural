@@ -50,6 +50,11 @@ recorded by its copyright holder. Maintainers must verify and document the
 origin and redistribution rights of every asset before a public source or
 binary release that includes it.
 
+Bingo includes a per-asset record:
+[`server/games/bingo/AUDIO_PROVENANCE.md`](server/games/bingo/AUDIO_PROVENANCE.md)
+lists the source, author, applicable terms, and recorded edits for each of its
+eight sound files.
+
 ## Checked-in and binary-bundled software
 
 | Software | Use | License and notices |

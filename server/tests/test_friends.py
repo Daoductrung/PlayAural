@@ -1,16 +1,23 @@
 import pytest
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 from server.auth.auth import AuthManager
 from server.persistence.database import Database
 from server.core.server import (
+    FRIEND_REQUEST_CANCEL_CONFIRM_MENU,
     FRIEND_REMOVE_CONFIRM_MENU,
     MAX_CHAT_MESSAGE_LENGTH,
+    SENT_FRIEND_REQUESTS_MENU,
+    SENT_FRIEND_REQUEST_ITEM_PREFIX,
     Server,
     USER_BLOCK_CONFIRM_MENU,
     USER_REPORT_CONFIRM_MENU,
     USER_REPORT_REASON_MENU,
     VERSION,
 )
+from server.games.crazyeights.game import CrazyEightsGame
+from server.messages.relative_time import format_relative_time
+from server.ui.confirmation import CONFIRMATION_PROMPT_ITEM_ID
 from server.users.network_user import NetworkUser
 import tempfile
 import os
@@ -119,6 +126,194 @@ class TestFriendsSystem:
         assert len(friends_alice) == 1
         assert friends_alice[0] == u_bob.uuid
 
+    def test_cancel_outgoing_request_is_atomic_and_clears_only_stale_alert(self):
+        self.db.create_user("Alice", "hash")
+        self.db.create_user("Bob", "hash")
+        alice = self.db.get_user("Alice")
+        bob = self.db.get_user("Bob")
+
+        assert self.db.send_friend_request(alice.uuid, bob.uuid) == "sent"
+        assert self.db.count_pending_outgoing_requests(alice.uuid) == 1
+        assert [
+            record.uuid
+            for record in self.db.get_pending_outgoing_request_records(alice.uuid)
+        ] == [bob.uuid]
+        assert self.db.add_notification(
+            bob.uuid,
+            alice.username,
+            "friend_request_received",
+        )
+        assert self.db.add_notification(
+            bob.uuid,
+            alice.username,
+            "friend_removed",
+        )
+
+        assert self.db.cancel_outgoing_friend_request(alice.uuid, bob.uuid)
+        assert self.db.count_pending_outgoing_requests(alice.uuid) == 0
+        assert self.db.get_pending_incoming_requests(bob.uuid) == []
+        assert self.db.get_and_clear_notifications(bob.uuid) == [
+            {
+                "source_username": alice.username,
+                "event_type": "friend_removed",
+            }
+        ]
+
+        assert self.db.send_friend_request(alice.uuid, bob.uuid) == "sent"
+        assert self.db.accept_friend_request(alice.uuid, bob.uuid)
+        assert not self.db.cancel_outgoing_friend_request(alice.uuid, bob.uuid)
+        assert self.db.are_friends(alice.uuid, bob.uuid)
+        assert self.db.add_notification(
+            bob.uuid,
+            alice.username,
+            "friend_request_received",
+        )
+        assert self.db.get_and_clear_notifications(bob.uuid) == []
+
+    @pytest.mark.asyncio
+    async def test_sent_request_menu_confirms_cancel_and_returns_to_list(self):
+        self.db.create_user("Alice", "hash")
+        self.db.create_user("Bob", "hash")
+        alice = self.db.get_user("Alice")
+        bob = self.db.get_user("Bob")
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+
+        assert self.server._send_friend_request_to_record(alice_user, bob) == "sent"
+        self.server._show_friends_hub_menu(alice_user)
+        await self.server._handle_friends_hub_selection(
+            alice_user,
+            "sent_requests",
+        )
+        assert self.server._user_states[alice.username]["menu"] == (
+            SENT_FRIEND_REQUESTS_MENU
+        )
+
+        request_id = f"{SENT_FRIEND_REQUEST_ITEM_PREFIX}{bob.uuid}"
+        await self.server._handle_sent_friend_requests_selection(
+            alice_user,
+            request_id,
+            self.server._user_states[alice.username],
+        )
+        await self.server._handle_sent_friend_request_actions_selection(
+            alice_user,
+            "cancel_request",
+            self.server._user_states[alice.username],
+        )
+
+        state = self.server._user_states[alice.username]
+        assert state["menu"] == FRIEND_REQUEST_CANCEL_CONFIRM_MENU
+        confirmation = next(
+            message
+            for message in reversed(alice_user.get_queued_messages())
+            if message.get("type") == "menu"
+            and message.get("menu_id") == FRIEND_REQUEST_CANCEL_CONFIRM_MENU
+        )
+        assert [item["id"] for item in confirmation["items"]] == [
+            CONFIRMATION_PROMPT_ITEM_ID,
+            "yes",
+            "no",
+        ]
+        assert confirmation["items"][0]["read_only"] is True
+
+        await self.server._handle_friend_request_cancel_confirm_selection(
+            alice_user,
+            "yes",
+            state,
+        )
+
+        assert self.db.get_pending_outgoing_request_records(alice.uuid) == []
+        assert self.db.get_pending_incoming_requests(bob.uuid) == []
+        assert self.db.get_and_clear_notifications(bob.uuid) == []
+        final_state = self.server._user_states[alice.username]
+        assert final_state["menu"] == SENT_FRIEND_REQUESTS_MENU
+        assert final_state.get("_stack") == [{"menu": "friends_hub_menu"}]
+        assert any(
+            message.get("key") == "friend-request-cancelled"
+            and message.get("buffer") == "system"
+            for message in alice_user.get_queued_messages()
+        )
+
+    @pytest.mark.asyncio
+    async def test_sent_request_cancel_cannot_delete_concurrently_accepted_friendship(self):
+        self.db.create_user("Alice", "hash")
+        self.db.create_user("Bob", "hash")
+        alice = self.db.get_user("Alice")
+        bob = self.db.get_user("Bob")
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+        assert self.db.send_friend_request(alice.uuid, bob.uuid) == "sent"
+        assert self.db.accept_friend_request(alice.uuid, bob.uuid)
+
+        await self.server._handle_friend_request_cancel_confirm_selection(
+            alice_user,
+            "yes",
+            {
+                "menu": FRIEND_REQUEST_CANCEL_CONFIRM_MENU,
+                "target_uuid": bob.uuid,
+                "target_username": bob.username,
+            },
+        )
+
+        assert self.db.are_friends(alice.uuid, bob.uuid)
+        assert any(
+            message.get("key") == "friend-request-cancel-unavailable"
+            for message in alice_user.get_queued_messages()
+        )
+
+    def test_friends_sort_online_then_offline_by_last_seen(self):
+        self.db.create_user("Alice", "hash")
+        alice = self.db.get_user("Alice")
+        now = datetime.now(timezone.utc)
+        friend_specs = (
+            ("OnlineOld", now - timedelta(days=30)),
+            ("Older", now - timedelta(hours=3)),
+            ("Recent", now - timedelta(hours=1, minutes=5)),
+            ("Unknown", None),
+        )
+        records = {}
+        for username, last_seen in friend_specs:
+            self.db.create_user(username, "hash")
+            record = self.db.get_user(username)
+            records[username] = record
+            self.db.send_friend_request(alice.uuid, record.uuid)
+            self.db.accept_friend_request(alice.uuid, record.uuid)
+            if last_seen is not None:
+                self.db.update_user_last_seen(
+                    record.username,
+                    observed_at=last_seen,
+                )
+
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+        self._make_network_user(
+            records["OnlineOld"].username,
+            records["OnlineOld"].uuid,
+        )
+        items = self.server._get_friends_list_menu_items(alice_user)
+        friend_items = [item for item in items if item.id.startswith("friend_")]
+
+        assert [item.id for item in friend_items] == [
+            "friend_OnlineOld",
+            "friend_Recent",
+            "friend_Older",
+            "friend_Unknown",
+        ]
+        assert "1 hour ago" in friend_items[1].text
+        assert "3 hours ago" in friend_items[2].text
+        assert "last online" not in friend_items[3].text
+
+    def test_relative_time_is_localized_and_clamps_future_values(self):
+        now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        assert format_relative_time(
+            "vi",
+            now - timedelta(hours=2),
+            now=now,
+        ) == "2 giờ trước"
+        assert format_relative_time(
+            "en",
+            now + timedelta(days=1),
+            now=now,
+        ) == "just now"
+        assert format_relative_time("en", "not-a-date", now=now) is None
+
     @pytest.mark.asyncio
     async def test_grouped_offline_notifications(self):
         # We need to use NetworkUser object to test the actual grouped output logic
@@ -126,6 +321,10 @@ class TestFriendsSystem:
         u_alice = self.db.get_user("alice")
         for source_username in ("bob", "charlie", "dave", "eve"):
             self.db.create_user(source_username, "hash")
+
+        for source_username in ("bob", "charlie"):
+            source = self.db.get_user(source_username)
+            assert self.db.send_friend_request(source.uuid, u_alice.uuid) == "sent"
 
         # Add a bunch of offline notifications
         self.db.add_notification(u_alice.uuid, "bob", "friend_request_received")
@@ -432,7 +631,7 @@ class TestFriendsSystem:
         ids = latest_menu_ids(alice_user.get_queued_messages())
         assert len([item_id for item_id in ids if item_id.startswith("friend_")]) == 100
         assert "friend_Friend100" not in ids
-        assert "refresh" not in ids
+        assert "refresh" in ids
         assert "page_next" in ids
 
         await self.server._handle_friends_list_selection(
@@ -446,6 +645,139 @@ class TestFriendsSystem:
         assert "friend_Friend100" in last_page_ids
         assert "page_previous" in last_page_ids
         assert "page_next" not in last_page_ids
+
+    @pytest.mark.asyncio
+    async def test_friends_list_refresh_is_explicit_and_stable(self):
+        alice, bob = self._create_friendship()
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+        observed_at = datetime.now(timezone.utc) - timedelta(hours=1)
+        assert self.db.update_user_last_seen(
+            bob.username,
+            observed_at=observed_at,
+        )
+
+        self.server._show_friends_list_menu(alice_user)
+        initial_messages = alice_user.get_queued_messages()
+        initial_menu = next(
+            message
+            for message in initial_messages
+            if message.get("menu_id") == "friends_list_menu"
+        )
+        initial_ids = [item["id"] for item in initial_menu["items"]]
+        assert initial_ids == [f"friend_{bob.username}", "refresh", "back"]
+
+        # An unrelated presence notification with identical rendered content
+        # must be a server-side no-op, avoiding needless client focus churn.
+        self.server.on_user_presence_changed()
+        assert alice_user.get_queued_messages() == []
+
+        # Manual refresh stays focused by the stable Refresh identity and does
+        # not send an explicit focus jump to any client implementation.
+        await self.server._handle_friends_list_selection(
+            alice_user,
+            "refresh",
+            self.server._user_states[alice.username],
+        )
+        refresh_messages = alice_user.get_queued_messages()
+        assert any(
+            message.get("key") == "menu-list-refreshed"
+            for message in refresh_messages
+        )
+        refreshed_menu = next(
+            (
+                message
+                for message in refresh_messages
+                if message.get("menu_id") == "friends_list_menu"
+            ),
+            None,
+        )
+        # The content-diff layer may suppress the identical repaint; if a
+        # minute boundary changes the label during the test, it remains a
+        # same-menu update with stable identities and no focus directive.
+        if refreshed_menu is not None:
+            assert [item["id"] for item in refreshed_menu["items"]] == initial_ids
+            assert "selection_id" not in refreshed_menu
+            assert "position" not in refreshed_menu
+
+        self._make_network_user(bob.username, bob.uuid)
+        self.server.on_user_presence_changed()
+        online_menu = next(
+            message
+            for message in alice_user.get_queued_messages()
+            if message.get("menu_id") == "friends_list_menu"
+        )
+        assert [item["id"] for item in online_menu["items"]] == initial_ids
+        assert "Main menu" in online_menu["items"][0]["text"]
+        assert "selection_id" not in online_menu
+        assert "position" not in online_menu
+
+    @pytest.mark.asyncio
+    async def test_presence_repaint_defers_reordering_until_explicit_refresh(self):
+        self.db.create_user("Alice", "hash")
+        self.db.create_user("Bob", "hash")
+        self.db.create_user("Cara", "hash")
+        alice = self.db.get_user("Alice")
+        bob = self.db.get_user("Bob")
+        cara = self.db.get_user("Cara")
+        for friend in (bob, cara):
+            assert self.db.send_friend_request(alice.uuid, friend.uuid) == "sent"
+            assert self.db.accept_friend_request(alice.uuid, friend.uuid)
+        now = datetime.now(timezone.utc)
+        assert self.db.update_user_last_seen(
+            bob.username,
+            observed_at=now - timedelta(days=2),
+        )
+        assert self.db.update_user_last_seen(
+            cara.username,
+            observed_at=now - timedelta(hours=1),
+        )
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+
+        self.server._show_friends_list_menu(alice_user)
+        alice_user.get_queued_messages()
+        initial_order = self.server._user_states[alice.username]["friends_order"]
+        assert initial_order == [cara.uuid, bob.uuid]
+
+        self._make_network_user(bob.username, bob.uuid)
+        self.server.on_user_presence_changed()
+        presence_menu = next(
+            message
+            for message in alice_user.get_queued_messages()
+            if message.get("menu_id") == "friends_list_menu"
+        )
+        presence_rows = [
+            item["text"]
+            for item in presence_menu["items"]
+            if item["id"].startswith("friend_")
+        ]
+        assert presence_rows[0].startswith("Cara")
+        assert presence_rows[1].startswith("Bob")
+        assert "Main menu" in presence_rows[1]
+        assert self.server._user_states[alice.username]["friends_order"] == (
+            initial_order
+        )
+
+        await self.server._handle_friends_list_selection(
+            alice_user,
+            "refresh",
+            self.server._user_states[alice.username],
+        )
+        refreshed_menu = next(
+            message
+            for message in alice_user.get_queued_messages()
+            if message.get("menu_id") == "friends_list_menu"
+        )
+        refreshed_rows = [
+            item["text"]
+            for item in refreshed_menu["items"]
+            if item["id"].startswith("friend_")
+        ]
+        assert refreshed_rows[0].startswith("Bob")
+        assert refreshed_rows[1].startswith("Cara")
+        assert self.server._user_states[alice.username]["friends_order"] == [
+            bob.uuid,
+            cara.uuid,
+        ]
 
     @pytest.mark.asyncio
     async def test_remove_friend_prompts_before_deleting(self):
@@ -479,7 +811,13 @@ class TestFriendsSystem:
         menu = next(msg for msg in messages if msg.get("type") == "menu")
         assert menu["menu_id"] == FRIEND_REMOVE_CONFIRM_MENU
         assert menu["escape_behavior"] == "select_last_option"
-        assert [item["id"] for item in menu["items"]] == ["yes", "no"]
+        assert [item["id"] for item in menu["items"]] == [
+            CONFIRMATION_PROMPT_ITEM_ID,
+            "yes",
+            "no",
+        ]
+        assert menu["items"][0]["read_only"] is True
+        assert menu["selection_id"] == CONFIRMATION_PROMPT_ITEM_ID
 
     @pytest.mark.asyncio
     async def test_remove_friend_cancel_keeps_friendship_and_returns_to_actions(self):
@@ -603,6 +941,64 @@ class TestFriendsSystem:
             for msg in messages
         )
 
+    @pytest.mark.asyncio
+    async def test_remove_friend_confirmation_cannot_target_reused_username(self):
+        alice, original_bob = self._create_friendship()
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+
+        self.server._show_friend_remove_confirm_menu(
+            alice_user,
+            original_bob.username,
+        )
+        state = self.server._user_states[alice.username]
+        assert state["target_uuid"] == original_bob.uuid
+
+        assert self.db.delete_user(original_bob.username)
+        replacement_bob = self.db.create_user(original_bob.username, "hash")
+        assert replacement_bob is not None
+        assert self.db.send_friend_request(
+            alice.uuid,
+            replacement_bob.uuid,
+        ) == "sent"
+        assert self.db.accept_friend_request(alice.uuid, replacement_bob.uuid)
+
+        await self.server._handle_friend_remove_confirm_selection(
+            alice_user,
+            "yes",
+            state,
+        )
+
+        assert self.db.are_friends(alice.uuid, replacement_bob.uuid)
+        assert any(
+            message.get("key") == "user-account-unavailable"
+            for message in alice_user.get_queued_messages()
+        )
+
+    @pytest.mark.asyncio
+    async def test_friend_action_menu_cannot_target_reused_username(self):
+        alice, original_bob = self._create_friendship()
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+        self.server._show_friend_actions_menu(
+            alice_user,
+            original_bob.username,
+        )
+        state = self.server._user_states[alice.username]
+        assert state["target_uuid"] == original_bob.uuid
+
+        assert self.db.delete_user(original_bob.username)
+        replacement_bob = self.db.create_user(original_bob.username, "hash")
+        await self.server._handle_friend_actions_selection(
+            alice_user,
+            "block",
+            state,
+        )
+
+        assert not self.db.has_blocked(alice.uuid, replacement_bob.uuid)
+        assert any(
+            message.get("key") == "user-account-unavailable"
+            for message in alice_user.get_queued_messages()
+        )
+
     def test_block_atomically_removes_direct_social_state(self):
         alice, bob = self._create_friendship()
         self.db.add_notification(alice.uuid, bob.username, "friend_removed")
@@ -710,6 +1106,57 @@ class TestFriendsSystem:
             for message in bob_user.get_queued_messages()
         )
 
+    @pytest.mark.asyncio
+    async def test_block_confirmation_cannot_target_reused_username(self):
+        self.db.create_user("Alice", "hash")
+        self.db.create_user("Bob", "hash")
+        alice = self.db.get_user("Alice")
+        original_bob = self.db.get_user("Bob")
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+
+        self.server._show_user_block_confirm_menu(alice_user, original_bob.username)
+        state = self.server._user_states[alice.username]
+        assert state["target_uuid"] == original_bob.uuid
+
+        assert self.db.delete_user(original_bob.username)
+        replacement_bob = self.db.create_user("Bob", "hash")
+        await self.server._handle_user_block_confirm_selection(
+            alice_user,
+            "yes",
+            state,
+        )
+
+        assert not self.db.has_blocked(alice.uuid, replacement_bob.uuid)
+        assert any(
+            message.get("key") == "user-account-unavailable"
+            for message in alice_user.get_queued_messages()
+        )
+
+    def test_restored_block_confirmation_cannot_target_reused_username(self):
+        self.db.create_user("Alice", "hash")
+        self.db.create_user("Bob", "hash")
+        alice = self.db.get_user("Alice")
+        original_bob = self.db.get_user("Bob")
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+        frame = {
+            "menu": USER_BLOCK_CONFIRM_MENU,
+            "target_uuid": original_bob.uuid,
+            "target_username": original_bob.username,
+        }
+
+        assert self.db.delete_user(original_bob.username)
+        replacement_bob = self.db.create_user(original_bob.username, "hash")
+        assert replacement_bob is not None
+        self.server._user_states[alice.username] = {**frame, "_stack": []}
+        self.server._restore_frame(alice_user, frame, [])
+
+        assert self.server._user_states[alice.username]["menu"] == "main_menu"
+        assert not self.db.has_blocked(alice.uuid, replacement_bob.uuid)
+        assert any(
+            message.get("key") == "user-account-unavailable"
+            for message in alice_user.get_queued_messages()
+        )
+
     def test_block_and_report_controls_cover_account_management_menus(self):
         self.db.create_user("Alice", "hash")
         self.db.create_user("Bob", "hash")
@@ -718,7 +1165,7 @@ class TestFriendsSystem:
         alice_user = self._make_network_user(alice.username, alice.uuid)
         assert self.db.send_friend_request(bob.uuid, alice.uuid) == "sent"
 
-        self.server._show_friend_request_actions_menu(alice_user, bob.username)
+        self.server._show_friend_request_actions_menu(alice_user, bob.uuid)
         request_menu = next(
             message
             for message in reversed(alice_user.get_queued_messages())
@@ -1013,6 +1460,45 @@ class TestFriendsSystem:
         )
 
     @pytest.mark.asyncio
+    async def test_private_message_input_cannot_target_reused_username(self):
+        alice, original_bob = self._create_friendship()
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+        alice_user.connection.username = alice.username
+        self.server._restore_input_parent = MagicMock()
+        self.server._user_states[alice.username] = {
+            "menu": "send_pm_input",
+            "target_username": original_bob.username,
+            "target_uuid": original_bob.uuid,
+            "_transient": True,
+        }
+
+        assert self.db.delete_user(original_bob.username)
+        replacement_bob = self.db.create_user(original_bob.username, "hash")
+        replacement_user = self._make_network_user(
+            replacement_bob.username,
+            replacement_bob.uuid,
+        )
+        assert self.db.send_friend_request(
+            alice.uuid,
+            replacement_bob.uuid,
+        ) == "sent"
+        assert self.db.accept_friend_request(alice.uuid, replacement_bob.uuid)
+
+        await self.server._handle_editbox(
+            alice_user.connection,
+            {"text": "private text"},
+        )
+
+        assert any(
+            message.get("key") == "user-account-unavailable"
+            for message in alice_user.get_queued_messages()
+        )
+        assert not any(
+            message.get("key") == "pm-received"
+            for message in replacement_user.get_queued_messages()
+        )
+
+    @pytest.mark.asyncio
     async def test_mid_broadcast_block_suppresses_later_recipients(
         self,
     ):
@@ -1066,6 +1552,10 @@ class TestFriendsSystem:
             alice.username,
             alice_user,
         )
+        game = CrazyEightsGame()
+        table.game = game
+        game._table = table
+        game.initialize_lobby(alice.username, alice_user)
         try:
             assert await self.server._send_table_invite(
                 alice_user,

@@ -45,6 +45,20 @@ all-or-nothing: validate the complete game/member payload and current social
 admission before creating a table, preserve the save on every failure, and
 give actionable unblock guidance only for blocks the restorer controls.
 
+Account identity has three distinct roles. The database UUID is the immutable,
+globally unique account id and owns sessions, relationships, moderation targets,
+statistics, and every other durable relation. The username is an immutable,
+unique login/routing handle; it is currently also the public label, but must
+never be rewritten as a display-name change. A future `display_name` is mutable,
+non-unique presentation data only: resolve it through the UUID/username owner,
+never authenticate, authorize, route, join, or persist a relation by it. Stored
+chat, report, and result names are deliberate historical snapshots paired with
+immutable ids, not live identity keys. Server-owned identity names are reserved
+through the shared registry and cannot be registered by users. When display
+names are introduced, identity-sensitive profiles, reports, moderation views,
+and confirmations must expose the owning username, while every action id and
+payload remains bound to the UUID.
+
 ## Commands
 
 Run server tests from the repo root through uv:
@@ -72,7 +86,7 @@ cd mobile_client && cmd /c npm run typecheck && npx expo start
 
 ## Core Architecture
 
-- `server/games/` currently registers 46 games. Categories are `cards`, `dice`,
+- `server/games/` currently registers 47 games. Categories are `cards`, `dice`,
   `board`, `poker`, `arcade`, and `misc`; user-facing category labels must be
   localized. The Play menu uses dynamic counts, not hardcoded category counts.
 - Games are `@dataclass` classes registered with `@register_game`, inherit from
@@ -183,6 +197,11 @@ Client focus doctrine:
   stable ids. Rows without action ids normalize to explicit read-only protocol
   data automatically; do not add no-op handler branches for them. Status-box
   rows are the intentional exception because activating any row closes the box.
+- Server-owned confirmation and consent menus use
+  `server.ui.confirmation.show_confirmation_menu`. It announces the localized
+  prompt and renders that same prompt as the first stable read-only row, then
+  places decision actions after it with the safe cancel/decline action last so
+  Escape cancels. Do not hand-build Yes/No or Accept/Decline menus.
 - Open `MenuInput` selectors repaint live through sealed flushes; use stable
   option ids and declare contextual non-actions through `read_only_options`.
   Pending `EditboxInput` prompts do not repaint passively. If a
@@ -263,6 +282,12 @@ Use declarative `GameOptions` with `option_field()`.
   human requirement. Reject bot-only starts in shared validation and recheck
   after disconnected lobby seats are converted to replacement bots; never
   enter gameplay and rely on abandoned-table cleanup to reject the match.
+- Table ownership is independent from gameplay-seat role. A present host who
+  is spectating retains host controls and may change waiting-lobby options. In
+  an already-started game, that host may supervise bot-controlled seats and
+  keeps the table alive; an ordinary spectator never does. This exception does
+  not permit a bot-only start. If no active seat remains, retain the table but
+  keep gameplay paused until the host restarts or closes it.
 - `prestart_validate()` must block impossible deals, unsupported option
   combinations, and team-mode conflicts with clear localized errors.
 
@@ -404,6 +429,22 @@ participants; do not reuse game-player error strings for account lookups.
 - Use `speak_l`, `broadcast_l`, `broadcast_personal_l`, localized option/pref
   helpers, and localized sequence helpers.
 - Pass raw data as kwargs and let Fluent format lists, plurals, and selects.
+- Account gender uses the canonical `Gender` model in `server/gender.py`.
+  Normalize values read from legacy or external data, reject unsupported
+  mutation values, and default missing/deleted/unknown accounts to unspecified.
+  Keep this mutable profile field on live users and in the account database;
+  never duplicate it into serialized game state.
+- Games query `get_player_gender()` / `player_localization_kwargs()` so
+  disconnected and bot-controlled human seats resolve by immutable account ID.
+  Localized identity references use validated sibling variables such as
+  `$player_gender` with `GENDER_TERM(...)`; standard game broadcasters infer
+  these variables from `Player` values or unique player names. Direct server
+  messages must supply them with the shared gender-kwargs helper.
+- Grammar and game-specific forms belong in locale data, not language branches.
+  Use a supported shared `GENDER_TERM` form and, only when a game needs its own
+  vocabulary, an allowlisted context backed by
+  `<context>-gender-term-<form>`. Unspecified and non-binary values use the
+  locale's neutral fallback.
 - Maintain EN/VI parity: same keys, variables, and plural/select arms.
 - Agents author both EN and VI strings in this repo, but Vietnamese is
   provisional and should be flagged for native review when quality matters.
@@ -548,6 +589,10 @@ manager, never ad-hoc database calls from an admin handler.
 - Schema version 2 rebuilds legacy `users.username_key` storage so the canonical
   non-null identity contract is enforced; version-zero and version-one upgrades
   must remain atomic, backed up, and row-preserving.
+- Schema version 3 compatibility-folds username lookup keys and makes the
+  immutable account UUID index unique. Version-two upgrades must remain
+  backed up and fail closed if invalid or duplicate account ids are found; never
+  guess which account owns corrupted relational data.
 - Migration preflight must reserve the backup and transaction workspace
   together when they share a filesystem. A retry may reuse only a fully
   validated pre-migration backup whose schema, row counts, and logical-content
@@ -643,6 +688,12 @@ manager, never ad-hoc database calls from an admin handler.
 - Account handover is serialized per canonical username. Only the exact
   connection owned by the current `NetworkUser` may dispatch packets or run
   disconnect cleanup; stale sockets and callbacks must be harmless.
+- Intentional application exit uses the generic authenticated `logout` packet.
+  The server runs its ordered session-activity teardown handlers (including
+  table and voice departure) before retiring the session and sending
+  `force_exit`; clients must not duplicate game- or room-specific cleanup.
+  Forced process loss remains an ordinary disconnect because browsers and
+  mobile operating systems cannot guarantee a final network callback.
 - Credential verification, password-reset eviction, moderation eviction, and
   account deletion must use that same account lock so a checked credential
   cannot install a session after its account or password changed.

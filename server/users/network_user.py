@@ -2,7 +2,14 @@
 
 from typing import Any, TYPE_CHECKING
 
-from .base import User, MenuItem, EscapeBehavior, generate_uuid
+from .base import (
+    User,
+    MenuItem,
+    EscapeBehavior,
+    generate_uuid,
+    validate_menu_focus_context_id,
+)
+from ..gender import Gender, normalize_gender, require_gender
 from .preferences import UserPreferences
 from ..messages.localization import Localization
 from ..audio import AudioCommand
@@ -40,6 +47,7 @@ class NetworkUser(User):
         trust_level: int = 1,
         approved: bool = False,
         session_handover_pending: bool = False,
+        gender: Gender | str = Gender.UNSPECIFIED,
     ):
         self._uuid = uuid or generate_uuid()
         self._username = username
@@ -50,6 +58,7 @@ class NetworkUser(User):
         self._preferences = preferences or UserPreferences()
         self._trust_level = trust_level
         self._approved = approved
+        self._gender = normalize_gender(gender)
         self._active = True
         self._session_handover_pending = session_handover_pending
         self._message_queue: list[dict[str, Any]] = []
@@ -105,6 +114,15 @@ class NetworkUser(User):
         self._trust_level = trust_level
 
     @property
+    def gender(self) -> Gender:
+        """Return the live account gender."""
+        return self._gender
+
+    def set_gender(self, gender: Gender | str) -> None:
+        """Synchronize the live session after an account gender change."""
+        self._gender = require_gender(gender)
+
+    @property
     def preferences(self) -> UserPreferences:
         return self._preferences
 
@@ -129,6 +147,7 @@ class NetworkUser(User):
         self._current_menus.clear()
         self._current_editboxes.clear()
         self._last_menu_packet_id = None
+        self._next_menu_focus_restore_context_id = None
         self._runtime_audio_states = {}
 
     @property
@@ -176,14 +195,34 @@ class NetworkUser(User):
                 menu_id = packet.get("menu_id")
                 if menu_id is not None:
                     last_menu_index[menu_id] = i
-                    if (
+                    has_explicit_index = (
                         packet.get("selection_id") is not None
                         or packet.get("position") is not None
+                    )
+                    context_fields = (
+                        "capture_focus_context_id",
+                        "restore_focus_context_id",
+                    )
+                    if has_explicit_index or any(
+                        packet.get(field) is not None for field in context_fields
                     ):
-                        last_focus[menu_id] = {
-                            "selection_id": packet.get("selection_id"),
-                            "position": packet.get("position"),
-                        }
+                        focus = last_focus.setdefault(
+                            menu_id,
+                            {
+                                "selection_id": None,
+                                "position": None,
+                                "capture_focus_context_id": None,
+                                "restore_focus_context_id": None,
+                            },
+                        )
+                    else:
+                        continue
+                    if has_explicit_index:
+                        focus["selection_id"] = packet.get("selection_id")
+                        focus["position"] = packet.get("position")
+                    for field in context_fields:
+                        if packet.get(field) is not None:
+                            focus[field] = packet[field]
 
         if not last_menu_index:
             return messages
@@ -196,18 +235,26 @@ class NetworkUser(User):
                     if last_menu_index.get(menu_id) != i:
                         continue  # superseded by a later repaint of the same menu
                     focus = last_focus.get(menu_id)
-                    if (
-                        focus is not None
-                        and packet.get("selection_id") is None
-                        and packet.get("position") is None
-                    ):
-                        # Carry the batch's latest explicit focus onto the
-                        # surviving repaint without mutating the original packet.
-                        packet = {**packet}
-                        if focus["selection_id"] is not None:
-                            packet["selection_id"] = focus["selection_id"]
-                        if focus["position"] is not None:
-                            packet["position"] = focus["position"]
+                    if focus is not None:
+                        inherited: dict[str, Any] = {}
+                        if (
+                            packet.get("selection_id") is None
+                            and packet.get("position") is None
+                        ):
+                            if focus["selection_id"] is not None:
+                                inherited["selection_id"] = focus["selection_id"]
+                            if focus["position"] is not None:
+                                inherited["position"] = focus["position"]
+                        for field in (
+                            "capture_focus_context_id",
+                            "restore_focus_context_id",
+                        ):
+                            if packet.get(field) is None and focus[field] is not None:
+                                inherited[field] = focus[field]
+                        if inherited:
+                            # Carry independent one-shot directives without
+                            # mutating the original queued packet.
+                            packet = {**packet, **inherited}
             coalesced.append(packet)
         return coalesced
 
@@ -271,9 +318,16 @@ class NetworkUser(User):
         grid_enabled: bool = False,
         grid_height: int = 0,
         grid_width: int = 1,
+        capture_focus_context_id: str | None = None,
     ) -> None:
+        if capture_focus_context_id is not None:
+            capture_focus_context_id = validate_menu_focus_context_id(
+                capture_focus_context_id
+            )
         converted_items = self._convert_items(items)
         escape_str = escape_behavior.value
+
+        restore_focus_context_id = self._consume_menu_focus_restore_context()
 
         state = {
             "items": converted_items,
@@ -294,6 +348,8 @@ class NetworkUser(User):
         if (
             position is None
             and selection_id is None
+            and capture_focus_context_id is None
+            and restore_focus_context_id is None
             and menu_id == self._last_menu_packet_id
             and previous is not None
             and _menu_content(previous) == _menu_content(state)
@@ -319,6 +375,10 @@ class NetworkUser(User):
             packet["position"] = position - 1
         if selection_id is not None:
             packet["selection_id"] = selection_id
+        if capture_focus_context_id:
+            packet["capture_focus_context_id"] = capture_focus_context_id
+        if restore_focus_context_id:
+            packet["restore_focus_context_id"] = restore_focus_context_id
         self._last_menu_packet_id = menu_id
         self._queue_packet(packet)
 
@@ -334,11 +394,13 @@ class NetworkUser(User):
         grid_width: int = 1,
     ) -> None:
         converted_items = self._convert_items(items)
+        restore_focus_context_id = self._consume_menu_focus_restore_context()
 
         previous = self._current_menus.get(menu_id)
         if (
             position is None
             and selection_id is None
+            and restore_focus_context_id is None
             and menu_id == self._last_menu_packet_id
             and previous is not None
             and previous.get("items") == converted_items
@@ -368,6 +430,8 @@ class NetworkUser(User):
             packet["position"] = position - 1
         if selection_id is not None:
             packet["selection_id"] = selection_id
+        if restore_focus_context_id:
+            packet["restore_focus_context_id"] = restore_focus_context_id
         self._last_menu_packet_id = menu_id
         self._queue_packet(packet)
 
@@ -429,6 +493,7 @@ class NetworkUser(User):
         self._current_menus.clear()
         self._current_editboxes.clear()
         self._last_menu_packet_id = None
+        self._next_menu_focus_restore_context_id = None
         self._queue_packet({"type": "clear_ui"})
 
     def set_table_context(self, table_id: str) -> None:

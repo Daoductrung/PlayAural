@@ -105,6 +105,11 @@ Important server-driven packets include:
 - `voice_leave_ack`
 - `voice_context_closed`
 
+Authenticated clients use the payload-free `logout` packet for an intentional
+application exit. The server, not the client, leaves every registered runtime
+activity before retiring the session and returning `force_exit`; this keeps
+table, voice, and future room teardown authoritative and ordered.
+
 **`silent` flag on `chat` packets**: Adding `"silent": True` suppresses both chat notification sounds and TTS in the first-party clients. Use it only when the server is also sending explicit `speak` and/or `audio` packets to control the output precisely.
 
 ### Social Blocking Boundary
@@ -128,6 +133,22 @@ is an owner-scoped, all-or-nothing new admission: validate the complete
 serialized game and member roster before exposing a table, retain the save on
 every failure, treat bot-held human seats as their original human accounts,
 and identify only the restorer's own blocks when giving unblock instructions.
+
+### Account Identity Boundary
+
+Account identity has three distinct roles. The database UUID is the immutable,
+globally unique account id and owns sessions, relationships, moderation targets,
+statistics, and every other durable relation. The username is an immutable,
+unique login/routing handle; it is currently also the public label, but must
+never be rewritten as a display-name change. A future `display_name` is mutable,
+non-unique presentation data only: resolve it through the UUID/username owner,
+never authenticate, authorize, route, join, or persist a relation by it. Stored
+chat, report, and result names are deliberate historical snapshots paired with
+immutable ids, not live identity keys. Server-owned identity names are reserved
+through the shared registry and cannot be registered by users. When display
+names are introduced, identity-sensitive profiles, reports, moderation views,
+and confirmations must expose the owning username, while every action id and
+payload remains bound to the UUID.
 
 ### Audio Control Protocol
 
@@ -276,7 +297,7 @@ loading an asset.
 ### Server Architecture
 - **`server/core/server.py`** — Main orchestrator, auth routing, menus, reconnect, moderation, MOTD, presence
 - **`server/network/websocket_server.py`** — Async WebSocket transport
-- **`server/games/`** — 46 registered game implementations
+- **`server/games/`** — 47 registered game implementations
 - **`server/game_utils/`** — shared game mixins and helpers
 - **`server/tables/`** — table lifecycle, save/restore, membership
 - **`server/auth/`** — authentication, CAPTCHA checks, password reset, rate limiting
@@ -523,6 +544,12 @@ Consequences that still matter when designing a menu:
   do not duplicate that rule with no-op selection-handler branches. Static and
   live status boxes are the deliberate exception: activating any status row is
   their standard close action, so those rows are not read-only controls.
+- Server-owned confirmation and consent menus must use
+  `server.ui.confirmation.show_confirmation_menu`. The shared helper announces
+  the localized prompt and exposes the same prompt as the first stable,
+  read-only row. Decision actions follow, with the safe cancel or decline
+  action last so Escape always cancels. Do not hand-build Yes/No or
+  Accept/Decline menus.
 - `NetworkUser` content-diffs repaints: an identical same-menu repaint with
   no focus directive sends no packet at all, and the per-flush coalescer
   collapses same-tick duplicates. Bandwidth is not a reason to avoid
@@ -644,6 +671,16 @@ again before team arrangement or `on_start()`. A bot-only roster must remain in
 the waiting lobby; do not enter gameplay and depend on abandoned-table cleanup
 to destroy it afterward.
 
+Table ownership is independent from gameplay-seat role. A live host who is
+spectating retains host controls and may edit declarative game options while
+the table is waiting. Once a valid game has started, that host counts as a
+human supervisor for disconnect replacement, planned-reboot recovery, and
+active-table retention, so bot-controlled seats may continue without forcing
+the owner back into a seat. Ordinary spectators never keep an abandoned table
+alive. This does not weaken the active-human start requirement. If an active
+table reaches zero gameplay seats, preserve it for the present spectator host
+but keep gameplay ticks paused until restart or explicit teardown.
+
 #### Server-Side Navigation Stack
 Server menus use the breadcrumb stack in `_user_states[username]["_stack"]`.
 
@@ -678,6 +715,13 @@ queued send, transport-finally callback, or voice event must be harmless to its
 successor. Credential verification and account/password deletion or eviction
 must share the same account lock so a checked credential cannot become stale
 before session activation.
+
+Intentional application exit uses the generic authenticated `logout` packet.
+The server runs its ordered session-activity teardown handlers (including table
+and voice departure) before retiring the session and sending `force_exit`;
+clients must not duplicate game- or room-specific cleanup. Forced process loss
+remains an ordinary disconnect because browsers and mobile operating systems
+cannot guarantee a final network callback.
 
 First-party releases update the server and all clients in lockstep. Installing
 an authenticated session requires an exact client/server version match.
@@ -741,6 +785,10 @@ maintenance, not server-power finalization. Route them through
   version-zero and version-one databases acquire the canonical non-null identity
   contract without losing account ids or rows. Preserve this backed-up migration
   path until those database versions are explicitly retired.
+- Schema version 3 compatibility-folds username lookup keys and makes the
+  immutable account UUID index unique. Version-two upgrades must remain backed
+  up and fail closed if invalid or duplicate account ids are found; never guess
+  which account owns corrupted relational data.
 - Migration preflight must reserve backup publication and live transaction
   workspace together when both paths share a filesystem. After a rolled-back
   attempt, reuse only a durable pre-migration snapshot whose integrity, schema,
@@ -921,6 +969,31 @@ replace the retention and cleanup rules required for genuinely persistent data.
   hardcoded English may reach players.
 - Pass raw data as kwargs and let Fluent render; do not pre-format strings.
   Use select/plural expressions when output varies by game state.
+- Account gender is represented by the canonical `Gender` model in
+  `server/gender.py`. Normalize legacy/external reads, reject unsupported
+  mutation values, and use unspecified for missing, deleted, unknown, or
+  corrupt account data. The database remains authoritative and connected users
+  carry the live value; do not serialize this mutable profile field into a game
+  or duplicate its lifecycle there.
+- Game code resolves gender through `get_player_gender()` and
+  `player_localization_kwargs()`. This preserves the live profile value for a
+  connected human and looks up a disconnected or bot-controlled human seat by
+  immutable account UUID. Synthetic bots are neutral unless deliberately given
+  a supported gender for game-owned behavior such as audio selection.
+- Identity-bearing Fluent messages use a sibling selector such as
+  `$player_gender` and the validated `GENDER_TERM(gender, form, context?)`
+  function. Standard game broadcasters infer selectors from `Player` values or
+  unique exact player-name kwargs; per-listener custom broadcasters must pass
+  their payload through `_resolve_broadcast_kwargs()`. Server-owned account
+  messages use the shared gender-kwargs helper rather than duplicating lookup
+  logic. Explicit selector kwargs take precedence when a caller intentionally
+  describes another identity.
+- Gender vocabulary and grammar remain locale data. Use one of the supported
+  shared forms; a game that needs distinct terms may pass a bounded context and
+  define `<context>-gender-term-<form>` in Fluent. Never branch on language or
+  concatenate pronouns in Python. Missing contextual forms fall back to shared
+  forms and unspecified/non-binary values fall back to the locale's neutral
+  form.
 - PlayAural ships English and Vietnamese, and — unlike upstream PlayPalace,
   where translators own everything but `en` — here the agent authors **both**.
   A new or changed `en` key must land with its `vi` counterpart, kept in
@@ -1119,11 +1192,11 @@ Mobile rules:
   language names; metadata complements it and does not replace it.
 
 ### Game Counts and Catalog
-The server currently registers **46 games**:
+The server currently registers **47 games**:
 - category ids are `cards`, `dice`, `board`, `poker`, `arcade`, and `misc`
 - the Play menu exposes a persisted category filter with dynamic per-category game counts
 - games usually expose one category through `get_category()`, while `get_categories()` supports future multi-category games
-- recent additions include `Metal Pipe`, `Nine`, `Senet`, `Cards Against Humanity`, `21`, `Age of Heroes`, `UNO`, `Exploding Kittens`, `BANG! The Bullet`, and `Monopoly`
+- recent additions include `Bingo`, `Metal Pipe`, `Nine`, `Senet`, `Cards Against Humanity`, `21`, `Age of Heroes`, `UNO`, `Exploding Kittens`, `BANG! The Bullet`, and `Monopoly`
 
 ### Key Tech Stack
 - Python 3.11, `asyncio`, `websockets>=12.0`, `mashumaro`, `fluent-runtime`, `openskill`, `argon2-cffi`

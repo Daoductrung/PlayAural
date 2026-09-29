@@ -67,7 +67,7 @@ coup-claims-exchange = { $player } tuyên bố là Sứ giả để trao đổi 
 coup-you-exchange = Bạn rút bài để trao đổi với bộ bài triều đình.
 coup-exchanges = { $player } rút 2 lá bài để trao đổi.
 coup-you-exchange-complete = Bạn đã hoàn tất trao đổi bài.
-coup-exchange-complete = { $player } đã hoàn thành việc trao đổi bài.
+coup-exchange-complete = { $player } đã hoàn thành việc trao đổi bài { GENDER_TERM($player_gender, "possessive-determiner") }.
 
 coup-drew-replacement-card = Bạn đã rút được lá { $character } để thay thế.
 coup-action-pass-confirmed = Bạn đã bỏ qua.
@@ -75,7 +75,7 @@ coup-player-passes-reaction = { $player } bỏ qua trong cửa sổ phản ứng
 
 coup-waiting-for-reactions = Đang chờ người chơi Thách thức hoặc Chặn...
 coup-you-eliminated = Bạn đã mất toàn bộ ảnh hưởng và bị loại khỏi cuộc chơi. Toàn bộ xu của bạn được trả về ngân khố.
-coup-player-eliminated = { $player } đã mất tất cả lá bài và bị loại khỏi cuộc chơi.
+coup-player-eliminated = { $player } đã mất tất cả lá bài { GENDER_TERM($player_gender, "possessive-determiner") } và bị loại khỏi cuộc chơi.
 coup-you-win-game = Bạn là người sống sót cuối cùng và giành chiến thắng!
 coup-cannot-afford-assassinate = Bạn cần ít nhất 3 xu để ám sát.
 coup-cannot-afford-coup = Bạn cần ít nhất 7 xu để tiến hành Đảo chính.
@@ -104,7 +104,7 @@ coup-your-steal-blocked = { $player } tuyên bố là Đô đốc hoặc Sứ gi
 coup-blocks-steal = { $blocker } tuyên bố là Đô đốc hoặc Sứ giả để chặn hành động Trộm xu của { $target }.
 
 coup-you-lose-influence = Bạn mất lá { $character }!
-coup-loses-influence = { $player } mất lá { $character }!
+coup-loses-influence = { $player } mất lá { $character } { GENDER_TERM($player_gender, "possessive-determiner") }!
 coup-must-lose-influence = Bạn phải chọn một lá bài để bỏ đi.
 coup-must-return-card = Vui lòng chọn một lá bài để trả lại bộ bài.
 coup-returned-card = Bạn đã trả lại lá { $character } vào bộ bài.

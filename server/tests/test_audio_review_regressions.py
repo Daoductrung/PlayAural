@@ -132,7 +132,7 @@ def test_missed_tick_deadlines_are_skipped_instead_of_replayed_in_a_burst() -> N
         enough_ticks = asyncio.Event()
 
         def on_tick() -> None:
-            tick_times.append(asyncio.get_running_loop().time())
+            tick_times.append(time.perf_counter())
             if len(tick_times) == 1:
                 # Model one table traversal that overruns multiple deadlines.
                 time.sleep(TickScheduler.TICK_INTERVAL_S * 2.5)

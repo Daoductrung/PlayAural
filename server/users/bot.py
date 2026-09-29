@@ -1,12 +1,8 @@
 """Bot user implementation for AI players."""
 
-from typing import TYPE_CHECKING
-
 from .base import User, MenuItem, EscapeBehavior, generate_uuid
+from ..gender import Gender, normalize_gender
 from ..audio import AudioCommand
-
-if TYPE_CHECKING:
-    pass
 
 
 class Bot(User):
@@ -17,10 +13,17 @@ class Bot(User):
     call game actions directly through the game's action system.
     """
 
-    def __init__(self, name: str, locale: str = "en", uuid: str | None = None):
+    def __init__(
+        self,
+        name: str,
+        locale: str = "en",
+        uuid: str | None = None,
+        gender: Gender | str = Gender.UNSPECIFIED,
+    ):
         self._uuid = uuid or generate_uuid()
         self._username = name
         self._locale = locale
+        self._gender = normalize_gender(gender)
 
     @property
     def uuid(self) -> str:
@@ -33,6 +36,10 @@ class Bot(User):
     @property
     def locale(self) -> str:
         return self._locale
+
+    @property
+    def gender(self) -> Gender:
+        return self._gender
 
     @property
     def is_bot(self) -> bool:
@@ -65,6 +72,7 @@ class Bot(User):
         grid_enabled: bool = False,
         grid_height: int = 0,
         grid_width: int = 1,
+        capture_focus_context_id: str | None = None,
     ) -> None:
         pass
 

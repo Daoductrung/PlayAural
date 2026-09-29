@@ -1563,7 +1563,9 @@ class TestMatchAndCubeRules:
         assert red_user.get_last_spoken() == (
             f"{white.name} accepts the double and takes ownership of the cube."
         )
-        assert game._double_disabled_reason(red) == "backgammon-double-cube-owned"
+        disabled_key, disabled_kwargs = game._double_disabled_reason(red)
+        assert disabled_key == "backgammon-double-cube-owned"
+        assert disabled_kwargs == {"opponent": white}
 
     def test_dropping_awards_the_current_not_proposed_cube_value(self):
         game, _, _ = make_human_game(start=True, match_length=7)

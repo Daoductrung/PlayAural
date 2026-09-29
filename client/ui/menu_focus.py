@@ -1,6 +1,66 @@
 """Shared menu focus restoration helpers for the desktop client."""
 
 from collections.abc import Sequence
+from dataclasses import dataclass
+
+MAX_MENU_FOCUS_CONTEXTS = 8
+MAX_MENU_FOCUS_CONTEXT_ID_LENGTH = 128
+
+
+def _valid_focus_context_id(context_id: object) -> bool:
+    return (
+        isinstance(context_id, str)
+        and bool(context_id)
+        and len(context_id) <= MAX_MENU_FOCUS_CONTEXT_ID_LENGTH
+        and context_id.strip() == context_id
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class MenuFocusContext:
+    menu_id: str | None
+    item_ids: tuple[object, ...]
+    selection: int
+
+
+class MenuFocusContextStore:
+    """Bounded one-shot focus snapshots for server-driven modal menus."""
+
+    def __init__(self, capacity: int = MAX_MENU_FOCUS_CONTEXTS) -> None:
+        if capacity <= 0:
+            raise ValueError("Menu focus context capacity must be positive")
+        self._capacity = capacity
+        self._contexts: dict[str, MenuFocusContext] = {}
+
+    def capture(
+        self,
+        context_id: object,
+        *,
+        menu_id: str | None,
+        item_ids: Sequence[object],
+        selection: int,
+    ) -> None:
+        if not _valid_focus_context_id(context_id):
+            return
+        self._contexts.pop(context_id, None)
+        self._contexts[context_id] = MenuFocusContext(
+            menu_id=menu_id,
+            item_ids=tuple(item_ids),
+            selection=selection,
+        )
+        while len(self._contexts) > self._capacity:
+            self._contexts.pop(next(iter(self._contexts)))
+
+    def consume(self, context_id: object) -> MenuFocusContext | None:
+        if not _valid_focus_context_id(context_id):
+            return None
+        return self._contexts.pop(context_id, None)
+
+    def clear(self) -> None:
+        self._contexts.clear()
+
+    def __len__(self) -> int:
+        return len(self._contexts)
 
 
 def _stable_item_id(item_id: object) -> str | None:

@@ -300,7 +300,7 @@ monopoly-player-three-doubles = { $player } ra đôi ba lần liên tiếp nên 
 monopoly-you-three-doubles-brief = Ba lần ra đôi: { $jail }.
 monopoly-player-three-doubles-brief = { $player }: ba lần ra đôi, { $jail }.
 monopoly-you-pass-go = Bạn đến hoặc đi qua { $go } và nhận { $amount }. Bạn hiện có { $cash }.
-monopoly-player-pass-go = { $player } đến hoặc đi qua { $go } và nhận { $amount }. Họ hiện có { $cash }.
+monopoly-player-pass-go = { $player } đến hoặc đi qua { $go } và nhận { $amount }. { GENDER_TERM($player_gender, "subject-capitalized") } hiện có { $cash }.
 monopoly-you-pass-go-brief = Cộng { $amount }.
 monopoly-player-pass-go-brief = { $player}: cộng { $amount }.
 monopoly-you-move = { $direction ->
@@ -318,7 +318,7 @@ monopoly-player-land-unowned = { $player } dừng ở { $property } chưa có ch
 monopoly-you-land-unowned-brief = Chưa có chủ: { $price }. Mua hoặc đấu giá.
 monopoly-player-land-unowned-brief = Chưa có chủ: { $price }.
 monopoly-you-land-own-property = Bạn dừng ở { $property } của chính mình. Không phải trả tiền thuê.
-monopoly-player-lands-own-property = { $player } dừng ở { $property } của chính họ. Không phải trả tiền thuê.
+monopoly-player-lands-own-property = { $player } dừng ở chính { $property } { GENDER_TERM($player_gender, "possessive-determiner") }. Không phải trả tiền thuê.
 monopoly-you-land-own-property-brief = Của bạn; không trả tiền thuê.
 monopoly-player-lands-own-property-brief = Của { $player}; không trả tiền thuê.
 monopoly-you-land-mortgaged-property = Bạn dừng ở { $property } của { $owner}, nhưng nơi này đang thế chấp nên không phải trả tiền thuê.
@@ -330,7 +330,7 @@ monopoly-player-must-pass-go-property = { $player } chưa được mua { $proper
 monopoly-you-must-pass-go-property-brief = Chưa qua { $go } nên không thể mua; đấu giá.
 monopoly-player-must-pass-go-property-brief = { $player } chưa thể mua; đấu giá.
 monopoly-you-snake-eyes-bonus = Hai mặt một giúp bạn nhận { $amount } tiền thưởng. Bạn hiện có { $cash }.
-monopoly-player-snake-eyes-bonus = Hai mặt một giúp { $player } nhận { $amount } tiền thưởng. Họ hiện có { $cash }.
+monopoly-player-snake-eyes-bonus = Hai mặt một giúp { $player } nhận { $amount } tiền thưởng. { GENDER_TERM($player_gender, "subject-capitalized") } hiện có { $cash }.
 monopoly-you-snake-eyes-bonus-brief = Hai mặt một: cộng { $amount }.
 monopoly-player-snake-eyes-bonus-brief = { $player}: hai mặt một, cộng { $amount }.
 monopoly-you-free-parking = Bạn nghỉ tại { $space }. Không ai nhận hay trả tiền ở ô này.
@@ -338,7 +338,7 @@ monopoly-player-free-parking = { $player } nghỉ tại { $space }. Không ai nh
 monopoly-you-free-parking-empty = Bạn dừng ở { $space }, nhưng quỹ đang trống.
 monopoly-player-free-parking-empty = { $player } dừng ở { $space }, nhưng quỹ đang trống.
 monopoly-you-collect-free-parking = Bạn nhận quỹ { $amount } tại { $space }. Bạn hiện có { $cash }.
-monopoly-player-collects-free-parking = { $player } nhận quỹ { $amount } tại { $space }. Họ hiện có { $cash }.
+monopoly-player-collects-free-parking = { $player } nhận quỹ { $amount } tại { $space }. { GENDER_TERM($player_gender, "subject-capitalized") } hiện có { $cash }.
 monopoly-you-collect-free-parking-brief = Nhận quỹ: cộng { $amount }.
 monopoly-player-collects-free-parking-brief = { $player}: nhận quỹ, cộng { $amount }.
 monopoly-you-just-visiting = Bạn chỉ ghé thăm { $jail }.
@@ -348,7 +348,7 @@ monopoly-player-land-go = { $player } dừng ở { $go }.
 
 # Mua bán, tiền thuê và đấu giá
 monopoly-you-buy-property = Bạn mua { $property }, { $group }, với giá { $price }. Bạn còn { $cash }.
-monopoly-player-buy-property = { $player } mua { $property }, { $group }, với giá { $price }. Họ còn { $cash }.
+monopoly-player-buy-property = { $player } mua { $property }, { $group }, với giá { $price }. { GENDER_TERM($player_gender, "subject-capitalized") } còn { $cash }.
 monopoly-you-buy-property-brief = Bạn mua { $property } với giá { $price }.
 monopoly-player-buy-property-brief = { $player } mua { $property } với giá { $price }.
 monopoly-you-complete-property-group = Bạn đã sở hữu trọn { $group }: { $properties }.
@@ -390,7 +390,7 @@ monopoly-player-passes-auction = { $player } rời cuộc đấu giá này.
 monopoly-you-pass-auction-brief = Bạn bỏ lượt đấu giá.
 monopoly-player-passes-auction-brief = { $player } bỏ lượt đấu giá.
 monopoly-you-win-auction = Bạn thắng đấu giá { $property }, { $group }, với giá { $amount }. Bạn còn { $cash }.
-monopoly-player-wins-auction = { $player } thắng đấu giá { $property }, { $group }, với giá { $amount }. Họ còn { $cash }.
+monopoly-player-wins-auction = { $player } thắng đấu giá { $property }, { $group }, với giá { $amount }. { GENDER_TERM($player_gender, "subject-capitalized") } còn { $cash }.
 monopoly-you-win-auction-brief = Bạn thắng { $property } với giá { $amount }.
 monopoly-player-wins-auction-brief = { $player } thắng { $property } với giá { $amount }.
 monopoly-auction-no-sale = Không ai đặt giá cho { $property }, nên bất động sản vẫn thuộc Ngân hàng.
@@ -406,11 +406,11 @@ monopoly-player-utility-rent-roll-brief = { $player } tung tính tiền thuê { 
 monopoly-you-draw-card = Bạn rút được: { $card }
 monopoly-player-draw-card = { $player } rút được: { $card }
 monopoly-you-no-repair-cost = Bạn không có { $development } nên không phải trả phí sửa chữa trên thẻ.
-monopoly-player-no-repair-cost = { $player } không có { $development } nên không phải trả phí sửa chữa trên thẻ.
+monopoly-player-no-repair-cost = { $player } không có { $development } nên thẻ không tính phí sửa chữa cho { GENDER_TERM($player_gender, "object") }.
 monopoly-you-no-repair-cost-brief = Không có { $development }; không mất phí sửa chữa.
 monopoly-player-no-repair-cost-brief = { $player } không có { $development }; không mất phí sửa chữa.
 monopoly-you-collect-bank = Bạn nhận { $amount } từ Ngân hàng. Bạn hiện có { $cash }.
-monopoly-player-collect-bank = { $player } nhận { $amount } từ Ngân hàng. Họ hiện có { $cash }.
+monopoly-player-collect-bank = { $player } nhận { $amount } từ Ngân hàng. { GENDER_TERM($player_gender, "subject-capitalized") } hiện có { $cash }.
 monopoly-you-collect-bank-brief = Ngân hàng: cộng { $amount }.
 monopoly-player-collect-bank-brief = { $player}: cộng { $amount }.
 monopoly-you-keep-jail-card = Bạn giữ thẻ Ra tù miễn phí cho đến khi dùng hoặc đem trao đổi.
@@ -454,11 +454,11 @@ monopoly-card-hanoi-lottery-repairs = Trả { $perHouse } cho mỗi mảnh nâng
 
 # Nhà tù
 monopoly-you-go-jail = Bạn đi thẳng đến { $jail }. Lượt của bạn kết thúc và bạn không nhận tiền tại { $go }.
-monopoly-player-go-jail = { $player } đi thẳng đến { $jail }. Lượt của họ kết thúc và họ không nhận tiền tại { $go }.
+monopoly-player-go-jail = { $player } đi thẳng đến { $jail }. Lượt { GENDER_TERM($player_gender, "possessive-determiner") } kết thúc và { GENDER_TERM($player_gender, "subject") } không nhận tiền tại { $go }.
 monopoly-you-go-jail-brief = Đi đến { $jail }.
 monopoly-player-go-jail-brief = { $player } đi đến { $jail }.
 monopoly-you-pay-jail = Bạn trả { $amount } và ra tù. Bạn còn { $cash }; bây giờ hãy tung xúc xắc như thường.
-monopoly-player-pays-jail = { $player } trả { $amount } và ra tù. Họ còn { $cash }.
+monopoly-player-pays-jail = { $player } trả { $amount } và ra tù. { GENDER_TERM($player_gender, "subject-capitalized") } còn { $cash }.
 monopoly-you-pay-jail-brief = Trả { $amount}; ra tù.
 monopoly-player-pays-jail-brief = { $player } trả { $amount } và ra tù.
 monopoly-you-use-jail-card = Bạn trả lại một thẻ Ra tù miễn phí và ra tù; bây giờ hãy tung xúc xắc như thường.
@@ -482,11 +482,11 @@ monopoly-player-jail-roll-brief = Lần tung trong tù của { $player }: { $tot
    *[no] .
 }
 monopoly-you-leave-jail-doubles = Bạn ra đôi và được ra tù. Hãy đi theo kết quả này, nhưng không được tung thêm.
-monopoly-player-leaves-jail-doubles = { $player } ra đôi và được ra tù. Họ đi theo kết quả này nhưng không được tung thêm.
+monopoly-player-leaves-jail-doubles = { $player } ra đôi và được ra tù. Kết quả này đưa { GENDER_TERM($player_gender, "object") } đi nhưng không cho tung thêm.
 monopoly-you-leave-jail-doubles-brief = Ra đôi: ra tù.
 monopoly-player-leaves-jail-doubles-brief = { $player } ra đôi và ra tù.
 monopoly-you-stay-jail = Lần thử thứ { $attempt } của bạn không ra đôi, nên lượt kết thúc trong tù.
-monopoly-player-stays-jail = Lần thử thứ { $attempt } của { $player } không ra đôi, nên lượt của họ kết thúc trong tù.
+monopoly-player-stays-jail = Lần thử thứ { $attempt } của { $player } không ra đôi, nên lượt { GENDER_TERM($player_gender, "possessive-determiner") } kết thúc trong tù.
 monopoly-you-stay-jail-brief = Vẫn ở tù; lần thử { $attempt }.
 monopoly-player-stays-jail-brief = { $player } vẫn ở tù; lần thử { $attempt }.
 
@@ -505,7 +505,7 @@ monopoly-you-owe = Bạn nợ { $amount } cho { $destination ->
 monopoly-player-owes = { $player } nợ { $amount } cho { $destination ->
     [player] { $creditor }
    *[bank] Ngân hàng
-} vì { $reason }. Họ hiện có { $cash }.
+} vì { $reason }. { GENDER_TERM($player_gender, "subject-capitalized") } hiện có { $cash }.
 monopoly-you-owe-brief = Bạn nợ { $amount } cho { $destination ->
     [player] { $creditor }
    *[bank] Ngân hàng
@@ -521,7 +521,7 @@ monopoly-you-pay-debt = Bạn trả { $amount } cho { $destination ->
 monopoly-player-pays-debt = { $player } trả { $amount } cho { $destination ->
     [player] { $creditor }
    *[bank] Ngân hàng
-} vì { $reason }. Họ còn { $cash }.
+} vì { $reason }. { GENDER_TERM($player_gender, "subject-capitalized") } còn { $cash }.
 monopoly-you-pay-debt-brief = Đã trả { $amount } vì { $reason }.
 monopoly-player-pays-debt-brief = { $player } trả { $amount } vì { $reason }.
 monopoly-you-pay-player-batch = Bạn trả { $amount } cho mỗi người trong số { $count ->
@@ -531,7 +531,7 @@ monopoly-you-pay-player-batch = Bạn trả { $amount } cho mỗi người trong
 monopoly-player-pays-player-batch = { $player } trả { $amount } cho mỗi người trong số { $count ->
     [one] 1 người chơi
    *[other] { $count } người chơi
-}, tổng cộng { $total }. Họ còn { $cash }.
+}, tổng cộng { $total }. { GENDER_TERM($player_gender, "subject-capitalized") } còn { $cash }.
 monopoly-you-pay-player-batch-brief = Đã trả tổng cộng { $total } cho { $count ->
     [one] 1 người chơi
    *[other] { $count } người chơi
@@ -547,7 +547,7 @@ monopoly-you-collect-player-batch = Bạn nhận { $amount } từ mỗi người
 monopoly-player-collects-player-batch = { $player } nhận { $amount } từ mỗi người trong số { $count ->
     [one] 1 người chơi
    *[other] { $count } người chơi
-}, tổng cộng { $total }. Họ hiện có { $cash }.
+}, tổng cộng { $total }. { GENDER_TERM($player_gender, "subject-capitalized") } hiện có { $cash }.
 monopoly-you-collect-player-batch-brief = Đã nhận tổng cộng { $total } từ { $count ->
     [one] 1 người chơi
    *[other] { $count } người chơi
@@ -557,37 +557,37 @@ monopoly-player-collects-player-batch-brief = { $player } nhận tổng cộng {
    *[other] { $count } người chơi
 }.
 monopoly-you-raise-cash = Bạn huy động được { $amount } bằng cách bán đều { $development }, rồi thế chấp những bất động sản hợp lệ. Bạn hiện có { $cash } để trả khoản nợ { $debt }.
-monopoly-player-raises-cash = { $player } huy động được { $amount } bằng cách bán đều { $development }, rồi thế chấp những bất động sản hợp lệ. Họ hiện có { $cash } để trả khoản nợ { $debt }.
+monopoly-player-raises-cash = { $player } huy động được { $amount } bằng cách bán đều { $development }, rồi thế chấp những bất động sản hợp lệ. { GENDER_TERM($player_gender, "subject-capitalized") } hiện có { $cash } để trả khoản nợ { $debt }.
 monopoly-you-raise-cash-brief = Đã huy động { $amount }.
 monopoly-player-raises-cash-brief = { $player } huy động { $amount }.
 monopoly-you-bankrupt = Bạn không thể huy động đủ { $amount } đang nợ và bị phá sản. Tài sản của bạn được chuyển cho { $destination ->
     [player] { $creditor }
    *[bank] Ngân hàng
 }.
-monopoly-player-bankrupt = { $player } không thể huy động đủ { $amount } đang nợ và bị phá sản. Tài sản của họ được chuyển cho { $destination ->
+monopoly-player-bankrupt = { $player } không thể huy động đủ { $amount } đang nợ và bị phá sản. Tài sản { GENDER_TERM($player_gender, "possessive-determiner") } được chuyển cho { $destination ->
     [player] { $creditor }
    *[bank] Ngân hàng
 }.
 monopoly-you-bankrupt-brief = Bạn phá sản.
 monopoly-player-bankrupt-brief = { $player } phá sản.
 monopoly-you-build = Bạn mua một { $building } tại { $property } với giá { $cost }. Bạn còn { $cash }.
-monopoly-player-builds = { $player } mua một { $building } tại { $property } với giá { $cost }. Họ còn { $cash }.
+monopoly-player-builds = { $player } mua một { $building } tại { $property } với giá { $cost }. { GENDER_TERM($player_gender, "subject-capitalized") } còn { $cash }.
 monopoly-you-build-brief = Xây một { $building } tại { $property }.
 monopoly-player-builds-brief = { $player } xây một { $building } tại { $property }.
 monopoly-you-sell-building = Bạn bán một { $building } tại { $property } lấy { $value }. Bạn hiện có { $cash }.
-monopoly-player-sells-building = { $player } bán một { $building } tại { $property } lấy { $value }. Họ hiện có { $cash }.
+monopoly-player-sells-building = { $player } bán một { $building } tại { $property } lấy { $value }. { GENDER_TERM($player_gender, "subject-capitalized") } hiện có { $cash }.
 monopoly-you-sell-building-brief = Bán một { $building } tại { $property }.
 monopoly-player-sells-building-brief = { $player } bán một { $building } tại { $property }.
 monopoly-you-sell-group-buildings = Bạn bán mọi { $development } trong { $group } lấy { $value }. Bạn hiện có { $cash }.
-monopoly-player-sells-group-buildings = { $player } bán mọi { $development } trong { $group } lấy { $value }. Họ hiện có { $cash }.
+monopoly-player-sells-group-buildings = { $player } bán mọi { $development } trong { $group } lấy { $value }. { GENDER_TERM($player_gender, "subject-capitalized") } hiện có { $cash }.
 monopoly-you-sell-group-buildings-brief = Bán mọi { $development } trong { $group } lấy { $value }.
 monopoly-player-sells-group-buildings-brief = { $player } bán mọi { $development } trong { $group } lấy { $value }.
 monopoly-you-mortgage = Bạn thế chấp { $property } lấy { $value }. Bạn hiện có { $cash }.
-monopoly-player-mortgages = { $player } thế chấp { $property } lấy { $value }. Họ hiện có { $cash }.
+monopoly-player-mortgages = { $player } thế chấp { $property } lấy { $value }. { GENDER_TERM($player_gender, "subject-capitalized") } hiện có { $cash }.
 monopoly-you-mortgage-brief = Thế chấp { $property } lấy { $value }.
 monopoly-player-mortgages-brief = { $player } thế chấp { $property } lấy { $value }.
 monopoly-you-unmortgage = Bạn trả { $cost } để chuộc thế chấp { $property }. Bạn còn { $cash }.
-monopoly-player-unmortgages = { $player } trả { $cost } để chuộc thế chấp { $property }. Họ còn { $cash }.
+monopoly-player-unmortgages = { $player } trả { $cost } để chuộc thế chấp { $property }. { GENDER_TERM($player_gender, "subject-capitalized") } còn { $cash }.
 monopoly-you-unmortgage-brief = Chuộc thế chấp { $property } với { $cost }.
 monopoly-player-unmortgages-brief = { $player } chuộc thế chấp { $property } với { $cost }.
 monopoly-you-win = Tất cả người chơi khác đã phá sản. Bạn thắng với { $cash } tiền mặt và tổng giá trị tài sản ước tính { $net_worth }.
@@ -609,8 +609,8 @@ monopoly-you-submit-trade-brief = Đã gửi đề nghị cho { $target}: { $sum
 monopoly-player-submits-trade-to-you-brief = Đề nghị từ { $player}: { $summary }
 monopoly-player-submits-trade-brief = { $player } gửi đề nghị trao đổi cho { $target }.
 monopoly-you-cancel-trade = Bạn hủy cuộc trao đổi với { $target }.
-monopoly-player-cancels-trade-with-you = { $player } hủy cuộc trao đổi với bạn.
-monopoly-player-cancels-trade = { $player } hủy cuộc trao đổi với { $target }.
+monopoly-player-cancels-trade-with-you = { $player } hủy cuộc trao đổi { GENDER_TERM($player_gender, "possessive-determiner") } với bạn.
+monopoly-player-cancels-trade = { $player } hủy cuộc trao đổi { GENDER_TERM($player_gender, "possessive-determiner") } với { $target }.
 monopoly-you-cancel-trade-brief = Đã hủy trao đổi.
 monopoly-player-cancels-trade-with-you-brief = { $player } hủy cuộc trao đổi với bạn.
 monopoly-player-cancels-trade-brief = { $player } hủy một cuộc trao đổi.
@@ -687,7 +687,7 @@ monopoly-status-trade-preparing = { $proposer } đang chuẩn bị trao đổi v
 monopoly-whose-turn-your-action = Đang là lượt của bạn; bạn cần { $phase }.
 monopoly-whose-turn-your-turn-pending = Đang là lượt của bạn, nhưng { $decision_player } cần { $phase }.
 monopoly-whose-turn-other-turn-your-action = Đang là lượt của { $turn_player }, nhưng bạn cần { $phase }.
-monopoly-whose-turn-player-action = Đang là lượt của { $turn_player }; họ cần { $phase }.
+monopoly-whose-turn-player-action = Đang là lượt của { $turn_player }; { GENDER_TERM($turn_player_gender, "subject") } cần { $phase }.
 monopoly-whose-turn-pending = Hiện là lượt của { $turn_player }, nhưng { $decision_player } đang phải { $phase }.
 monopoly-results-winner = Người thắng: { $player }.
 monopoly-results-place = { $rank }. { $player }; tiền mặt { $cash }; tổng giá trị tài sản ước tính { $net_worth }; { $bankrupt ->
@@ -754,7 +754,7 @@ monopoly-error-portfolio-player-unavailable = Tài sản của người chơi đ
 monopoly-error-no-trade-targets = Không còn người chơi đang hoạt động nào khác để trao đổi.
 monopoly-error-no-trade-during-auction = Hãy hoàn tất cuộc đấu giá hiện tại trước khi trao đổi. Người đang đến lượt đặt giá vẫn có thể quản lý bất động sản để huy động tiền.
 monopoly-error-no-tradeable-properties = Bạn không có bất động sản nào hiện có thể trao đổi. Hãy bán hết { $development } trong cả nhóm màu trước.
-monopoly-error-target-no-tradeable-properties = Người kia không có bất động sản nào hiện có thể trao đổi. Họ phải bán hết { $development } trong nhóm màu trước.
+monopoly-error-target-no-tradeable-properties = { $target } không có bất động sản nào hiện có thể trao đổi. { GENDER_TERM($target_gender, "subject-capitalized") } phải bán hết { $development } trong nhóm màu trước.
 monopoly-error-no-jail-card = Bạn không có thẻ Ra tù miễn phí.
 monopoly-error-target-no-jail-card = Người kia không có thẻ Ra tù miễn phí.
 monopoly-error-invalid-trade-target = Người đó không còn tham gia được cuộc trao đổi này.
@@ -795,11 +795,11 @@ monopoly-player-receives-mortgaged = { $player } nhận { $property } đang th�
 monopoly-you-receive-mortgaged-brief = { $property } đang thế chấp. Chọn trả lãi { $interest } hoặc chuộc với { $unmortgage }.
 monopoly-player-receives-mortgaged-brief = { $player } phải xử lý thế chấp của { $property }.
 monopoly-you-keep-received-mortgaged = Bạn trả { $interest } tiền lãi và giữ { $property } trong trạng thái thế chấp. Bạn còn { $cash }.
-monopoly-player-keeps-received-mortgaged = { $player } trả { $interest } tiền lãi và giữ { $property } trong trạng thái thế chấp. Họ còn { $cash }.
+monopoly-player-keeps-received-mortgaged = { $player } trả { $interest } tiền lãi và giữ { $property } trong trạng thái thế chấp. { GENDER_TERM($player_gender, "subject-capitalized") } còn { $cash }.
 monopoly-you-keep-received-mortgaged-brief = Trả { $interest}; { $property } vẫn thế chấp.
 monopoly-player-keeps-received-mortgaged-brief = { $player } giữ { $property } trong trạng thái thế chấp.
 monopoly-you-unmortgage-received-now = Bạn trả { $cost } và chuộc thế chấp { $property } ngay. Bạn còn { $cash }.
-monopoly-player-unmortgages-received-now = { $player } trả { $cost } và chuộc thế chấp { $property } ngay. Họ còn { $cash }.
+monopoly-player-unmortgages-received-now = { $player } trả { $cost } và chuộc thế chấp { $property } ngay. { GENDER_TERM($player_gender, "subject-capitalized") } còn { $cash }.
 monopoly-you-unmortgage-received-now-brief = Chuộc thế chấp { $property } với { $cost }.
 monopoly-player-unmortgages-received-now-brief = { $player } chuộc thế chấp { $property }.
 

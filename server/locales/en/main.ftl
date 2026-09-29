@@ -2,6 +2,7 @@ auth-username-password-required = Username and password are required.
 auth-registration-success = Registration successful! You can now log in with your credentials.
 auth-username-taken = Username already taken. Please choose a different username.
 auth-username-reserved-bot = This name is reserved for PlayAural bots. Please choose a different username.
+auth-username-reserved = This name is reserved by PlayAural. Please choose a different username.
 auth-registration-error = Registration failed due to a server error. Please try again.
 auth-error-wrong-password = Incorrect password.
 auth-error-user-not-found = User does not exist.
@@ -109,7 +110,7 @@ table-not-exists = Table no longer exists.
 table-full = Table is full.
 table-closed-disconnect-timeout = Table closed because no active player returned within { $minutes } minutes.
 player-replaced-by-bot = { $bot } is now playing on behalf of { $player }.
-player-reclaimed-from-bot = { $player } has returned and taken their seat back from { $bot }.
+player-reclaimed-from-bot = { $player } has returned and taken { GENDER_TERM($player_gender, "possessive-determiner") } seat back from { $bot }.
 spectator-joined = Joined { $host }'s table as a spectator.
 
 spectate = Spectate
@@ -269,7 +270,7 @@ menu-item-with-hint = { $label }: { $hint }
 general-desc-profile = View and edit your public profile details.
 general-desc-friends = Manage friends, friend requests, private messages, and friend table actions.
 general-desc-my-stats = Review your wins, losses, ratings, and supported game statistics.
-general-desc-general-options = Adjust account-wide language, audio, accessibility, and notification settings.
+general-desc-general-options = Adjust language, global chat, audio, accessibility, notifications, and gameplay preferences.
 general-desc-game-options = Adjust gameplay preferences that can apply globally or to supported games.
 general-desc-language = Choose the language used by server menus, messages, and documentation when available.
 general-desc-audio = Adjust music, sound effects, ambience, voice chat volume, typing sounds, and desktop input device settings.
@@ -344,6 +345,10 @@ action-start-requires-exact-players = Cannot start. Active players: { $current }
 action-start-needs-human-player = Cannot start with only bots. At least one human must participate as a player. Switch from spectator to player; if the table is full, remove a bot first.
 action-no-bots = There are no bots to remove.
 action-bots-cannot = Bots cannot do this.
+action-role-change-rate-limited = You are switching between playing and spectating too quickly. Try again in { $seconds ->
+    [one] 1 second
+   *[other] { $seconds } seconds
+}.
 action-no-scores = No scores available yet.
 
 options-category-audio = Audio
@@ -411,7 +416,7 @@ table-member-status-bot = Bot
 table-member-status-online = Online
 table-member-status-offline = Offline
 table-member-status-voice-chat = in voice chat
-table-member-status-bot-takeover = bot playing on their behalf: { $bot }
+table-member-status-bot-takeover = bot playing on { GENDER_TERM($member_gender, "possessive-determiner") } behalf: { $bot }
 table-member-no-actions = No available actions for { $player }.
 table-member-left = That person is no longer at this table.
 table-member-bot-left = That bot is no longer at this table.
@@ -548,6 +553,15 @@ admin-moderation-context-message = { $username }: { $message } Message #{ $id },
 admin-moderation-context-target-message = Reported user { $username }: { $message } Message #{ $id }, sent { $time }. Account ID: { $uuid }. Language: { $channel }.
 admin-moderation-context-anchor-message = Anchored reported user message from { $username }: { $message } Message #{ $id }, sent { $time }. Account ID: { $uuid }. Language: { $channel }.
 admin-moderation-context-empty = No retained global messages remain around this report time.
+admin-moderation-copy-page = { $count ->
+    [one] Copy message on this page (1)
+   *[other] Copy messages on this page ({ $count })
+}
+admin-moderation-copy-page-success = { $count ->
+    [one] Copied 1 message from this page to the clipboard.
+   *[other] Copied { $count } messages from this page to the clipboard.
+}
+admin-moderation-copy-page-failed = Could not copy this page to the clipboard. Check clipboard permission and try again.
 admin-moderation-history-prompt = Enter the exact username whose retained global chat history you want to find. Historical account IDs with the same username will be listed separately.
 admin-moderation-sender-results-heading = Retained sender identities matching the exact username "{ $username }".
 admin-moderation-sender-result = { $username }, account ID { $uuid }. { $count } messages from { $first } through { $last }.
@@ -781,8 +795,8 @@ report-channel-unspecified = no global chat channel selected
 report-confirm-summary = Report { $username } for { $reason }. Context channel: { $channel }. The report will be saved for manual review. The user will not be notified or automatically penalized.
 report-submit = Submit report
 report-change-reason = Change reason
-report-submitted = Your report about { $username } was saved with its exact submission time for manual review. The user was not notified. You can also block them to stop direct contact and hide their global messages.
-report-target-cooldown = You recently reported { $username }. Add another report only after { $duration }; use Block now if you do not want to receive their messages.
+report-submitted = Your report about { $username } was saved with its exact submission time for manual review. The user was not notified. You can also block { GENDER_TERM($username_gender, "object") } to stop direct contact and hide { GENDER_TERM($username_gender, "possessive-determiner") } global messages.
+report-target-cooldown = You recently reported { $username }. Add another report only after { $duration }; use Block now if you do not want to receive { GENDER_TERM($username_gender, "possessive-determiner") } messages.
 report-rate-limited = You have submitted several reports recently. Try again after { $duration }.
 report-failed = The report could not be saved safely. Please try again later.
 
@@ -944,6 +958,75 @@ gender-female = Female
 gender-non-binary = Non-binary
 gender-not-set = Not set
 
+# Shared grammatical forms for account gender. Games may override any form by
+# defining <context>-gender-term-<form> and passing that context to GENDER_TERM.
+gender-term-subject =
+    { $gender ->
+        [male] he
+        [female] she
+       *[other] they
+    }
+gender-term-subject-capitalized =
+    { $gender ->
+        [male] He
+        [female] She
+       *[other] They
+    }
+gender-term-subject-be =
+    { $gender ->
+        [male] he is
+        [female] she is
+       *[other] they are
+    }
+gender-term-subject-be-capitalized =
+    { $gender ->
+        [male] He is
+        [female] She is
+       *[other] They are
+    }
+gender-term-subject-have =
+    { $gender ->
+        [male] he has
+        [female] she has
+       *[other] they have
+    }
+gender-term-subject-have-capitalized =
+    { $gender ->
+        [male] He has
+        [female] She has
+       *[other] They have
+    }
+gender-term-object =
+    { $gender ->
+        [male] him
+        [female] her
+       *[other] them
+    }
+gender-term-possessive-determiner =
+    { $gender ->
+        [male] his
+        [female] her
+       *[other] their
+    }
+gender-term-possessive-determiner-capitalized =
+    { $gender ->
+        [male] His
+        [female] Her
+       *[other] Their
+    }
+gender-term-possessive-pronoun =
+    { $gender ->
+        [male] his
+        [female] hers
+       *[other] theirs
+    }
+gender-term-reflexive =
+    { $gender ->
+        [male] himself
+        [female] herself
+       *[other] themself
+    }
+
 action-set-edit = Set / Edit
 action-delete = Delete
 bio-already-empty = Bio is already empty.
@@ -974,6 +1057,10 @@ auth-error-rate-limit = { error-rate-limit-login }
 friends-my-friends = My Friends
 friends-pending-requests = Pending Requests ({ $count })
 friends-no-pending-requests = Pending Requests
+friends-sent-requests = { $count ->
+    [0] Sent Requests
+   *[other] Sent Requests ({ $count })
+}
 friends-send-request = Send Friend Request
 friends-block-user = Block a User
 enter-block-username = Enter the username of the person you want to block:
@@ -984,6 +1071,7 @@ friends-blocked-users = { $count ->
 friends-blocked-empty = You have not blocked anyone.
 friends-list-empty = You have no friends yet.
 friend-status-offline = Offline
+friend-status-offline-last-online = Offline, last online { $relative_time }
 friend-status-playing = Playing { $game }
 friend-status-spectating = Spectating { $game }
 friend-status-lobby = Main menu
@@ -999,10 +1087,12 @@ friend-remove-confirm = Remove { $username } from your friends list?
 friend-remove-not-friends = { $username } is no longer in your friends list.
 already-in-table = You are already in this table.
 friend-removed-success = { $username } has been removed from your friends list.
-friend-removed-notify = { $username } has removed you from their friends list.
+friend-removed-notify = { $username } has removed you from { GENDER_TERM($username_gender, "possessive-determiner") } friends list.
 
 no-pending-requests = No pending requests.
+no-sent-requests = You have no pending sent requests.
 friend-request-from = Friend request from { $username }
+friend-request-to = Friend request sent to { $username }
 accept = Accept
 decline = Decline
 friend-accepted-success = You are now friends with { $username }.
@@ -1010,19 +1100,51 @@ friend-accepted-notify = { $username } has accepted your friend request!
 request-not-found = Friend request no longer exists.
 friend-declined-success = Friend request declined.
 friend-declined-notify = { $username } declined your friend request.
+friend-request-manage-sent = Manage Sent Friend Request
+friend-request-accept-action = Accept Friend Request
+friend-request-cancel-action = Cancel Friend Request
+friend-request-cancel-confirm = Cancel your pending friend request to { $username }?
+friend-request-cancelled = Your friend request to { $username } was cancelled.
+friend-request-cancel-unavailable = This friend request is no longer pending, so it was not cancelled.
+
+relative-time-just-now = just now
+relative-time-minutes-ago = { $count ->
+    [one] 1 minute ago
+   *[other] { $count } minutes ago
+}
+relative-time-hours-ago = { $count ->
+    [one] 1 hour ago
+   *[other] { $count } hours ago
+}
+relative-time-days-ago = { $count ->
+    [one] 1 day ago
+   *[other] { $count } days ago
+}
+relative-time-weeks-ago = { $count ->
+    [one] 1 week ago
+   *[other] { $count } weeks ago
+}
+relative-time-months-ago = { $count ->
+    [one] 1 month ago
+   *[other] { $count } months ago
+}
+relative-time-years-ago = { $count ->
+    [one] 1 year ago
+   *[other] { $count } years ago
+}
 
 public-profile-title = { $username }'s Profile
 enter-friend-username = Enter the username of the person you want to friend:
 friend-error-self = You cannot send a friend request to yourself.
 friend-error-already-friends = You are already friends with this user.
 friend-error-duplicate = You already have a pending friend request to this user.
-friend-error-blocked-by-you = You blocked { $username }. Unblock them before sending a friend request.
+friend-error-blocked-by-you = You blocked { $username }. Unblock { GENDER_TERM($username_gender, "object") } before sending a friend request.
 friend-error-blocked = Friend requests are unavailable between you and { $username }.
 friend-request-sent = Friend request sent to { $username }.
 friend-request-received = You have received a new friend request from { $username }.
 
 block-confirm = Block { $username }? This removes any friendship and pending friend requests between you. Neither of you will be able to send the other friend requests, private messages, or table invites, and ordinary chat messages will be hidden in both directions. Until unblocked, neither user can newly enter a table hosted by the other or restore a saved table containing both users. Blocking does not remove either of you from a shared table, prevent recovery of a reserved seat, or mute table voice chat.
-block-success = You blocked { $username }. Direct social contact is now unavailable between you, their ordinary chat messages are hidden, and neither of you can newly enter a table hosted by the other or restore a saved table containing both users.
+block-success = You blocked { $username }. Direct social contact is now unavailable between you; { GENDER_TERM($username_gender, "possessive-determiner") } ordinary chat messages are hidden, and neither of you can newly enter a table hosted by the other or restore a saved table containing both users.
 block-error-self = You cannot block yourself.
 block-already-active = You have already blocked { $username }.
 block-no-longer-active = This block is no longer active.
@@ -1055,21 +1177,72 @@ host-management-invite = Invite a Friend
 host-management-pass-host = Pass Host to Another Player
 host-management-kick = Kick a Player
 host-management-kick-ban = Kick and Ban a Player
+host-management-player-substitution = Player Substitution
 host-management-restart-game = Restart Game
 host-management-table-now-private = This table is now private. Only invited users can join.
 host-management-table-now-public = This table is now public.
 host-restart-confirm = Restart the current game and return this table to the waiting room? Current players and voice chat will stay connected, but the current match will be cancelled.
 host-restart-broadcast = { $player } restarted the game. The table is back in the waiting room.
 host-restart-not-playing = There is no active game to restart.
+player-substitution-offer-action = Substitute a Spectator into This Seat
+player-substitution-seat-bot = Bot seat: { $bot }
+player-substitution-seat-replacement = { $bot }, playing in { $player }'s reserved seat
+player-substitution-seat-self = Your seat: { $player }
+player-substitution-seat-player = Player seat: { $player }
+player-substitution-no-seats = (No active player seats are available)
+player-substitution-seat-unavailable = That player seat is no longer available for substitution. No role was changed.
+player-substitution-no-spectators = (No eligible spectators are available)
+player-substitution-spectator-unavailable = That spectator is no longer available for substitution. No role was changed.
+player-substitution-user-busy = { $player } is completing another input or status view. Try again when the view is no longer open for { GENDER_TERM($player_gender, "object") }.
+player-substitution-game-busy = The game is completing a synchronized choice or table recovery that temporarily locks player substitutions. Try again after it finishes.
+player-substitution-offer-sent = Offered { $seat }'s seat to { $player }. { GENDER_TERM($player_gender, "subject-capitalized") } must accept before control changes.
+player-substitution-self-offer-sent = Offered your seat to { $player }. If the offer is accepted by { GENDER_TERM($player_gender, "object") }, you will become a spectator and remain the table host; the seat's eventual result will be recorded for { GENDER_TERM($player_gender, "object") }.
+player-substitution-self-incoming-consent-sent = Asked { $player } to give you { GENDER_TERM($player_gender, "possessive-determiner") } seat. If this request is accepted by { GENDER_TERM($player_gender, "object") }, you will take control immediately because selecting yourself already confirmed your consent.
+player-substitution-outgoing-consent-sent = Asked { $player } to give { GENDER_TERM($player_gender, "possessive-determiner") } seat to { $substitute }. If this request is accepted by { GENDER_TERM($player_gender, "object") }, { $substitute } must also accept before control changes.
+player-substitution-offer-pending = { $player } already has a substitution request awaiting a response.
+player-substitution-seat-offer-pending = { $seat }'s seat already has a substitution request awaiting a response.
+player-substitution-self-seat-offer-pending = Your seat already has a substitution request awaiting a response.
+player-substitution-request-outgoing = { $host } wants { $player } to replace you in your current seat. If you accept, you will become a spectator and { GENDER_TERM($player_gender, "subject") } will receive your exact game state, private information, remaining turn time, and eventual result attribution. No timer will reset.
+player-substitution-request-outgoing-host-incoming = { $host } wants to replace you in your current seat. If you accept, you will become a spectator and { GENDER_TERM($host_gender, "subject") } will receive your exact game state, private information, remaining turn time, and eventual result attribution. No timer will reset.
+player-substitution-request-player = { $host } is offering you { $player }'s seat with { GENDER_TERM($player_gender, "possessive-determiner") } consent. If you accept, you will inherit the seat's exact game state, private information, remaining turn time, and eventual result attribution; no timer will reset, and { GENDER_TERM($player_gender, "subject") } will become a spectator.
+player-substitution-request-host-seat = { $host } is offering you { GENDER_TERM($host_gender, "possessive-determiner") } own seat. If you accept, you will inherit the seat's exact game state, private information, remaining turn time, and eventual result attribution; no timer will reset, and { GENDER_TERM($host_gender, "subject") } will become a spectator while remaining the table host.
+player-substitution-request-bot = { $host } is offering you the seat currently controlled by { $bot }. If you accept, you will inherit its exact game state, private information, remaining turn time, and eventual result attribution; no timer will reset.
+player-substitution-request-replacement = { $host } is offering you { $player }'s reserved seat, currently controlled by { $bot }. If you accept, you will inherit its exact game state, private information, remaining turn time, and eventual result attribution; no timer will reset, and { GENDER_TERM($player_gender, "subject") } will no longer be able to reclaim this seat.
+player-substitution-decline = Decline Substitution
+player-substitution-accept = Accept Substitution
+player-substitution-offer-expired = The substitution request expired. No role was changed.
+player-substitution-offer-expired-host = { $player } did not respond before the substitution request expired. No role was changed.
+player-substitution-offer-declined = { $player } declined the substitution request. No role was changed.
+player-substitution-no-longer-available = That substitution request is no longer available. No role was changed.
+player-substitution-awaiting-incoming = { $player } may now accept or decline the substitution. No role has changed yet.
+player-substitution-complete-player-you = You took control of { $player }'s former seat. { GENDER_TERM($player_gender, "subject-be-capitalized") } now a spectator.
+player-substitution-complete-outgoing-you = { $player } took control of your former seat. You are now a spectator.
+player-substitution-complete-player = { $player } took control of { $outgoing }'s former seat. { GENDER_TERM($outgoing_gender, "subject-be-capitalized") } now a spectator.
+player-substitution-complete-host-player-you = You took control of { $player }'s former seat. { GENDER_TERM($player_gender, "subject-be-capitalized") } now a spectator, and the table host role remains with { GENDER_TERM($player_gender, "object") }.
+player-substitution-complete-outgoing-host-you = { $player } took control of your former seat. You are now a spectator and remain the table host.
+player-substitution-complete-host = { $player } took control of { $outgoing }'s former seat. { GENDER_TERM($outgoing_gender, "subject-be-capitalized") } now a spectator and remains the table host.
+player-substitution-complete-bot-you = You took control of { $bot }'s seat.
+player-substitution-complete-bot = { $player } took control of { $bot }'s seat.
+player-substitution-complete-replacement-you = You took control of { $replaced_player }'s reserved seat from { $bot }. The former reservation has ended.
+player-substitution-complete-replacement = { $player } took control of { $replaced_player }'s reserved seat from { $bot }. The former reservation has ended.
 host-invite-no-friends = (No friends available to invite)
 host-invite-sent = Invite sent to { $player }.
-host-invite-friend-unavailable = That friend is not currently online.
+host-invite-friend-unavailable = That friend is no longer available to invite.
 host-invite-already-pending = An invite is already pending for that friend.
 host-invite-friend-busy = That friend is already in a game.
+host-invite-pair-cooldown = Please wait { $seconds ->
+    [one] 1 second
+   *[other] { $seconds } seconds
+} before inviting that friend again.
+host-invite-rate-limited = You are sending table invites too quickly. Try again in { $seconds ->
+    [one] 1 second
+   *[other] { $seconds } seconds
+}.
 host-invite-declined = { $player } declined your table invite.
-table-invite-received = { $host } has invited you to their { $game } table.
-table-invite-queued = { $host } invited you to their { $game } table. Finish your current input to respond.
+table-invite-received = { $host } has invited you to { GENDER_TERM($host_gender, "possessive-determiner") } { $game } table.
+table-invite-queued = { $host } invited you to { GENDER_TERM($host_gender, "possessive-determiner") } { $game } table. Finish your current input to respond.
 table-invite-expired = The table invite has expired.
+table-invite-no-longer-available = That table invite is no longer available.
 invite-accept = Accept Invite
 invite-decline = Decline Invite
 host-management-no-longer-host = You are no longer the host of this table.

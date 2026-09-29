@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
@@ -469,8 +470,18 @@ async def test_quick_reconnect_suppresses_offline_online_flap(presence_server):
     recipient.speak_l.reset_mock()
     recipient.play_sound.reset_mock()
 
+    sentinel = datetime(2000, 1, 1, tzinfo=timezone.utc)
+    assert presence_server._db.update_user_last_seen(
+        target.username,
+        observed_at=sentinel,
+    )
+
     await presence_server._on_client_disconnect(first_client)
     assert target.username in presence_server._pending_disconnects
+    last_seen = datetime.fromisoformat(
+        presence_server._db.get_user(target.username).last_login_date
+    )
+    assert last_seen > sentinel
 
     second_client = _Client("127.0.0.1:10002")
     registry.bind(second_client)

@@ -27,6 +27,39 @@ def _get_main_window_function(function_name: str) -> ast.FunctionDef:
     raise AssertionError(f"MainWindow.{function_name} not found")
 
 
+def _get_frozenset_assignment(
+    nodes: list[ast.stmt],
+    attribute_name: str,
+) -> set[str]:
+    for child in nodes:
+        if not isinstance(child, ast.Assign) or len(child.targets) != 1:
+            continue
+        target = child.targets[0]
+        value = child.value
+        if (
+            isinstance(target, ast.Name)
+            and target.id == attribute_name
+            and isinstance(value, ast.Call)
+            and isinstance(value.func, ast.Name)
+            and value.func.id == "frozenset"
+            and len(value.args) == 1
+        ):
+            return set(ast.literal_eval(value.args[0]))
+    raise AssertionError(f"{attribute_name} frozenset assignment not found")
+
+
+def _get_main_window_frozenset(attribute_name: str) -> set[str]:
+    return _get_frozenset_assignment(_get_main_window_class().body, attribute_name)
+
+
+def _get_server_options_menu_ids() -> set[str]:
+    source_path = Path(__file__).resolve().parents[2] / "server" / "core" / "server.py"
+    return _get_frozenset_assignment(
+        ast.parse(source_path.read_text(encoding="utf-8")).body,
+        "OPTIONS_MENU_IDS",
+    )
+
+
 def _main_window_method_names() -> set[str]:
     main_window = _get_main_window_class()
     return {
@@ -130,6 +163,40 @@ def test_global_menu_shortcuts_prepare_menu_focus_before_sending_packets():
     ):
         function = _get_main_window_function(function_name)
         assert _has_method_call(function, "_prepare_for_menu_shortcut_navigation")
+
+
+def test_desktop_options_shortcut_covers_every_server_owned_options_menu():
+    desktop_menu_ids = _get_main_window_frozenset("_OPTIONS_MENU_IDS")
+
+    assert desktop_menu_ids == _get_server_options_menu_ids()
+    assert {
+        "global_chat_channel_menu",
+        "game_options_menu",
+        "pref_category_menu",
+        "pref_detail_menu",
+        "pref_choices_menu",
+    } <= desktop_menu_ids
+
+
+def test_desktop_friends_shortcut_covers_nested_social_surfaces():
+    desktop_menu_ids = _get_main_window_frozenset("_FRIENDS_MENU_IDS")
+
+    assert {
+        "sent_friend_requests_menu",
+        "sent_friend_request_actions_menu",
+        "friend_request_cancel_confirm_menu",
+        "friend_remove_confirm_menu",
+        "blocked_users_menu",
+        "blocked_user_actions_menu",
+        "user_block_confirm_menu",
+        "user_report_reason_menu",
+        "user_report_confirm_menu",
+        "public_profile_menu",
+        "send_friend_request_input",
+        "block_user_input",
+        "report_user_input",
+        "send_pm_input",
+    } <= desktop_menu_ids
 
 
 def test_read_online_users_never_moves_focus():

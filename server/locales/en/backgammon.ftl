@@ -22,7 +22,7 @@ backgammon-roll-player = { $player } rolls { $die1 } and { $die2 }.
 
 # No moves
 backgammon-no-moves-you = You have no legal moves, so your turn ends.
-backgammon-no-moves-player = { $player } has no legal moves, so their turn ends.
+backgammon-no-moves-player = { $player } has no legal moves, so { GENDER_TERM($player_gender, "possessive-determiner") } turn ends.
 
 # Brief move commentary
 backgammon-brief-move-normal = { $is_self ->
@@ -129,12 +129,12 @@ backgammon-bearoff-no-die = You can't bear off from the { $point }-point with yo
 backgammon-nothing-to-undo = Nothing to undo.
 backgammon-undo-move = { $listener ->
     [actor] You undo your move from { $source } to { $destination }.
-    *[observer] { $player } undoes their move from { $source } to { $destination }.
+    *[observer] { $player } undoes { GENDER_TERM($player_gender, "possessive-determiner") } move from { $source } to { $destination }.
 }
 backgammon-undo-hit = { $listener ->
     [actor] You undo your move from { $source } to { $destination }, restoring { $opponent }'s checker.
-    [target] { $player } undoes their move from { $source } to { $destination }, restoring your checker.
-    *[observer] { $player } undoes their move from { $source } to { $destination }, restoring { $opponent }'s checker.
+    [target] { $player } undoes { GENDER_TERM($player_gender, "possessive-determiner") } move from { $source } to { $destination }, restoring your checker.
+    *[observer] { $player } undoes { GENDER_TERM($player_gender, "possessive-determiner") } move from { $source } to { $destination }, restoring { $opponent }'s checker.
 }
 backgammon-selection-cleared = Checker selection cleared.
 backgammon-no-selection = No checker is selected.
@@ -142,7 +142,8 @@ backgammon-cannot-double = You can't double right now.
 backgammon-double-single-game = The doubling cube is not used in a single game.
 backgammon-double-crawford = This is the Crawford game, so the doubling cube is unavailable.
 backgammon-double-dead-cube = You would already win the match by winning at the cube's current value, so the cube is dead for you and may not be doubled.
-backgammon-double-cube-owned = Your opponent owns the cube, so only they may offer the next double.
+backgammon-double-cube-owned = { $opponent } owns the cube, so only { GENDER_TERM($opponent_gender, "subject") } may offer the next double.
+backgammon-double-cube-owned-unknown = Your opponent owns the cube, so you cannot offer the next double.
 backgammon-double-before-roll-only = You may offer a double only at the start of your turn, before rolling.
 backgammon-cannot-undo = Nothing to undo.
 backgammon-not-doubling-phase = No double to respond to.

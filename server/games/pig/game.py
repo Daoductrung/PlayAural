@@ -165,7 +165,8 @@ class PigGame(Game):
 
             payload = dict(kwargs)
             if not is_actor:
-                payload["player"] = actor.name
+                payload["player"] = actor
+            payload = self._resolve_broadcast_kwargs(user.locale, payload)
             user.speak_l(key, buffer="game", **payload)
 
     def _broadcast_global_l(
@@ -217,7 +218,8 @@ class PigGame(Game):
                 ),
             }
             if not is_actor:
-                payload["player"] = actor.name
+                payload["player"] = actor
+            payload = self._resolve_broadcast_kwargs(user.locale, payload)
             user.speak_l(key, buffer="game", **payload)
 
     def _is_team_game(self) -> bool:

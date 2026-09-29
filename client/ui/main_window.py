@@ -2,8 +2,12 @@
 
 import wx
 from .menu_list import MenuList
-from .menu_focus import resolve_menu_focus_index
+from .menu_focus import MenuFocusContextStore, resolve_menu_focus_index
 from .text_direction import apply_text_layout_direction
+from .copy_directive import (
+    NO_COPY_DIRECTIVE,
+    execute_copy_directive,
+)
 import accessible_output2.outputs.auto as auto_output
 import sys
 import os
@@ -71,6 +75,7 @@ BUFFER_NAVIGATION_HANDLE = "client:buffer-navigation"
 DOWNLOAD_PROGRESS_INTERVAL_SECONDS = 0.1
 DOWNLOAD_PROGRESS_UI_TIMEOUT_SECONDS = 5.0
 DOWNLOAD_SPEECH_PERCENT_STEP = 10
+LOGOUT_RESPONSE_TIMEOUT_MS = 5000
 
 
 @dataclass(slots=True)
@@ -155,6 +160,10 @@ class MainWindow(wx.Frame):
         self.expecting_reconnect = False  # Track if we're expecting to reconnect (server restart)
         self.is_reconnecting = False # Track if we are in silent reconnect mode
         self.quitting = False # Track if finding to exit
+        self._logout_request_pending = False
+        self._logout_response_timer = None
+        self._close_cleanup_complete = False
+        self._window_destroy_started = False
         self.reconnect_start_time = None
         self.max_silent_reconnect_duration = 30 # seconds
         self.reconnect_attempts = 0  # Track reconnection attempts
@@ -197,6 +206,7 @@ class MainWindow(wx.Frame):
         self.current_menu_id = None  # Track which menu is currently displayed
         self.current_menu_item_ids = []  # Track item IDs for current menu (parallel to menu items)
         self.current_menu_item_read_only = []  # Focusable informational rows cannot activate
+        self.current_menu_item_copy_directives = []  # Server-driven local copies
         self.current_edit_multiline = False  # Track if current editbox is multiline
         self.current_edit_read_only = False  # Track if current editbox is read-only
         self.current_edit_input_id = None  # Track server input ID for Escape cancellation
@@ -676,16 +686,119 @@ class MainWindow(wx.Frame):
         pass
 
     def on_close(self, event):
-        """Clean up background voice resources before the frame closes."""
+        """Confirm an ordinary close and request an authoritative logout."""
+        can_veto = bool(event.CanVeto())
+        if self._logout_request_pending and can_veto:
+            event.Veto()
+            return
+
+        if not self.quitting and can_veto:
+            event.Veto()
+            focused = wx.Window.FindFocus()
+            if not self._show_logout_confirmation():
+                self._restore_focus_after_close_cancel(focused)
+                return
+
+            if self.connected and self.network.send_packet({"type": "logout"}):
+                self._logout_request_pending = True
+                self.is_reconnecting = False
+                self.expecting_reconnect = False
+                self.speaker.speak(
+                    Localization.get("logout-in-progress"),
+                    interrupt=True,
+                )
+                self._logout_response_timer = wx.CallLater(
+                    LOGOUT_RESPONSE_TIMEOUT_MS,
+                    self._finish_local_exit,
+                )
+                return
+
+            # The user already confirmed. If no authenticated transport can
+            # carry the request, close locally instead of trapping the window.
+            self._finish_local_exit()
+            return
+
+        self._cleanup_close_resources()
+        event.Skip()
+
+    def _show_logout_confirmation(self):
+        """Show the localized, safe-default native logout confirmation."""
+        dialog = wx.MessageDialog(
+            self,
+            Localization.get("logout-confirm-message"),
+            Localization.get("logout-confirm-title"),
+            wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION,
+        )
+        try:
+            dialog.SetYesNoLabels(
+                Localization.get("logout-confirm-yes"),
+                Localization.get("logout-confirm-no"),
+            )
+            return dialog.ShowModal() == wx.ID_YES
+        finally:
+            dialog.Destroy()
+
+    @staticmethod
+    def _restore_focus_after_close_cancel(focused):
+        """Restore the control that owned focus before the native dialog."""
+        if focused is None:
+            return
+        try:
+            if focused.IsShown() and focused.IsEnabled():
+                wx.CallAfter(focused.SetFocus)
+        except RuntimeError:
+            pass
+
+    def _cancel_logout_response_timer(self):
+        timer = self._logout_response_timer
+        self._logout_response_timer = None
+        if timer is None:
+            return
+        try:
+            timer.Stop()
+        except RuntimeError:
+            pass
+
+    def _cleanup_close_resources(self):
+        """Release client-owned resources exactly once during final shutdown."""
+        if self._close_cleanup_complete:
+            return
+        self._close_cleanup_complete = True
+        self._cancel_logout_response_timer()
         for observer in self._typing_input_observers:
-            observer.close()
+            try:
+                observer.close()
+            except Exception:
+                pass
         self._typing_input_observers.clear()
         self._native_typing_control_handles.clear()
+        try:
+            self.network.disconnect()
+        except Exception:
+            pass
         try:
             self.voice_manager.shutdown()
         except Exception:
             pass
-        event.Skip()
+        try:
+            self.sound_manager.stop_all(fade_ms=0)
+        except Exception:
+            pass
+
+    def _finish_local_exit(self):
+        """Finish a confirmed or forced exit without reopening confirmation."""
+        if self._window_destroy_started:
+            return
+        self._window_destroy_started = True
+        self.quitting = True
+        self._logout_request_pending = False
+        self._cleanup_close_resources()
+        try:
+            self.Destroy()
+        finally:
+            app = wx.GetApp()
+            if app is not None:
+                app.ExitMainLoop()
 
     def on_focus_menu(self, event):
         """Handle Alt+M shortcut to focus menu list."""
@@ -1130,7 +1243,13 @@ class MainWindow(wx.Frame):
     _FRIENDS_MENU_IDS = frozenset({
         "friends_hub_menu", "friends_list_menu", "friend_actions_menu",
         "friend_requests_menu", "friend_request_actions_menu",
-        "send_friend_request_input",
+        "sent_friend_requests_menu", "sent_friend_request_actions_menu",
+        "friend_request_cancel_confirm_menu", "friend_remove_confirm_menu",
+        "blocked_users_menu", "blocked_user_actions_menu",
+        "user_block_confirm_menu", "user_report_reason_menu",
+        "user_report_confirm_menu", "public_profile_menu",
+        "send_friend_request_input", "block_user_input", "report_user_input",
+        "send_pm_input",
     })
     # Administration-family menus. Permission remains enforced by the server.
     _ADMIN_MENU_IDS = frozenset({
@@ -1150,9 +1269,11 @@ class MainWindow(wx.Frame):
     _OPTIONS_MENU_IDS = frozenset({
         "options_menu", "options_audio_submenu", "volume_selection_menu",
         "options_accessibility_submenu",
-        "options_notifications_submenu", "options_game_submenu",
+        "options_notifications_submenu", "global_chat_channel_menu",
+        "game_options_menu", "pref_category_menu", "pref_detail_menu",
+        "pref_choices_menu",
         "language_menu", "speech_settings_menu", "voice_selection_menu",
-        "audio_input_device_menu", "dice_keeping_style_menu",
+        "speech_rate_selection_menu", "audio_input_device_menu",
         "mobile_speech_settings_menu", "mobile_tts_engine_menu",
         "mobile_voice_selection_menu",
         "speech_rate_input", "mobile_tts_rate_input",
@@ -1532,6 +1653,8 @@ class MainWindow(wx.Frame):
                             and self.current_menu_item_read_only[last_index]
                         ):
                             return
+                        if self._activate_menu_copy_at(last_index):
+                            return
                         # Play menuenter sound like a normal activation
                         if self.sound_manager:
                             self.sound_manager.play_menuenter()
@@ -1563,6 +1686,15 @@ class MainWindow(wx.Frame):
             # Only send Enter as keybind if modifiers are held
             # Plain Enter should activate the menu (handled by MenuList)
             if event.ControlDown() or event.ShiftDown() or event.AltDown():
+                if (
+                    event.ShiftDown()
+                    and not event.ControlDown()
+                    and not event.AltDown()
+                    and self._activate_menu_copy_at(
+                        self.menu_list.GetSelection()
+                    )
+                ):
+                    return
                 key_name = "enter"
         # Handle letter keys (case insensitive)
         elif 65 <= key_code <= 90:  # A-Z
@@ -1748,6 +1880,10 @@ class MainWindow(wx.Frame):
         ):
             return
 
+        if self._activate_menu_copy_at(selection):
+            event.Skip()
+            return
+
         if self.sound_manager:
             self.sound_manager.play_menuenter()
 
@@ -1768,6 +1904,31 @@ class MainWindow(wx.Frame):
             self.network.send_packet(packet)
 
         event.Skip()
+
+    def _activate_menu_copy_at(self, selection):
+        """Run a selected local copy action through every activation path."""
+        if not isinstance(selection, int) or isinstance(selection, bool):
+            return False
+        read_only = getattr(self, "current_menu_item_read_only", [])
+        if 0 <= selection < len(read_only) and read_only[selection]:
+            return False
+        directives = getattr(self, "current_menu_item_copy_directives", [])
+        if not 0 <= selection < len(directives):
+            return False
+        directive = directives[selection]
+        if directive is NO_COPY_DIRECTIVE:
+            return False
+        if self.sound_manager:
+            self.sound_manager.play_menuenter()
+        self.perform_copy_directive(directive)
+        return True
+
+    def perform_copy_directive(self, directive):
+        """Execute a copy directive from any desktop view."""
+        result = execute_copy_directive(directive)
+        if result.accepted and result.feedback:
+            self.add_history(result.feedback, "system", speak_aloud=True)
+        return result
 
     def set_multiletter_navigation(self, enabled):
         """Set multiletter navigation state (called by server)."""
@@ -2094,6 +2255,12 @@ class MainWindow(wx.Frame):
 
     def on_connection_lost(self):
         """Handle connection loss."""
+        if self._logout_request_pending:
+            # The user already confirmed the exit. A transport loss while the
+            # server is processing logout must never start a reconnect loop.
+            self._finish_local_exit()
+            return
+
         # If we are quitting/exiting, ignore any connection loss events logic
         if self.quitting:
             return
@@ -2206,15 +2373,11 @@ class MainWindow(wx.Frame):
         
         # Internal codes: EXIT
         if reason == "exit":
+            self.quitting = True
+            self._logout_request_pending = False
+            self._cancel_logout_response_timer()
             self.speaker.speak(Localization.get("goodbye"), interrupt=True)
-            
-            # Hard exit after 1s to allow speech
-            def hard_exit():
-                import sys
-                self.Destroy()
-                sys.exit(0)
-            
-            wx.CallLater(1000, hard_exit)
+            wx.CallLater(1000, self._finish_local_exit)
             return
 
         # Localize specific reasons
@@ -2240,30 +2403,20 @@ class MainWindow(wx.Frame):
         """Handle forced exit command from server."""
         try:
             self.quitting = True
+            self._logout_request_pending = False
+            self._cancel_logout_response_timer()
             
             try:
                 self.speaker.speak(Localization.get("goodbye"), interrupt=True)
             except Exception:
                 pass
             
-            def hard_exit():
-                try:
-                    # Try graceful exit first
-                    self.Destroy()
-                    sys.exit(0)
-                except Exception:
-                    # Fallback to hard process termination
-                    os._exit(0)
-                finally:
-                    # Should not assume we get here, but just in case
-                    os._exit(0)
-
-            # Give 1s for speech then kill process
-            wx.CallLater(1000, hard_exit)
+            # Give the final speech a moment to start, then use the same
+            # idempotent shutdown path as every other accepted close.
+            wx.CallLater(1000, self._finish_local_exit)
 
         except Exception:
-             # If setup fails, die immediately
-             os._exit(0)
+            self._finish_local_exit()
 
     def on_update_preference(self, packet):
         """Handle preference update from server."""
@@ -3148,6 +3301,20 @@ class MainWindow(wx.Frame):
         if self.current_mode == "edit":
             return
 
+        focus_contexts = getattr(self, "_menu_focus_contexts", None)
+        if focus_contexts is None:
+            focus_contexts = MenuFocusContextStore()
+            self._menu_focus_contexts = focus_contexts
+        capture_context_id = packet.get("capture_focus_context_id")
+        focus_contexts.capture(
+            capture_context_id,
+            menu_id=getattr(self, "current_menu_id", None),
+            item_ids=getattr(self, "current_menu_item_ids", []),
+            selection=self.menu_list.GetSelection(),
+        )
+        restore_context_id = packet.get("restore_focus_context_id")
+        restored_focus = focus_contexts.consume(restore_context_id)
+
         items_raw = packet.get("items", [])
         menu_id = packet.get("menu_id", None)
         position = packet.get("position", None)  # Optional position to move to
@@ -3164,19 +3331,29 @@ class MainWindow(wx.Frame):
         item_ids = []
         item_sounds = []
         item_read_only = []
+        item_copy_directives = []
         for item in items_raw:
             if isinstance(item, dict):
                 items.append(item.get("text", ""))
-                item_ids.append(item.get("id"))
+                item_id = item.get("id")
+                item_ids.append(item_id if isinstance(item_id, str) else None)
                 item_sounds.append(item.get("sound"))
                 item_read_only.append(
-                    item.get("read_only") is True or not item.get("id")
+                    item.get("read_only") is True
+                    or not isinstance(item_id, str)
+                    or not item_id
+                )
+                item_copy_directives.append(
+                    item.get("copy_directive")
+                    if "copy_directive" in item
+                    else NO_COPY_DIRECTIVE
                 )
             else:
                 items.append(str(item))
                 item_ids.append(None)
                 item_sounds.append(None)
                 item_read_only.append(True)
+                item_copy_directives.append(NO_COPY_DIRECTIVE)
 
         # Save old item IDs before updating (for diff algorithm)
         old_item_ids = getattr(self, 'current_menu_item_ids', [])
@@ -3184,6 +3361,7 @@ class MainWindow(wx.Frame):
         # Store item IDs for later use
         self.current_menu_item_ids = item_ids
         self.current_menu_item_read_only = item_read_only
+        self.current_menu_item_copy_directives = item_copy_directives
 
         # Convert selection_id to position if provided
         if selection_id is not None and position is None:
@@ -3193,6 +3371,21 @@ class MainWindow(wx.Frame):
                 pass  # ID not found, ignore
 
         is_same_menu_id = self.current_menu_id == menu_id
+        restored_focus_matches = (
+            restored_focus is not None
+            and restored_focus.menu_id == menu_id
+        )
+        focus_source_ids = (
+            restored_focus.item_ids
+            if restored_focus_matches
+            else old_item_ids
+        )
+        focus_source_selection = (
+            restored_focus.selection
+            if restored_focus_matches
+            else self.menu_list.GetSelection()
+        )
+        focus_source_same_menu = is_same_menu_id or restored_focus_matches
         self.current_menu_id = menu_id
 
         # update_menu packets from the server omit escape_behavior and
@@ -3224,10 +3417,10 @@ class MainWindow(wx.Frame):
             if len(items) > 0:
                 self.menu_list.SetSelection(
                     resolve_menu_focus_index(
-                        [],
+                        focus_source_ids,
                         item_ids,
-                        0,
-                        same_menu=False,
+                        focus_source_selection,
+                        same_menu=focus_source_same_menu,
                         explicit_index=position,
                     )
                 )
@@ -3252,10 +3445,14 @@ class MainWindow(wx.Frame):
             # on the next surviving row from the old logical order.
             if len(items) > 0:
                 target = resolve_menu_focus_index(
-                    old_item_ids,
+                    focus_source_ids,
                     item_ids,
-                    old_selection,
-                    same_menu=True,
+                    (
+                        focus_source_selection
+                        if restored_focus_matches
+                        else old_selection
+                    ),
+                    same_menu=focus_source_same_menu,
                     explicit_index=position,
                 )
                 if self.menu_list.GetSelection() != target:
@@ -3274,10 +3471,10 @@ class MainWindow(wx.Frame):
             if len(items) > 0:
                 self.menu_list.SetSelection(
                     resolve_menu_focus_index(
-                        [],
+                        focus_source_ids,
                         item_ids,
-                        0,
-                        same_menu=False,
+                        focus_source_selection,
+                        same_menu=focus_source_same_menu,
                         explicit_index=position,
                     )
                 )
@@ -3339,6 +3536,12 @@ class MainWindow(wx.Frame):
         # Clear menu
         self.menu_list.Clear()
         self.current_menu_id = None
+        self.current_menu_item_ids = []
+        self.current_menu_item_read_only = []
+        self.current_menu_item_copy_directives = []
+        focus_contexts = getattr(self, "_menu_focus_contexts", None)
+        if focus_contexts is not None:
+            focus_contexts.clear()
         # Switch to list mode if in edit mode
         if self.current_mode == "edit":
             self.switch_to_list_mode()

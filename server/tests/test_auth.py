@@ -1,6 +1,12 @@
+import asyncio
+import os
+import tempfile
+import uuid
+from datetime import datetime, timezone
+
 import pytest
+
 from server.auth.auth import AuthManager
-from server.persistence.database import Database
 from server.core.server import (
     ANDROID_UPDATE_URL,
     SOUNDS_HASH,
@@ -9,11 +15,12 @@ from server.core.server import (
     VERSION,
     WELCOME_SOUND,
 )
+from server.gender import Gender
+from server.games.pig.game import PigGame
+from server.persistence.database import Database
+from server.users.bot import Bot
 from server.users.network_user import NetworkUser
-import tempfile
-import os
-import asyncio
-import uuid
+
 
 class MockClient:
     def __init__(self):
@@ -217,6 +224,27 @@ class TestAuthSecurity:
 
         assert result == "username_reserved_bot"
         assert self.db.get_user("Omega Alpha") is None
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("username", ["System", "system", "Ｓｙｓｔｅｍ"])
+    async def test_registration_rejects_server_owned_identity_name(
+        self,
+        username,
+    ):
+        client = MockClient()
+
+        await self.server._handle_register(
+            client,
+            {
+                "username": username,
+                "password": "Password123",
+                "email": f"reserved-{uuid.uuid4()}@example.com",
+            },
+        )
+
+        assert client.sent_messages[-1]["status"] == "error"
+        assert client.sent_messages[-1]["error"] == "username_reserved"
+        assert self.db.get_user(username) is None
 
     @pytest.mark.parametrize(
         ("username", "expected"),
@@ -550,6 +578,26 @@ class TestAuthSecurity:
         assert client.sent_messages[0]["username"] == "Alice"
 
     @pytest.mark.asyncio
+    async def test_authorize_hydrates_live_account_gender(self):
+        self.server._auth.register("Gendered", "Password123")
+        self.db.update_user_gender("Gendered", Gender.FEMALE.value)
+        client = MockClient()
+        self.server._ws_server.bind_client(client)
+
+        await self.server._handle_authorize(
+            client,
+            {
+                "type": "authorize",
+                "client": "python",
+                "username": "Gendered",
+                "password": "Password123",
+                "version": VERSION,
+            },
+        )
+
+        assert self.server._users["Gendered"].gender is Gender.FEMALE
+
+    @pytest.mark.asyncio
     async def test_ambiguous_legacy_username_requires_exact_spelling(self):
         password_hash = self.server._auth.hash_password("Password123")
         self.db.create_user("Straße", password_hash, approved=True)
@@ -803,16 +851,122 @@ class TestAuthSecurity:
             {},
         )
 
-        async def skip_failsafe(_user):
-            return None
-
-        self.server._failsafe_close = skip_failsafe
         await self.server._handle_logout_confirm_selection(user, "yes")
         await asyncio.sleep(0)
 
         assert client.sent_messages == [{"type": "force_exit"}]
+        assert client.closed is True
+        assert user.username not in self.server._users
         assert user.username not in self.server._user_states
         assert user.username not in self.server._deferred_navigation
+
+    @pytest.mark.asyncio
+    async def test_direct_logout_leaves_active_table_before_retiring_session(self):
+        alice_record = self.db.create_user(
+            "Alice",
+            "hash",
+            approved=True,
+            email="alice@example.com",
+        )
+        bob_record = self.db.create_user(
+            "Bob",
+            "hash",
+            approved=True,
+            email="bob@example.com",
+        )
+        alice_client = MockClient()
+        alice_client.username = alice_record.username
+        alice_client.authenticated = True
+        bob_client = MockClient()
+        bob_client.username = bob_record.username
+        bob_client.authenticated = True
+        alice = NetworkUser(
+            alice_record.username,
+            "en",
+            alice_client,
+            uuid=alice_record.uuid,
+            approved=True,
+        )
+        bob = NetworkUser(
+            bob_record.username,
+            "en",
+            bob_client,
+            uuid=bob_record.uuid,
+            approved=True,
+        )
+        self.server._users = {alice.username: alice, bob.username: bob}
+        self.server._user_states[alice.username] = {"menu": "in_game"}
+        self.server._user_states[bob.username] = {"menu": "in_game"}
+
+        table = self.server._tables.create_table("pig", alice.username, alice)
+        game = PigGame()
+        table.game = game
+        game._table = table
+        game.initialize_lobby(alice.username, alice)
+        table.add_member(bob.username, bob, as_spectator=False)
+        game.add_player(bob.username, bob)
+        game.on_start()
+
+        await self.server._handle_authenticated_message(
+            alice_client,
+            alice,
+            {"type": "logout"},
+        )
+
+        assert alice_client.sent_messages[-1] == {"type": "force_exit"}
+        assert alice_client.closed is True
+        assert alice.username not in self.server._users
+        assert self.server._tables.find_user_table(alice.username) is None
+        assert all(member.username != alice.username for member in table.members)
+        replacement = game.get_player_by_id(alice.uuid)
+        assert replacement is not None
+        assert replacement.is_bot is True
+        assert replacement.replaced_human_name == alice.username
+        assert table.host == bob.username
+
+    @pytest.mark.asyncio
+    async def test_spectator_host_logout_closes_unowned_bot_only_table(self):
+        host_record = self.db.create_user(
+            "Host",
+            "hash",
+            approved=True,
+            email="host@example.com",
+        )
+        client = MockClient()
+        client.username = host_record.username
+        client.authenticated = True
+        host = NetworkUser(
+            host_record.username,
+            "en",
+            client,
+            uuid=host_record.uuid,
+            approved=True,
+        )
+        self.server._users[host.username] = host
+        self.server._user_states[host.username] = {"menu": "in_game"}
+
+        table = self.server._tables.create_table("pig", host.username, host)
+        game = PigGame()
+        table.game = game
+        game._table = table
+        game.initialize_lobby(host.username, host)
+        game.add_player("Botty", Bot("Botty"))
+        game.on_start()
+        host_player = game.get_player_by_id(host.uuid)
+        assert host_player is not None
+        host_player.is_spectator = True
+        table.members[0].is_spectator = True
+
+        await self.server._handle_authenticated_message(
+            client,
+            host,
+            {"type": "logout"},
+        )
+
+        assert table._destroyed is True
+        assert self.server._tables.get_table(table.table_id) is None
+        assert client.sent_messages[-1] == {"type": "force_exit"}
+        assert client.closed is True
 
     @pytest.mark.asyncio
     async def test_authorize_kicks_existing_session_across_case_variants(self):
@@ -851,6 +1005,133 @@ class TestAuthSecurity:
         assert second_client.username == "Alice"
         assert self.server._ws_server.get_client_by_username("Alice") is second_client
 
+    @pytest.mark.parametrize(
+        ("source_client_type", "replacement_client_type"),
+        [
+            ("python", "web"),
+            ("python", "mobile"),
+            ("web", "python"),
+            ("web", "mobile"),
+            ("mobile", "python"),
+            ("mobile", "web"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_live_game_handover_rebuilds_for_every_client_type_pair(
+        self,
+        monkeypatch,
+        source_client_type,
+        replacement_client_type,
+    ):
+        record = self.db.create_user(
+            "Alice",
+            "hash",
+            approved=True,
+            email="alice@example.com",
+        )
+        self.server._auth.verify_password = lambda password, password_hash: True
+
+        async def allow_captcha(client, packet):
+            return True, ""
+
+        monkeypatch.setattr(
+            self.server,
+            "_verify_captcha_if_required",
+            allow_captcha,
+        )
+
+        source_client = MockClient()
+        self.server._ws_server.bind_client(source_client)
+        await self.server._activate_authenticated_session(
+            source_client,
+            canonical_username=record.username,
+            client_type=source_client_type,
+            client_platform="Source platform",
+            user_record=record,
+        )
+        source_user = self.server._users[record.username]
+
+        table = self.server._tables.create_table("pig", record.username, source_user)
+        game = PigGame()
+        table.game = game
+        game._table = table
+        game.initialize_lobby(record.username, source_user)
+        game.add_player("Botty", Bot("Botty"))
+        game.on_start()
+        player = game.get_player_by_id(record.uuid)
+        assert player is not None
+        player.reconnect_grace_ticks = 7
+        game.turn_index = 1
+        self.server._set_in_game_state(source_user, table.table_id)
+
+        self.server._voice_presence_by_user[record.username] = {
+            "scope": "table",
+            "context_id": table.table_id,
+        }
+        self.server._record_voice_join_authorization(
+            record.username,
+            scope="table",
+            context_id=table.table_id,
+        )
+        self.server._audio_input_devices_by_user[record.username] = [
+            {"id": "source-mic", "name": "Source microphone"}
+        ]
+        source_user.speak("stale source output", buffer="system")
+        source_client.sent_messages.clear()
+
+        replacement_client = MockClient()
+        replacement_client.address = "127.0.0.1:23456"
+        self.server._ws_server.bind_client(replacement_client)
+        await self.server._handle_authorize(
+            replacement_client,
+            {
+                "type": "authorize",
+                "client": replacement_client_type,
+                "platform": "Replacement platform",
+                "username": record.username,
+                "password": "Password123",
+                "version": VERSION,
+            },
+        )
+
+        replacement_user = self.server._users[record.username]
+        assert source_client.closed is True
+        assert len(source_client.sent_messages) == 1
+        assert source_client.sent_messages[0]["type"] == "disconnect"
+        assert source_client.sent_messages[0]["reason"]
+        assert source_client.sent_messages[0]["reconnect"] is False
+        assert source_user.active is False
+        assert source_user.get_queued_messages() == []
+        assert replacement_client.sent_messages[0]["type"] == "authorize_success"
+        assert replacement_client.sent_messages[0]["reset_ui"] is True
+        assert replacement_client.session_ready is True
+        assert replacement_user.client_type == replacement_client_type
+        assert replacement_user.client_platform == "Replacement platform"
+        assert replacement_user.connection is replacement_client
+        assert table.get_user(record.username) is replacement_user
+        assert game.get_user(player) is replacement_user
+        assert player.is_bot is False
+        assert player.reconnect_grace_ticks == 7
+        assert game.turn_index == 1
+        assert record.username not in self.server._voice_presence_by_user
+        assert record.username not in self.server._voice_join_authorizations_by_user
+        assert record.username not in self.server._audio_input_devices_by_user
+
+        rendered_items = replacement_user._current_menus.get("turn_menu", {}).get(
+            "items",
+            [],
+        )
+        item_ids = {
+            item.get("id")
+            for item in rendered_items
+            if isinstance(item, dict) and item.get("id")
+        }
+        if replacement_client_type in {"web", "mobile"}:
+            assert {"web_actions_menu", "web_leave_table"} <= item_ids
+        else:
+            assert "web_actions_menu" not in item_ids
+            assert "web_leave_table" not in item_ids
+
     @pytest.mark.asyncio
     async def test_retired_session_disconnect_cannot_clean_up_replacement(self):
         self.server._auth.register("Alice", "Password123")
@@ -871,6 +1152,15 @@ class TestAuthSecurity:
         await self.server._handle_authorize(first_client, auth_packet)
         await self.server._handle_authorize(second_client, auth_packet)
 
+        sentinel = datetime(2000, 1, 1, tzinfo=timezone.utc)
+        assert self.server._db.update_user_last_seen(
+            "Alice",
+            observed_at=sentinel,
+        )
+        last_seen_before_retired_close = self.server._db.get_user(
+            "Alice"
+        ).last_login_date
+
         replacement = self.server._users["Alice"]
         self.server._user_states["Alice"] = {"menu": "options_menu"}
         self.server._voice_presence_by_user["Alice"] = {
@@ -888,6 +1178,9 @@ class TestAuthSecurity:
         assert self.server._user_states["Alice"] == {"menu": "options_menu"}
         assert "Alice" in self.server._voice_presence_by_user
         assert "Alice" in self.server._audio_input_devices_by_user
+        assert self.server._db.get_user("Alice").last_login_date == (
+            last_seen_before_retired_close
+        )
 
     @pytest.mark.asyncio
     async def test_retired_session_packets_cannot_mutate_replacement(self):

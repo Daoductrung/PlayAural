@@ -107,7 +107,7 @@ ageofheroes-population-growth = { $player } plays Population Growth and builds a
 ageofheroes-population-growth-you = You play Population Growth and build a new city.
 ageofheroes-discard-card = { $player } discards { $card }.
 ageofheroes-discard-card-you = You discard { $card }.
-ageofheroes-earthquake = An earthquake strikes { $player }'s tribe; their armies go into recovery.
+ageofheroes-earthquake = An earthquake strikes { $player }'s tribe; { GENDER_TERM($player_gender, "possessive-determiner") } armies go into recovery.
 ageofheroes-earthquake-you = An earthquake strikes your tribe; your armies go into recovery.
 ageofheroes-eruption = An eruption destroys one of { $player }'s cities.
 ageofheroes-eruption-you = An eruption destroys one of your cities.
@@ -157,7 +157,7 @@ ageofheroes-offer-made = { $player } offers { $card } for { $wanted }.
 ageofheroes-offer-made-you = You offer { $card } for { $wanted }.
 ageofheroes-trade-accepted = { $player } accepts { $other }'s offer and trades { $give } for { $receive }.
 ageofheroes-trade-accepted-you = You accept { $other }'s offer and receive { $receive }.
-ageofheroes-trade-cancelled = { $player } withdraws their offer for { $card }.
+ageofheroes-trade-cancelled = { $player } withdraws { GENDER_TERM($player_gender, "possessive-determiner") } offer for { $card }.
 ageofheroes-trade-cancelled-you = You withdraw your offer for { $card }.
 ageofheroes-stop-trading = Stop Trading
 ageofheroes-select-request = You are offering { $card }. What do you want in return?
@@ -197,7 +197,7 @@ ageofheroes-tax-collection-you = You choose Tax Collection: { $cities } { $citie
 ageofheroes-tax-collection-brief = { $player } tax: { $cards } from { $cities }.
 ageofheroes-tax-collection-you-brief = Tax: { $cards } from { $cities }.
 ageofheroes-tax-no-city = Tax Collection: You have no surviving cities. Discard a card to draw a new one.
-ageofheroes-tax-no-city-done = { $player } chooses Tax Collection but has no cities, so they exchange a card.
+ageofheroes-tax-no-city-done = { $player } chooses Tax Collection but has no cities, prompting { GENDER_TERM($player_gender, "object") } to exchange a card.
 ageofheroes-tax-no-city-done-you = Tax Collection: You exchanged { $card } for a new card.
 
 # Construction
@@ -421,7 +421,7 @@ ageofheroes-discard-more = Discard { $count } more { $count ->
 # Victory
 ageofheroes-victory-cities = { $player } has built { $cities } cities! Empire of Cities.
 ageofheroes-victory-cities-you = You have built { $cities } cities! Empire of Cities.
-ageofheroes-victory-monument = { $player } has completed their monument! Carriers of Great Culture.
+ageofheroes-victory-monument = { $player } has completed { GENDER_TERM($player_gender, "possessive-determiner") } monument! Carriers of Great Culture.
 ageofheroes-victory-monument-you = You have completed your monument! Carriers of Great Culture.
 ageofheroes-victory-last-standing = { $player } is the last tribe standing! The Most Persistent.
 ageofheroes-victory-last-standing-you = You are the last tribe standing! The Most Persistent.

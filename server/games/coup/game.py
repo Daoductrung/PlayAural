@@ -410,11 +410,14 @@ class CoupGame(Game):
                     character=card_name,
                 )
             else:
+                payload = self._resolve_broadcast_kwargs(
+                    user.locale,
+                    {"player": player, "character": card_name},
+                )
                 user.speak_l(
                     "coup-loses-influence",
                     buffer="game",
-                    player=player.name,
-                    character=card_name,
+                    **payload,
                 )
 
     def _eliminate_player(self, player: CoupPlayer) -> None:

@@ -15,11 +15,27 @@ from ..audio import (
     DistanceAttenuation,
     new_audio_handle,
 )
+from ..copy_protocol import CopyDirective
 from ..messages.localization import Localization
+from ..gender import Gender
 from .roles import USER_TRUST_LEVEL
 
 if TYPE_CHECKING:
     from .preferences import UserPreferences
+
+MAX_MENU_FOCUS_CONTEXT_ID_LENGTH = 128
+
+
+def validate_menu_focus_context_id(context_id: str) -> str:
+    """Validate one opaque, server-issued menu focus correlation token."""
+    if (
+        not isinstance(context_id, str)
+        or not context_id
+        or len(context_id) > MAX_MENU_FOCUS_CONTEXT_ID_LENGTH
+        or context_id.strip() != context_id
+    ):
+        raise ValueError("A menu focus context id must be a bounded token")
+    return context_id
 
 
 class EscapeBehavior(Enum):
@@ -43,6 +59,8 @@ class MenuItem:
     preventing activation on every client and at the server boundary. Rows
     without an action id are informational by definition and are normalized
     to this explicit protocol state automatically.
+    ``copy_directive`` is a validated, client-local action: activation copies
+    its exact payload and never dispatches the row id back to the server.
     """
 
     text: str
@@ -53,14 +71,26 @@ class MenuItem:
     description_kwargs: dict[str, Any] | None = None
     label: str | None = None
     read_only: bool = False
+    copy_directive: CopyDirective | None = None
 
     def __post_init__(self) -> None:
+        if self.copy_directive is not None and not isinstance(
+            self.copy_directive,
+            CopyDirective,
+        ):
+            raise TypeError("MenuItem copy_directive must be a CopyDirective")
         if self.description is not None and self.description_key is not None:
             raise ValueError(
                 "MenuItem accepts description or description_key, not both"
             )
+        if self.copy_directive is not None and (
+            not isinstance(self.id, str) or not self.id
+        ):
+            raise ValueError("Copyable menu items require a stable string item id")
         if not self.id:
             self.read_only = True
+        if self.read_only and self.copy_directive is not None:
+            raise ValueError("Read-only menu items cannot be copyable")
 
     def resolved_description(self, locale: str) -> str | None:
         """Return localized row help without exposing a Fluent key."""
@@ -125,6 +155,7 @@ class MenuItem:
             description=description,
             label=self.canonical_text,
             read_only=self.read_only,
+            copy_directive=self.copy_directive,
         )
 
     def to_dict(
@@ -139,6 +170,7 @@ class MenuItem:
             or self.sound is not None
             or description is not None
             or self.read_only
+            or self.copy_directive is not None
         ):
             data: dict[str, Any] = {
                 "text": self._display_text(
@@ -158,21 +190,25 @@ class MenuItem:
                 data["description"] = description
             if self.read_only:
                 data["read_only"] = True
+            if self.copy_directive is not None:
+                data["copy_directive"] = self.copy_directive.to_dict()
             return data
         return self.canonical_text
 
 
-def menu_selection_targets_read_only(
+def menu_selection_targets_server_inert(
     items: Sequence[object],
     *,
     selection_id: object = "",
     selection: object = None,
 ) -> bool:
-    """Return whether a menu event targets an informational row.
+    """Return whether a menu event targets a non-server menu row.
 
     Both stable-id and legacy one-based index events are supported so the
     server applies one authoritative rule across all client generations.
-    Plain-string rows are informational because they carry no action id.
+    Plain-string/read-only rows are informational. Copy directives are local
+    client actions. Neither kind may reach a server handler, including when a
+    stale or forged client sends a selection anyway.
     """
     candidates: list[object] = []
     if isinstance(selection_id, str) and selection_id:
@@ -197,13 +233,16 @@ def menu_selection_targets_read_only(
         if isinstance(item, dict):
             item_id = item.get("id")
             read_only = bool(item.get("read_only", False))
+            client_local = "copy_directive" in item
         elif isinstance(item, MenuItem):
             item_id = item.id
             read_only = item.read_only
+            client_local = item.copy_directive is not None
         else:
             item_id = None
             read_only = True
-        if read_only or not item_id:
+            client_local = False
+        if read_only or client_local or not item_id:
             return True
     return False
 
@@ -234,6 +273,15 @@ class User(ABC):
     def locale(self) -> str:
         """The user's locale for localization (e.g., 'en', 'es')."""
         ...
+
+    @property
+    def gender(self) -> Gender:
+        """The account gender exposed to games and localization.
+
+        Synthetic users and older test doubles default to unspecified so every
+        consumer has a neutral, fail-safe value.
+        """
+        return Gender.UNSPECIFIED
 
     @property
     def trust_level(self) -> int:
@@ -704,6 +752,7 @@ class User(ABC):
         grid_enabled: bool = False,
         grid_height: int = 0,
         grid_width: int = 1,
+        capture_focus_context_id: str | None = None,
     ) -> None:
         """
         Display a menu to the user.
@@ -718,8 +767,22 @@ class User(ABC):
             grid_enabled: Enable grid navigation mode.
             grid_height: Number of rows in grid mode.
             grid_width: Number of columns in grid mode.
+            capture_focus_context_id: Opaque token instructing clients to
+                snapshot the currently displayed menu focus before this menu.
         """
         ...
+
+    def restore_menu_focus_context(self, context_id: str) -> None:
+        """Ask the next rendered menu to restore a client-captured focus anchor."""
+        self._next_menu_focus_restore_context_id = validate_menu_focus_context_id(
+            context_id
+        )
+
+    def _consume_menu_focus_restore_context(self) -> str | None:
+        """Consume the pending one-shot directive for the next menu packet."""
+        context_id = getattr(self, "_next_menu_focus_restore_context_id", None)
+        self._next_menu_focus_restore_context_id = None
+        return context_id
 
     @abstractmethod
     def update_menu(

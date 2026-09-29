@@ -144,8 +144,8 @@ pusoydos-no-instant-wins = Không có bộ thắng ngay lập tức nào trong v
 # Card passing
 pusoydos-passing-phase = Giai đoạn trao đổi bài.
 pusoydos-loser-gives = { $loser } đưa { $count ->
-    [one] lá bài lớn nhất của mình
-   *[other] { $count } lá bài lớn nhất của mình
+    [one] lá bài lớn nhất { GENDER_TERM($loser_gender, "possessive-determiner") }
+   *[other] { $count } lá bài lớn nhất { GENDER_TERM($loser_gender, "possessive-determiner") }
 } cho { $winner }.
 pusoydos-winner-gives-back = { $winner } trả lại { $count ->
     [one] một lá bài

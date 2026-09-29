@@ -50,19 +50,19 @@ def clamp_page(page: int, total: int, page_size: int) -> int:
 
 def page_for_selection(
     selection_id: str,
-    current_page: int,
-    page_count: int,
+    current_page: object,
+    page_count: object,
 ) -> int | None:
     """Resolve a pagination control id into the page it should display."""
     if selection_id not in MENU_PAGE_IDS:
         return None
     try:
         safe_current = int(current_page)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         safe_current = 1
     try:
         safe_count = max(1, int(page_count))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         safe_count = 1
 
     safe_current = min(max(1, safe_current), safe_count)

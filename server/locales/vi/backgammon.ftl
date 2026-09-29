@@ -22,7 +22,7 @@ backgammon-roll-player = { $player } tung được { $die1 } và { $die2 }.
 
 # No moves
 backgammon-no-moves-you = Bạn không còn nước đi hợp lệ, nên lượt của bạn kết thúc.
-backgammon-no-moves-player = { $player } không còn nước đi hợp lệ, nên lượt của họ kết thúc.
+backgammon-no-moves-player = { $player } không còn nước đi hợp lệ, nên lượt { GENDER_TERM($player_gender, "possessive-determiner") } kết thúc.
 
 # Brief move commentary
 backgammon-brief-move-normal = { $is_self ->
@@ -129,12 +129,12 @@ backgammon-bearoff-no-die = Bạn không thể đưa quân ra từ điểm { $po
 backgammon-nothing-to-undo = Không có gì để hoàn tác.
 backgammon-undo-move = { $listener ->
     [actor] Bạn hoàn tác nước đi từ { $source } đến { $destination }.
-    *[observer] { $player } hoàn tác nước đi từ { $source } đến { $destination }.
+    *[observer] { $player } hoàn tác nước đi { GENDER_TERM($player_gender, "possessive-determiner") } từ { $source } đến { $destination }.
 }
 backgammon-undo-hit = { $listener ->
     [actor] Bạn hoàn tác nước đi từ { $source } đến { $destination }, trả quân của { $opponent } về bàn.
-    [target] { $player } hoàn tác nước đi từ { $source } đến { $destination }, trả quân của bạn về bàn.
-    *[observer] { $player } hoàn tác nước đi từ { $source } đến { $destination }, trả quân của { $opponent } về bàn.
+    [target] { $player } hoàn tác nước đi { GENDER_TERM($player_gender, "possessive-determiner") } từ { $source } đến { $destination }, trả quân của bạn về bàn.
+    *[observer] { $player } hoàn tác nước đi { GENDER_TERM($player_gender, "possessive-determiner") } từ { $source } đến { $destination }, trả quân của { $opponent } về bàn.
 }
 backgammon-selection-cleared = Đã bỏ chọn quân.
 backgammon-no-selection = Hiện không có quân nào được chọn.
@@ -142,7 +142,8 @@ backgammon-cannot-double = Bạn không thể nhân đôi lúc này.
 backgammon-double-single-game = Ván đơn không sử dụng khối nhân đôi.
 backgammon-double-crawford = Đây là ván Crawford, nên không được dùng khối nhân đôi.
 backgammon-double-dead-cube = Nếu thắng với giá trị khối hiện tại, bạn đã đủ điểm thắng trận; vì vậy khối đã chết đối với bạn và không được nhân đôi.
-backgammon-double-cube-owned = Đối thủ đang giữ khối, nên chỉ họ mới được đề nghị nhân đôi tiếp theo.
+backgammon-double-cube-owned = { $opponent } đang giữ khối, nên chỉ { GENDER_TERM($opponent_gender, "subject") } mới được đề nghị nhân đôi tiếp theo.
+backgammon-double-cube-owned-unknown = Đối thủ đang giữ khối, nên bạn không thể đề nghị nhân đôi tiếp theo.
 backgammon-double-before-roll-only = Bạn chỉ có thể đề nghị nhân đôi ở đầu lượt của mình, trước khi tung xúc xắc.
 backgammon-cannot-undo = Không có gì để hoàn tác.
 backgammon-not-doubling-phase = Không có lời nhân đôi nào để phản hồi.

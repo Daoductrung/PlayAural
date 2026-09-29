@@ -1,4 +1,4 @@
-const CACHE_NAME = "playaural-web-v1.0.5.1-shell-13";
+const CACHE_NAME = "playaural-web-v1.0.5.1-shell-15";
 
 const PRECACHE_URLS = [
   "./",
@@ -10,8 +10,11 @@ const PRECACHE_URLS = [
   "./app.js",
   "./a11y.js",
   "./audio.js",
+  "./clipboard.js",
+  "./copy_directive.js",
   "./spatial_audio.js",
   "./typing_sounds.js",
+  "./voice_lifecycle.js",
   "./generated/soundManifest.js",
   "./keybinds.js",
   "./network.js",

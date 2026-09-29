@@ -222,12 +222,10 @@ class MileByMileGame(Game):
             if listener == actor:
                 user.speak_l(personal_message_id, buffer="game", **kwargs)
             else:
-                user.speak_l(
-                    others_message_id,
-                    buffer="game",
-                    player=actor.name,
-                    **kwargs,
+                params = self._resolve_broadcast_kwargs(
+                    user.locale, {"player": actor, **kwargs}
                 )
+                user.speak_l(others_message_id, buffer="game", **params)
 
     def _broadcast_actor_card_l(
         self,
@@ -251,13 +249,11 @@ class MileByMileGame(Game):
                     **kwargs,
                 )
             else:
-                user.speak_l(
-                    others_message_id,
-                    buffer="game",
-                    player=actor.name,
-                    card=card_name,
-                    **kwargs,
+                params = self._resolve_broadcast_kwargs(
+                    user.locale,
+                    {"player": actor, "card": card_name, **kwargs},
                 )
+                user.speak_l(others_message_id, buffer="game", **params)
 
     def _broadcast_actor_team_l(
         self,
@@ -281,10 +277,11 @@ class MileByMileGame(Game):
                 and listener.team_index == actor.team_index
             ):
                 key = teammate_message_id
-                params = {"player": actor.name, **kwargs}
+                params = {"player": actor, **kwargs}
             else:
                 key = opponent_message_id
-                params = {"player": actor.name, **kwargs}
+                params = {"player": actor, **kwargs}
+            params = self._resolve_broadcast_kwargs(user.locale, params)
             user.speak_l(key, buffer="game", **params)
 
     def _broadcast_actor_team_card_l(
@@ -313,10 +310,11 @@ class MileByMileGame(Game):
                 and listener.team_index == actor.team_index
             ):
                 key = teammate_message_id
-                params["player"] = actor.name
+                params["player"] = actor
             else:
                 key = opponent_message_id
-                params["player"] = actor.name
+                params["player"] = actor
+            params = self._resolve_broadcast_kwargs(user.locale, params)
             user.speak_l(key, buffer="game", **params)
 
     def _broadcast_team_l(
@@ -2770,7 +2768,14 @@ class MileByMileGame(Game):
                 if p == attacker:
                     user.speak_l("milebymile-karma-shunned-you", buffer="game")
                 else:
-                    user.speak_l("milebymile-karma-shunned-other", buffer="game", player=attacker.name)
+                    params = self._resolve_broadcast_kwargs(
+                        user.locale, {"player": attacker}
+                    )
+                    user.speak_l(
+                        "milebymile-karma-shunned-other",
+                        buffer="game",
+                        **params,
+                    )
         else:
             for p in self.players:
                 user = self.get_user(p)
@@ -2797,7 +2802,14 @@ class MileByMileGame(Game):
                 if p == player:
                     user.speak_l("milebymile-false-virtue-you", buffer="game")
                 else:
-                    user.speak_l("milebymile-false-virtue-other", buffer="game", player=player.name)
+                    params = self._resolve_broadcast_kwargs(
+                        user.locale, {"player": player}
+                    )
+                    user.speak_l(
+                        "milebymile-false-virtue-other",
+                        buffer="game",
+                        **params,
+                    )
         else:
             self._broadcast_actor_team_l(
                 player,

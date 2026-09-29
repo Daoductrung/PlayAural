@@ -13,27 +13,27 @@ lightturret-upgrade-label = Nâng cấp lõi; tốn { $cost } xu, bạn có { $c
 lightturret-check-stats = Xem trạng thái tháp pháo
 
 lightturret-you-shoot = Bạn khai hỏa, nhận { $gain } quang năng và { $coins } xu. Tháp pháo đang ở mức { $light } trên { $power } công suất, còn { $headroom } công suất an toàn và có { $total_coins } xu.
-lightturret-player-shoots = { $player } khai hỏa, nhận { $gain } quang năng và { $coins } xu. Tháp pháo của họ đang ở mức { $light } trên { $power } công suất, còn { $headroom } công suất an toàn và có { $total_coins } xu.
+lightturret-player-shoots = { $player } khai hỏa, nhận { $gain } quang năng và { $coins } xu. Tháp pháo { GENDER_TERM($player_gender, "possessive-determiner") } đang ở mức { $light } trên { $power } công suất, còn { $headroom } công suất an toàn và có { $total_coins } xu.
 lightturret-you-shoot-brief = Bạn khai hỏa: +{ $gain } quang năng, +{ $coins } xu. Quang năng { $light }/{ $power}; xu { $total_coins }.
 lightturret-player-shoots-brief = { $player } khai hỏa: +{ $gain } quang năng, +{ $coins } xu. Quang năng { $light }/{ $power}; xu { $total_coins }.
 
 lightturret-you-shoot-overload = Bạn khai hỏa, nhận { $gain } quang năng và { $coins } xu, đạt { $light } quang năng trên { $power } công suất. Tháp pháo vượt ngưỡng { $overload } và bạn bị loại, còn lại { $total_coins } xu.
-lightturret-player-shoots-overload = { $player } khai hỏa, nhận { $gain } quang năng và { $coins } xu, đạt { $light } quang năng trên { $power } công suất. Tháp pháo vượt ngưỡng { $overload } và họ bị loại, còn lại { $total_coins } xu.
+lightturret-player-shoots-overload = { $player } khai hỏa, nhận { $gain } quang năng và { $coins } xu, đạt { $light } quang năng trên { $power } công suất. Tháp pháo vượt ngưỡng { $overload } và { GENDER_TERM($player_gender, "subject") } bị loại, còn lại { $total_coins } xu.
 lightturret-you-shoot-overload-brief = Bạn quá tải: +{ $gain } quang năng, { $light }/{ $power}, vượt { $overload}. Bị loại.
 lightturret-player-shoots-overload-brief = { $player } quá tải: +{ $gain } quang năng, { $light }/{ $power}, vượt { $overload}. Bị loại.
 
 lightturret-you-upgrade = Bạn dùng { $cost } xu, nâng lõi thêm { $gain } công suất. Tháp pháo hiện có { $light } quang năng, { $power } công suất, còn { $headroom } công suất an toàn và { $coins } xu.
-lightturret-player-upgrades = { $player } dùng { $cost } xu, nâng lõi thêm { $gain } công suất. Tháp pháo của họ hiện có { $light } quang năng, { $power } công suất, còn { $headroom } công suất an toàn và { $coins } xu.
+lightturret-player-upgrades = { $player } dùng { $cost } xu, nâng lõi thêm { $gain } công suất. Tháp pháo { GENDER_TERM($player_gender, "possessive-determiner") } hiện có { $light } quang năng, { $power } công suất, còn { $headroom } công suất an toàn và { $coins } xu.
 lightturret-you-upgrade-brief = Bạn nâng cấp: +{ $gain } công suất. Quang năng { $light }/{ $power}; xu { $coins }.
 lightturret-player-upgrades-brief = { $player } nâng cấp: +{ $gain } công suất. Quang năng { $light }/{ $power}; xu { $coins }.
 
 lightturret-you-upgrade-accident = Bạn dùng { $cost } xu, nhưng lõi phản tác dụng và tăng { $gain } quang năng. Tháp pháo đang ở mức { $light } trên { $power } công suất, còn { $headroom } công suất an toàn và { $coins } xu.
-lightturret-player-upgrades-accident = { $player } dùng { $cost } xu, nhưng lõi phản tác dụng và tăng { $gain } quang năng. Tháp pháo của họ đang ở mức { $light } trên { $power } công suất, còn { $headroom } công suất an toàn và { $coins } xu.
+lightturret-player-upgrades-accident = { $player } dùng { $cost } xu, nhưng lõi phản tác dụng và tăng { $gain } quang năng. Tháp pháo { GENDER_TERM($player_gender, "possessive-determiner") } đang ở mức { $light } trên { $power } công suất, còn { $headroom } công suất an toàn và { $coins } xu.
 lightturret-you-upgrade-accident-brief = Nâng cấp của bạn phản tác dụng: +{ $gain } quang năng. Quang năng { $light }/{ $power}; xu { $coins }.
 lightturret-player-upgrades-accident-brief = Nâng cấp của { $player } phản tác dụng: +{ $gain } quang năng. Quang năng { $light }/{ $power}; xu { $coins }.
 
 lightturret-you-upgrade-overload = Bạn dùng { $cost } xu, nhưng lõi phản tác dụng và tăng { $gain } quang năng. Tháp pháo đạt { $light } quang năng trên { $power } công suất, vượt ngưỡng { $overload }, khiến bạn bị loại và còn { $coins } xu.
-lightturret-player-upgrades-overload = { $player } dùng { $cost } xu, nhưng lõi phản tác dụng và tăng { $gain } quang năng. Tháp pháo đạt { $light } quang năng trên { $power } công suất, vượt ngưỡng { $overload }, khiến họ bị loại và còn { $coins } xu.
+lightturret-player-upgrades-overload = { $player } dùng { $cost } xu, nhưng lõi phản tác dụng và tăng { $gain } quang năng. Tháp pháo đạt { $light } quang năng trên { $power } công suất, vượt ngưỡng { $overload }, khiến { GENDER_TERM($player_gender, "object") } bị loại và còn { $coins } xu.
 lightturret-you-upgrade-overload-brief = Nâng cấp quá tải: +{ $gain } quang năng, { $light }/{ $power}, vượt { $overload}. Bị loại.
 lightturret-player-upgrades-overload-brief = { $player } nâng cấp quá tải: +{ $gain } quang năng, { $light }/{ $power}, vượt { $overload}. Bị loại.
 
@@ -56,8 +56,8 @@ lightturret-you-win = Bạn thắng với { $light } quang năng và { $power } 
    *[false] Tổng quang năng của bạn vẫn dẫn đầu dù tháp pháo đã quá tải.
 }
 lightturret-player-wins = { $player } thắng với { $light } quang năng và { $power } công suất. { $survived ->
-    [true] Tháp pháo của họ vẫn hoạt động.
-   *[false] Tổng quang năng của họ vẫn dẫn đầu dù tháp pháo đã quá tải.
+    [true] Tháp pháo { GENDER_TERM($player_gender, "possessive-determiner") } vẫn hoạt động.
+   *[false] Tổng quang năng { GENDER_TERM($player_gender, "possessive-determiner") } vẫn dẫn đầu dù tháp pháo đã quá tải.
 }
 lightturret-you-win-brief = Bạn thắng: { $light } quang năng.
 lightturret-player-wins-brief = { $player } thắng: { $light } quang năng.

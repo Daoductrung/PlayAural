@@ -12,7 +12,25 @@ def normalize_username(value: object) -> str:
 
 
 def username_key(value: object) -> str:
-    """Return a Unicode-aware, case-insensitive username lookup key."""
+    """Return the compatibility- and case-insensitive account lookup key.
+
+    The stored username remains NFC-normalized for display.  Identity lookup
+    additionally folds Unicode compatibility variants so visually equivalent
+    forms such as full-width Latin letters cannot create a second account.
+    Applying NFKC again after full case folding keeps the result normalized
+    when a fold expands into multiple code points.
+    """
+    compatibility_form = unicodedata.normalize("NFKC", normalize_username(value))
+    return unicodedata.normalize("NFKC", compatibility_form.casefold())
+
+
+def legacy_username_key_v2(value: object) -> str:
+    """Return the lookup key used by schema versions one and two.
+
+    SQLite expression indexes depend on function semantics during pre-migration
+    integrity checks, so the old transform remains available under its original
+    SQL function name until those schema versions are retired.
+    """
     return normalize_username(value).casefold()
 
 

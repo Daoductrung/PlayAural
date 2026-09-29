@@ -23,7 +23,7 @@ yahtzee-you-rolled = Bạn gieo được: { $dice }. { $remaining ->
    *[other] Còn { $remaining } lần gieo.
 }
 yahtzee-player-rolled = { $player } gieo được: { $dice }. { $remaining ->
-    [0] Họ phải chọn một mục ghi điểm.
+    [0] { GENDER_TERM($player_gender, "subject-capitalized") } phải chọn một mục ghi điểm.
    *[other] Còn { $remaining } lần gieo.
 }
 yahtzee-you-rolled-brief = Bạn gieo: { $dice }.

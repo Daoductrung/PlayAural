@@ -165,7 +165,8 @@ class TossUpGame(Game):
 
             payload = dict(kwargs)
             if not is_actor:
-                payload["player"] = actor.name
+                payload["player"] = actor
+            payload = self._resolve_broadcast_kwargs(user.locale, payload)
             user.speak_l(key, buffer="game", **payload)
 
     def _broadcast_global_l(
@@ -736,7 +737,8 @@ class TossUpGame(Game):
                 "dice_count": current.dice_count,
             }
         if not is_actor:
-            payload["player"] = current.name
+            payload["player"] = current
+        payload = self._resolve_broadcast_kwargs(user.locale, payload)
         user.speak_l(key, buffer="game", **payload)
 
     def get_player_score(self, player: TossUpPlayer) -> int:

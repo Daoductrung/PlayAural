@@ -161,7 +161,10 @@ class MetalPipeGame(Game):
             if not user:
                 continue
 
-            payload = {"bonker": bonker.name, "bonked": bonked.name}
+            payload = self._resolve_broadcast_kwargs(
+                user.locale,
+                {"bonker": bonker, "bonked": bonked},
+            )
             if is_self:
                 if listener.id == bonker.id:
                     key = "metalpipe-you-hit-self"
@@ -338,8 +341,10 @@ class MetalPipeGame(Game):
                         text=Localization.get(
                             locale,
                             key,
-                            bonker=bonker.name,
-                            bonked=bonked.name,
+                            **self._resolve_broadcast_kwargs(
+                                locale,
+                                {"bonker": bonker, "bonked": bonked},
+                            ),
                         ),
                         id="last_bonk",
                     )

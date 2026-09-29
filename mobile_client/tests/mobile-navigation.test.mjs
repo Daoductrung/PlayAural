@@ -482,7 +482,7 @@ test("a modified activation cannot act on a hidden game menu through an overlay"
       dialogStateRef: { current: overlay === "dialog" ? {} : null },
       inputStateRef: { current: overlay === "input" ? {} : null },
       modeRef: { current: ["dialog", "input"].includes(overlay) ? "main" : overlay },
-      sendShiftEnter: () => { sent = true; },
+      sendMenuContextAction: () => { sent = true; },
     })();
     assert.equal(sent, overlay === "main");
   }
@@ -583,6 +583,13 @@ test("Back routes server escape contracts like desktop and never selects an empt
     const send = handler("sendEscapeEquivalent", {
       isProtectedTransientMenu: () => false, requestNativeMenuFocusOnNextPacket: () => {},
       connection: { send: (packet) => sent.push(packet) },
+      sendMenuSelection: (item, index) => sent.push({
+        menu_id: "menu",
+        selection: index + 1,
+        selection_id: item.id,
+        type: "menu",
+      }),
+      transientTurnMenuAllowanceRef: { current: null },
     });
     send("menu", behavior, [{ id: "first" }, { id: "last" }]);
     const expected = behavior === "escape_event" ? { type: "escape", menu_id: "menu" }
@@ -595,6 +602,23 @@ test("Back routes server escape contracts like desktop and never selects an empt
       assert.equal(sent.length, 1);
     }
   }
+
+  const routed = [];
+  const sendCopy = handler("sendEscapeEquivalent", {
+    connection: { send: (packet) => routed.push(["server", packet]) },
+    isProtectedTransientMenu: () => false,
+    requestNativeMenuFocusOnNextPacket: () => {},
+    sendMenuSelection: (item, index) => routed.push(["selection", item, index]),
+    transientTurnMenuAllowanceRef: { current: null },
+  });
+  const copyItem = {
+    copyDirective: { version: 1 },
+    copyDirectivePresent: true,
+    id: "copy_page",
+    readOnly: false,
+  };
+  sendCopy("menu", "select_first_option", [copyItem]);
+  assert.deepEqual(routed, [["selection", copyItem, 0]]);
 });
 
 test("server read-only menu rows stay readable but never send selections", () => {
@@ -635,6 +659,148 @@ test("server read-only menu rows stay readable but never send selections", () =>
   assert.equal(focusRequests, 1);
 });
 
+test("server copy directives retain their exact payload and run locally", async () => {
+  const normalize = app.statements.find((node) => ts.isFunctionDeclaration(node) && node.name.text === "normalizeMenuItems");
+  const normalizeMenuItems = compile(`module.exports = ${normalize.getText(app)};`);
+  const directive = {
+    version: 1,
+    text: "first entry\nsecond entry",
+    success_text: "Copied two entries.",
+    failure_text: "Copy failed.",
+  };
+  const [item] = normalizeMenuItems([{ id: "copy_page", text: "Copy", copy_directive: directive }]);
+  assert.equal(item.copyDirectivePresent, true);
+  assert.deepEqual(item.copyDirective, directive);
+
+  const copyModule = compile(
+    readFileSync(new URL("../src/actions/copyDirective.ts", import.meta.url), "utf8"),
+    { require: () => ({ setStringAsync: async () => true }) },
+  );
+  const conformance = JSON.parse(readFileSync(
+    new URL("../../copy_directive_conformance.json", import.meta.url),
+    "utf8",
+  ));
+  assert.equal(conformance.protocol_version, copyModule.COPY_DIRECTIVE_VERSION);
+  assert.deepEqual(conformance.limits, {
+    text_code_points: copyModule.MAX_COPY_TEXT_LENGTH,
+    feedback_code_points: copyModule.MAX_COPY_FEEDBACK_LENGTH,
+  });
+  for (const { name, directive: candidate } of conformance.valid) {
+    assert.notEqual(copyModule.validateCopyDirective(candidate), null, name);
+  }
+  for (const { name, directive: candidate } of conformance.invalid) {
+    assert.equal(copyModule.validateCopyDirective(candidate), null, name);
+  }
+  const writes = [];
+  assert.deepEqual(
+    await copyModule.executeCopyDirective(
+      directive,
+      async (text) => { writes.push(text); return true; },
+    ),
+    { accepted: true, copied: true, feedback: "Copied two entries." },
+  );
+  assert.deepEqual(writes, ["first entry\nsecond entry"]);
+  assert.deepEqual(
+    await copyModule.executeCopyDirective(directive, async () => false),
+    { accepted: true, copied: false, feedback: "Copy failed." },
+  );
+  assert.equal(
+    copyModule.validateCopyDirective({ ...directive, text: "unsafe\u0000text" }),
+    null,
+  );
+  assert.notEqual(
+    copyModule.validateCopyDirective({
+      ...directive,
+      text: "😀".repeat(copyModule.MAX_COPY_TEXT_LENGTH),
+    }),
+    null,
+  );
+  assert.equal(
+    copyModule.validateCopyDirective({
+      ...directive,
+      text: "x".repeat(copyModule.MAX_COPY_TEXT_LENGTH + 1),
+    }),
+    null,
+  );
+  assert.equal(
+    copyModule.validateCopyDirective({ ...directive, text: "bad\uD800value" }),
+    null,
+  );
+  assert.equal(
+    copyModule.validateCopyDirective({ ...directive, text: "bad\uD800" }),
+    null,
+  );
+  const hostile = new Proxy(directive, {
+    ownKeys() { throw new Error("unexpected object behavior"); },
+  });
+  assert.equal(copyModule.validateCopyDirective(hostile), null);
+  assert.deepEqual(
+    await copyModule.executeCopyDirective(
+      directive,
+      async () => { throw new Error("denied"); },
+    ),
+    { accepted: true, copied: false, feedback: "Copy failed." },
+  );
+
+  const sent = [];
+  const feedback = [];
+  const select = handler("sendMenuSelection", {
+    announce: (text, buffer) => feedback.push([text, buffer]),
+    connection: { send: (packet) => sent.push(packet) },
+    executeCopyDirective: async () => ({
+      accepted: true,
+      copied: true,
+      feedback: "Copied two entries.",
+    }),
+    isProtectedTransientMenu: () => false,
+    menuStateRef: { current: { focusIndex: 0, items: [item], menuId: "audit" } },
+    requestNativeMenuFocusOnNextPacket: () => {},
+    transientTurnMenuAllowanceRef: { current: null },
+  });
+  select();
+  await Promise.resolve();
+  assert.deepEqual(sent, []);
+  assert.deepEqual(feedback, [["Copied two entries.", "system"]]);
+
+  const contextActions = [];
+  const contextAction = handler("sendMenuContextAction", {
+    menuStateRef: { current: { focusIndex: 0, items: [item] } },
+    sendMenuSelection: (selected, index) => {
+      contextActions.push(["copy", selected, index]);
+    },
+    sendShiftEnter: (selected) => {
+      contextActions.push(["server", selected]);
+    },
+  });
+  contextAction(item, 0);
+  assert.deepEqual(contextActions, [["copy", item, 0]]);
+
+  const [malformedItem] = normalizeMenuItems([
+    { id: "copy_page", text: "Copy", copy_directive: null },
+  ]);
+  const malformedSent = [];
+  const malformedFeedback = [];
+  const selectMalformed = handler("sendMenuSelection", {
+    announce: (text, buffer) => malformedFeedback.push([text, buffer]),
+    connection: { send: (packet) => malformedSent.push(packet) },
+    executeCopyDirective: async () => ({
+      accepted: false,
+      copied: false,
+      feedback: "",
+    }),
+    isProtectedTransientMenu: () => false,
+    menuStateRef: {
+      current: { focusIndex: 0, items: [malformedItem], menuId: "audit" },
+    },
+    requestNativeMenuFocusOnNextPacket: () => {},
+    transientTurnMenuAllowanceRef: { current: null },
+  });
+  selectMalformed();
+  await Promise.resolve();
+  assert.deepEqual(malformedSent, []);
+  assert.deepEqual(malformedFeedback, []);
+});
+
 test("Back from the landing screen exits locally and cannot send a server action", () => {
   let exited = false;
   handler("handleSystemSwipe", {
@@ -645,13 +811,105 @@ test("Back from the landing screen exits locally and cannot send a server action
   assert.equal(exited, true);
 });
 
+test("confirmed mobile logout sends one generic request and waits for the server", () => {
+  const calls = [];
+  const logoutResponseTimerRef = { current: null };
+  let timeoutCallback = null;
+  const requestLogout = handler("requestLogout", {
+    LOGOUT_RESPONSE_TIMEOUT_MS: 5000,
+    announce: (message, buffer) => calls.push(["announce", message, buffer]),
+    closeDialog: () => calls.push(["close-dialog"]),
+    connectionRef: {
+      current: {
+        send: (packet) => {
+          calls.push(["send", packet]);
+          return true;
+        },
+      },
+    },
+    disableAutoReconnect: () => calls.push(["disable-reconnect"]),
+    handleTerminalSessionExit: (message, announce) => calls.push(["exit", message, announce]),
+    localization: { t: (key) => key },
+    logoutResponseTimerRef,
+    setStatusText: (message) => calls.push(["status", message]),
+    setTimeout: (callback, delay) => {
+      timeoutCallback = callback;
+      calls.push(["timeout", delay]);
+      return 1;
+    },
+  });
+
+  requestLogout();
+  requestLogout();
+
+  assert.deepEqual(calls, [
+    ["close-dialog"],
+    ["disable-reconnect"],
+    ["send", { type: "logout" }],
+    ["status", "logout-in-progress"],
+    ["announce", "logout-in-progress", "system"],
+    ["timeout", 5000],
+  ]);
+  assert.equal(logoutResponseTimerRef.current, 1);
+
+  timeoutCallback();
+  assert.equal(logoutResponseTimerRef.current, null);
+  assert.deepEqual(calls.at(-1), ["exit", "logout-complete", false]);
+});
+
+test("mobile logout confirmation exposes the prompt and focuses the safe choice", () => {
+  let dialog = null;
+  const closeDialog = () => {};
+  const requestLogout = () => {};
+  const confirmLogout = handler("confirmLogout", {
+    closeDialog,
+    localization: { t: (key) => key },
+    logoutResponseTimerRef: { current: null },
+    openDialog: (value) => { dialog = value; },
+    requestLogout,
+  });
+
+  confirmLogout();
+
+  assert.equal(dialog.id, "logout-confirmation");
+  assert.equal(dialog.message, "logout-message");
+  assert.equal(dialog.focusIndex, 1);
+  assert.deepEqual(dialog.buttons.map((button) => button.id), ["confirm", "cancel"]);
+  assert.equal(dialog.buttons[0].onPress, requestLogout);
+  assert.equal(dialog.buttons[1].onPress, closeDialog);
+});
+
+test("mobile logout falls back locally when no authenticated transport can send", () => {
+  const calls = [];
+  const requestLogout = handler("requestLogout", {
+    announce: () => calls.push("announce"),
+    closeDialog: () => calls.push("close-dialog"),
+    connectionRef: { current: { send: () => false } },
+    disableAutoReconnect: () => calls.push("disable-reconnect"),
+    handleTerminalSessionExit: (message, announce) => calls.push(["exit", message, announce]),
+    localization: { t: (key) => key },
+    logoutResponseTimerRef: { current: null },
+    setStatusText: () => calls.push("status"),
+  });
+
+  requestLogout();
+
+  assert.deepEqual(calls, [
+    "close-dialog",
+    "disable-reconnect",
+    ["exit", "logout-complete", false],
+  ]);
+});
+
 test("online-list refreshes preserve escape behavior and stable focus through repeated presence changes", () => {
-  const { resolveMenuFocusIndex } = compile(readFileSync(new URL("../src/app/menuFocus.ts", import.meta.url), "utf8"));
+  const { MenuFocusContextStore, resolveMenuFocusIndex } = compile(readFileSync(new URL("../src/app/menuFocus.ts", import.meta.url), "utf8"));
   const menuStateRef = { current: { menuId: "main_menu", items: [], focusIndex: 0 } };
+  const menuFocusContextsRef = { current: new MenuFocusContextStore() };
   const normalize = app.statements.find((node) => ts.isFunctionDeclaration(node) && node.name.text === "normalizeMenuItems");
   const normalizeMenuItems = compile(`module.exports = ${normalize.getText(app)};`);
   const apply = handler("applyMenuPacket", {
-    inputStateRef: { current: null }, menuStateRef, normalizeMenuItems, resolveMenuFocusIndex,
+    inputStateRef: { current: null }, menuStateRef, menuFocusContextsRef,
+    normalizeMenuItems, resolveMenuFocusIndex,
     transientTurnMenuAllowanceRef: { current: null }, isProtectedTransientMenu: () => false,
     nativeMenuFocusOnNextPacketRef: { current: false }, nativeMenuFocusRequestedAtRef: { current: 0 },
     nativeScreenReaderModeRef: { current: false }, setMenuState: (state) => { menuStateRef.current = state; },
@@ -666,6 +924,47 @@ test("online-list refreshes preserve escape behavior and stable focus through re
   }
   apply({ type: "menu", menu_id: "turn_menu", items: [{ id: "play", text: "Play" }] });
   assert.equal(menuStateRef.current.escapeBehavior, "keybind");
+});
+
+test("server modal focus contexts restore stable menu identity and are one-shot", () => {
+  const { MenuFocusContextStore, resolveMenuFocusIndex } = compile(readFileSync(new URL("../src/app/menuFocus.ts", import.meta.url), "utf8"));
+  const menuStateRef = { current: { menuId: "main_menu", items: [], focusIndex: 0 } };
+  const menuFocusContextsRef = { current: new MenuFocusContextStore() };
+  const normalize = app.statements.find((node) => ts.isFunctionDeclaration(node) && node.name.text === "normalizeMenuItems");
+  const normalizeMenuItems = compile(`module.exports = ${normalize.getText(app)};`);
+  const apply = handler("applyMenuPacket", {
+    inputStateRef: { current: null }, menuStateRef, menuFocusContextsRef,
+    normalizeMenuItems, resolveMenuFocusIndex,
+    transientTurnMenuAllowanceRef: { current: null }, isProtectedTransientMenu: () => false,
+    nativeMenuFocusOnNextPacketRef: { current: false }, nativeMenuFocusRequestedAtRef: { current: 0 },
+    nativeScreenReaderModeRef: { current: false }, setMenuState: (state) => { menuStateRef.current = state; },
+  });
+  const turnItems = [
+    { id: "roll", text: "Roll" },
+    { id: "status", text: "Status" },
+    { id: "leave", text: "Leave" },
+  ];
+  apply({ type: "menu", menu_id: "turn_menu", items: turnItems, selection_id: "status" });
+  apply({
+    type: "menu", menu_id: "player_substitution_prompt_menu",
+    capture_focus_context_id: "request-token",
+    items: [{ id: "accept", text: "Accept" }, { id: "decline", text: "Decline" }],
+  });
+  assert.equal(menuFocusContextsRef.current.size, 1);
+
+  apply({
+    type: "menu", menu_id: "turn_menu", restore_focus_context_id: "request-token",
+    items: [{ id: "roll", text: "Roll" }, { id: "new", text: "New" }, ...turnItems.slice(1)],
+  });
+  assert.equal(menuStateRef.current.items[menuStateRef.current.focusIndex].id, "status");
+  assert.equal(menuFocusContextsRef.current.size, 0);
+
+  apply({
+    type: "menu", menu_id: "player_substitution_prompt_menu",
+    capture_focus_context_id: ` ${"x".repeat(128)}`,
+    items: [{ id: "accept", text: "Accept" }],
+  });
+  assert.equal(menuFocusContextsRef.current.size, 0);
 });
 
 test("board geometry preserves readable controls for wide, tall, small, and large grids", () => {

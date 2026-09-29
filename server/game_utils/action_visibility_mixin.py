@@ -208,7 +208,32 @@ class ActionVisibilityMixin:
         """Remove bot is always hidden (actions menu/keybind only)."""
         return Visibility.HIDDEN
 
-    def _is_toggle_spectator_enabled(self, player: "Player") -> str | None:
+    def _role_change_rate_limit_reason(
+        self,
+        player: "Player",
+        *,
+        consume: bool,
+    ) -> tuple[str, dict] | None:
+        """Return localized feedback when this account is changing roles too often."""
+        table = getattr(self, "_table", None)
+        server = getattr(table, "_server", None) if table else None
+        limiter = getattr(server, "_table_interaction_rate_limiter", None)
+        if not limiter:
+            return None
+        key = limiter.role_change_key(player.id, table.table_id)
+        rejection = (
+            limiter.try_consume((key,))
+            if consume
+            else limiter.check((key,))
+        )
+        if rejection:
+            return "action-role-change-rate-limited", {"seconds": rejection.seconds}
+        return None
+
+    def _is_toggle_spectator_enabled(
+        self,
+        player: "Player",
+    ) -> str | tuple[str, dict] | None:
         """Check if toggle_spectator action is enabled."""
         if self.status != "waiting":
             return "action-game-in-progress"
@@ -216,7 +241,7 @@ class ActionVisibilityMixin:
             return "team-arrangement-in-progress"
         if player.is_bot:
             return "action-bots-cannot"
-        return None
+        return self._role_change_rate_limit_reason(player, consume=False)
 
     def _is_toggle_spectator_hidden(self, player: "Player") -> Visibility:
         """Toggle spectator is always hidden (actions menu/keybind only)."""
@@ -263,6 +288,8 @@ class ActionVisibilityMixin:
     def _is_option_hidden(self, player: "Player") -> Visibility:
         """Options are visible in waiting state only."""
         if self.status != "waiting" or self.team_arrangement_active:
+            return Visibility.HIDDEN
+        if player.is_spectator and player.name != self.host:
             return Visibility.HIDDEN
         return Visibility.VISIBLE
 

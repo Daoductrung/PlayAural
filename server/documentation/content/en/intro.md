@@ -26,6 +26,7 @@ When you enter a table, you can usually:
 \* Use Who's at the table to hear who is present.
 \* Chat with other people at the table or send private messages.
 \* Join the table's voice chat on the PlayAural clients that support voice playback and microphone access.
+\* If you are the host during a game, open Host Management to substitute a spectator into an active player seat. A human currently in that seat must agree first. The substitute receives the seat's exact game state, remaining turn time, and eventual result attribution. If you give up your own seat, you become a spectator but remain the table host.
 
 \*\*Chat and Social Features\*\*
 

@@ -33,6 +33,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { PoliteAnnouncementQueue } from "../accessibility/PoliteAnnouncementQueue";
+import { executeCopyDirective } from "../actions/copyDirective";
 import { MobileAudioManager } from "../audio/MobileAudioManager";
 import { requestAndroidBatteryOptimizationExemptionOnce } from "../background/AndroidBatteryOptimization";
 import { androidForegroundService } from "../background/AndroidForegroundService";
@@ -44,7 +45,7 @@ import {
   clientAuthMetadata,
   getClientReleasePlatform,
 } from "../network/clientInfo";
-import { resolveMenuFocusIndex } from "./menuFocus";
+import { MenuFocusContextStore, resolveMenuFocusIndex } from "./menuFocus";
 import { useFocusScroll } from "./useFocusScroll";
 import { useAnchoredFocus } from "./useAnchoredFocus";
 import { gridCellSizeForViewport } from "./gridLayout";
@@ -102,6 +103,8 @@ const NATIVE_FOCUS_RESET_GUARD_MS = 900;
 const CONNECTION_AUDIO_ASSET = "connectloop.ogg";
 const CONNECTION_AUDIO_HANDLE = "client:connection";
 const CONNECTION_AUDIO_LAYER = "connection";
+const TRANSPORT_CLOSE_TIMEOUT_MS = 1500;
+const LOGOUT_RESPONSE_TIMEOUT_MS = 5000;
 
 type ReleaseDownloadInfo = {
   target?: string;
@@ -160,6 +163,7 @@ const SERVER_AUTH_RESPONSE_KEYS: Record<ServerAuthResponseContext, Record<string
     username_invalid_chars: "auth-error-username-invalid-chars",
     username_length: "auth-error-username-length",
     username_reserved_bot: "auth-username-reserved-bot",
+    username_reserved: "auth-username-reserved",
     username_taken: "auth-username-taken",
   },
   reset_code: {
@@ -190,6 +194,8 @@ type AccessibilityOrderedViewProps = ComponentProps<typeof View> & {
 const AccessibilityOrderedView = View as ComponentType<AccessibilityOrderedViewProps>;
 
 type FocusableMenuItem = {
+  copyDirective: unknown;
+  copyDirectivePresent: boolean;
   id?: string;
   readOnly: boolean;
   selectionValue?: string | null;
@@ -204,6 +210,12 @@ type MenuState = {
   gridHeight: number;
   gridWidth: number;
   items: FocusableMenuItem[];
+  menuId: string;
+};
+
+type MenuFocusContext = {
+  focusIndex: number;
+  items: Array<{ id?: string }>;
   menuId: string;
 };
 
@@ -355,12 +367,24 @@ function clamp(value: number, min: number, max: number): number {
 
 function normalizeMenuItems(items: Array<string | MenuItemData>): FocusableMenuItem[] {
   return items.map((item) => {
-    if (typeof item === "string") {
-      return { readOnly: true, text: item };
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return {
+        copyDirective: null,
+        copyDirectivePresent: false,
+        readOnly: true,
+        text: typeof item === "string" ? item : "",
+      };
     }
+    const copyDirectivePresent = Object.prototype.hasOwnProperty.call(
+      item,
+      "copy_directive",
+    );
+    const itemId = typeof item.id === "string" && item.id ? item.id : undefined;
     return {
-      id: item.id,
-      readOnly: item.read_only === true || !item.id,
+      copyDirective: copyDirectivePresent ? item.copy_directive : null,
+      copyDirectivePresent,
+      id: itemId,
+      readOnly: item.read_only === true || !itemId,
       selectionValue: item.selection_value ?? null,
       sound: item.sound,
       text: item.text,
@@ -645,6 +669,9 @@ export function PlayAuralApp() {
   );
 
   const menuStateRef = useRef(menuState);
+  const menuFocusContextsRef = useRef(
+    new MenuFocusContextStore<MenuFocusContext>(),
+  );
   const inputStateRef = useRef(inputState);
   const handleSystemSwipeRef = useRef<((direction: "up" | "down" | "left" | "right") => void) | null>(null);
   const lastPingStartedAtRef = useRef<number | null>(lastPingStartedAt);
@@ -659,6 +686,7 @@ export function PlayAuralApp() {
   const modeRef = useRef(mode);
   const voiceJoinPendingRef = useRef(false);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const logoutResponseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectWindowStartedAtRef = useRef<number | null>(null);
   const reconnectDelayMsRef = useRef(1000);
   const reconnectAttemptsRef = useRef(0);
@@ -1881,6 +1909,16 @@ export function PlayAuralApp() {
       transientTurnMenuAllowanceRef.current = null;
     }
 
+    const focusContexts = menuFocusContextsRef.current;
+    focusContexts.capture(packet.capture_focus_context_id, {
+      menuId: previous.menuId,
+      items: previous.items.map((item) => ({ id: item.id })),
+      focusIndex: previous.focusIndex,
+    });
+    const restoredFocus = focusContexts.consume(packet.restore_focus_context_id);
+    const restoredFocusMatches = restoredFocus?.menuId === incomingMenuId;
+    const focusSource = restoredFocusMatches ? restoredFocus : previous;
+
     const isSameMenuId = previous.menuId === (packet.menu_id ?? previous.menuId);
     const directMenuActionRequestedFocus =
       nativeMenuFocusOnNextPacketRef.current &&
@@ -1897,12 +1935,12 @@ export function PlayAuralApp() {
     }
 
     const focusIndex = resolveMenuFocusIndex(
-      previous.items,
+      focusSource.items,
       items,
-      previous.focusIndex,
+      focusSource.focusIndex,
       {
         explicitIndex: position,
-        sameMenu: isSameMenuId,
+        sameMenu: restoredFocusMatches || isSameMenuId,
       },
     );
 
@@ -2082,6 +2120,7 @@ export function PlayAuralApp() {
     nativeMenuFocusOnNextPacketRef.current = false;
     nativeMenuFocusRequestedAtRef.current = 0;
     clearScheduledNativeFocus();
+    menuFocusContextsRef.current.clear();
     setMenuState(defaultMenuState);
     menuStateRef.current = defaultMenuState;
     setInputState(null);
@@ -2221,9 +2260,20 @@ export function PlayAuralApp() {
     });
   }, [appState, audio, audioRevision, connected, localization, voiceMicBusy, voiceMicEnabled, voiceState]);
 
+  const clearLogoutResponseTimer = useCallback(() => {
+    if (logoutResponseTimerRef.current === null) {
+      return;
+    }
+    clearTimeout(logoutResponseTimerRef.current);
+    logoutResponseTimerRef.current = null;
+  }, []);
+
+  useEffect(() => clearLogoutResponseTimer, [clearLogoutResponseTimer]);
+
   const exitApplication = useCallback(() => {
+    clearLogoutResponseTimer();
     disableAutoReconnect();
-    const disconnectPromise = connectionRef.current?.disconnectAndWait(1500) ?? Promise.resolve();
+    const disconnectPromise = connectionRef.current?.disconnectAndWait(TRANSPORT_CLOSE_TIMEOUT_MS) ?? Promise.resolve();
     void disconnectPromise.finally(async () => {
       if (Platform.OS === "android") {
         await androidForegroundService.stop();
@@ -2239,7 +2289,7 @@ export function PlayAuralApp() {
         window.close();
       }
     });
-  }, [audio, disableAutoReconnect, tts, voice]);
+  }, [audio, clearLogoutResponseTimer, disableAutoReconnect, tts, voice]);
 
   const resetToLoginScreen = useCallback((statusMessage: string, authMessage = statusMessage) => {
     buffers.clear();
@@ -2256,6 +2306,7 @@ export function PlayAuralApp() {
     nativeMenuFocusOnNextPacketRef.current = false;
     nativeMenuFocusRequestedAtRef.current = 0;
     clearScheduledNativeFocus();
+    menuFocusContextsRef.current.clear();
     setActiveTextInputKey(null);
     setVoiceCapability({
       enabled: false,
@@ -2279,12 +2330,13 @@ export function PlayAuralApp() {
   }, [audio, buffers, clearScheduledNativeFocus, resetVoiceUiState, voice]);
 
   const handleTerminalSessionExit = useCallback((message: string, announceMessage = true) => {
+    clearLogoutResponseTimer();
     disableAutoReconnect();
     if (announceMessage) {
       announce(message, "system");
     }
     resetToLoginScreen(message);
-    const disconnectPromise = connectionRef.current?.disconnectAndWait(1500) ?? Promise.resolve();
+    const disconnectPromise = connectionRef.current?.disconnectAndWait(TRANSPORT_CLOSE_TIMEOUT_MS) ?? Promise.resolve();
     void disconnectPromise.finally(async () => {
       if (Platform.OS === "android") {
         await androidForegroundService.stop();
@@ -2294,7 +2346,7 @@ export function PlayAuralApp() {
         BackHandler.exitApp();
       }
     });
-  }, [announce, disableAutoReconnect, resetToLoginScreen, tts]);
+  }, [announce, clearLogoutResponseTimer, disableAutoReconnect, resetToLoginScreen, tts]);
 
   const openDialog = useCallback((nextDialog: Omit<DialogState, "focusIndex"> & { focusIndex?: number }) => {
     Keyboard.dismiss();
@@ -3575,6 +3627,14 @@ export function PlayAuralApp() {
     if (!item || item.readOnly) {
       return;
     }
+    if (item.copyDirectivePresent) {
+      void executeCopyDirective(item.copyDirective).then((result) => {
+        if (result.accepted && result.feedback) {
+          announce(result.feedback, "system");
+        }
+      });
+      return;
+    }
     if (isProtectedTransientMenu(currentMenuState.menuId)) {
       transientTurnMenuAllowanceRef.current = currentMenuState.menuId;
     }
@@ -3596,22 +3656,19 @@ export function PlayAuralApp() {
     escapeBehavior: string,
     items: FocusableMenuItem[],
   ) => {
-    if (isProtectedTransientMenu(menuId)) {
-      transientTurnMenuAllowanceRef.current = menuId;
-    }
     const selectionIndex = escapeBehavior === "select_last_option" ? items.length - 1
       : escapeBehavior === "select_first_option" ? 0 : null;
     if (selectionIndex !== null && !items[selectionIndex]) return;
     if (selectionIndex !== null && items[selectionIndex].readOnly) return;
-    requestNativeMenuFocusOnNextPacket();
     if (selectionIndex !== null) {
-      connection?.send({
-        menu_id: menuId || undefined,
-        selection: selectionIndex + 1,
-        selection_id: items[selectionIndex].id,
-        type: "menu",
-      });
-    } else if (escapeBehavior === "escape_event") {
+      sendMenuSelection(items[selectionIndex], selectionIndex);
+      return;
+    }
+    if (isProtectedTransientMenu(menuId)) {
+      transientTurnMenuAllowanceRef.current = menuId;
+    }
+    requestNativeMenuFocusOnNextPacket();
+    if (escapeBehavior === "escape_event") {
       connection?.send({ menu_id: menuId || undefined, type: "escape" });
     } else {
       connection?.send({ menu_id: menuId || undefined, type: "keybind", key: "escape" });
@@ -3644,6 +3701,22 @@ export function PlayAuralApp() {
     });
   };
 
+  const sendMenuContextAction = (
+    itemOverride?: FocusableMenuItem | null,
+    indexOverride?: number,
+  ) => {
+    const currentMenuState = menuStateRef.current;
+    const item = itemOverride ?? currentMenuState.items[currentMenuState.focusIndex];
+    if (!item || item.readOnly) {
+      return;
+    }
+    if (item.copyDirectivePresent) {
+      sendMenuSelection(item, indexOverride);
+      return;
+    }
+    sendShiftEnter(item);
+  };
+
   const getLongPressToken = (item: FocusableMenuItem, index: number) =>
     `${menuStateRef.current.menuId}:${index}:${item.id ?? "text"}`;
 
@@ -3665,7 +3738,7 @@ export function PlayAuralApp() {
       longPressResetTimerRef.current = null;
     }, 3000);
     playMenuActivateSound();
-    sendShiftEnter(item);
+    sendMenuContextAction(item, index);
   };
 
   const handleMenuItemPress = (item: FocusableMenuItem, index: number) => {
@@ -3872,10 +3945,8 @@ export function PlayAuralApp() {
       return;
     }
     if (shortcut.id === "options") {
-      requestNativeMenuFocusOnNextPacket();
-      modeRef.current = "main";
+      closeOverlay();
       connection?.send({ type: "open_options" });
-      setMode("main");
       return;
     }
     if (shortcut.id === "friends") {
@@ -4083,7 +4154,7 @@ export function PlayAuralApp() {
     if (!connected || dialogStateRef.current || inputStateRef.current || modeRef.current !== "main") {
       return;
     }
-    sendShiftEnter();
+    sendMenuContextAction();
   };
 
   const handleBoundaryJump = (target: "bottom" | "top") => {
@@ -4349,16 +4420,37 @@ export function PlayAuralApp() {
     }
   };
 
-  const logoutAndExitIfAndroid = () => {
-    handleTerminalSessionExit(localization.t("logout-complete"), false);
+  const requestLogout = () => {
+    if (logoutResponseTimerRef.current !== null) {
+      return;
+    }
+    closeDialog();
+    disableAutoReconnect();
+
+    const sent = connectionRef.current?.send({ type: "logout" }) ?? false;
+    if (!sent) {
+      handleTerminalSessionExit(localization.t("logout-complete"), false);
+      return;
+    }
+
+    const message = localization.t("logout-in-progress");
+    setStatusText(message);
+    announce(message, "system");
+    logoutResponseTimerRef.current = setTimeout(() => {
+      logoutResponseTimerRef.current = null;
+      handleTerminalSessionExit(localization.t("logout-complete"), false);
+    }, LOGOUT_RESPONSE_TIMEOUT_MS);
   };
 
   const confirmLogout = () => {
+    if (logoutResponseTimerRef.current !== null) {
+      return;
+    }
     openDialog({
       buttons: [
         {
           id: "confirm",
-          onPress: logoutAndExitIfAndroid,
+          onPress: requestLogout,
           text: localization.t("logout-confirm"),
           variant: "danger",
         },
@@ -4369,6 +4461,7 @@ export function PlayAuralApp() {
           variant: "secondary",
         },
       ],
+      focusIndex: 1,
       id: "logout-confirmation",
       message: localization.t("logout-message"),
       title: localization.t("logout-title"),
@@ -4946,7 +5039,7 @@ export function PlayAuralApp() {
         }
         if (event.nativeEvent.actionName === "longpress") {
           playMenuActivateSound();
-          sendShiftEnter(item);
+          sendMenuContextAction(item, index);
           return;
         }
         playMenuActivateSound();
@@ -5023,7 +5116,7 @@ export function PlayAuralApp() {
                 }
                 if (event.nativeEvent.actionName === "longpress") {
                   playMenuActivateSound();
-                  sendShiftEnter(item);
+                  sendMenuContextAction(item, index);
                   return;
                 }
                 playMenuActivateSound();

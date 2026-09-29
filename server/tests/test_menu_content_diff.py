@@ -9,6 +9,8 @@ carries an explicit position/selection_id (a focus directive must reach
 the client even if the items are unchanged).
 """
 
+import pytest
+
 from ..users.base import MenuItem
 from ..users.network_user import NetworkUser
 
@@ -66,6 +68,47 @@ def test_explicit_focus_is_always_sent() -> None:
     packets = menu_packets(user)
     assert len(packets) == 1
     assert packets[0]["position"] == 1  # 1-based -> 0-based
+
+
+def test_focus_context_capture_and_restore_are_one_shot_directives() -> None:
+    user = make_user()
+    user.show_menu("turn_menu", items("a", "b"))
+    user.get_queued_messages()
+
+    user.show_menu(
+        "turn_menu",
+        items("a", "b"),
+        capture_focus_context_id="request-token",
+    )
+    packets = menu_packets(user)
+    assert packets[0]["capture_focus_context_id"] == "request-token"
+
+    user.restore_menu_focus_context("request-token")
+    user.show_menu("turn_menu", items("a", "b"))
+    packets = menu_packets(user)
+    assert packets[0]["restore_focus_context_id"] == "request-token"
+
+    user.show_menu("other_menu", items("x"))
+    packets = menu_packets(user)
+    assert "restore_focus_context_id" not in packets[0]
+
+    user.restore_menu_focus_context("update-token")
+    user.update_menu("other_menu", items("x"))
+    packets = menu_packets(user)
+    assert packets[0]["restore_focus_context_id"] == "update-token"
+
+
+@pytest.mark.parametrize("context_id", ["", " padded ", "x" * 129])
+def test_invalid_focus_context_ids_are_rejected(context_id: str) -> None:
+    user = make_user()
+    with pytest.raises(ValueError):
+        user.show_menu(
+            "turn_menu",
+            items("a"),
+            capture_focus_context_id=context_id,
+        )
+    with pytest.raises(ValueError):
+        user.restore_menu_focus_context(context_id)
 
 
 def test_reshow_after_other_menu_is_sent() -> None:

@@ -2,6 +2,60 @@ type MenuFocusItem = {
   id?: string;
 };
 
+const MAX_MENU_FOCUS_CONTEXTS = 8;
+const MAX_MENU_FOCUS_CONTEXT_ID_LENGTH = 128;
+
+function validFocusContextId(contextId: unknown): contextId is string {
+  return typeof contextId === "string"
+    && contextId.length > 0
+    && contextId.length <= MAX_MENU_FOCUS_CONTEXT_ID_LENGTH
+    && contextId.trim() === contextId;
+}
+
+export class MenuFocusContextStore<T> {
+  private readonly capacity: number;
+  private readonly contexts = new Map<string, T>();
+
+  constructor(capacity = MAX_MENU_FOCUS_CONTEXTS) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new TypeError("Menu focus context capacity must be a positive integer");
+    }
+    this.capacity = capacity;
+  }
+
+  capture(contextId: unknown, context: T): void {
+    if (!validFocusContextId(contextId)) {
+      return;
+    }
+    this.contexts.delete(contextId);
+    this.contexts.set(contextId, context);
+    while (this.contexts.size > this.capacity) {
+      const oldestContextId = this.contexts.keys().next().value;
+      if (oldestContextId === undefined) {
+        break;
+      }
+      this.contexts.delete(oldestContextId);
+    }
+  }
+
+  consume(contextId: unknown): T | undefined {
+    if (!validFocusContextId(contextId)) {
+      return undefined;
+    }
+    const context = this.contexts.get(contextId);
+    this.contexts.delete(contextId);
+    return context;
+  }
+
+  clear(): void {
+    this.contexts.clear();
+  }
+
+  get size(): number {
+    return this.contexts.size;
+  }
+}
+
 function clampIndex(value: number, length: number): number {
   if (length <= 0) {
     return 0;

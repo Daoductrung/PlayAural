@@ -30,11 +30,15 @@ class CapturingClient:
         self.username = username
         self.authenticated = authenticated
         self.retired = False
+        self.closed = False
         self.ip_address = "127.0.0.1"
         self.address = "127.0.0.1:12345"
 
     async def send(self, packet: dict) -> None:
         self.sent_messages.append(packet)
+
+    async def close(self) -> None:
+        self.closed = True
 
 
 def _make_server(tmp_path) -> Server:
@@ -208,6 +212,7 @@ async def test_maintenance_keeps_sockets_responsive_and_blocks_all_state_changes
     operation_task = asyncio.create_task(
         server.maintenance_manager.back_up_database(requested_by="Developer")
     )
+    logout_task: asyncio.Task[None] | None = None
     try:
         for _ in range(100):
             if started.is_set():
@@ -279,12 +284,24 @@ async def test_maintenance_keeps_sockets_responsive_and_blocks_all_state_changes
         await server._on_client_message(online_client, {"type": "ping"})
         assert len(online_client.sent_messages) == before_ping + 1
         assert online_client.sent_messages[-1]["type"] == "pong"
+
+        logout_task = asyncio.create_task(
+            server._on_client_message(online_client, {"type": "logout"})
+        )
+        await asyncio.sleep(0)
+        assert logout_task.done() is False
+        assert online_user.username in server.users
     finally:
         release.set()
         result = await operation_task
         assert result.path == backup_path
         assert server.maintenance_manager.is_active is False
         assert server.db.get_user("Online").uuid == record.uuid
+        if logout_task is not None:
+            await logout_task
+            assert online_client.sent_messages[-1] == {"type": "force_exit"}
+            assert online_client.closed is True
+            assert online_user.username not in server.users
         server.db.close()
 
 
@@ -562,7 +579,12 @@ async def test_post_publication_compaction_failure_remains_fail_closed(
     backups = list((tmp_path / "backups").glob("*.sqlite3"))
     assert len(backups) == 1
     connection = sqlite3.connect(server.db.db_path)
-    connection.create_function("USERNAME_KEY", 1, username_key, deterministic=True)
+    connection.create_function(
+        "USERNAME_KEY_V3",
+        1,
+        username_key,
+        deterministic=True,
+    )
     try:
         assert connection.execute(
             "SELECT uuid FROM users WHERE username = 'Retained'"

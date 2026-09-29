@@ -1,0 +1,1340 @@
+"""Classic 75-ball Bingo.
+
+Standard American Bingo: each player gets an independently-shuffled 5x5
+card (columns B-I-N-G-O, free center space), the game calls one number
+at a time from the full 1-75 pool at a configurable interval, and
+players mark their card as numbers are called. The first player to
+claim a valid pattern wins.
+
+Unlike turn-based games, Bingo has no concept of "whose turn it is" --
+every active player can mark their card and claim Bingo at any time
+during play. This mirrors the structure used by Color Game, where
+``set_turn_players`` registers the active roster once at start but the
+turn action set is available to every player simultaneously, gated by
+game phase rather than a current player.
+"""
+
+import random
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import ClassVar
+
+from ...game_utils.actions import Action, ActionSet, Visibility
+from ...game_utils.game_result import GameResult, PlayerResult
+from ...game_utils.grid_mixin import GridCursor, GridGameMixin
+from ...game_utils.options import MenuOption, option_field
+from ...game_utils.sequence_runner_mixin import SequenceBeat, SequenceOperation
+from ...messages.localization import Localization
+from ...ui.keybinds import KeybindState
+from ...users.base import MenuItem
+from ..base import Game, GameOptions, Player
+from ..categories import CATEGORY_MISC
+from ..registry import register_game
+from . import audio as bingo_audio
+
+# --------------------------------------------------------------------- #
+# Constants                                                              #
+# --------------------------------------------------------------------- #
+
+TICKS_PER_SECOND = 20
+
+CARD_ROWS = 5
+CARD_COLS = 5
+FREE_ROW = 2
+FREE_COL = 2
+FREE_VALUE = 0  # sentinel: never a real ball number (1-75)
+
+COLUMN_LETTERS = ("B", "I", "N", "G", "O")
+COLUMN_RANGES = ((1, 15), (16, 30), (31, 45), (46, 60), (61, 75))
+TOTAL_BALLS = 75
+
+PATTERN_LINE = "line"
+PATTERN_FOUR_CORNERS = "four_corners"
+PATTERN_LETTER_X = "letter_x"
+PATTERN_BLACKOUT = "blackout"
+PATTERN_CHOICES = [
+    PATTERN_LINE,
+    PATTERN_FOUR_CORNERS,
+    PATTERN_LETTER_X,
+    PATTERN_BLACKOUT,
+]
+PATTERN_LABELS = {
+    PATTERN_LINE: "bingo-pattern-line",
+    PATTERN_FOUR_CORNERS: "bingo-pattern-four-corners",
+    PATTERN_LETTER_X: "bingo-pattern-letter-x",
+    PATTERN_BLACKOUT: "bingo-pattern-blackout",
+}
+
+DEFAULT_CALL_INTERVAL_SECONDS = "15"
+CALL_INTERVAL_CHOICES = ["5", "15", "30", "45", "60"]
+CALL_INTERVAL_LABELS = {
+    "5": "bingo-call-interval-5",
+    "15": "bingo-call-interval-15",
+    "30": "bingo-call-interval-30",
+    "45": "bingo-call-interval-45",
+    "60": "bingo-call-interval-60",
+}
+CALL_WARMUP_TICKS = 3 * TICKS_PER_SECOND  # pause before the first ball is drawn
+
+# A called number is announced in two beats, like a real caller pulling a
+# ball from the cage: the "spin" sound (call.ogg) plays first, and the
+# number is only added to called_numbers and read aloud once that sound
+# has actually finished (its length is measured from the shipped asset,
+# see audio.py, so replacing the file can never desynchronize this). Nothing can be marked or claimed against it before that. This
+# beat is a SequenceRunnerMixin sequence (CALL_SEQUENCE_TAG) rather than a
+# hand-rolled tick counter -- see _start_next_call.
+CALL_SPIN_DELAY_TICKS = bingo_audio.sound_ticks(bingo_audio.SOUND_CALL)
+# The configured call interval is the announcement-to-announcement cadence:
+# the countdown that follows each announcement has the spin's own delay
+# subtracted (see _handle_announce_call), so "every 15 seconds" means
+# exactly that, not 15 seconds *plus* the spin sound. Claims are disabled
+# while the next number is spinning, so the countdown after an
+# announcement is the only time anyone can claim; it is never allowed to
+# drop below MIN_CLAIM_WINDOW_TICKS, or the shortest interval would leave
+# a screen-reader or touch user too little time to react. On the shortest
+# settings the real cadence is therefore spin + MIN_CLAIM_WINDOW, slightly
+# longer than the label. After the final ball there is no next spin to
+# hurry toward, so the last announcement gets the full configured interval
+# (not the interval minus the spin) as its claim window.
+MIN_CLAIM_WINDOW_SECONDS = 4
+MIN_CLAIM_WINDOW_TICKS = MIN_CLAIM_WINDOW_SECONDS * TICKS_PER_SECOND
+CALL_SEQUENCE_TAG = "bingo_call"
+
+# When a player claims Bingo, the game holds the result behind a drum-roll
+# suspense beat before revealing whether the claim is valid, instead of
+# resolving it instantly. suspense.ogg is now JUST the roll (2.51s of
+# actual content, no trailing silence) -- the cymbal crash that used to
+# be baked into the end of that file is now its own separate sound,
+# cymbal.ogg, with an essentially instant attack (already loud within
+# ~50ms of its own start). That split means the reveal no longer has to
+# guess where a mid-file hit lands or compensate for TTS startup
+# latency against it: the game just waits out the roll's own measured
+# duration, then plays cymbal.ogg and speaks the result in the same
+# instant -- the same "fire together, zero delay" trick the Dead Man's
+# Deck gunshot/empty-chamber reveal uses, which works precisely because
+# cymbal.ogg's hit is at its own sample 0, not somewhere mid-clip.
+#
+# This whole beat runs as a sequence (CLAIM_SEQUENCE_TAG) that owns the
+# table's gameplay lock and pauses bots: the card is actually verified
+# inside the resolution callback, not when the claim is first submitted,
+# so nothing can be marked, unmarked, or claimed by anyone else while a
+# claim is being checked, and there is no window where the verified
+# result and the live board can disagree.
+CLAIM_SUSPENSE_TICKS = bingo_audio.sound_ticks(bingo_audio.SOUND_SUSPENSE)
+CLAIM_SEQUENCE_TAG = "bingo_claim"
+
+# The cymbal/reveal fire the instant the claim resolves (see
+# _handle_resolve_claim), but the follow-up win or buzzer sound still
+# lands a beat later rather than right on top of that. This is
+# deliberately a schedule_sound() entry, NOT a SequenceRunnerMixin
+# sequence: Table.reset_game() calls cancel_all_sequences() on the old
+# game instance the moment finish_game() installs a fresh one, which
+# would silently swallow a sequence-based delay before its second beat
+# ever ran. scheduled_sounds is the one piece of in-flight game state
+# reset_game() explicitly copies onto the new instance for the normal
+# game-over flow (preserve_scheduled_sounds=True), so this cue survives
+# exactly the boundary a trailing sequence would not.
+CLAIM_RESULT_SOUND_DELAY_TICKS = TICKS_PER_SECOND
+
+STATUS_RECENT_CALLS_SHOWN = 10
+
+# Bots react only to the specific number that was just called, like a
+# real remote player glancing at their own board: if it's not on their
+# board they do nothing at all, and if it is, they mark it (and claim
+# Bingo, if that mark just completed their pattern) after a short,
+# randomized "reaction time" rather than instantly. There is no
+# continuous polling or standing chance of acting outside of that
+# single reaction window per call.
+#
+# Two separate delays are chained: first the mark itself (a bot
+# shouldn't place its chip in the exact same instant the number is
+# announced), then -- only once that mark has actually happened -- a
+# further delay before claiming, if it just completed the pattern.
+BOT_MARK_DELAY_MIN_SECONDS = 1
+BOT_MARK_DELAY_MAX_SECONDS = 5
+BOT_REACTION_MIN_TICKS = 10
+BOT_REACTION_MAX_TICKS = 40
+
+SOUND_CALL = bingo_audio.SOUND_CALL
+SOUND_DAUB = "game_bingo/daub.ogg"
+SOUND_UNDAUB = "game_bingo/undaub.ogg"
+SOUND_ERROR = "game_bingo/error.ogg"
+SOUND_WIN = "game_bingo/win.ogg"
+SOUND_SUSPENSE = bingo_audio.SOUND_SUSPENSE
+SOUND_CYMBAL = "game_bingo/cymbal.ogg"
+SOUND_MUSIC = "game_bingo/music.ogg"
+
+
+# --------------------------------------------------------------------- #
+# Player / options                                                       #
+# --------------------------------------------------------------------- #
+
+
+@dataclass
+class BingoPlayer(Player):
+    """Per-player Bingo state: one card, marks, and win flag."""
+
+    card: list[list[int]] = field(default_factory=list)
+    marked: list[list[bool]] = field(default_factory=list)
+    has_bingo: bool = False
+
+    # Signatures (see BingoGame._claim_signature) of every card state this
+    # player already had rejected since the last call was announced. A
+    # rejected claim holds the whole table's clock for its suspense beat,
+    # so the same unchanged card must not be able to re-claim over and
+    # over; a new call or a genuinely different card is what re-opens it.
+    rejected_claim_signatures: list[str] = field(default_factory=list)
+
+    # A bot's chip placement is itself delayed (see BOT_MARK_DELAY_*)
+    # rather than happening the instant a number is announced.
+    pending_mark_number: int | None = None
+    pending_mark_ticks: int = 0
+
+
+@dataclass
+class BingoOptions(GameOptions):
+    """Host-configurable Bingo settings."""
+
+    pattern: str = option_field(
+        MenuOption(
+            default=PATTERN_LINE,
+            choices=PATTERN_CHOICES,
+            value_key="pattern",
+            label="bingo-set-pattern",
+            prompt="bingo-select-pattern",
+            change_msg="bingo-option-changed-pattern",
+            description="bingo-desc-pattern",
+            choice_labels=PATTERN_LABELS,
+        )
+    )
+    call_interval: str = option_field(
+        MenuOption(
+            choices=CALL_INTERVAL_CHOICES,
+            default=DEFAULT_CALL_INTERVAL_SECONDS,
+            value_key="seconds",
+            label="bingo-set-call-interval",
+            prompt="bingo-select-call-interval",
+            change_msg="bingo-option-changed-interval",
+            description="bingo-desc-call-interval",
+            choice_labels=CALL_INTERVAL_LABELS,
+        )
+    )
+
+
+# --------------------------------------------------------------------- #
+# Game                                                                   #
+# --------------------------------------------------------------------- #
+
+
+@register_game
+@dataclass
+class BingoGame(GridGameMixin, Game):
+    """Classic 75-ball Bingo with configurable winning patterns."""
+
+    players: list[BingoPlayer] = field(default_factory=list)
+    options: BingoOptions = field(default_factory=BingoOptions)
+
+    # Grid mixin fields: every player navigates their OWN board with
+    # the shared up/down/left/right + enter keybinds. Left/right move
+    # between the B-I-N-G-O columns; up/down move within a column's 5
+    # numbers. Every cell always announces its full "letter+number"
+    # identity directly (e.g. "B2") -- there is no separate step where
+    # you're "on a letter" without a number attached.
+    grid_rows: int = CARD_ROWS
+    grid_cols: int = CARD_COLS
+    grid_cursors: dict[str, GridCursor] = field(default_factory=dict)
+    grid_row_labels: list[str] = field(default_factory=list)
+    grid_col_labels: list[str] = field(default_factory=list)
+
+    available_numbers: list[int] = field(default_factory=list)
+    called_numbers: list[int] = field(default_factory=list)
+    call_countdown_ticks: int = 0
+    winner_ids: list[str] = field(default_factory=list)
+
+    # Two-phase call: a number is drawn and its "spin" sound starts
+    # playing, but it isn't announced (added to called_numbers) until
+    # the CALL_SEQUENCE_TAG sequence's resolution beat runs. Kept as a
+    # real field (rather than only living in the sequence's own beat
+    # payload) so is_grid_cell_enabled/whose_turn/tests can read "is a
+    # draw in flight" directly without inspecting active_sequences.
+    pending_call_number: int | None = None
+    # Set for the duration of a claim's suspense beat (see
+    # CLAIM_SEQUENCE_TAG); the claim itself is verified fresh, against
+    # the live board, inside the resolution callback -- not stashed
+    # here between ticks -- since gameplay stays locked the whole time
+    # and there is nothing left for the board to race against.
+    pending_claim_player_id: str | None = None
+
+    # ------------------------------------------------------------------ #
+    # Metadata                                                            #
+    # ------------------------------------------------------------------ #
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "Bingo"
+
+    @classmethod
+    def get_type(cls) -> str:
+        return "bingo"
+
+    @classmethod
+    def get_category(cls) -> str:
+        return CATEGORY_MISC
+
+    @classmethod
+    def get_min_players(cls) -> int:
+        return 2
+
+    @classmethod
+    def get_max_players(cls) -> int:
+        return 12
+
+    @classmethod
+    def get_supported_leaderboards(cls) -> list[str]:
+        return ["wins", "games_played"]
+
+    def create_player(
+        self, player_id: str, name: str, is_bot: bool = False
+    ) -> BingoPlayer:
+        return BingoPlayer(id=player_id, name=name, is_bot=is_bot)
+
+    def _locale(self, player: Player) -> str:
+        user = self.get_user(player)
+        return user.locale if user else "en"
+
+    # ------------------------------------------------------------------ #
+    # Card generation / lookups                                          #
+    # ------------------------------------------------------------------ #
+
+    def _generate_card(self) -> tuple[list[list[int]], list[list[bool]]]:
+        """Build one independent 5x5 card: 5 unique numbers per column."""
+        columns = [
+            random.sample(range(low, high + 1), CARD_ROWS)
+            for low, high in COLUMN_RANGES
+        ]
+        card = [
+            [columns[col][row] for col in range(CARD_COLS)]
+            for row in range(CARD_ROWS)
+        ]
+        card[FREE_ROW][FREE_COL] = FREE_VALUE
+        marked = [[False] * CARD_COLS for _ in range(CARD_ROWS)]
+        marked[FREE_ROW][FREE_COL] = True
+        return card, marked
+
+    def _column_for_number(self, number: int) -> int:
+        for index, (low, high) in enumerate(COLUMN_RANGES):
+            if low <= number <= high:
+                return index
+        return 0  # unreachable for valid balls, kept defensive
+
+    # ------------------------------------------------------------------ #
+    # Grid mixin overrides (the player's board)                          #
+    # ------------------------------------------------------------------ #
+
+    def get_cell_label(
+        self, row: int, col: int, player: Player, locale: str
+    ) -> str:
+        if not isinstance(player, BingoPlayer) or not player.card:
+            return ""
+        letter = COLUMN_LETTERS[col]
+        if row == FREE_ROW and col == FREE_COL:
+            return Localization.get(locale, "bingo-cell-free")
+        value = player.card[row][col]
+        key = "bingo-cell-marked" if player.marked[row][col] else "bingo-cell-unmarked"
+        return Localization.get(locale, key, letter=letter, number=value)
+
+    def is_grid_cell_enabled(
+        self, player: Player, row: int, col: int
+    ) -> str | None:
+        if self.status != "playing":
+            return "action-not-playing"
+        if player.is_spectator:
+            return "action-spectator"
+        if isinstance(player, BingoPlayer) and player.has_bingo:
+            return "bingo-you-already-won"
+        if self.is_sequence_gameplay_locked():
+            if self.pending_claim_player_id == player.id:
+                return "bingo-claim-in-progress-you"
+            return "bingo-claim-in-progress"
+        if row == FREE_ROW and col == FREE_COL:
+            return "bingo-cell-is-free"
+        return None
+
+    def is_grid_cell_hidden(
+        self, player: Player, row: int, col: int
+    ) -> Visibility:
+        if self.status != "playing" or player.is_spectator:
+            return Visibility.HIDDEN
+        return Visibility.VISIBLE
+
+    def on_grid_select(self, player: Player, row: int, col: int) -> None:
+        if not isinstance(player, BingoPlayer):
+            return
+        if self.is_grid_cell_enabled(player, row, col) is not None:
+            return
+
+        # Marking is never blocked by whether the number was actually
+        # called -- a player can mark whatever they like. That only
+        # gets checked when they claim Bingo (see _verify_claim): if a
+        # mark that's part of an otherwise-complete pattern turns out
+        # to be for a number that was never called, the claim itself
+        # is rejected and says so specifically.
+        value = player.card[row][col]
+        player.marked[row][col] = not player.marked[row][col]
+        user = self.get_user(player)
+        if user:
+            # Private to this player -- nobody else's table needs to
+            # hear every square someone else marks or unmarks.
+            user.play_sound(SOUND_DAUB if player.marked[row][col] else SOUND_UNDAUB)
+            key = "bingo-you-mark" if player.marked[row][col] else "bingo-you-unmark"
+            user.speak_l(
+                key, buffer="game", letter=COLUMN_LETTERS[col], number=value
+            )
+        self.refresh_menus(player)
+
+    # ------------------------------------------------------------------ #
+    # Keybinds                                                            #
+    # ------------------------------------------------------------------ #
+
+    def setup_keybinds(self) -> None:
+        super().setup_keybinds()
+        self.setup_grid_keybinds()
+        self.define_keybind(
+            "b",
+            Localization.get("en", "bingo-claim-bingo"),
+            ["claim_bingo"],
+            state=KeybindState.ACTIVE,
+        )
+        # Desktop claims with B only. Touch clients send Shift+Enter for their
+        # context/modified activation gesture: a Web press-and-hold, a mobile
+        # long-press, or a one-finger double-tap-and-hold when mobile
+        # self-voicing is active. It is bound to a separate hidden action that
+        # only exists for touch clients, while the visible Call Bingo item
+        # remains an equivalent assistive-technology path.
+        self.define_keybind(
+            "shift+enter",
+            Localization.get("en", "bingo-claim-bingo"),
+            ["claim_bingo_gesture"],
+            state=KeybindState.ACTIVE,
+        )
+        self.define_keybind(
+            "r",
+            Localization.get("en", "bingo-repeat-call"),
+            ["repeat_call"],
+            state=KeybindState.ACTIVE,
+            include_spectators=True,
+        )
+        self.define_keybind(
+            "c",
+            Localization.get("en", "bingo-check-called"),
+            ["check_called"],
+            state=KeybindState.ACTIVE,
+            include_spectators=True,
+        )
+
+    # ------------------------------------------------------------------ #
+    # Actions and menus                                                   #
+    # ------------------------------------------------------------------ #
+
+    def create_turn_action_set(self, player: BingoPlayer) -> ActionSet:
+        """Every active player gets the same action set at all times --
+        Bingo has no per-player turn order, only a shared game phase."""
+        action_set = ActionSet(name="turn")
+
+        for action in self.build_grid_actions(player):
+            action_set.add(action)
+        for action in self.build_grid_nav_actions():
+            action_set.add(action)
+
+        action_set.add(
+            Action(
+                id="claim_bingo",
+                label=Localization.get(self._locale(player), "bingo-claim-bingo"),
+                handler="_action_claim_bingo",
+                is_enabled="_is_claim_enabled",
+                is_hidden="_is_claim_hidden",
+            )
+        )
+
+        action_set.add(
+            Action(
+                id="claim_bingo_gesture",
+                label=Localization.get(self._locale(player), "bingo-claim-bingo"),
+                handler="_action_claim_bingo",
+                is_enabled="_is_claim_gesture_enabled",
+                is_hidden="_is_claim_gesture_hidden",
+                show_in_actions_menu=False,
+            )
+        )
+
+        # Touch clients paint Claim immediately after the 25 contiguous grid
+        # cells, which preserves the grid's row-major coordinate mapping.
+        # Desktop hides the row from the board but can still reach the same
+        # action through the Escape menu or its B shortcut.
+        return action_set
+
+    def create_standard_action_set(self, player: Player) -> ActionSet:
+        action_set = super().create_standard_action_set(player)
+        locale = self._locale(player)
+
+        action_set.add(
+            Action(
+                id="repeat_call",
+                label=Localization.get(locale, "bingo-repeat-call"),
+                handler="_action_repeat_call",
+                is_enabled="_is_repeat_call_enabled",
+                is_hidden="_is_repeat_call_hidden",
+                include_spectators=True,
+            )
+        )
+        action_set.add(
+            Action(
+                id="check_called",
+                label=Localization.get(locale, "bingo-check-called"),
+                handler="_action_check_called",
+                is_enabled="_is_check_called_enabled",
+                is_hidden="_is_check_called_hidden",
+                include_spectators=True,
+            )
+        )
+
+        self._apply_standard_touch_order(action_set, self.get_user(player))
+        return action_set
+
+    _STANDARD_TOUCH_ORDER: ClassVar[list[str]] = [
+        "repeat_call",
+        "check_called",
+        "check_scores",
+        "whose_turn",
+        "whos_at_table",
+    ]
+
+    def _apply_standard_touch_order(self, action_set: ActionSet, user) -> None:
+        """claim_bingo belongs to the turn action set, not this one (see
+        create_turn_action_set) -- listing it here would be a no-op,
+        since this can only reorder IDs that already exist on the set
+        it's given."""
+        if self.is_touch_client(user):
+            self._order_touch_standard_actions(action_set, self._STANDARD_TOUCH_ORDER)
+
+    def before_menu_build(self, player: Player) -> None:
+        """Rebuild the standard action set from scratch on every menu
+        build, not just once at action-set creation time. Reordering the
+        existing set in place only knows how to move things INTO touch
+        order, never back out of it, so a mobile->desktop handover mid-
+        game would leave the menu stuck with whatever touch ordering was
+        already applied. Rebuilding is a pure function of the player's
+        current client type and game state either way, so it's
+        idempotent regardless of which direction the handover goes."""
+        if self.get_action_set(player, "standard") is None:
+            return
+        self.remove_action_set(player, "standard")
+        self.add_action_set(player, self.create_standard_action_set(player))
+
+    def _is_whose_turn_hidden(self, player: Player) -> Visibility:
+        user = self.get_user(player)
+        if self.is_touch_client(user) and self.status == "playing":
+            return Visibility.VISIBLE
+        return super()._is_whose_turn_hidden(player)
+
+    def _is_whos_at_table_hidden(self, player: Player) -> Visibility:
+        user = self.get_user(player)
+        if self.is_touch_client(user):
+            return Visibility.VISIBLE
+        return super()._is_whos_at_table_hidden(player)
+
+    def _is_claim_enabled(self, player: Player) -> str | None:
+        if self.status != "playing":
+            return "action-not-playing"
+        if player.is_spectator:
+            return "action-spectator"
+        if isinstance(player, BingoPlayer) and player.has_bingo:
+            return "bingo-you-already-won"
+        if self.is_sequence_gameplay_locked():
+            if self.pending_claim_player_id == player.id:
+                return "bingo-claim-in-progress-you"
+            return "bingo-claim-in-progress"
+        if self.pending_call_number is not None:
+            # A drawn number's spin sound is already playing but hasn't
+            # been announced yet (see _start_next_call/_handle_announce_
+            # call). That CALL_SEQUENCE_TAG sequence has no lock_scope of
+            # its own and keeps advancing regardless of any lock a claim
+            # sequence holds -- process_sequences() advances every active
+            # sequence on its own schedule, lock or no lock. So a claim
+            # started while a call is mid-flight could still have its
+            # suspense beat overlap the moment the number gets announced,
+            # changing the claim from invalid to valid (or the reverse)
+            # while it's being checked. Rejecting the claim here, before
+            # its own sequence ever starts, means the two are never
+            # in flight at the same time in either order: this can only
+            # return non-None while pending_call_number is set, and the
+            # gameplay lock this claim's own sequence takes already
+            # blocks on_tick from starting a NEW call for as long as the
+            # claim itself is being verified.
+            return "bingo-claim-wait-for-call"
+        if (
+            isinstance(player, BingoPlayer)
+            and self._claim_signature(player) in player.rejected_claim_signatures
+        ):
+            # This exact card already failed verification since the last
+            # call. Without this, an incomplete (or ahead-of-the-calls)
+            # card could claim again the instant it was rejected, and
+            # every retry re-takes the gameplay lock and freezes the call
+            # clock and all bots for the whole suspense beat -- forever.
+            return "bingo-claim-unchanged"
+        return None
+
+    def _claim_signature(self, player: BingoPlayer) -> str:
+        """Identifies the state a claim would be verified against: how
+        many numbers have been called and exactly which squares are
+        marked. Two claims with the same signature can only get the same
+        answer, so re-checking one is pointless."""
+        bits = "".join("1" if cell else "0" for row in player.marked for cell in row)
+        return f"{len(self.called_numbers)}:{bits}"
+
+    def _is_claim_gesture_enabled(self, player: Player) -> str | None:
+        # Silent no-op on non-touch clients, so Shift+Enter never claims
+        # (or speaks) on desktop.
+        if not self.is_touch_client(self.get_user(player)):
+            return "action-not-available"
+        return self._is_claim_enabled(player)
+
+    def _is_claim_gesture_hidden(self, player: Player) -> Visibility:
+        return Visibility.HIDDEN
+
+    def _is_claim_hidden(self, player: Player) -> Visibility:
+        if self.status != "playing" or player.is_spectator:
+            return Visibility.HIDDEN
+        if self.is_touch_client(self.get_user(player)):
+            return Visibility.VISIBLE
+        return Visibility.HIDDEN
+
+    def _is_repeat_call_enabled(self, player: Player) -> str | None:
+        if self.status != "playing":
+            return "action-not-playing"
+        if not self.called_numbers:
+            return "bingo-no-calls-yet"
+        return None
+
+    def _is_repeat_call_hidden(self, player: Player) -> Visibility:
+        if self.status == "playing" and self.is_touch_client(self.get_user(player)):
+            return Visibility.VISIBLE
+        return Visibility.HIDDEN
+
+    def _is_check_called_enabled(self, player: Player) -> str | None:
+        return None if self.status == "playing" else "action-not-playing"
+
+    def _is_check_called_hidden(self, player: Player) -> Visibility:
+        if self.status == "playing" and self.is_touch_client(self.get_user(player)):
+            return Visibility.VISIBLE
+        return Visibility.HIDDEN
+
+    # ------------------------------------------------------------------ #
+    # Action handlers                                                     #
+    # ------------------------------------------------------------------ #
+
+    def _action_claim_bingo(self, player: Player, action_id: str) -> None:
+        if not isinstance(player, BingoPlayer):
+            return
+        if self._is_claim_enabled(player) is not None:
+            return
+
+        # The card is deliberately NOT verified here -- see
+        # _handle_resolve_claim for why. This sequence owns the
+        # gameplay lock (nobody can mark, unmark, or submit another
+        # claim while it runs) and pauses bots for the same window.
+        self.pending_claim_player_id = player.id
+        self.broadcast_personal_l(
+            player, "bingo-checking-claim-you", "bingo-checking-claim", buffer="game"
+        )
+        self.start_sequence(
+            CLAIM_SEQUENCE_TAG,
+            [
+                SequenceBeat.after_audio(
+                    CLAIM_SUSPENSE_TICKS, ops=[SequenceOperation.sound_op(SOUND_SUSPENSE)]
+                ),
+                SequenceBeat(
+                    ops=[
+                        SequenceOperation.callback_op(
+                            "bingo_resolve_claim", {"player_id": player.id}
+                        )
+                    ]
+                ),
+            ],
+            tag=CLAIM_SEQUENCE_TAG,
+            lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
+            pause_bots=True,
+        )
+        self.refresh_menus()
+
+    def _action_whose_turn(self, player: Player, action_id: str) -> None:
+        """Bingo has no turn order, so the shared "T" keybind (normally
+        "whose turn is it") is repurposed the same way Color Game does
+        for its own simultaneous-play design: instead of a meaningless
+        answer, it reports whatever's actually happening in the round
+        right now."""
+        _ = action_id
+        user = self.get_user(player)
+        if not user:
+            return
+        if self.pending_claim_player_id is not None:
+            claimer = next(
+                (p for p in self.get_active_players() if p.id == self.pending_claim_player_id),
+                None,
+            )
+            if claimer is not None and claimer.id == player.id:
+                user.speak_l("bingo-whose-turn-checking-you", buffer="game")
+            elif claimer is None:
+                user.speak_l("bingo-whose-turn-checking-card", buffer="game")
+            else:
+                user.speak_l(
+                    "bingo-whose-turn-checking",
+                    buffer="game",
+                    player=claimer.name,
+                )
+        elif self.pending_call_number is not None:
+            user.speak_l("bingo-whose-turn-drawing", buffer="game")
+        else:
+            seconds_left = -(-self.call_countdown_ticks // TICKS_PER_SECOND)  # ceil
+            user.speak_l(
+                "bingo-whose-turn-waiting", buffer="game", seconds=seconds_left
+            )
+
+    def _action_repeat_call(self, player: Player, action_id: str) -> None:
+        user = self.get_user(player)
+        if not user or not self.called_numbers:
+            return
+        last = self.called_numbers[-1]
+        col = self._column_for_number(last)
+        user.speak_l(
+            "bingo-last-call",
+            buffer="game",
+            letter=COLUMN_LETTERS[col],
+            number=last,
+        )
+
+    def _action_check_called(self, player: Player, action_id: str) -> None:
+        self.live_status_box(
+            player, "bingo_called", self._called_numbers_items, focus_id="called_count"
+        )
+
+    def _called_numbers_items(self, player: Player, user) -> list[MenuItem]:
+        locale = user.locale
+        items = [
+            MenuItem(
+                text=Localization.get(
+                    locale,
+                    "bingo-status-called-count",
+                    count=len(self.called_numbers),
+                    total=TOTAL_BALLS,
+                ),
+                id="called_count",
+            )
+        ]
+        recent = self.called_numbers[-STATUS_RECENT_CALLS_SHOWN:]
+        for number in reversed(recent):
+            col = self._column_for_number(number)
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        locale,
+                        "bingo-status-called-entry",
+                        letter=COLUMN_LETTERS[col],
+                        number=number,
+                    ),
+                    id=f"call:{number}",
+                )
+            )
+        return items
+
+    # ------------------------------------------------------------------ #
+    # Pattern checking                                                    #
+    # ------------------------------------------------------------------ #
+
+    def _is_free_cell(self, row: int, col: int) -> bool:
+        return row == FREE_ROW and col == FREE_COL
+
+    def _pattern_candidate_cells(self, pattern: str) -> list[list[tuple[int, int]]]:
+        """Every distinct shape of cells that would satisfy the given
+        pattern. "Any line" has 12 (5 rows + 5 columns + 2 diagonals);
+        every other pattern has exactly one fixed shape."""
+        if pattern == PATTERN_BLACKOUT:
+            return [
+                [(r, c) for r in range(CARD_ROWS) for c in range(CARD_COLS)]
+            ]
+        if pattern == PATTERN_FOUR_CORNERS:
+            return [
+                [
+                    (0, 0),
+                    (0, CARD_COLS - 1),
+                    (CARD_ROWS - 1, 0),
+                    (CARD_ROWS - 1, CARD_COLS - 1),
+                ]
+            ]
+        if pattern == PATTERN_LETTER_X:
+            cells = {(i, i) for i in range(CARD_ROWS)} | {
+                (i, CARD_COLS - 1 - i) for i in range(CARD_ROWS)
+            }
+            return [sorted(cells)]
+
+        # PATTERN_LINE (default): any single row, column, or diagonal.
+        candidates = [[(r, c) for c in range(CARD_COLS)] for r in range(CARD_ROWS)]
+        candidates += [[(r, c) for r in range(CARD_ROWS)] for c in range(CARD_COLS)]
+        candidates.append([(i, i) for i in range(CARD_ROWS)])
+        candidates.append([(i, CARD_COLS - 1 - i) for i in range(CARD_ROWS)])
+        return candidates
+
+    def _check_pattern(self, player: BingoPlayer) -> bool:
+        """True if some candidate shape is fully marked, regardless of
+        whether every mark is for a number that was actually called.
+        Bots can only ever mark numbers that were genuinely called (see
+        _handle_announce_call), so this is always equivalent to a
+        legitimate win for them. Human claims go through _verify_claim
+        instead, which also checks legitimacy and can name the specific
+        offending number."""
+        for cells in self._pattern_candidate_cells(self.options.pattern):
+            if all(
+                self._is_free_cell(r, c) or player.marked[r][c] for r, c in cells
+            ):
+                return True
+        return False
+
+    def _verify_claim(
+        self, player: BingoPlayer
+    ) -> tuple[bool, int | None, list[int] | None]:
+        """Like _check_pattern, but also requires every marked cell in
+        the completed shape to be a number that was actually called --
+        marking is never blocked at the board (see on_grid_select), so
+        a player is free to mark ahead of the caller, but that only
+        pays off if the real calls catch up before they claim. Returns
+        (True, None, winning_numbers) on a genuine win, where
+        winning_numbers is every called number in the completed shape
+        (free space excluded), in the shape's own left-to-right,
+        top-to-bottom order. Otherwise returns (False, X, None) where X
+        is the first illegitimately-marked number found on an
+        otherwise-complete shape, or (False, None, None) if no shape is
+        even fully marked yet."""
+        first_bad_number: int | None = None
+        for cells in self._pattern_candidate_cells(self.options.pattern):
+            if not all(
+                self._is_free_cell(r, c) or player.marked[r][c] for r, c in cells
+            ):
+                continue
+            uncalled = [
+                (r, c)
+                for r, c in cells
+                if not self._is_free_cell(r, c)
+                and player.card[r][c] not in self.called_numbers
+            ]
+            if not uncalled:
+                winning_numbers = [
+                    player.card[r][c] for r, c in cells if not self._is_free_cell(r, c)
+                ]
+                return True, None, winning_numbers
+            if first_bad_number is None:
+                bad_row, bad_col = uncalled[0]
+                first_bad_number = player.card[bad_row][bad_col]
+        return False, first_bad_number, None
+
+    # ------------------------------------------------------------------ #
+    # Game flow                                                           #
+    # ------------------------------------------------------------------ #
+
+    def prestart_validate(self) -> list[str | tuple[str, dict]]:
+        errors: list[str | tuple[str, dict]] = list(super().prestart_validate())
+        if self.options.call_interval not in CALL_INTERVAL_CHOICES:
+            errors.append(
+                ("bingo-error-invalid-interval", {"value": self.options.call_interval})
+            )
+        if self.options.pattern not in PATTERN_CHOICES:
+            errors.append(("bingo-error-invalid-pattern", {"value": self.options.pattern}))
+        return errors
+
+    def on_start(self) -> None:
+        self.cancel_sequences_by_tag(CALL_SEQUENCE_TAG)
+        self.cancel_sequences_by_tag(CLAIM_SEQUENCE_TAG)
+        self.status = "playing"
+        self._sync_table_status()
+        self.game_active = True
+        self.round = 0
+        self.called_numbers = []
+        self.available_numbers = list(range(1, TOTAL_BALLS + 1))
+        random.shuffle(self.available_numbers)
+        self.winner_ids = []
+        self.call_countdown_ticks = CALL_WARMUP_TICKS
+        self.pending_call_number = None
+        self.pending_claim_player_id = None
+
+        active_players = [
+            player
+            for player in self.get_active_players()
+            if isinstance(player, BingoPlayer)
+        ]
+        self.set_turn_players(active_players)
+        self.grid_cursors = {}
+        self._init_grid()
+        self.grid_col_labels = list(COLUMN_LETTERS)
+        self.grid_row_labels = [str(i + 1) for i in range(CARD_ROWS)]
+
+        for player in active_players:
+            player.card, player.marked = self._generate_card()
+            player.has_bingo = False
+            player.rejected_claim_signatures = []
+            player.pending_mark_number = None
+            player.pending_mark_ticks = 0
+            player.bot_pending_action = None
+            player.bot_think_ticks = 0
+
+        # Background music loops quietly under the whole calling phase.
+        # Keep it a low, non-intrusive bed if you ever swap this track:
+        # number calls via TTS/screen reader need to stay clearly audible
+        # over it.
+        self.play_music(SOUND_MUSIC)
+        for listener in self.players:
+            user = self.get_user(listener)
+            if not user:
+                continue
+            # Spectators need the round context but must not be instructed to
+            # use controls they cannot activate. Active touch players get a
+            # client-neutral hold instruction because Web, native long-press,
+            # and mobile self-voicing expose the modified action differently.
+            if listener.is_spectator:
+                start_key = "bingo-game-start-spectator"
+            elif self.is_touch_client(user):
+                start_key = "bingo-game-start-touch"
+            else:
+                start_key = "bingo-game-start"
+            user.speak_l(
+                start_key,
+                buffer="game",
+                pattern=Localization.get(
+                    user.locale,
+                    PATTERN_LABELS.get(self.options.pattern, PATTERN_LABELS[PATTERN_LINE]),
+                ),
+                interval=self.options.call_interval,
+            )
+        self.refresh_menus()
+
+    def on_tick(self) -> None:
+        super().on_tick()
+        self.process_scheduled_sounds()
+
+        # process_scheduled_sounds() above already runs unconditionally,
+        # which is what lets the delayed win/error cue (see
+        # _handle_resolve_claim) still fire after finish_game() -- and
+        # survive a real Table.reset_game() -- since scheduled_sounds is
+        # plain data the table explicitly carries onto the fresh game
+        # instance, not a SequenceRunnerMixin sequence that instance's
+        # own reset would cancel. process_sequences() itself is kept
+        # unconditional too, defensively: CALL_SEQUENCE_TAG and
+        # CLAIM_SEQUENCE_TAG both self-cancel the instant their last beat
+        # runs, so neither is ever left active once the round ends, but
+        # gating this call on "playing" would silently strand any future
+        # sequence someone adds that's still ticking down at that exact
+        # moment.
+        self.process_sequences()
+
+        if self.status != "playing":
+            return
+
+        # A pending claim takes priority over everything else: the whole
+        # table pauses on the drum roll until it resolves. This is the
+        # same lock that CLAIM_SEQUENCE_TAG holds, so as long as it's
+        # active neither the call clock nor bots advance.
+        # pending_call_number is None between calls; while it's set, a
+        # CALL_SEQUENCE_TAG sequence is already in flight and drives its
+        # own timing, so there's nothing to do here until it clears.
+        if not self.is_sequence_gameplay_locked() and self.pending_call_number is None:
+            if self.call_countdown_ticks > 0:
+                self.call_countdown_ticks -= 1
+            else:
+                self._start_next_call()
+
+        if (
+            self.game_active
+            and self.status == "playing"
+            and not self.is_sequence_bot_paused()
+        ):
+            self._process_bots()
+
+    def _process_bots(self) -> None:
+        """Advance delayed bot marks and claims.
+
+        Ordinary bots react when a number is announced. Replacement bots also
+        reconcile the inherited card with the public call history so taking
+        over a human seat cannot lose earlier calls or preserve invalid marks.
+        """
+        for player in self.get_active_players():
+            # A claim can begin while iterating this roster. Observe that new
+            # pause before touching the next bot so no mark or timer advances
+            # during the suspense window, even within the same server tick.
+            if self.is_sequence_bot_paused():
+                return
+            if not isinstance(player, BingoPlayer) or not player.is_bot:
+                continue
+
+            self._sync_bot_card_to_calls(player)
+
+            if player.pending_mark_number is not None:
+                if player.pending_mark_ticks > 0:
+                    player.pending_mark_ticks -= 1
+                else:
+                    self._execute_bot_mark(player)
+                continue  # mark first; claiming (if any) is next tick at the earliest
+
+            if not player.bot_pending_action:
+                # A human seat may become bot-controlled after several calls.
+                # Once its inherited card is reconciled above, let the bot
+                # claim a pattern that the public call history already proves.
+                if self._check_pattern(player):
+                    player.bot_pending_action = "claim_bingo"
+                    player.bot_think_ticks = random.randint(
+                        BOT_REACTION_MIN_TICKS, BOT_REACTION_MAX_TICKS
+                    )
+                continue
+            if player.bot_think_ticks > 0:
+                player.bot_think_ticks -= 1
+                continue
+            action_id = player.bot_pending_action
+            # A non-bot-pausing gameplay lock may still reject the claim.
+            # Leave it queued rather than discarding a legitimate action.
+            if action_id == "claim_bingo" and self._is_claim_enabled(player) is not None:
+                continue
+            player.bot_pending_action = None
+            self.execute_action(player, action_id)
+
+    def _sync_bot_card_to_calls(self, player: BingoPlayer) -> None:
+        """Reconcile a bot-controlled seat with the public call history.
+
+        This is normally a no-op because bots mark each new number through
+        their delayed reaction. It matters when a human seat becomes a
+        replacement bot: called numbers the human missed must be recovered,
+        while accidental marks on uncalled numbers must not become bot claims.
+        The currently scheduled number stays unmarked until its reaction delay
+        completes.
+        """
+        called = set(self.called_numbers)
+        pending = player.pending_mark_number
+        for row in range(CARD_ROWS):
+            for col in range(CARD_COLS):
+                if self._is_free_cell(row, col):
+                    player.marked[row][col] = True
+                    continue
+                number = player.card[row][col]
+                player.marked[row][col] = number in called and number != pending
+
+    def _execute_bot_mark(self, player: BingoPlayer) -> None:
+        number = player.pending_mark_number
+        player.pending_mark_number = None
+        if number is None or player.has_bingo:
+            return
+
+        self._auto_mark(player, number)
+        if self._check_pattern(player) and not player.bot_pending_action:
+            player.bot_pending_action = "claim_bingo"
+            player.bot_think_ticks = random.randint(
+                BOT_REACTION_MIN_TICKS, BOT_REACTION_MAX_TICKS
+            )
+
+    def _start_next_call(self) -> None:
+        """Draw the next ball and play its "spin" sound. The number isn't
+        announced or added to called_numbers until the CALL_SEQUENCE_TAG
+        sequence's resolution beat runs a moment later -- mirrors a real
+        caller pulling a ball from the cage before reading it out."""
+        if not self.available_numbers:
+            self._finish_no_further_calls()
+            return
+
+        number = self.available_numbers.pop()
+        self.pending_call_number = number
+        self.start_sequence(
+            CALL_SEQUENCE_TAG,
+            [
+                SequenceBeat.after_audio(
+                    CALL_SPIN_DELAY_TICKS, ops=[SequenceOperation.sound_op(SOUND_CALL)]
+                ),
+                SequenceBeat(
+                    ops=[SequenceOperation.callback_op("bingo_announce_call", {"number": number})]
+                ),
+            ],
+            tag=CALL_SEQUENCE_TAG,
+        )
+
+    def _handle_announce_call(self, payload: dict) -> None:
+        number = payload.get("number")
+        self.pending_call_number = None
+        if (
+            not isinstance(number, int)
+            or isinstance(number, bool)
+            or not 1 <= number <= TOTAL_BALLS
+            or number in self.called_numbers
+        ):
+            # Sequence payloads are internal, but saved state can outlive code
+            # versions or become corrupt. Drop an invalid callback and allow
+            # the next tick to continue instead of duplicating a call or
+            # leaving the board stuck in its drawing state.
+            self.call_countdown_ticks = 0
+            self.refresh_menus()
+            return
+
+        self.called_numbers.append(number)
+        # Rejections are scoped to one called-number state. Once a new number
+        # arrives, every old signature is obsolete and retaining it would let
+        # a long round accumulate needless serialized history.
+        for player in self.get_active_players():
+            if isinstance(player, BingoPlayer):
+                player.rejected_claim_signatures = []
+        col = self._column_for_number(number)
+        # The spin's own delay already ran before this callback fired, so
+        # only the remainder of the configured interval is left before the
+        # next draw begins -- but never less than the minimum claim window
+        # (claims are disabled during the next spin). The very last ball
+        # has no next spin, so it keeps the whole interval as its final
+        # claim window before the round ends.
+        interval_ticks = int(self.options.call_interval) * TICKS_PER_SECOND
+        if self.available_numbers:
+            remainder = interval_ticks - CALL_SPIN_DELAY_TICKS
+        else:
+            remainder = interval_ticks
+        self.call_countdown_ticks = max(MIN_CLAIM_WINDOW_TICKS, remainder)
+
+        for listener in self.players:
+            user = self.get_user(listener)
+            if not user:
+                continue
+            user.speak_l(
+                "bingo-number-called",
+                buffer="game",
+                letter=COLUMN_LETTERS[col],
+                number=number,
+            )
+
+        for player in self.get_active_players():
+            if not isinstance(player, BingoPlayer) or player.has_bingo:
+                continue
+            had_number = self._card_has_number(player, number)
+            if not (player.is_bot and had_number):
+                continue
+            # A bot reacts to THIS call and nothing else: if the number
+            # wasn't on its board, it stays completely quiet, exactly
+            # like a real player who just glances at their board and
+            # sees nothing to mark. When it does have the number, the
+            # mark itself is delayed a beat -- a real player doesn't
+            # place their chip in the exact instant the number is
+            # announced either -- capped so it always resolves well
+            # before the *next* call, no matter how short the table's
+            # interval is set to.
+            interval_seconds = int(self.options.call_interval)
+            max_delay_seconds = max(
+                BOT_MARK_DELAY_MIN_SECONDS,
+                min(BOT_MARK_DELAY_MAX_SECONDS, interval_seconds - 1),
+            )
+            player.pending_mark_number = number
+            player.pending_mark_ticks = random.randint(
+                BOT_MARK_DELAY_MIN_SECONDS * TICKS_PER_SECOND,
+                max_delay_seconds * TICKS_PER_SECOND,
+            )
+
+        self.refresh_menus()
+
+    def _card_has_number(self, player: BingoPlayer, number: int) -> bool:
+        return any(number in row for row in player.card)
+
+    def _auto_mark(self, player: BingoPlayer, number: int) -> None:
+        for row in range(CARD_ROWS):
+            for col in range(CARD_COLS):
+                if player.card[row][col] == number:
+                    player.marked[row][col] = True
+                    return
+
+    def _handle_resolve_claim(self, payload: dict) -> None:
+        """Runs at the end of the suspense beat, with the gameplay lock
+        still held. The card is verified HERE, against the live board,
+        rather than back when the claim was first submitted -- since
+        nothing can mark, unmark, or claim anything else while this
+        sequence has been running, there's no window left in which the
+        verified result and the board it was checked against could ever
+        disagree, in either direction."""
+        player_id = payload.get("player_id")
+        self.pending_claim_player_id = None
+
+        player = next(
+            (p for p in self.get_active_players() if p.id == player_id), None
+        )
+        if not isinstance(player, BingoPlayer):
+            # The claimant may have left or been replaced while the suspense
+            # sequence was running. The lock ends with this callback, so paint
+            # the now-available controls even though there is no card to check.
+            self.refresh_menus()
+            return
+
+        is_valid, bad_number, winning_numbers = self._verify_claim(player)
+
+        # Cymbal and the result reveal fire in the same instant -- same
+        # trick as the Dead Man's Deck gunshot/empty-chamber reveal,
+        # made possible here by cymbal.ogg's own near-instant attack.
+        self.play_sound(SOUND_CYMBAL)
+
+        if is_valid:
+            # This has to be scheduled BEFORE _declare_winner(), not after:
+            # _declare_winner() calls finish_game(), and finish_game()
+            # itself calls self._table.reset_game() synchronously, right
+            # then and there, whenever any human remains at the table --
+            # it isn't a delayed/timer-driven handoff. Scheduling the
+            # sound after that call would queue it on the OLD game
+            # instance a moment after reset_game() already read that
+            # instance's (till-then-empty) scheduled_sounds to hand off
+            # to the fresh one, so the entry would exist but on an
+            # instance nothing keeps ticking anymore.
+            self.schedule_sound(SOUND_WIN, delay_ticks=CLAIM_RESULT_SOUND_DELAY_TICKS)
+            self._declare_winner(player, winning_numbers or [])
+        else:
+            current_count = len(self.called_numbers)
+            player.rejected_claim_signatures = [
+                sig
+                for sig in player.rejected_claim_signatures
+                if sig.startswith(f"{current_count}:")
+            ] + [self._claim_signature(player)]
+            if bad_number is not None:
+                # They had a complete shape marked, but one of those
+                # marks was ahead of the actual calls. This is a
+                # different failure from an incomplete pattern -- say so
+                # specifically, then tell them privately which number it
+                # was (nobody else needs to hear the details of their
+                # card).
+                self.broadcast_personal_l(
+                    player, "bingo-claim-incorrect-you", "bingo-claim-incorrect", buffer="game"
+                )
+                user = self.get_user(player)
+                if user:
+                    col = self._column_for_number(bad_number)
+                    user.speak_l(
+                        "bingo-marked-number-not-called",
+                        buffer="game",
+                        letter=COLUMN_LETTERS[col],
+                        number=bad_number,
+                    )
+            else:
+                self.broadcast_personal_l(
+                    player, "bingo-claim-incomplete-you", "bingo-claim-incomplete", buffer="game"
+                )
+            self.schedule_sound(SOUND_ERROR, delay_ticks=CLAIM_RESULT_SOUND_DELAY_TICKS)
+            self.refresh_menus()
+
+    def on_sequence_callback(
+        self, sequence_id: str, callback_id: str, payload: dict
+    ) -> None:
+        if callback_id == "bingo_announce_call":
+            self._handle_announce_call(payload)
+        elif callback_id == "bingo_resolve_claim":
+            self._handle_resolve_claim(payload)
+
+    def _declare_winner(self, player: BingoPlayer, winning_numbers: list[int]) -> None:
+        player.has_bingo = True
+        self.winner_ids.append(player.id)
+        # The cymbal (played by the caller, right before this) still
+        # lands exactly on the spoken reveal below -- that part is
+        # unchanged. The victory sound itself is scheduled by the caller
+        # (see _handle_resolve_claim) to land a beat after this instant
+        # instead of playing on top of everything else at once, and to
+        # keep playing on schedule even if this round's finish_game()
+        # call (below) leads to the game instance being replaced before
+        # that beat arrives.
+        #
+        # Reading out the specific numbers makes sense for a line, the
+        # corners, or the X -- it tells everyone exactly what happened.
+        # For Blackout it would just be a wall of speech, and it's also
+        # redundant: Blackout already means "the whole card," so naming
+        # every number adds no information.
+        if winning_numbers and self.options.pattern != PATTERN_BLACKOUT:
+            self.broadcast_personal_l(
+                player,
+                "bingo-claim-correct-you",
+                "bingo-claim-correct",
+                buffer="game",
+                # Each entry goes through the same per-locale Fluent key
+                # the "check called numbers" list uses, rather than a
+                # hardcoded f"{letter} {number}" -- the resolved locale
+                # only reaches this callback once per recipient (see
+                # GameCommunicationMixin._resolve_broadcast_kwargs), so
+                # the individual number strings have to be built here,
+                # not once up front.
+                numbers=lambda locale: Localization.format_list_and(
+                    locale,
+                    [
+                        Localization.get(
+                            locale,
+                            "bingo-status-called-entry",
+                            letter=COLUMN_LETTERS[self._column_for_number(n)],
+                            number=n,
+                        )
+                        for n in winning_numbers
+                    ],
+                ),
+            )
+        else:
+            self.broadcast_personal_l(
+                player,
+                "bingo-claim-correct-no-numbers-you",
+                "bingo-claim-correct-no-numbers",
+                buffer="game",
+            )
+        self.finish_game()
+
+    def _finish_no_further_calls(self) -> None:
+        """All 75 balls have been drawn, and the usual post-call interval
+        already passed (see on_tick/_start_next_call) without anyone
+        successfully claiming. Under these rules, completing the pattern
+        is not itself a win -- only a checked, successful claim is -- so
+        the round simply ends without a winner rather than silently
+        converting an unclaimed card into one."""
+        if self.status != "playing":
+            return
+        for listener in self.players:
+            user = self.get_user(listener)
+            if user:
+                user.speak_l("bingo-deck-exhausted", buffer="game")
+        self.finish_game()
+
+    # ------------------------------------------------------------------ #
+    # Results                                                             #
+    # ------------------------------------------------------------------ #
+
+    def build_game_result(self) -> GameResult:
+        active_players = self.get_active_players()
+        winner_names = [
+            player.name for player in active_players if player.id in self.winner_ids
+        ]
+        return GameResult(
+            game_type=self.get_type(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            duration_ticks=self.sound_scheduler_tick,
+            player_results=[
+                PlayerResult(
+                    player_id=player.id,
+                    player_name=player.name,
+                    is_bot=player.is_bot and not player.replaced_human,
+                )
+                for player in active_players
+            ],
+            custom_data={
+                "winner_ids": self.winner_ids,
+                "winner_names": winner_names,
+                "pattern": self.options.pattern,
+                "calls_made": len(self.called_numbers),
+            },
+        )
+
+    def format_end_screen(self, result: GameResult, locale: str) -> list[str]:
+        lines = [
+            Localization.get(
+                locale, "bingo-end-calls", count=result.custom_data.get("calls_made", 0)
+            )
+        ]
+        winners = result.custom_data.get("winner_names") or []
+        if winners:
+            for name in winners:
+                lines.append(Localization.get(locale, "bingo-end-winner-line", player=name))
+        else:
+            lines.append(Localization.get(locale, "bingo-end-no-winner"))
+        return lines

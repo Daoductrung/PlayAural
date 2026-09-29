@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 import random
+from typing import TYPE_CHECKING
 
 from ...messages.localization import Localization
 from ...game_utils.actions import Action, ActionSet, Visibility
@@ -23,6 +24,9 @@ from .state import (
     normalize_track_position,
 )
 from ...ui.keybinds import KeybindState
+
+if TYPE_CHECKING:
+    from ...users.base import User
 
 
 PLAYER_COLORS = ("red", "blue", "yellow", "green")

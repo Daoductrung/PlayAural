@@ -172,7 +172,7 @@ Enquanto uma rolagem, movimento de peão ou efeito de carta estiver sendo resolv
 
 A configuração **Dicas de menu** em **Opções gerais > Acessibilidade** adiciona explicações para iniciantes às ações que precisam delas. A dica de uma ação desativada continua a explicar seu propósito; ative a ação para ouvir o motivo exato de sua indisponibilidade no momento.
 
-A configuração **Anúncios breves** em **Opções de jogo > Exibição** encurta a fala rotineira, mantendo as escolhas necessárias e valores importantes.
+A configuração **Anúncios breves** em **Opções gerais > Opções de jogo > Exibição** encurta a fala rotineira, mantendo as escolhas necessárias e valores importantes.
 
 Os espectadores recebem informações públicas de tabuleiro, propriedade, dinheiro, posição, leilão, troca enviada e status do jogo. Eles não podem ver o rascunho privado ou o estado de interação de um jogador e não podem usar ações que alterem o jogo.
 

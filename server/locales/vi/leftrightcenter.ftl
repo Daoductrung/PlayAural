@@ -29,17 +29,17 @@ lrc-you-pass-center-brief = Bạn, vào giữa: { $count }. Còn: { $remaining }
 lrc-player-passes-center-brief = { $player }, vào giữa: { $count }. Còn: { $remaining }. Hũ giữa: { $center }.
 
 lrc-you-keep-all = Tất cả xúc xắc của bạn đều ra Chấm, nên bạn giữ nguyên { $count } chip.
-lrc-player-keeps-all = Tất cả xúc xắc của { $player } đều ra Chấm, nên họ giữ nguyên { $count } chip.
+lrc-player-keeps-all = Tất cả xúc xắc của { $player } đều ra Chấm, nên { GENDER_TERM($player_gender, "subject") } giữ nguyên { $count } chip.
 lrc-you-keep-all-brief = Bạn: không chuyển chip; còn { $count }.
 lrc-player-keeps-all-brief = { $player }: không chuyển chip; còn { $count }.
 
 lrc-you-skip-no-chips = Bạn không còn chip nên lượt này được bỏ qua. Bạn vẫn còn trong cuộc và có thể nhận chip từ hai người ngồi cạnh.
-lrc-player-skips-no-chips = { $player } không còn chip nên lượt này được bỏ qua. Họ vẫn còn trong cuộc và có thể nhận chip từ hai người ngồi cạnh.
+lrc-player-skips-no-chips = { $player } không còn chip nên lượt này được bỏ qua. { GENDER_TERM($player_gender, "subject-capitalized") } vẫn còn trong cuộc và có thể nhận chip từ hai người ngồi cạnh.
 lrc-you-skip-no-chips-brief = Bạn: hết chip; bỏ lượt.
 lrc-player-skips-no-chips-brief = { $player }: hết chip; bỏ lượt.
 
 lrc-you-win = Bạn là người cuối cùng còn chip và giành chiến thắng với { $count } chip trước mặt. Bạn nhận thêm { $center } chip trong hũ giữa.
-lrc-player-wins = { $player } là người cuối cùng còn chip và giành chiến thắng với { $count } chip trước mặt. Họ nhận thêm { $center } chip trong hũ giữa.
+lrc-player-wins = { $player } là người cuối cùng còn chip và giành chiến thắng với { $count } chip trước mặt. { GENDER_TERM($player_gender, "subject-capitalized") } nhận thêm { $center } chip trong hũ giữa.
 lrc-you-win-brief = Bạn thắng. Trước mặt: { $count }. Hũ giữa: { $center }.
 lrc-player-wins-brief = { $player } thắng. Trước mặt: { $count }. Hũ giữa: { $center }.
 

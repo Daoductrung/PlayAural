@@ -28,7 +28,7 @@ midnight-scored = { $player } qualifies with 1 and 4, scoring { $score } from { 
 midnight-you-scored-brief = You score { $score }.
 midnight-scored-brief = { $player }: { $score }.
 midnight-you-disqualified = You do not qualify because you are missing { $missing }.
-midnight-player-disqualified = { $player } does not qualify because they are missing { $missing }.
+midnight-player-disqualified = { $player } does not qualify because { GENDER_TERM($player_gender, "subject-be") } missing { $missing }.
 midnight-you-disqualified-brief = You miss { $missing }.
 midnight-player-disqualified-brief = { $player } misses { $missing }.
 
@@ -83,7 +83,7 @@ midnight-your-dice-status =
 midnight-player-dice-status =
     { $qualified ->
         [yes] { $player }'s dice: { $dice }. Locked: { $locked }; kept for next roll: { $kept }; dice still live: { $remaining }. Current qualifying score would be { $score } from { $scoring_dice }.
-       *[no] { $player }'s dice: { $dice }. Locked: { $locked }; kept for next roll: { $kept }; dice still live: { $remaining }. They still need { $missing } to qualify.
+       *[no] { $player }'s dice: { $dice }. Locked: { $locked }; kept for next roll: { $kept }; dice still live: { $remaining }. The remaining requirement for { GENDER_TERM($player_gender, "object") } is { $missing }.
     }
 
 midnight-status-round = Round { $round } of { $total }

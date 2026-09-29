@@ -1,3 +1,51 @@
+const MAX_MENU_FOCUS_CONTEXTS = 8;
+const MAX_MENU_FOCUS_CONTEXT_ID_LENGTH = 128;
+
+function validFocusContextId(contextId) {
+  return typeof contextId === "string"
+    && contextId.length > 0
+    && contextId.length <= MAX_MENU_FOCUS_CONTEXT_ID_LENGTH
+    && contextId.trim() === contextId;
+}
+
+export class MenuFocusContextStore {
+  constructor(capacity = MAX_MENU_FOCUS_CONTEXTS) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new TypeError("Menu focus context capacity must be a positive integer");
+    }
+    this.capacity = capacity;
+    this.contexts = new Map();
+  }
+
+  capture(contextId, context) {
+    if (!validFocusContextId(contextId)) {
+      return;
+    }
+    this.contexts.delete(contextId);
+    this.contexts.set(contextId, context);
+    while (this.contexts.size > this.capacity) {
+      this.contexts.delete(this.contexts.keys().next().value);
+    }
+  }
+
+  consume(contextId) {
+    if (!validFocusContextId(contextId)) {
+      return null;
+    }
+    const context = this.contexts.get(contextId) || null;
+    this.contexts.delete(contextId);
+    return context;
+  }
+
+  clear() {
+    this.contexts.clear();
+  }
+
+  get size() {
+    return this.contexts.size;
+  }
+}
+
 function clampIndex(value, length) {
   if (length <= 0) {
     return 0;

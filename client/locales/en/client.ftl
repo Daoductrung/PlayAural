@@ -77,6 +77,7 @@ auth-error-username-ambiguous = More than one legacy account matches this spelli
 auth-registration-success = Registration successful! You can now log in with your credentials.
 auth-username-taken = Username already taken. Please choose a different username.
 auth-username-reserved-bot = This name is reserved for PlayAural bots. Please choose a different username.
+auth-username-reserved = This name is reserved by PlayAural. Please choose a different username.
 
 login-welcome-title = Welcome to PlayAural
 login-welcome-info = Please log in or register to continue.
@@ -148,6 +149,17 @@ options-reset-confirm-title = Confirm Reset
 options-reset-confirm-message = Reset { $tab } settings to saved values?
 
 slash-command-error = Error processing slash command { $command }.
+slash-command-state-required = The state parameter is required.
+slash-command-invalid-state = Invalid state value. Values that enable it: { $positive }. Values that disable it: { $negative }.
+slash-command-not-found = Slash command { $command } was not found.
+slash-command-min-arguments = { $command } requires at least { $count ->
+    [one] one argument
+   *[other] { $count } arguments
+    }.
+slash-command-max-arguments = { $command } accepts at most { $count ->
+    [one] one argument
+   *[other] { $count } arguments
+    }.
 reg-error-exception = Error: { $error }
 main-connection-error-title = Connection Error
 main-options-error = Client options not available
@@ -178,6 +190,11 @@ main-reconnect-failed = Reconnection failed. Please restart the application.
 main-reconnecting-as-attempt = Reconnecting as { $username }... attempt { $attempt }.
 logged-out = You have logged out.
 goodbye = Goodbye!
+logout-confirm-title = Log out and close PlayAural?
+logout-confirm-message = Do you want to leave your current activity, log out, and close PlayAural?
+logout-confirm-yes = Yes, log out
+logout-confirm-no = No, stay
+logout-in-progress = Leaving your current activity and logging out.
 
 update-available-title = Update Available
 update-available-message = A new version ({ $version }) is available. Do you want to update now?

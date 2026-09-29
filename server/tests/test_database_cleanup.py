@@ -918,6 +918,7 @@ def _create_unversioned_database(db_path: Path) -> str:
 
     connection = sqlite3.connect(db_path)
     try:
+        connection.execute("DROP TRIGGER protect_users_immutable_identity")
         connection.execute("DROP TABLE moderation_reports")
         connection.execute("DROP TABLE global_chat_messages")
         connection.execute("DROP TABLE server_settings")
@@ -927,6 +928,27 @@ def _create_unversioned_database(db_path: Path) -> str:
     finally:
         connection.close()
     return user.uuid
+
+
+def _replace_username_expression_index_with_v2_contract(
+    connection: sqlite3.Connection,
+) -> None:
+    """Recreate the historical-chat index with schema-v2 function semantics."""
+    connection.create_function(
+        "USERNAME_KEY",
+        1,
+        lambda value: str(value or "").strip().casefold(),
+        deterministic=True,
+    )
+    connection.execute("DROP INDEX idx_global_chat_messages_username_time")
+    connection.execute(
+        """
+        CREATE INDEX idx_global_chat_messages_username_time
+        ON global_chat_messages(
+            USERNAME_KEY(sender_username), sent_at_utc DESC, id DESC
+        )
+        """
+    )
 
 
 def test_schema_discovery_uses_legacy_compatible_sqlite_catalog_name():
@@ -1037,6 +1059,7 @@ def test_version_one_nullable_username_key_migrates_atomically(tmp_path):
         connection.execute(
             "CREATE INDEX idx_users_username_key ON users(username_key)"
         )
+        _replace_username_expression_index_with_v2_contract(connection)
         connection.execute("PRAGMA user_version = 1")
         connection.commit()
     finally:
@@ -1046,7 +1069,9 @@ def test_version_one_nullable_username_key_migrates_atomically(tmp_path):
     database.connect(migration_backup_dir=backup_dir)
     try:
         assert database.get_user("Version One User").uuid == retained_user.uuid
-        assert database._conn.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert database._conn.execute("PRAGMA user_version").fetchone()[0] == (
+            Database.CURRENT_SCHEMA_VERSION
+        )
         username_key_column = next(
             row
             for row in database._conn.execute("PRAGMA table_info(users)")
@@ -1072,6 +1097,141 @@ def test_version_one_nullable_username_key_migrates_atomically(tmp_path):
         assert username_key_column[3] == 0
     finally:
         backup.close()
+
+
+def test_version_two_identity_contract_migrates_atomically(tmp_path):
+    db_path = tmp_path / "version-two.db"
+    backup_dir = tmp_path / "migration-backups"
+    database = Database(db_path)
+    database.connect()
+    retained_user = database.create_user("Ｆｕｌｌ Width", "hash")
+    retained_unicode_user = database.create_user("Đào Đức Trung", "hash")
+    retained_message = database.add_global_chat_message(
+        retained_user.uuid,
+        retained_user.username,
+        "en",
+        "Retained identity evidence",
+    )
+    database.close()
+
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute("DROP INDEX idx_users_uuid")
+        connection.execute("CREATE INDEX idx_users_uuid ON users(uuid)")
+        connection.execute("DROP TRIGGER protect_users_immutable_identity")
+        _replace_username_expression_index_with_v2_contract(connection)
+        connection.execute(
+            "UPDATE users SET username_key = ? WHERE username = ?",
+            ("ｆｕｌｌ width", "Ｆｕｌｌ Width"),
+        )
+        connection.execute("PRAGMA user_version = 2")
+        connection.commit()
+    finally:
+        connection.close()
+
+    database = Database(db_path)
+    database.connect(migration_backup_dir=backup_dir)
+    try:
+        resolved = database.get_user("full width")
+        assert resolved is not None
+        assert resolved.uuid == retained_user.uuid
+        assert resolved.username == retained_user.username
+        resolved_unicode = database.get_user("đào đức trung")
+        assert resolved_unicode is not None
+        assert resolved_unicode.uuid == retained_unicode_user.uuid
+        assert resolved_unicode.username == retained_unicode_user.username
+        summaries = database.find_global_chat_sender_summaries("full width")
+        assert [summary.sender_uuid for summary in summaries] == [
+            retained_message.sender_uuid
+        ]
+        assert database._conn.execute(
+            "SELECT username_key FROM users WHERE uuid = ?",
+            (retained_user.uuid,),
+        ).fetchone()[0] == "full width"
+        uuid_index = next(
+            row
+            for row in database._conn.execute("PRAGMA index_list(users)")
+            if row[1] == "idx_users_uuid"
+        )
+        assert uuid_index[2] == 1
+        assert database._conn.execute("PRAGMA user_version").fetchone()[0] == (
+            Database.CURRENT_SCHEMA_VERSION
+        )
+    finally:
+        database.close()
+
+    backups = list(backup_dir.glob("*.sqlite3"))
+    assert len(backups) == 1
+    backup = sqlite3.connect(backups[0])
+    try:
+        assert backup.execute("PRAGMA user_version").fetchone()[0] == 2
+        backup_uuid_index = next(
+            row
+            for row in backup.execute("PRAGMA index_list(users)")
+            if row[1] == "idx_users_uuid"
+        )
+        assert backup_uuid_index[2] == 0
+    finally:
+        backup.close()
+
+
+@pytest.mark.parametrize("corruption", ["duplicate", "empty", "malformed"])
+def test_version_two_migration_rejects_corrupt_account_ids_without_changes(
+    tmp_path,
+    corruption,
+):
+    db_path = tmp_path / f"version-two-{corruption}.db"
+    backup_dir = tmp_path / "migration-backups"
+    database = Database(db_path)
+    database.connect()
+    first = database.create_user("First Account", "hash")
+    second = database.create_user("Second Account", "hash")
+    database.close()
+
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute("DROP INDEX idx_users_uuid")
+        connection.execute("CREATE INDEX idx_users_uuid ON users(uuid)")
+        connection.execute("DROP TRIGGER protect_users_immutable_identity")
+        _replace_username_expression_index_with_v2_contract(connection)
+        replacement = {
+            "duplicate": first.uuid,
+            "empty": "",
+            "malformed": "not-an-account-uuid",
+        }[corruption]
+        connection.execute(
+            "UPDATE users SET uuid = ? WHERE username = ?",
+            (replacement, second.username),
+        )
+        connection.execute("PRAGMA user_version = 2")
+        connection.commit()
+    finally:
+        connection.close()
+
+    message = {
+        "duplicate": "duplicate immutable account id",
+        "empty": "empty immutable id",
+        "malformed": "invalid immutable account id",
+    }[corruption]
+    with pytest.raises(sqlite3.DatabaseError, match=message):
+        Database(db_path).connect(migration_backup_dir=backup_dir)
+
+    connection = sqlite3.connect(db_path)
+    try:
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert connection.execute(
+            "SELECT uuid FROM users WHERE username = ?",
+            (second.username,),
+        ).fetchone()[0] == replacement
+        uuid_index = next(
+            row
+            for row in connection.execute("PRAGMA index_list(users)")
+            if row[1] == "idx_users_uuid"
+        )
+        assert uuid_index[2] == 0
+    finally:
+        connection.close()
+    assert list(backup_dir.glob("*.sqlite3")) == []
 
 
 def test_failed_migration_rolls_back_and_retains_recovery_backup(
@@ -1154,7 +1314,9 @@ def test_failed_migration_retry_reuses_exact_verified_backup(
     retry.connect(migration_backup_dir=backup_dir)
     try:
         assert retry.get_user("Legacy User") is not None
-        assert retry._conn.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert retry._conn.execute("PRAGMA user_version").fetchone()[0] == (
+            Database.CURRENT_SCHEMA_VERSION
+        )
     finally:
         retry.close()
     assert list(backup_dir.glob("*.sqlite3")) == backups
@@ -1409,6 +1571,20 @@ def test_current_schema_rejects_unexpected_trigger_without_repair(tmp_path):
         ).fetchone()[0] == 1
     finally:
         connection.close()
+
+
+def test_current_schema_rejects_missing_identity_trigger_without_repair(tmp_path):
+    db_path = tmp_path / "missing-identity-trigger.db"
+    database = Database(db_path)
+    database.connect()
+    database.close()
+
+    connection = sqlite3.connect(db_path)
+    connection.execute("DROP TRIGGER protect_users_immutable_identity")
+    connection.close()
+
+    with pytest.raises(sqlite3.DatabaseError, match="missing required triggers"):
+        Database(db_path).connect()
 
 
 def test_current_schema_rejects_missing_required_index_without_repair(tmp_path):

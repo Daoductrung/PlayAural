@@ -428,13 +428,13 @@ bang-your-ricochet-discards-card = Your Ricochet discards { $target }'s { $card}
 bang-ricochet-discards-your-card = { $attacker }'s Ricochet discards your { $card}.
 bang-player-ricochet-discards-card = { $attacker }'s Ricochet discards { $target }'s { $card}.
 bang-you-lose-life = You lose { $amount } life from { $source } and now have { $life}.
-bang-your-attack-costs-life = Your { $source } costs { $target } { $amount } life; they now have { $life}.
+bang-your-attack-costs-life = Your { $source } costs { $target } { $amount } life; { GENDER_TERM($target_gender, "subject-have") } { $life} now.
 bang-player-loses-life = { $player } loses { $amount } life from { $source } and now has { $life}.
 bang-you-heal = You regain { $amount } life and now have { $life}.
 bang-player-heals = { $player } regains { $amount } life and now has { $life}.
 bang-your-target-heals = { $target } regains { $amount } life from your aid and now has { $life}.
 bang-player-heals-you = { $actor } helps you regain { $amount } life; you now have { $life}.
-bang-player-heals-target = { $actor } helps { $target } regain { $amount } life; they now have { $life}.
+bang-player-heals-target = { $actor } helps { $target } regain { $amount } life; { GENDER_TERM($target_gender, "subject-have") } { $life} now.
 bang-your-beer-no-effect-full-life = You discard Beer; your life is already full.
 bang-player-beer-no-effect-full-life = { $player } discards Beer at full life.
 bang-your-beer-no-effect-two-players = You discard Beer; it cannot heal with two players left.
@@ -462,8 +462,8 @@ bang-player-draws-public-cards = { $count ->
 }
 bang-you-discard-excess = You discard { $cards } and end your turn.
 bang-player-discards-excess = { $count ->
-    [one] { $player } discards 1 excess card and ends their turn.
-   *[other] { $player } discards { $count } excess cards and ends their turn.
+    [one] { $player } discards 1 excess card and ends { GENDER_TERM($player_gender, "possessive-determiner") } turn.
+   *[other] { $player } discards { $count } excess cards and ends { GENDER_TERM($player_gender, "possessive-determiner") } turn.
 }
 bang-your-play-phase = Your play phase: choose a card, ability, or End turn.
 bang-player-play-phase = { $player } begins the play phase.
@@ -527,7 +527,7 @@ bang-handcuffs-declared = { $player } declares { $suit } for Handcuffs.
 bang-you-change-identity = You take a New Identity as { $character}, starting at two life.
 bang-new-identity-changed = { $player } takes a New Identity as { $character}, starting at two life.
 bang-you-give-blood-brother-life = You lose one life, give one life to { $target}, and now have { $life } life.
-bang-player-gives-you-blood-brother-life = { $player } loses one life and gives one life to you; they now have { $life } life.
+bang-player-gives-you-blood-brother-life = { $player } loses one life and gives one life to you; { GENDER_TERM($player_gender, "subject-have") } { $life } life now.
 bang-blood-brothers-gift = { $player } loses one life, gives one life to { $target}, and now has { $life } life.
 bang-your-dynamite-passes = Your Dynamite passes clockwise to { $target}.
 bang-dynamite-passes-to-you = { $actor }'s Dynamite passes clockwise to you.

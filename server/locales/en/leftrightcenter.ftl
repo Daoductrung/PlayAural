@@ -53,10 +53,10 @@ lrc-you-keep-all = All of your dice are dots, so you keep all { $count } { $coun
     [one] chip
    *[other] chips
 }.
-lrc-player-keeps-all = All of { $player }'s dice are dots, so they keep all { $count } { $count ->
+lrc-player-keeps-all = All of { $player }'s dice are dots, so { GENDER_TERM($player_gender, "subject-have") } all { $count } { $count ->
     [one] chip
    *[other] chips
-}.
+} left.
 lrc-you-keep-all-brief = You: no transfers; { $count } { $count ->
     [one] chip
    *[other] chips
@@ -67,7 +67,7 @@ lrc-player-keeps-all-brief = { $player }: no transfers; { $count } { $count ->
 }.
 
 lrc-you-skip-no-chips = You have no chips, so your turn is skipped. You remain in the game and can receive chips from either neighbor.
-lrc-player-skips-no-chips = { $player } has no chips, so their turn is skipped. They remain in the game and can receive chips from either neighbor.
+lrc-player-skips-no-chips = { $player } has no chips, so { GENDER_TERM($player_gender, "possessive-determiner") } turn is skipped. { GENDER_TERM($player_gender, "subject-be-capitalized") } still in the game and can receive chips from either neighbor.
 lrc-you-skip-no-chips-brief = You: no chips; turn skipped.
 lrc-player-skips-no-chips-brief = { $player }: no chips; turn skipped.
 
@@ -75,10 +75,10 @@ lrc-you-win = You are the last player with chips and win with { $count } remaini
     [one] chip
    *[other] chips
 } in the center.
-lrc-player-wins = { $player } is the last player with chips and wins with { $count } remaining. They claim the { $center } { $center ->
+lrc-player-wins = { $player } is the last player with chips and wins with { $count } remaining. The { $center } { $center ->
     [one] chip
    *[other] chips
-} in the center.
+} in the center go to { GENDER_TERM($player_gender, "object") }.
 lrc-you-win-brief = You win. Your chips: { $count }. Center: { $center }.
 lrc-player-wins-brief = { $player } wins. Chips: { $count }. Center: { $center }.
 

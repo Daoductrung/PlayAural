@@ -1,6 +1,7 @@
 """Localization system using Mozilla Fluent."""
 
 import json
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -12,11 +13,32 @@ from babel.dates import format_datetime
 from fluent.runtime import FluentBundle, FluentResource
 from babel.lists import format_list
 
+from ..gender import normalize_gender
+
 
 DEFAULT_LOCALE = "en"
 PINNED_LOCALES = (DEFAULT_LOCALE, "vi")
 LOCALE_METADATA_FILENAME = "metadata.json"
 LOCALE_RESOLUTION_CACHE_SIZE = 128
+GENDER_TERM_FORMS = frozenset(
+    {
+        "subject",
+        "subject-capitalized",
+        "subject-be",
+        "subject-be-capitalized",
+        "subject-have",
+        "subject-have-capitalized",
+        "object",
+        "possessive-determiner",
+        "possessive-determiner-capitalized",
+        "possessive-pronoun",
+        "reflexive",
+    }
+)
+GENDER_TERM_CONTEXT_MAX_LENGTH = 64
+GENDER_TERM_CONTEXT_PATTERN = re.compile(
+    rf"[a-z][a-z0-9-]{{0,{GENDER_TERM_CONTEXT_MAX_LENGTH - 1}}}\Z"
+)
 
 
 @dataclass(frozen=True)
@@ -252,13 +274,75 @@ class Localization:
 
         # use_isolating=True matches the previous fluent_compiler default; the
         # bidi isolation characters it inserts are stripped in get().
-        bundle = FluentBundle([actual_locale], use_isolating=True)
+        bundle = FluentBundle(
+            [actual_locale],
+            use_isolating=True,
+            functions={
+                "GENDER_TERM": lambda gender, form, context="": (
+                    cls._format_gender_term(
+                        actual_locale,
+                        gender,
+                        form,
+                        context,
+                    )
+                )
+            },
+        )
         for ftl_file in ftl_files:
             bundle.add_resource(
                 FluentResource(ftl_file.read_text(encoding="utf-8"))
             )
         cls._bundles[actual_locale] = bundle
         return bundle
+
+    @classmethod
+    def _format_gender_term(
+        cls,
+        locale: str,
+        gender: object,
+        form: object,
+        context: object = "",
+    ) -> str:
+        """Render a validated grammatical form with an optional game override.
+
+        Locale authors own the actual words. A game may define, for example,
+        ``breachpoint-gender-term-subject`` and request context
+        ``"breachpoint"``; missing contextual forms fall back to the shared
+        form and missing translations fall back to English.
+        """
+        normalized_form = str(form).strip().lower()
+        if normalized_form not in GENDER_TERM_FORMS:
+            normalized_form = "subject"
+
+        normalized_context = str(context).strip().lower()
+        if not GENDER_TERM_CONTEXT_PATTERN.fullmatch(normalized_context):
+            normalized_context = ""
+
+        message_ids = []
+        if normalized_context:
+            message_ids.append(
+                f"{normalized_context}-gender-term-{normalized_form}"
+            )
+        message_ids.append(f"gender-term-{normalized_form}")
+
+        resolved_locale = cls.resolve_locale(locale)
+        locale_order = [resolved_locale]
+        if resolved_locale != DEFAULT_LOCALE:
+            locale_order.append(DEFAULT_LOCALE)
+        kwargs = {"gender": normalize_gender(gender).selector}
+        # Prefer a shared form in the listener's locale over a contextual form
+        # that exists only in English. This keeps the entire sentence in one
+        # language while still allowing English to be the final fallback.
+        for candidate_locale in locale_order:
+            for message_id in message_ids:
+                result = cls._format_from_bundle(
+                    candidate_locale,
+                    message_id,
+                    kwargs,
+                )
+                if result is not None:
+                    return result
+        return ""
 
     # Unicode bidi isolation characters that Fluent adds around variables
     _BIDI_CHARS = "\u2068\u2069"  # FIRST STRONG ISOLATE, POP DIRECTIONAL ISOLATE

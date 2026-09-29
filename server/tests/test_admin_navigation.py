@@ -26,6 +26,7 @@ from ..administration.manager import (
     ADMIN_MODERATION_SENDER_RESULTS_MENU,
     _localized_database_size,
 )
+from ..ui.confirmation import CONFIRMATION_PROMPT_ITEM_ID
 from ..users.test_user import MockUser
 from ..users.roles import (
     ADMIN_TRUST_LEVEL,
@@ -105,6 +106,22 @@ def _menu_item_text(user: MockUser, menu_id: str, item_id: str) -> str:
     raise AssertionError(f"{item_id!r} not found in {menu_id!r}")
 
 
+def _page_copy_text(user: MockUser, menu_id: str) -> str:
+    for item in user.get_current_menu_items(menu_id) or []:
+        if item.id == "copy_page":
+            assert item.copy_directive is not None
+            return item.copy_directive.text
+    raise AssertionError(f"copy_page not found in {menu_id!r}")
+
+
+def _message_row_texts(user: MockUser, menu_id: str, prefix: str) -> list[str]:
+    return [
+        item.text
+        for item in user.get_current_menu_items(menu_id) or []
+        if item.id and item.id.startswith(prefix)
+    ]
+
+
 @pytest.mark.asyncio
 async def test_database_management_compacts_with_confirmation_and_restores_focus(
     tmp_path,
@@ -151,7 +168,7 @@ async def test_database_management_compacts_with_confirmation_and_restores_focus
             server,
             developer,
             ADMIN_DATABASE_COMPACT_CONFIRM_MENU,
-            "database_compact_summary",
+            CONFIRMATION_PROMPT_ITEM_ID,
         )
         assert (
             _current_menu(server, developer.username)
@@ -323,7 +340,7 @@ async def test_database_storage_cleanup_is_backed_up_and_preserves_saved_tables(
             for item in developer.get_current_menu_items(
                 ADMIN_DATABASE_STORAGE_CLEANUP_CONFIRM_MENU
             )
-            if item.id == "storage_cleanup_confirm_summary"
+                if item.id == CONFIRMATION_PROMPT_ITEM_ID
         )
         assert confirmation.read_only is True
 
@@ -483,7 +500,7 @@ async def test_database_backup_uses_confirmation_and_publishes_verified_snapshot
             for item in developer.get_current_menu_items(
                 ADMIN_DATABASE_BACKUP_CONFIRM_MENU
             )
-            if item.id == "database_backup_summary"
+                if item.id == CONFIRMATION_PROMPT_ITEM_ID
         )
         assert summary.read_only is True
 
@@ -641,6 +658,13 @@ async def test_manual_moderation_review_exposes_identity_time_and_context(
         )
         assert "Anchored reported user message" in target_context
         assert target.uuid in target_context
+        assert _page_copy_text(admin, ADMIN_MODERATION_CONTEXT_MENU) == "\n".join(
+            _message_row_texts(
+                admin,
+                ADMIN_MODERATION_CONTEXT_MENU,
+                "context_message_",
+            )
+        )
 
         await _select(server, admin, ADMIN_MODERATION_CONTEXT_MENU, "back")
         await _select(
@@ -938,6 +962,131 @@ async def test_history_lookup_separates_reused_username_account_ids(tmp_path) ->
             admin, ADMIN_MODERATION_HISTORY_MENU, "history_heading"
         )
         assert original.uuid in heading
+        assert _page_copy_text(admin, ADMIN_MODERATION_HISTORY_MENU) == _menu_item_text(
+            admin,
+            ADMIN_MODERATION_HISTORY_MENU,
+            f"history_message_{old_message.id}",
+        )
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_report_context_and_account_history_copy_only_the_current_page(
+    tmp_path,
+) -> None:
+    server, admin = _make_admin_server(tmp_path)
+    try:
+        reporter = _create_approved_user(server, "Reporter")
+        target = _create_approved_user(server, "Target")
+        messages = [
+            server._db.add_global_chat_message(
+                target.uuid,
+                target.username,
+                "en",
+                f"retained message {index}\ncontinued\u202e\u206a",
+            )
+            for index in range(51)
+        ]
+        submission = server._db.submit_moderation_report(
+            reporter_uuid=reporter.uuid,
+            reporter_username=reporter.username,
+            reported_uuid=target.uuid,
+            reported_username=target.username,
+            reason_code="spam",
+            channel_code="en",
+        )
+
+        server.admin_manager._show_moderation_context_menu(
+            admin, submission.report_id
+        )
+        first_context_rows = _message_row_texts(
+            admin, ADMIN_MODERATION_CONTEXT_MENU, "context_message_"
+        )
+        assert len(first_context_rows) == 10
+        assert _page_copy_text(admin, ADMIN_MODERATION_CONTEXT_MENU) == "\n".join(
+            first_context_rows
+        )
+        assert all("\n" not in row for row in first_context_rows)
+        assert all("\u202e" not in row for row in first_context_rows)
+        assert all("\u206a" not in row for row in first_context_rows)
+        assert "page_next" in _menu_item_ids(admin, ADMIN_MODERATION_CONTEXT_MENU)
+
+        # Copy directives are client-local. A stale or forged client packet
+        # must not reach moderation navigation or mutate the current page.
+        await _select(
+            server,
+            admin,
+            ADMIN_MODERATION_CONTEXT_MENU,
+            "copy_page",
+        )
+        assert _current_menu(server, admin.username) == ADMIN_MODERATION_CONTEXT_MENU
+        assert server.user_states[admin.username]["moderation_page"] == 1
+
+        # Corrupt or stale server-side navigation state must fall back to the
+        # first page instead of escaping the shared pagination boundary.
+        server.user_states[admin.username]["moderation_page"] = "invalid"
+        server.user_states[admin.username]["moderation_page_count"] = float("inf")
+        await _select(server, admin, ADMIN_MODERATION_CONTEXT_MENU, "page_next")
+        assert server.user_states[admin.username]["moderation_page"] == 1
+        assert _page_copy_text(
+            admin, ADMIN_MODERATION_CONTEXT_MENU
+        ) == "\n".join(first_context_rows)
+
+        await _select(server, admin, ADMIN_MODERATION_CONTEXT_MENU, "page_next")
+        second_context_rows = _message_row_texts(
+            admin, ADMIN_MODERATION_CONTEXT_MENU, "context_message_"
+        )
+        assert len(second_context_rows) == 10
+        assert second_context_rows != first_context_rows
+        assert _page_copy_text(admin, ADMIN_MODERATION_CONTEXT_MENU) == "\n".join(
+            second_context_rows
+        )
+        assert admin.menus[ADMIN_MODERATION_CONTEXT_MENU]["position"] == 4
+
+        server.admin_manager._show_moderation_history_menu(admin, target.uuid)
+        first_history_rows = _message_row_texts(
+            admin, ADMIN_MODERATION_HISTORY_MENU, "history_message_"
+        )
+        assert len(first_history_rows) == 50
+        assert _page_copy_text(admin, ADMIN_MODERATION_HISTORY_MENU) == "\n".join(
+            first_history_rows
+        )
+        await _select(server, admin, ADMIN_MODERATION_HISTORY_MENU, "page_next")
+        last_history_rows = _message_row_texts(
+            admin, ADMIN_MODERATION_HISTORY_MENU, "history_message_"
+        )
+        assert len(last_history_rows) == 1
+        assert "retained message 0 continued" in last_history_rows[0]
+        assert "\u202e" not in last_history_rows[0]
+        assert _page_copy_text(admin, ADMIN_MODERATION_HISTORY_MENU) == last_history_rows[0]
+        assert admin.menus[ADMIN_MODERATION_HISTORY_MENU]["position"] == 4
+
+        admin._locale = "vi"
+        server.admin_manager._show_moderation_history_menu(admin, target.uuid, 2)
+        copy_item = next(
+            item
+            for item in admin.get_current_menu_items(
+                ADMIN_MODERATION_HISTORY_MENU
+            )
+            if item.id == "copy_page"
+        )
+        assert copy_item.text == "Sao chép tin nhắn trên trang này (1)"
+        assert copy_item.copy_directive is not None
+        assert copy_item.copy_directive.success_text.startswith("Đã sao chép 1")
+
+        admin._locale = "en"
+        server.admin_manager._show_moderation_history_menu(admin, target.uuid, 2)
+        copy_item = next(
+            item
+            for item in admin.get_current_menu_items(
+                ADMIN_MODERATION_HISTORY_MENU
+            )
+            if item.id == "copy_page"
+        )
+        assert copy_item.text == "Copy message on this page (1)"
+        assert copy_item.copy_directive is not None
+        assert copy_item.copy_directive.success_text.startswith("Copied 1 message ")
     finally:
         server._db.close()
 
@@ -977,6 +1126,13 @@ async def test_global_message_browser_filters_pages_and_restores_parent(
         assert "page_next" in message_ids
         assert f"moderation_message_{english_messages[-1].id}" in message_ids
         assert f"moderation_message_{vietnamese_message.id}" not in message_ids
+        first_page_rows = _message_row_texts(
+            admin, ADMIN_MODERATION_MESSAGES_MENU, "moderation_message_"
+        )
+        assert len(first_page_rows) == 50
+        assert _page_copy_text(admin, ADMIN_MODERATION_MESSAGES_MENU) == "\n".join(
+            first_page_rows
+        )
 
         await _select(
             server,
@@ -1058,7 +1214,14 @@ async def test_global_message_browser_filters_pages_and_restores_parent(
         assert state["moderation_page"] == 1
         await _select(server, admin, ADMIN_MODERATION_MESSAGES_MENU, "page_next")
         assert server._user_states[admin.username]["moderation_page"] == 2
-        assert admin.menus[ADMIN_MODERATION_MESSAGES_MENU]["position"] == 6
+        last_page_rows = _message_row_texts(
+            admin, ADMIN_MODERATION_MESSAGES_MENU, "moderation_message_"
+        )
+        assert len(last_page_rows) == 2
+        assert _page_copy_text(admin, ADMIN_MODERATION_MESSAGES_MENU) == "\n".join(
+            last_page_rows
+        )
+        assert admin.menus[ADMIN_MODERATION_MESSAGES_MENU]["position"] == 7
 
         await _select(server, admin, ADMIN_MODERATION_MESSAGES_MENU, "back")
         assert _current_menu(server, admin.username) == ADMIN_MODERATION_MENU
@@ -1097,14 +1260,14 @@ async def test_developer_cleanup_is_confirmed_and_preserves_open_reports(
             for item in admin.get_current_menu_items(
                 ADMIN_MODERATION_CLEAR_CONFIRM_MENU
             )
-            if item.id == "clear_summary"
+            if item.id == CONFIRMATION_PROMPT_ITEM_ID
         )
         assert summary.read_only is True
         await _select(
             server,
             admin,
             ADMIN_MODERATION_CLEAR_CONFIRM_MENU,
-            "clear_summary",
+            CONFIRMATION_PROMPT_ITEM_ID,
         )
         assert _current_menu(server, admin.username) == ADMIN_MODERATION_CLEAR_CONFIRM_MENU
         assert server._db.count_global_chat_messages() == 1

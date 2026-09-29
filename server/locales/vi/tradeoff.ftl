@@ -27,7 +27,7 @@ tradeoff-player-scored = { $player } ghi { $points } điểm với { $sets }.
 tradeoff-you-scored-brief = Bạn ghi { $points } điểm trong vòng này.
 tradeoff-player-scored-brief = { $player } ghi { $points } điểm trong vòng này.
 tradeoff-you-no-sets = Bạn ghi 0 điểm vì 15 viên xúc xắc không tạo được bộ ghi điểm nào.
-tradeoff-no-sets = { $player } ghi 0 điểm vì 15 viên xúc xắc không tạo được bộ ghi điểm nào.
+tradeoff-no-sets = { $player } ghi 0 điểm vì 15 viên xúc xắc { GENDER_TERM($player_gender, "possessive-determiner") } không tạo được bộ ghi điểm nào.
 
 tradeoff-set-triple = bộ ba con { $value }
 tradeoff-set-group = nhóm năm con { $value }

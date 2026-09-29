@@ -308,8 +308,8 @@ class ActionSet(DataClassJSONMixin):
         a player's grid focus keeps its anchor instead of collapsing to the
         first cell when the menu repopulates.
 
-        Spectators never receive turn-menu buttons — they access permitted
-        actions via the actions menu (Escape) and keybinds instead.
+        Spectators receive only actions that explicitly opt in through
+        ``include_spectators``; all player-only controls remain filtered.
         """
         result = []
         visibility_first = self.name in getattr(

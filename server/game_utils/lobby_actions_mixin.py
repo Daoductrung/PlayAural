@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 from ..users.base import MenuItem, EscapeBehavior
 from ..users.bot import Bot
 from ..messages.localization import Localization
+from ..ui.confirmation import show_confirmation_menu
 from .player import Player
 from .teams import TeamManager
 from .bot_names import (
@@ -694,6 +695,14 @@ class LobbyActionsMixin:
                     user.speak_l("table-full", buffer="game")
                 return
 
+        rate_limit_reason = self._role_change_rate_limit_reason(
+            player,
+            consume=True,
+        )
+        if rate_limit_reason:
+            self._speak_action_disabled_reason(player, rate_limit_reason)
+            return
+
         player.is_spectator = not player.is_spectator
         
         # SYNC FIX: Update the table member record to match
@@ -713,45 +722,44 @@ class LobbyActionsMixin:
         self.refresh_menus()
         self._notify_table_presence_changed()
 
-    def _perform_leave_game(self, player: "Player") -> None:
-        """Leave the game."""
-        # Spectators can always leave cleanly (no bot replacement)
+    def _perform_leave_game(
+        self,
+        player: "Player",
+        *,
+        allow_bot_takeover: bool = True,
+    ) -> None:
+        """Leave the game, optionally preserving an active seat with a bot."""
         if player.is_spectator:
-            # BUGFIX: Ensure they are removed from the TABLE as well as the GAME
-            # Use the new centralized helper for game state
             self.remove_spectator(player.id)
-            
-            # Explicitly remove from table to prevent ghost in lobby
             if self._table:
                 self._table.remove_member(player.name)
-                
+
             self.play_table_leave_sound(player, is_spectator=True)
             self.refresh_menus()
             return
 
-        if self.status == "playing" and not player.is_bot:
-            # Check if any humans remain (excluding spectators and current player)
-            # We do this check FIRST to handle the "Last Human Leaves" case specially
-            other_humans = any(not p.is_bot and not p.is_spectator and p.id != player.id for p in self.players)
-            
-            if other_humans:
-                # Mid-game AND other humans exist: replace with bot
-                was_bot = player.is_bot
+        spectator_host_online = bool(
+            self._table and self._table.has_online_spectator_host()
+        )
+        if self.status == "playing" and not player.is_bot and allow_bot_takeover:
+            other_humans = any(
+                not candidate.is_bot
+                and not candidate.is_spectator
+                and candidate.id != player.id
+                for candidate in self.players
+            )
+
+            if other_humans or spectator_host_online:
                 if self._replace_with_bot(player):
                     self.play_table_leave_sound(
                         player,
-                        is_bot=was_bot,
+                        is_bot=False,
                         is_spectator=False,
                     )
                 self.refresh_menus()
                 return
 
-            # If no other humans, fall through to full removal logic below
-            # This suppresses "replaced by bot" message and shows "left table" instead
-            pass
-
-        # Lobby or bot leaving: fully remove the player
-        # Use centralized helper to ensure consistent cleanup
+        # Lobby players, bots, and permanent account removals release the seat.
         was_bot = player.is_bot
         was_spectator = player.is_spectator
         self.remove_player(player.id)
@@ -764,8 +772,7 @@ class LobbyActionsMixin:
 
         # Check if any humans remain (excluding spectators)
         has_humans = any(not p.is_bot and not p.is_spectator for p in self.players)
-        if not has_humans:
-            # Destroy the game - no humans left
+        if not has_humans and not spectator_host_online:
             self.destroy()
             return
 
@@ -838,16 +845,11 @@ class LobbyActionsMixin:
         if return_focus:
             self._pending_action_return_focus[player.id] = return_focus
         self._pending_actions[player.id] = "leave_game_confirm"
-        user.speak_l("confirm-leave-game", buffer="game")
-        items = [
-            MenuItem(text=Localization.get(user.locale, "confirm-no"), id="no"),
-            MenuItem(text=Localization.get(user.locale, "confirm-yes"), id="yes"),
-        ]
-        user.show_menu(
+        show_confirmation_menu(
+            user,
             "leave_game_confirm",
-            items,
-            multiletter=False,
-            escape_behavior=EscapeBehavior.SELECT_LAST,
+            prompt_key="confirm-leave-game",
+            buffer="game",
         )
 
     def _action_host_management(self, player: "Player", action_id: str) -> None:

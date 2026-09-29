@@ -562,9 +562,17 @@ def test_report_context_is_chronological_and_channel_scoped(tmp_path) -> None:
         after = database.add_global_chat_message(
             other.uuid, other.username, "en", "after"
         )
+        # Windows can assign the same microsecond timestamp to every operation.
+        # Make that tie deterministic and prove the persisted message anchor,
+        # rather than wall-clock precision, divides before from after.
+        database._conn.execute(
+            "UPDATE global_chat_messages SET sent_at_utc = ?",
+            (report.reported_at_utc,),
+        )
 
         context = database.get_global_chat_context(
             report.reported_at_utc,
+            anchor_message_id=target_message.id,
             channel_code=report.channel_code,
             before_count=2,
             after_count=1,

@@ -11,7 +11,7 @@ threes-player-rolled-brief = { $player }: { $dice }.
 
 threes-turn-you = Đến lượt bạn ở vòng { $round } trên { $total }. Tổng điểm hiện tại của bạn là { $score }; ai có tổng thấp nhất sẽ thắng.
 threes-turn-you-brief = Đến lượt bạn. Tổng { $score }.
-threes-turn-other = Đến lượt { $player } ở vòng { $round } trên { $total }. Tổng điểm hiện tại của họ là { $score }.
+threes-turn-other = Đến lượt { $player } ở vòng { $round } trên { $total }. Tổng điểm hiện tại { GENDER_TERM($player_gender, "possessive-determiner") } là { $score }.
 threes-turn-other-brief = Đến lượt { $player }. Tổng { $score }.
 
 threes-you-keep = Bạn giữ viên số { $index }, mặt { $die }.
@@ -36,11 +36,11 @@ threes-die-locked-label = { $value } đã khóa
 
 threes-you-scored = Bạn ghi { $score } điểm trong lượt này. Tổng điểm của bạn hiện là { $total }.
 threes-you-scored-brief = Ghi { $score }. Tổng { $total }.
-threes-scored = { $player } ghi { $score } điểm trong lượt này. Tổng điểm của họ hiện là { $total }.
+threes-scored = { $player } ghi { $score } điểm trong lượt này. Tổng điểm { GENDER_TERM($player_gender, "possessive-determiner") } hiện là { $total }.
 threes-scored-brief = { $player }: { $score }, tổng { $total }.
 threes-you-shot-moon = Bạn chạm trăng với năm mặt 6 và ghi { $score } điểm. Tổng điểm của bạn hiện là { $total }.
 threes-you-shot-moon-brief = Chạm trăng: { $score }. Tổng { $total }.
-threes-shot-moon = { $player } chạm trăng với năm mặt 6 và ghi { $score } điểm. Tổng điểm của họ hiện là { $total }.
+threes-shot-moon = { $player } chạm trăng với năm mặt 6 và ghi { $score } điểm. Tổng điểm { GENDER_TERM($player_gender, "possessive-determiner") } hiện là { $total }.
 threes-shot-moon-brief = { $player } chạm trăng: { $score }, tổng { $total }.
 
 threes-round-start = Bắt đầu vòng { $round } trên { $total }.

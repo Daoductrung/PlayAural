@@ -157,7 +157,7 @@ uno-swap-with = Swap hands with { $player }
 uno-choose-swap = Choose a player to swap hands with, or decline.
 uno-swap-none = Don't swap
 uno-you-swap-none = You keep your hand.
-uno-swap-none-other = { $player } keeps their hand.
+uno-swap-none-other = { $player } keeps { GENDER_TERM($player_gender, "possessive-determiner") } hand.
 
 # Interceptions / straights
 uno-player-intercepts = { $player } intercepts with { $card }!
@@ -186,9 +186,9 @@ uno-round-details-none = No points were taken from opponents.
 uno-round-summary = { $details }. { $player } gains { $total }.
 uno-round-summary-you = { $details }. You gain { $total }.
 uno-you-add-penalty-points = You add { $points } penalty points to your total for this round.
-uno-player-adds-penalty-points = { $player } adds { $points } penalty points to their total for this round.
+uno-player-adds-penalty-points = { $player } adds { $points } penalty points to { GENDER_TERM($player_gender, "possessive-determiner") } total for this round.
 uno-you-add-penalty-points-with-interception = You add { $points } penalty points to your total for this round ({ $hand_points } from your hand plus { $penalty } interception penalty).
-uno-player-adds-penalty-points-with-interception = { $player } adds { $points } penalty points to their total for this round ({ $hand_points } from their hand plus { $penalty } interception penalty).
+uno-player-adds-penalty-points-with-interception = { $player } adds { $points } penalty points to { GENDER_TERM($player_gender, "possessive-determiner") } total for this round ({ $hand_points } from { GENDER_TERM($player_gender, "possessive-determiner") } hand plus { $penalty } interception penalty).
 uno-you-are-eliminated = You have reached the { $limit }-point elimination limit and are out of the game.
 uno-player-is-eliminated = { $player } has reached the { $limit }-point elimination limit and is out of the game.
 uno-you-win-game =

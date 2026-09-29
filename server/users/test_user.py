@@ -3,8 +3,15 @@
 from dataclasses import dataclass
 from typing import Any
 
-from .base import User, MenuItem, EscapeBehavior, generate_uuid
+from .base import (
+    User,
+    MenuItem,
+    EscapeBehavior,
+    generate_uuid,
+    validate_menu_focus_context_id,
+)
 from ..audio import AudioCommand
+from ..gender import Gender, normalize_gender, require_gender
 
 
 @dataclass
@@ -22,12 +29,20 @@ class MockUser(User):
     Used in unit tests and play tests to verify game behavior.
     """
 
-    def __init__(self, username: str, locale: str = "en", uuid: str | None = None, approved: bool = True):
+    def __init__(
+        self,
+        username: str,
+        locale: str = "en",
+        uuid: str | None = None,
+        approved: bool = True,
+        gender: Gender | str = Gender.UNSPECIFIED,
+    ):
         from .preferences import UserPreferences
         self._uuid = uuid or generate_uuid()
         self._username = username
         self._locale = locale
         self._approved = approved
+        self._gender = normalize_gender(gender)
         self.client_type = "python"
         self._trust_level = 1
         self._preferences = UserPreferences()
@@ -38,6 +53,13 @@ class MockUser(User):
     @property
     def preferences(self):
         return self._preferences
+
+    @property
+    def gender(self) -> Gender:
+        return self._gender
+
+    def set_gender(self, gender: Gender | str) -> None:
+        self._gender = require_gender(gender)
 
     @property
     def uuid(self) -> str:
@@ -140,7 +162,13 @@ class MockUser(User):
         grid_enabled: bool = False,
         grid_height: int = 0,
         grid_width: int = 1,
+        capture_focus_context_id: str | None = None,
     ) -> None:
+        if capture_focus_context_id is not None:
+            capture_focus_context_id = validate_menu_focus_context_id(
+                capture_focus_context_id
+            )
+        restore_focus_context_id = self._consume_menu_focus_restore_context()
         rendered_items = [
             item.rendered(
                 self.locale,
@@ -159,6 +187,8 @@ class MockUser(User):
             "grid_enabled": grid_enabled,
             "grid_height": grid_height,
             "grid_width": grid_width,
+            "capture_focus_context_id": capture_focus_context_id,
+            "restore_focus_context_id": restore_focus_context_id,
         }
         self.menus[menu_id] = menu_data
         self.messages.append(Message("show_menu", {"menu_id": menu_id, **menu_data}))
@@ -174,6 +204,7 @@ class MockUser(User):
         grid_height: int = 0,
         grid_width: int = 1,
     ) -> None:
+        restore_focus_context_id = self._consume_menu_focus_restore_context()
         rendered_items = [
             item.rendered(
                 self.locale,
@@ -201,6 +232,7 @@ class MockUser(User):
                     "grid_enabled": grid_enabled,
                     "grid_height": grid_height,
                     "grid_width": grid_width,
+                    "restore_focus_context_id": restore_focus_context_id,
                 },
             )
         )
@@ -239,6 +271,7 @@ class MockUser(User):
     def clear_ui(self) -> None:
         self.menus.clear()
         self.editboxes.clear()
+        self._next_menu_focus_restore_context_id = None
         self.messages.append(Message("clear_ui", {}))
 
     def set_table_context(self, table_id: str) -> None:

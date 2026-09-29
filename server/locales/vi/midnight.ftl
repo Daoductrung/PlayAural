@@ -28,7 +28,7 @@ midnight-scored = { $player } đủ điều kiện với 1 và 4, ghi { $score }
 midnight-you-scored-brief = Bạn ghi { $score }.
 midnight-scored-brief = { $player }: { $score }.
 midnight-you-disqualified = Bạn không đủ điều kiện vì thiếu { $missing }.
-midnight-player-disqualified = { $player } không đủ điều kiện vì thiếu { $missing }.
+midnight-player-disqualified = { $player } không đủ điều kiện vì { GENDER_TERM($player_gender, "subject") } thiếu { $missing }.
 midnight-you-disqualified-brief = Bạn thiếu { $missing }.
 midnight-player-disqualified-brief = { $player } thiếu { $missing }.
 
@@ -83,7 +83,7 @@ midnight-your-dice-status =
 midnight-player-dice-status =
     { $qualified ->
         [yes] Xúc xắc của { $player }: { $dice }. Đã khóa: { $locked }; đang giữ cho lần gieo tới: { $kept }; còn sống: { $remaining }. Điểm đủ điều kiện hiện tại là { $score } từ { $scoring_dice }.
-       *[no] Xúc xắc của { $player }: { $dice }. Đã khóa: { $locked }; đang giữ cho lần gieo tới: { $kept }; còn sống: { $remaining }. Người chơi này vẫn cần { $missing } để đủ điều kiện.
+       *[no] Xúc xắc của { $player }: { $dice }. Đã khóa: { $locked }; đang giữ cho lần gieo tới: { $kept }; còn sống: { $remaining }. { GENDER_TERM($player_gender, "subject-capitalized") } vẫn cần { $missing } để đủ điều kiện.
     }
 
 midnight-status-round = Vòng { $round } trên { $total }

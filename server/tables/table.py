@@ -458,11 +458,11 @@ class Table(DataClassJSONMixin):
 
         if username == self.host:
             promoted = self._promote_table_host(message_key="new-host")
-            if not promoted and self.effective_status() == "waiting":
-                # No non-spectator human can take over as host: destroy the table.
-                # This handles the case where only spectators remain after the host leaves
-                # (e.g. host is the only player and others joined as spectators, or the
-                # host toggled to spectator and all remaining members are spectators).
+            if not promoted:
+                # Ownership must never point at an account that has left. A
+                # live spectator host can deliberately supervise an active
+                # bot-only table, but once that host leaves and no seated human
+                # can inherit ownership, the table has no valid controller.
                 self.destroy()
                 return True
 
@@ -471,6 +471,87 @@ class Table(DataClassJSONMixin):
             self.destroy()
             return True
 
+        if self._server and hasattr(self._server, "on_tables_changed"):
+            self._server.on_tables_changed()
+        return True
+
+    def apply_player_substitution(
+        self,
+        incoming_username: str,
+        *,
+        outgoing_username: str = "",
+        outgoing_becomes_spectator: bool = False,
+    ) -> bool:
+        """Apply table-member roles after a game-level seat substitution.
+
+        A live outgoing human remains at the table as a spectator, including
+        when that account owns the table. An offline reservation relinquished
+        from a replacement bot is removed. Voice membership is unchanged for
+        role swaps because both live accounts remain in the same context.
+        """
+        incoming_member = next(
+            (
+                member
+                for member in self.members
+                if member.username == incoming_username
+            ),
+            None,
+        )
+        if incoming_member is None or not incoming_member.is_spectator:
+            return False
+
+        outgoing_member = None
+        if outgoing_username and outgoing_username != incoming_username:
+            outgoing_member = next(
+                (
+                    member
+                    for member in self.members
+                    if member.username == outgoing_username
+                ),
+                None,
+            )
+            if outgoing_becomes_spectator and outgoing_member is None:
+                return False
+
+        incoming_member.is_spectator = False
+        self._offline_since = None
+
+        if outgoing_username and outgoing_username != incoming_username:
+            if outgoing_becomes_spectator:
+                assert outgoing_member is not None
+                outgoing_member.is_spectator = True
+                self._member_offline_since.pop(outgoing_username, None)
+            else:
+                had_outgoing_member = outgoing_member is not None
+                self.members = [
+                    member
+                    for member in self.members
+                    if member.username != outgoing_username
+                ]
+                self._users.pop(outgoing_username, None)
+                self._member_offline_since.pop(outgoing_username, None)
+                if self._manager and hasattr(self._manager, "_username_to_table"):
+                    self._manager._username_to_table.pop(outgoing_username, None)
+                if (
+                    had_outgoing_member
+                    and self._server
+                    and hasattr(self._server, "on_table_member_removed")
+                ):
+                    self._server.on_table_member_removed(
+                        self,
+                        outgoing_username,
+                        voice_reason="voice-status-left-table",
+                    )
+
+                if self.host == outgoing_username:
+                    self.host = incoming_username
+                    if self._game:
+                        self._game.host = incoming_username
+
+        if self._manager and hasattr(self._manager, "_username_to_table"):
+            self._manager._username_to_table[incoming_username] = self.table_id
+            if outgoing_becomes_spectator and outgoing_username:
+                self._manager._username_to_table[outgoing_username] = self.table_id
         if self._server and hasattr(self._server, "on_tables_changed"):
             self._server.on_tables_changed()
         return True
@@ -506,6 +587,28 @@ class Table(DataClassJSONMixin):
     def get_spectators(self) -> list[TableMember]:
         """Get all spectator members."""
         return [m for m in self.members if m.is_spectator]
+
+    def has_online_spectator_host(self) -> bool:
+        """Return whether the table owner is present as a live spectator.
+
+        Table ownership is independent from gameplay-seat ownership.  The
+        member registry is authoritative for the host's current role, while
+        the server session registry proves that the attached user is still the
+        live account session rather than a stale post-disconnect object.
+        """
+        host_member = next(
+            (member for member in self.members if member.username == self.host),
+            None,
+        )
+        if host_member is None or not host_member.is_spectator:
+            return False
+
+        table_user = self._users.get(self.host)
+        if table_user is None or getattr(table_user, "is_bot", False):
+            return False
+        if self._server is None:
+            return True
+        return self._server._users.get(self.host) is table_user
 
     @property
     def player_count(self) -> int:
@@ -617,9 +720,34 @@ class Table(DataClassJSONMixin):
             self._offline_since = None
             return False
 
-        if self._reserved_active_human_seat_count() == 0:
+        spectator_host_online = self.has_online_spectator_host()
+        if (
+            self._reserved_active_human_seat_count() == 0
+            and not spectator_host_online
+        ):
             self.destroy()
             return True
+
+        # A present owner may supervise an active table without occupying a
+        # gameplay seat.  Bot-controlled seats continue normally; a malformed
+        # or transitional game with no seats is retained but frozen so the
+        # owner can restart or close it safely.  Inspect structural seats here,
+        # not get_active_players(): games may temporarily exclude eliminated
+        # seats while a result sequence still needs to tick to completion.
+        if spectator_host_online and self._active_human_player_count() == 0:
+            self._offline_since = None
+            has_gameplay_seat = bool(
+                self._game
+                and any(not player.is_spectator for player in self._game.players)
+            )
+            return not has_gameplay_seat
+
+        # Reboot recovery has its own grace-period state machine.  Once the
+        # spectator owner is back, let that handler replace missing seats at
+        # expiry instead of trapping the table in abandonment pause first.
+        if spectator_host_online and self.is_power_restore_grace_active():
+            self._offline_since = None
+            return False
 
         should_pause = not self._online_active_humans() and (
             self._active_human_player_count() <= 1
@@ -670,7 +798,7 @@ class Table(DataClassJSONMixin):
             if not self._game:
                 self.clear_power_restore_grace()
                 return False
-            if not online_humans:
+            if not online_humans and not self.has_online_spectator_host():
                 # Nobody is present to supervise the restored game yet. Keep
                 # gameplay frozen. _handle_abandoned_playing_table() owns the
                 # shared normal/reboot timeout and its persisted timestamp.
@@ -951,6 +1079,9 @@ class Table(DataClassJSONMixin):
         game_class = get_game_class(self.game_type)
         if not game_class:
             return False
+
+        if self._server and hasattr(self._server, "on_table_game_reset"):
+            self._server.on_table_game_reset(self)
 
         # 1. Store old game state we need
         old_game = self._game

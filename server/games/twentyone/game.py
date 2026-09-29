@@ -797,7 +797,7 @@ class TwentyOneGame(ActionGuardMixin, Game):
             if participant is exclude:
                 continue
             locale = self._player_locale(participant)
-            kwargs = args_for_locale(locale)
+            kwargs = self._resolve_broadcast_kwargs(locale, args_for_locale(locale))
             localized = Localization.get(locale, message_id, **kwargs)
             if hasattr(self, "record_transcript_event"):
                 self.record_transcript_event(participant, localized, buffer)
@@ -816,7 +816,9 @@ class TwentyOneGame(ActionGuardMixin, Game):
     ) -> None:
         """Personalized broadcast with per-recipient localized kwargs."""
         actor_locale = self._player_locale(actor)
-        actor_kwargs = args_for_locale(actor_locale)
+        actor_kwargs = self._resolve_broadcast_kwargs(
+            actor_locale, args_for_locale(actor_locale)
+        )
         actor_text = Localization.get(actor_locale, personal_message_id, **actor_kwargs)
         if hasattr(self, "record_transcript_event"):
             self.record_transcript_event(actor, actor_text, buffer)
@@ -828,15 +830,15 @@ class TwentyOneGame(ActionGuardMixin, Game):
             if participant is actor:
                 continue
             locale = self._player_locale(participant)
-            kwargs = args_for_locale(locale)
-            localized = Localization.get(
-                locale, others_message_id, player=actor.name, **kwargs
+            kwargs = self._resolve_broadcast_kwargs(
+                locale, {**args_for_locale(locale), "player": actor}
             )
+            localized = Localization.get(locale, others_message_id, **kwargs)
             if hasattr(self, "record_transcript_event"):
                 self.record_transcript_event(participant, localized, buffer)
             user = self.get_user(participant)
             if user:
-                user.speak_l(others_message_id, buffer=buffer, player=actor.name, **kwargs)
+                user.speak_l(others_message_id, buffer=buffer, **kwargs)
 
     def _broadcast_personal_l(
         self,

@@ -1,6 +1,13 @@
 export type SpeechBuffer = "all" | "chat" | "private" | "game" | "system" | "misc";
 export type OutputBuffer = Exclude<SpeechBuffer, "all">;
 
+export type CopyDirectiveData = {
+  version: 1;
+  text: string;
+  success_text: string;
+  failure_text: string;
+};
+
 export type MenuItemData = {
   id?: string;
   text: string;
@@ -9,6 +16,7 @@ export type MenuItemData = {
   description?: string;
   sound?: string;
   selection_value?: string | null;
+  copy_directive?: CopyDirectiveData;
 };
 
 export type MenuPacket = {
@@ -22,6 +30,8 @@ export type MenuPacket = {
   grid_enabled?: boolean;
   grid_height?: number;
   grid_width?: number;
+  capture_focus_context_id?: string;
+  restore_focus_context_id?: string;
 };
 
 export type SpeakPacket = {
@@ -383,6 +393,10 @@ export type PingPacket = {
   type: "ping";
 };
 
+export type LogoutPacket = {
+  type: "logout";
+};
+
 export type ListOnlinePacket = {
   type: "list_online" | "list_online_with_games";
 };
@@ -423,6 +437,7 @@ export type ClientPacket =
   | EscapePacket
   | KeybindPacket
   | ListOnlinePacket
+  | LogoutPacket
   | MenuSelectionPacket
   | OpenSystemPacket
   | PingPacket

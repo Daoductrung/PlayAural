@@ -1459,7 +1459,10 @@ class TienLenGame(Game, TurnTimerMixin):
         if listener.id == actor.id:
             user.speak_l(self_key, buffer="game", **kwargs)
         else:
-            user.speak_l(other_key, buffer="game", player=actor.name, **kwargs)
+            payload = self._resolve_broadcast_kwargs(
+                user.locale, {"player": actor, **kwargs}
+            )
+            user.speak_l(other_key, buffer="game", **payload)
 
     def _broadcast_play(self, player: TienLenPlayer, combo: TienLenCombo) -> None:
         for table_player in self.players:

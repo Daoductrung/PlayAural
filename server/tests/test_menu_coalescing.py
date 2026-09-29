@@ -7,8 +7,8 @@ causing double screen-reader announcements and double focus churn (e.g.
 Citadels). The flush now collapses same-menu_id `menu` packets to the last one.
 """
 
-from server.users.network_user import NetworkUser
 from server.users.base import MenuItem
+from server.users.network_user import NetworkUser
 
 
 def _items(*ids):
@@ -91,3 +91,43 @@ def test_latest_explicit_focus_wins():
     menus = [m for m in user.get_queued_messages() if m["type"] == "menu"]
     assert len(menus) == 1
     assert menus[0]["selection_id"] == "c"
+
+
+def test_focus_context_directives_survive_same_menu_coalescing():
+    user = _user()
+    user.show_menu(
+        "turn_menu",
+        _items("a", "b"),
+        capture_focus_context_id="prompt-token",
+    )
+    user.show_menu("turn_menu", _items("a", "b", "c"))
+
+    menus = [m for m in user.get_queued_messages() if m["type"] == "menu"]
+    assert len(menus) == 1
+    assert menus[0]["capture_focus_context_id"] == "prompt-token"
+
+    user.restore_menu_focus_context("prompt-token")
+    user.show_menu("turn_menu", _items("a", "b", "c"))
+    user.show_menu("turn_menu", _items("a", "b", "c", "d"))
+    menus = [m for m in user.get_queued_messages() if m["type"] == "menu"]
+    assert len(menus) == 1
+    assert menus[0]["restore_focus_context_id"] == "prompt-token"
+
+
+def test_focus_context_capture_survives_later_explicit_item_focus():
+    user = _user()
+    user.show_menu(
+        "turn_menu",
+        _items("a", "b"),
+        capture_focus_context_id="prompt-token",
+    )
+    user.show_menu(
+        "turn_menu",
+        _items("a", "b", "c"),
+        selection_id="c",
+    )
+
+    menus = [m for m in user.get_queued_messages() if m["type"] == "menu"]
+    assert len(menus) == 1
+    assert menus[0]["selection_id"] == "c"
+    assert menus[0]["capture_focus_context_id"] == "prompt-token"

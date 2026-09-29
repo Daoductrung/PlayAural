@@ -300,7 +300,7 @@ monopoly-player-three-doubles = { $player } rolled doubles three times in a row 
 monopoly-you-three-doubles-brief = Three doubles: { $jail }.
 monopoly-player-three-doubles-brief = { $player }: three doubles, { $jail }.
 monopoly-you-pass-go = You reach or pass { $go } and collect { $amount }. You now have { $cash }.
-monopoly-player-pass-go = { $player } reaches or passes { $go } and collects { $amount }. They now have { $cash }.
+monopoly-player-pass-go = { $player } reaches or passes { $go } and collects { $amount }. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $cash } now.
 monopoly-you-pass-go-brief = +{ $amount }.
 monopoly-player-pass-go-brief = { $player}: +{ $amount }.
 monopoly-you-move = { $direction ->
@@ -318,7 +318,7 @@ monopoly-player-land-unowned = { $player } lands on unowned { $property }, { $gr
 monopoly-you-land-unowned-brief = Unowned: { $price }. Buy or auction.
 monopoly-player-land-unowned-brief = Unowned: { $price }.
 monopoly-you-land-own-property = You land on your own { $property }. No rent is due.
-monopoly-player-lands-own-property = { $player } lands on their own { $property }. No rent is due.
+monopoly-player-lands-own-property = { $player } lands on { GENDER_TERM($player_gender, "possessive-determiner") } own { $property }. No rent is due.
 monopoly-you-land-own-property-brief = Yours; no rent.
 monopoly-player-lands-own-property-brief = { $player } owns it; no rent.
 monopoly-you-land-mortgaged-property = You land on { $owner }'s { $property}, but it is mortgaged, so no rent is due.
@@ -330,7 +330,7 @@ monopoly-player-must-pass-go-property = { $player } cannot buy { $property } unt
 monopoly-you-must-pass-go-property-brief = Cannot buy before passing { $go }; auction.
 monopoly-player-must-pass-go-property-brief = { $player } cannot buy yet; auction.
 monopoly-you-snake-eyes-bonus = Snake eyes pays you a { $amount } bonus. You now have { $cash }.
-monopoly-player-snake-eyes-bonus = Snake eyes pays { $player } a { $amount } bonus. They now have { $cash }.
+monopoly-player-snake-eyes-bonus = Snake eyes pays { $player } a { $amount } bonus. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $cash } now.
 monopoly-you-snake-eyes-bonus-brief = Snake eyes: +{ $amount }.
 monopoly-player-snake-eyes-bonus-brief = { $player }: snake eyes, +{ $amount }.
 monopoly-you-free-parking = You rest at { $space }. No money is collected or paid.
@@ -338,7 +338,7 @@ monopoly-player-free-parking = { $player } rests at { $space }. No money is coll
 monopoly-you-free-parking-empty = You land on { $space }, but the jackpot is empty.
 monopoly-player-free-parking-empty = { $player } lands on { $space }, but the jackpot is empty.
 monopoly-you-collect-free-parking = You collect the { $amount } jackpot at { $space }. You now have { $cash }.
-monopoly-player-collects-free-parking = { $player } collects the { $amount } jackpot at { $space }. They now have { $cash }.
+monopoly-player-collects-free-parking = { $player } collects the { $amount } jackpot at { $space }. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $cash } now.
 monopoly-you-collect-free-parking-brief = Jackpot: +{ $amount }.
 monopoly-player-collects-free-parking-brief = { $player }: jackpot, +{ $amount }.
 monopoly-you-just-visiting = You are just visiting { $jail }.
@@ -348,7 +348,7 @@ monopoly-player-land-go = { $player } lands on { $go }.
 
 # Purchasing, rent, and auctions
 monopoly-you-buy-property = You buy { $property }, { $group }, for { $price }. You have { $cash } left.
-monopoly-player-buy-property = { $player } buys { $property }, { $group }, for { $price }. They have { $cash } left.
+monopoly-player-buy-property = { $player } buys { $property }, { $group }, for { $price }. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $cash } left.
 monopoly-you-buy-property-brief = You bought { $property } for { $price }.
 monopoly-player-buy-property-brief = { $player } bought { $property } for { $price }.
 monopoly-you-complete-property-group = You now own the complete { $group }: { $properties }.
@@ -390,7 +390,7 @@ monopoly-player-passes-auction = { $player } leaves this auction.
 monopoly-you-pass-auction-brief = You pass.
 monopoly-player-passes-auction-brief = { $player } passes.
 monopoly-you-win-auction = You win { $property }, { $group }, for { $amount }. You have { $cash } left.
-monopoly-player-wins-auction = { $player } wins { $property }, { $group }, for { $amount }. They have { $cash } left.
+monopoly-player-wins-auction = { $player } wins { $property }, { $group }, for { $amount }. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $cash } left.
 monopoly-you-win-auction-brief = You won { $property } for { $amount }.
 monopoly-player-wins-auction-brief = { $player } won { $property } for { $amount }.
 monopoly-auction-no-sale = Nobody bid on { $property }, so it remains with the Bank.
@@ -406,11 +406,11 @@ monopoly-player-utility-rent-roll-brief = { $player }'s { $utility } rent roll: 
 monopoly-you-draw-card = You draw: { $card }
 monopoly-player-draw-card = { $player } draws: { $card }
 monopoly-you-no-repair-cost = You have no { $development }, so the repair card costs you nothing.
-monopoly-player-no-repair-cost = { $player } has no { $development }, so the repair card costs them nothing.
+monopoly-player-no-repair-cost = { $player } has no { $development }, so the repair card costs { GENDER_TERM($player_gender, "object") } nothing.
 monopoly-you-no-repair-cost-brief = No { $development }; no repair cost.
 monopoly-player-no-repair-cost-brief = { $player } has no { $development }; no repair cost.
 monopoly-you-collect-bank = You collect { $amount } from the Bank. You now have { $cash }.
-monopoly-player-collect-bank = { $player } collects { $amount } from the Bank. They now have { $cash }.
+monopoly-player-collect-bank = { $player } collects { $amount } from the Bank. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $cash } now.
 monopoly-you-collect-bank-brief = Bank: +{ $amount }.
 monopoly-player-collect-bank-brief = { $player }: +{ $amount }.
 monopoly-you-keep-jail-card = You keep a Get Out of Jail Free card until you use or trade it.
@@ -454,11 +454,11 @@ monopoly-card-hanoi-lottery-repairs = Pay { $perHouse } for each lower-level bus
 
 # Jail
 monopoly-you-go-jail = You go directly to { $jail }. Your turn ends, and you do not collect the { $go } salary.
-monopoly-player-go-jail = { $player } goes directly to { $jail }. Their turn ends, and they do not collect the { $go } salary.
+monopoly-player-go-jail = { $player } goes directly to { $jail }, ending { GENDER_TERM($player_gender, "possessive-determiner") } turn without collecting the { $go } salary.
 monopoly-you-go-jail-brief = Go to { $jail }.
 monopoly-player-go-jail-brief = { $player } goes to { $jail }.
 monopoly-you-pay-jail = You pay { $amount } and leave jail. You have { $cash } left; now roll normally.
-monopoly-player-pays-jail = { $player } pays { $amount } and leaves jail. They have { $cash } left.
+monopoly-player-pays-jail = { $player } pays { $amount } and leaves jail. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $cash } left.
 monopoly-you-pay-jail-brief = Paid { $amount }; out of jail.
 monopoly-player-pays-jail-brief = { $player } pays { $amount } and leaves jail.
 monopoly-you-use-jail-card = You return a Get Out of Jail Free card and leave jail; now roll normally.
@@ -482,11 +482,11 @@ monopoly-player-jail-roll-brief = { $player }'s jail roll: { $total }{ $doubles 
    *[no] .
 }
 monopoly-you-leave-jail-doubles = You rolled doubles and leave jail. Move by this roll, but do not roll again.
-monopoly-player-leaves-jail-doubles = { $player } rolled doubles and leaves jail. They move by this roll but do not roll again.
+monopoly-player-leaves-jail-doubles = { $player } rolled doubles and leaves jail. This roll moves { GENDER_TERM($player_gender, "object") } but grants no extra roll.
 monopoly-you-leave-jail-doubles-brief = Doubles: out of jail.
 monopoly-player-leaves-jail-doubles-brief = { $player } leaves jail on doubles.
 monopoly-you-stay-jail = You did not roll doubles on attempt { $attempt }, so your turn ends in jail.
-monopoly-player-stays-jail = { $player } did not roll doubles on attempt { $attempt }, so their turn ends in jail.
+monopoly-player-stays-jail = { $player } did not roll doubles on attempt { $attempt }, so { GENDER_TERM($player_gender, "possessive-determiner") } turn ends in jail.
 monopoly-you-stay-jail-brief = Still jailed; attempt { $attempt }.
 monopoly-player-stays-jail-brief = { $player } stays jailed; attempt { $attempt }.
 
@@ -505,7 +505,7 @@ monopoly-you-owe = You owe { $amount } to { $destination ->
 monopoly-player-owes = { $player } owes { $amount } to { $destination ->
     [player] { $creditor }
    *[bank] the Bank
-} for { $reason }. They currently have { $cash }.
+} for { $reason }. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $cash } currently.
 monopoly-you-owe-brief = You owe { $amount } to { $destination ->
     [player] { $creditor }
    *[bank] the Bank
@@ -521,7 +521,7 @@ monopoly-you-pay-debt = You pay { $amount } to { $destination ->
 monopoly-player-pays-debt = { $player } pays { $amount } to { $destination ->
     [player] { $creditor }
    *[bank] the Bank
-} for { $reason }. They have { $cash } left.
+} for { $reason }. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $cash } left.
 monopoly-you-pay-debt-brief = Paid { $amount } for { $reason }.
 monopoly-player-pays-debt-brief = { $player } pays { $amount } for { $reason }.
 monopoly-you-pay-player-batch = You pay { $amount } to each of { $count ->
@@ -531,7 +531,7 @@ monopoly-you-pay-player-batch = You pay { $amount } to each of { $count ->
 monopoly-player-pays-player-batch = { $player } pays { $amount } to each of { $count ->
     [one] 1 player
    *[other] { $count } players
-}, { $total } total. They have { $cash } left.
+}, { $total } total. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $cash } left.
 monopoly-you-pay-player-batch-brief = Paid { $total } to { $count ->
     [one] 1 player
    *[other] { $count } players
@@ -547,7 +547,7 @@ monopoly-you-collect-player-batch = You collect { $amount } from each of { $coun
 monopoly-player-collects-player-batch = { $player } collects { $amount } from each of { $count ->
     [one] 1 player
    *[other] { $count } players
-}, { $total } total. They now have { $cash }.
+}, { $total } total. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $cash } now.
 monopoly-you-collect-player-batch-brief = Collected { $total } from { $count ->
     [one] 1 player
    *[other] { $count } players
@@ -557,37 +557,37 @@ monopoly-player-collects-player-batch-brief = { $player } collects { $total } fr
    *[other] { $count } players
 }.
 monopoly-you-raise-cash = You raise { $amount } by selling { $development } evenly, then mortgaging legal properties. You now have { $cash } against a debt of { $debt }.
-monopoly-player-raises-cash = { $player } raises { $amount } by selling { $development } evenly, then mortgaging legal properties. They now have { $cash } against a debt of { $debt }.
+monopoly-player-raises-cash = { $player } raises { $amount } by selling { $development } evenly, then mortgaging legal properties. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $cash } against a debt of { $debt }.
 monopoly-you-raise-cash-brief = Raised { $amount }.
 monopoly-player-raises-cash-brief = { $player } raises { $amount }.
 monopoly-you-bankrupt = You cannot raise the { $amount } you owe and are bankrupt. Your assets go to { $destination ->
     [player] { $creditor }
    *[bank] the Bank
 }.
-monopoly-player-bankrupt = { $player } cannot raise the { $amount } they owe and is bankrupt. Their assets go to { $destination ->
+monopoly-player-bankrupt = { $player } cannot raise the { $amount } owed and is bankrupt. { GENDER_TERM($player_gender, "possessive-determiner-capitalized") } assets go to { $destination ->
     [player] { $creditor }
    *[bank] the Bank
 }.
 monopoly-you-bankrupt-brief = You are bankrupt.
 monopoly-player-bankrupt-brief = { $player } is bankrupt.
 monopoly-you-build = You buy a { $building } on { $property } for { $cost }. You have { $cash } left.
-monopoly-player-builds = { $player } buys a { $building } on { $property } for { $cost }. They have { $cash } left.
+monopoly-player-builds = { $player } buys a { $building } on { $property } for { $cost }. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $cash } left.
 monopoly-you-build-brief = Built a { $building } on { $property }.
 monopoly-player-builds-brief = { $player } builds a { $building } on { $property }.
 monopoly-you-sell-building = You sell a { $building } from { $property } for { $value }. You now have { $cash }.
-monopoly-player-sells-building = { $player } sells a { $building } from { $property } for { $value }. They now have { $cash }.
+monopoly-player-sells-building = { $player } sells a { $building } from { $property } for { $value }. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $cash } now.
 monopoly-you-sell-building-brief = Sold a { $building } from { $property }.
 monopoly-player-sells-building-brief = { $player } sells a { $building } from { $property }.
 monopoly-you-sell-group-buildings = You sell all { $development } in the { $group } for { $value }. You now have { $cash }.
-monopoly-player-sells-group-buildings = { $player } sells all { $development } in the { $group } for { $value }. They now have { $cash }.
+monopoly-player-sells-group-buildings = { $player } sells all { $development } in the { $group } for { $value }. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $cash } now.
 monopoly-you-sell-group-buildings-brief = Sold all { $group } { $development } for { $value }.
 monopoly-player-sells-group-buildings-brief = { $player } sells all { $group } { $development } for { $value }.
 monopoly-you-mortgage = You mortgage { $property } for { $value }. You now have { $cash }.
-monopoly-player-mortgages = { $player } mortgages { $property } for { $value }. They now have { $cash }.
+monopoly-player-mortgages = { $player } mortgages { $property } for { $value }. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $cash } now.
 monopoly-you-mortgage-brief = Mortgaged { $property } for { $value }.
 monopoly-player-mortgages-brief = { $player } mortgages { $property } for { $value }.
 monopoly-you-unmortgage = You pay { $cost } to unmortgage { $property }. You have { $cash } left.
-monopoly-player-unmortgages = { $player } pays { $cost } to unmortgage { $property }. They have { $cash } left.
+monopoly-player-unmortgages = { $player } pays { $cost } to unmortgage { $property }. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $cash } left.
 monopoly-you-unmortgage-brief = Unmortgaged { $property } for { $cost }.
 monopoly-player-unmortgages-brief = { $player } unmortgages { $property } for { $cost }.
 monopoly-you-win = Every other player is bankrupt. You win with { $cash } cash and an estimated net worth of { $net_worth }.
@@ -609,8 +609,8 @@ monopoly-you-submit-trade-brief = Trade sent to { $target }: { $summary }
 monopoly-player-submits-trade-to-you-brief = Trade from { $player }: { $summary }
 monopoly-player-submits-trade-brief = { $player } sends { $target } a trade.
 monopoly-you-cancel-trade = You cancel your trade with { $target }.
-monopoly-player-cancels-trade-with-you = { $player } cancels their trade with you.
-monopoly-player-cancels-trade = { $player } cancels their trade with { $target }.
+monopoly-player-cancels-trade-with-you = { $player } cancels { GENDER_TERM($player_gender, "possessive-determiner") } trade with you.
+monopoly-player-cancels-trade = { $player } cancels { GENDER_TERM($player_gender, "possessive-determiner") } trade with { $target }.
 monopoly-you-cancel-trade-brief = Trade canceled.
 monopoly-player-cancels-trade-with-you-brief = { $player } cancels your trade.
 monopoly-player-cancels-trade-brief = { $player } cancels a trade.
@@ -687,7 +687,7 @@ monopoly-status-trade-preparing = { $proposer } is preparing a trade with { $tar
 monopoly-whose-turn-your-action = It is your turn; you must { $phase }.
 monopoly-whose-turn-your-turn-pending = It is your turn, but { $decision_player } must { $phase }.
 monopoly-whose-turn-other-turn-your-action = It is { $turn_player }'s turn, but you must { $phase }.
-monopoly-whose-turn-player-action = It is { $turn_player }'s turn; they must { $phase }.
+monopoly-whose-turn-player-action = It is { $turn_player }'s turn; { GENDER_TERM($turn_player_gender, "subject") } must { $phase }.
 monopoly-whose-turn-pending = It is { $turn_player }'s turn, but { $decision_player } must currently { $phase }.
 monopoly-results-winner = Winner: { $player }.
 monopoly-results-place = { $rank }. { $player }; cash { $cash }; estimated net worth { $net_worth }; { $bankrupt ->
@@ -754,7 +754,7 @@ monopoly-error-portfolio-player-unavailable = That player's portfolio is no long
 monopoly-error-no-trade-targets = No other active player is available for a trade.
 monopoly-error-no-trade-during-auction = Finish the current auction before starting a trade. The active bidder may still manage property to raise bid money.
 monopoly-error-no-tradeable-properties = You have no property that can currently be traded. Sell all { $development } in a color group first.
-monopoly-error-target-no-tradeable-properties = The other player has no property that can currently be traded. Their color-group { $development } must be sold first.
+monopoly-error-target-no-tradeable-properties = { $target } has no property that can currently be traded. { GENDER_TERM($target_gender, "possessive-determiner-capitalized") } color-group { $development } must be sold first.
 monopoly-error-no-jail-card = You do not have a Get Out of Jail Free card.
 monopoly-error-target-no-jail-card = The other player has no Get Out of Jail Free card.
 monopoly-error-invalid-trade-target = That player is no longer available for this trade.
@@ -795,11 +795,11 @@ monopoly-player-receives-mortgaged = { $player } received mortgaged { $property 
 monopoly-you-receive-mortgaged-brief = { $property } is mortgaged. Choose { $interest } interest or { $unmortgage } to unmortgage.
 monopoly-player-receives-mortgaged-brief = { $player } must handle the mortgage on { $property }.
 monopoly-you-keep-received-mortgaged = You pay { $interest } interest and keep { $property } mortgaged. You have { $cash } left.
-monopoly-player-keeps-received-mortgaged = { $player } pays { $interest } interest and keeps { $property } mortgaged. They have { $cash } left.
+monopoly-player-keeps-received-mortgaged = { $player } pays { $interest } interest and keeps { $property } mortgaged. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $cash } left.
 monopoly-you-keep-received-mortgaged-brief = Paid { $interest }; { $property } stays mortgaged.
 monopoly-player-keeps-received-mortgaged-brief = { $player } keeps { $property } mortgaged.
 monopoly-you-unmortgage-received-now = You pay { $cost } and immediately lift the mortgage on { $property }. You have { $cash } left.
-monopoly-player-unmortgages-received-now = { $player } pays { $cost } and immediately lifts the mortgage on { $property }. They have { $cash } left.
+monopoly-player-unmortgages-received-now = { $player } pays { $cost } and immediately lifts the mortgage on { $property }. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $cash } left.
 monopoly-you-unmortgage-received-now-brief = Unmortgaged { $property } for { $cost }.
 monopoly-player-unmortgages-received-now-brief = { $player } unmortgages { $property }.
 

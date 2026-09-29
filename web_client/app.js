@@ -1,5 +1,6 @@
 import { createA11y } from "./a11y.js";
 import { createAudioEngine } from "./audio.js";
+import { executeCopyDirective } from "./copy_directive.js";
 import { installKeybinds } from "./keybinds.js";
 import { createNetworkClient, loadPacketValidator } from "./network.js";
 import { createStore, normalizeHistoryBuffer } from "./store.js";
@@ -16,8 +17,16 @@ import {
   BUFFER_ITEM_NAVIGATION_ASSET,
   createHistoryView,
 } from "./ui/history.js";
-import { createMenuView, isMenuItemActionable } from "./ui/menus.js";
-import { resolveMenuFocusIndex, stableMenuItemId } from "./ui/menuFocus.js";
+import {
+  createMenuView,
+  isMenuItemActionable,
+  normalizeServerMenuItems,
+} from "./ui/menus.js";
+import {
+  MenuFocusContextStore,
+  resolveMenuFocusIndex,
+  stableMenuItemId,
+} from "./ui/menuFocus.js";
 import {
   TYPING_EXACT_ASSETS,
   TYPING_SOUND_FAMILY,
@@ -26,6 +35,7 @@ import {
   isImeCompositionKeyEvent,
   resolveTypingSoundCue,
 } from "./typing_sounds.js";
+import { retireVoiceRoom } from "./voice_lifecycle.js";
 
 const CLIENT_VERSION = String(window.PLAYAURAL_WEB_VERSION || "");
 const WEB_CLIENT_CONFIG = window.PLAYAURAL_WEB_CONFIG || {};
@@ -844,6 +854,9 @@ class VoiceChatManager {
     }
 
     await this.cleanup(false, false, false);
+    if (joinGeneration !== this.joinGeneration) {
+      return;
+    }
     const room = new LK.Room({ adaptiveStream: false, dynacast: false });
     this.room = room;
     this.state = "connecting";
@@ -854,10 +867,14 @@ class VoiceChatManager {
     this.updateUI();
 
     room.on("trackSubscribed", (track, publication, participant) => {
-      this.attachTrack(track, publication, participant);
+      if (this.ownsRoomAttempt(room, joinGeneration)) {
+        this.attachTrack(track, publication, participant);
+      }
     });
     room.on("trackUnsubscribed", (track, publication) => {
-      this.detachTrack(track, publication);
+      if (this.ownsRoomAttempt(room, joinGeneration)) {
+        this.detachTrack(track, publication);
+      }
     });
     room.on("disconnected", () => {
       const expected = this.expectedDisconnectRooms.has(room);
@@ -885,8 +902,11 @@ class VoiceChatManager {
 
     try {
       await room.connect(packet.url, packet.token, { autoSubscribe: true });
-      if (joinGeneration !== this.joinGeneration) {
-        room.disconnect();
+      if (!this.ownsRoomAttempt(room, joinGeneration)) {
+        if (this.room === room) {
+          this.room = null;
+        }
+        await this.retireRoom(room);
         return;
       }
       this.pendingJoin = false;
@@ -897,11 +917,18 @@ class VoiceChatManager {
       this.presenceRegistered = this.sendPresence("connected");
       this.requestedContextId = "";
       this.setStatus("voice-chat-listen-only", true);
+      this.updateUI();
     } catch (error) {
+      if (!this.ownsRoomAttempt(room, joinGeneration)) {
+        if (this.room === room) {
+          this.room = null;
+        }
+        await this.retireRoom(room);
+        return;
+      }
       console.warn("Voice Chat connection failed:", error);
       await this.cleanup(false, false);
       this.setStatus("voice-chat-connect-failed", true);
-    } finally {
       this.updateUI();
     }
   }
@@ -959,8 +986,27 @@ class VoiceChatManager {
     this.app.elements.voiceAudioContainer?.replaceChildren();
   }
 
+  ownsRoomAttempt(room, joinGeneration) {
+    return this.room === room && this.joinGeneration === joinGeneration;
+  }
+
+  async retireRoom(room) {
+    if (!room) {
+      return;
+    }
+    this.expectedDisconnectRooms.add(room);
+    await retireVoiceRoom(room);
+  }
+
   async cleanup(sendLeave = true, announce = true, cancelJoin = true) {
     const room = this.room;
+    const leavePacket = sendLeave && this.presenceRegistered && this.app.isConnected()
+      ? {
+        type: "voice_leave",
+        scope: this.context.scope || "table",
+        context_id: this.context.contextId || "",
+      }
+      : null;
     if (cancelJoin && (this.state === "connecting" || this.pendingJoin)) {
       this.joinGeneration += 1;
     }
@@ -972,28 +1018,20 @@ class VoiceChatManager {
     this.room = null;
     this.cleanupElements();
     this.app.audio.setMicrophoneActive(false);
-    if (room) {
-      this.expectedDisconnectRooms.add(room);
-      try {
-        await room.localParticipant?.setMicrophoneEnabled(false);
-      } catch {
-        // Ignore cleanup failures.
-      }
-      room.disconnect();
-    }
-    if (sendLeave && this.presenceRegistered && this.app.isConnected()) {
-      this.app.send({
-        type: "voice_leave",
-        scope: this.context.scope || "table",
-        context_id: this.context.contextId || "",
-      });
-    }
     this.presenceRegistered = false;
     this.context = { scope: "table", contextId: "" };
+    if (leavePacket) {
+      this.app.send(leavePacket);
+    }
     if (announce) {
       this.setStatus("voice-chat-left", true);
     }
     this.updateUI();
+    if (room) {
+      // All shared state is retired before awaiting device work, so a stale
+      // cleanup cannot overwrite a later room or authenticated session.
+      await this.retireRoom(room);
+    }
   }
 
   leave() {
@@ -1154,7 +1192,13 @@ class PlayAuralWebApp {
           this.speak(text, { buffer: "misc", assertive: true, noHistory: true });
         }
       },
-      onContextAction: (item) => this.sendKeybind("enter", item?.id || "", { shift: true }),
+      onContextAction: (item, index) => {
+        if (item?.copyDirectivePresent) {
+          this.activateMenuItem(item, index);
+          return;
+        }
+        this.sendKeybind("enter", item?.id || "", { shift: true });
+      },
       getDefaultLabel: () => Localization.get("game-menu-label"),
     });
   }
@@ -1864,6 +1908,7 @@ class PlayAuralWebApp {
       captcha_failed: "auth-error-captcha-execute-failed",
       username_taken: "auth-username-taken",
       username_reserved_bot: "auth-username-reserved-bot",
+      username_reserved: "auth-username-reserved",
       username_length: "auth-error-username-length",
       password_weak: "auth-error-password-weak",
       email_empty: "error-email-empty",
@@ -2251,33 +2296,14 @@ class PlayAuralWebApp {
   }
 
   failReconnect() {
-    this.shouldReconnect = false;
-    this.manualDisconnect = true;
-    this.sessionEstablished = false;
-    this.resetReconnectState();
-    this.network.disconnect();
-    this.cleanupRuntime(true);
-    this.clearSessionHistory();
-    this.store.setConnection({ authenticated: false, status: "disconnected" });
-    this.showAuth();
-    this.updateConnectionStatus("main-reconnect-failed", true);
-    this.speak("main-reconnect-failed", {
-      buffer: "system",
-      assertive: true,
-    });
+    this.retireLocalSession(Localization.get("main-reconnect-failed"));
   }
 
   disconnectManually() {
-    this.shouldReconnect = false;
-    this.manualDisconnect = true;
-    this.sessionEstablished = false;
-    this.resetReconnectState();
-    this.network.disconnect();
-    this.store.setConnection({ authenticated: false, status: "disconnected" });
-    this.cleanupRuntime(true);
-    this.clearSessionHistory();
-    this.showAuth();
-    this.updateConnectionStatus("status-disconnected");
+    this.retireLocalSession(Localization.get("status-disconnected"), {
+      announce: false,
+      error: false,
+    });
   }
 
   cleanupRuntime(full = false) {
@@ -2290,6 +2316,7 @@ class PlayAuralWebApp {
     this.webActionsMenuId = "";
     this.currentTableContextId = "";
     if (full) {
+      this.menuFocusContexts?.clear();
       this.store.clearUi();
     }
   }
@@ -2525,6 +2552,24 @@ class PlayAuralWebApp {
     });
   }
 
+  retireLocalSession(reason, { announce = true, error = true } = {}) {
+    this.shouldReconnect = false;
+    this.manualDisconnect = true;
+    this.sessionEstablished = false;
+    this.resetReconnectState();
+    this.cleanupRuntime(true);
+    this.network.disconnect();
+    this.store.setConnection({ authenticated: false, status: "disconnected" });
+    this.clearSessionHistory();
+    this.showAuth();
+    this.updateConnectionStatus(reason, error);
+    if (announce) {
+      // Keep only the terminal reason in the newly cleared history so it
+      // remains reviewable without exposing output from the retired account.
+      this.speak(reason, { buffer: "system", assertive: true });
+    }
+  }
+
   handleServerDisconnect(packet) {
     if (packet.reconnect === true) {
       this.shouldReconnect = true;
@@ -2541,36 +2586,16 @@ class PlayAuralWebApp {
       });
       return;
     }
-    if (packet.reconnect === false) {
-      this.shouldReconnect = false;
-      this.manualDisconnect = true;
-      this.sessionEstablished = false;
-      this.resetReconnectState();
-    }
+    // Every non-reconnecting disconnect is terminal, including a malformed
+    // packet that omits the flag. Fail closed so a displaced browser cannot
+    // retain private UI, managed audio, an input overlay, or voice media.
     const reason = packet.reason ? Localization.get(packet.reason) : Localization.get("status-disconnected");
-    this.speak(reason, { buffer: "system", assertive: true });
-    this.network.disconnect();
-    this.store.setConnection({ authenticated: false, status: "disconnected" });
-    if (!this.shouldReconnect) {
-      this.clearSessionHistory();
-      this.showAuth();
-    }
-    this.updateConnectionStatus(reason, true);
+    this.retireLocalSession(reason);
   }
 
   handleForceExit(packet) {
-    this.shouldReconnect = false;
-    this.manualDisconnect = true;
-    this.sessionEstablished = false;
-    this.resetReconnectState();
     const reason = packet.reason ? Localization.get(packet.reason) : Localization.get("status-disconnected");
-    this.speak(reason, { buffer: "system", assertive: true });
-    this.network.disconnect();
-    this.store.setConnection({ authenticated: false, status: "disconnected" });
-    this.cleanupRuntime(true);
-    this.clearSessionHistory();
-    this.showAuth();
-    this.updateConnectionStatus(reason, true);
+    this.retireLocalSession(reason);
   }
 
   handleVoiceJoinError(packet) {
@@ -2672,17 +2697,7 @@ class PlayAuralWebApp {
   }
 
   normalizeMenuItems(items) {
-    return (Array.isArray(items) ? items : []).map((item) => {
-      if (typeof item === "string") {
-        return { text: item, id: null, sound: "" };
-      }
-      return {
-        text: String(item?.text ?? item?.label ?? ""),
-        id: item?.id ?? null,
-        sound: item?.sound || "",
-        selectionValue: item?.selectionValue ?? item?.selection_value ?? null,
-      };
-    });
+    return normalizeServerMenuItems(items);
   }
 
   voiceLanguageLabel(lang) {
@@ -2798,6 +2813,22 @@ class PlayAuralWebApp {
       ? previousMenu.items.findIndex((item) => stableMenuItemId(item) === focusedId)
       : -1;
     const previousFocusIndex = focusedIndex >= 0 ? focusedIndex : previousMenu.selection;
+    this.menuFocusContexts ??= new MenuFocusContextStore();
+    this.menuFocusContexts.capture(packet.capture_focus_context_id, {
+      menuId: previousMenu.menuId,
+      items: previousMenu.items.map((item) => ({
+        id: stableMenuItemId(item) || undefined,
+      })),
+      focusIndex: previousFocusIndex,
+    });
+    const restoredFocus = this.menuFocusContexts.consume(
+      packet.restore_focus_context_id,
+    );
+    const restoredFocusMatches = restoredFocus?.menuId === packet.menu_id;
+    const focusSource = restoredFocusMatches ? restoredFocus : previousMenu;
+    const focusSourceIndex = restoredFocusMatches
+      ? restoredFocus.focusIndex
+      : previousFocusIndex;
     let explicitIndex = null;
     if (packet.selection_id !== undefined && packet.selection_id !== null) {
       const index = items.findIndex((item) => item.id === packet.selection_id);
@@ -2808,11 +2839,11 @@ class PlayAuralWebApp {
       explicitIndex = packet.position;
     }
     const selection = resolveMenuFocusIndex(
-      previousMenu.items,
+      focusSource.items,
       items,
-      previousFocusIndex,
+      focusSourceIndex,
       {
-        sameMenu: previousMenu.menuId === packet.menu_id,
+        sameMenu: restoredFocusMatches || previousMenu.menuId === packet.menu_id,
         explicitIndex,
       },
     );
@@ -2891,6 +2922,10 @@ class PlayAuralWebApp {
     if (!isMenuItemActionable(item)) {
       return;
     }
+    if (item.copyDirectivePresent) {
+      this.performCopyDirective(item.copyDirective);
+      return;
+    }
     this.focusMenuOnNextPacket = true;
     const packet = {
       type: "menu",
@@ -2902,6 +2937,14 @@ class PlayAuralWebApp {
       packet.selection_value = item.selectionValue;
     }
     this.send(packet);
+  }
+
+  performCopyDirective(directive) {
+    void executeCopyDirective(directive).then((result) => {
+      if (result.accepted && result.feedback) {
+        this.speak(result.feedback, { buffer: "system", assertive: true });
+      }
+    });
   }
 
   playSelectionSound(item) {
@@ -2946,14 +2989,8 @@ class PlayAuralWebApp {
       const index = behavior === "select_last_option" ? menu.items.length - 1 : 0;
       const item = menu.items[index];
       if (isMenuItemActionable(item)) {
-        this.focusMenuOnNextPacket = true;
         this.audio.playSound({ asset: "menuenter.ogg", volume: 50 });
-        this.send({
-          type: "menu",
-          menu_id: menu.menuId,
-          selection: index + 1,
-          selection_id: item.id,
-        });
+        this.activateMenuItem(item, index);
       }
       return;
     }

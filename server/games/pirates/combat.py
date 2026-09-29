@@ -271,14 +271,16 @@ def _broadcast_combat_event(
                 if brief_observer_key and game._wants_brief(user)
                 else observer_key
             )
-        user.speak_l(
-            key,
-            buffer="game",
-            attacker=attacker.name,
-            defender=defender.name,
-            target=defender.name,
-            **kwargs,
+        payload = game._resolve_broadcast_kwargs(
+            user.locale,
+            {
+                "attacker": attacker,
+                "defender": defender,
+                "target": defender,
+                **kwargs,
+            },
         )
+        user.speak_l(key, buffer="game", **payload)
 
 
 def push_defender(
@@ -322,19 +324,21 @@ def push_defender(
                 if game._wants_brief(user)
                 else "pirates-push"
             )
-        user.speak_l(
-            key,
-            buffer="game",
-            attacker=attacker.name,
-            defender=defender.name,
-            target=defender.name,
-            direction=Localization.get(user.locale, direction_key),
-            old_pos=old_pos,
-            new_pos=defender.position,
-            position=defender.position,
-            distance=actual_distance,
-            bonus=skills.get_push_bonus(attacker),
+        payload = game._resolve_broadcast_kwargs(
+            user.locale,
+            {
+                "attacker": attacker,
+                "defender": defender,
+                "target": defender,
+                "direction": Localization.get(user.locale, direction_key),
+                "old_pos": old_pos,
+                "new_pos": defender.position,
+                "position": defender.position,
+                "distance": actual_distance,
+                "bonus": skills.get_push_bonus(attacker),
+            },
         )
+        user.speak_l(key, buffer="game", **payload)
     game._check_gem_collection(defender)
 
 
@@ -426,16 +430,18 @@ def attempt_gem_steal(
                         if game._wants_brief(user)
                         else "pirates-steal-success"
                     )
-                user.speak_l(
-                    key,
-                    buffer="game",
-                    attacker=attacker.name,
-                    defender=defender.name,
-                    target=defender.name,
-                    gem=Localization.get(user.locale, gem_name_key),
-                    attacker_score=attacker.score,
-                    defender_score=defender.score,
+                payload = game._resolve_broadcast_kwargs(
+                    user.locale,
+                    {
+                        "attacker": attacker,
+                        "defender": defender,
+                        "target": defender,
+                        "gem": Localization.get(user.locale, gem_name_key),
+                        "attacker_score": attacker.score,
+                        "defender_score": defender.score,
+                    },
                 )
+                user.speak_l(key, buffer="game", **payload)
             return True
 
     _broadcast_combat_event(

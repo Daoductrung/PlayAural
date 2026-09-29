@@ -7745,6 +7745,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                 buffer="game",
                 weapon=self._weapon_name(buyer_user.locale, weapon),
                 player=recipient.name,
+                player_gender=self.get_player_gender(recipient).selector,
                 cash=buyer.cash,
             )
         recipient_user = self.get_user(recipient)
@@ -9494,6 +9495,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                 personal_key if listener.id == tactical_player.id else public_key,
                 buffer="game",
                 player=tactical_player.name,
+                player_gender=self.get_player_gender(tactical_player).selector,
                 guard=guard,
             )
         tactical_player.action_points = 0
@@ -10617,6 +10619,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                 key,
                 buffer="game",
                 shooter=shooter.name,
+                shooter_gender=self.get_player_gender(shooter).selector,
                 target=target.name,
                 location=self._node_name(user.locale, target.position_id),
                 weapon=Localization.get(user.locale, source_name_key),

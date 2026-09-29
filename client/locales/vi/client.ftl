@@ -77,6 +77,7 @@ auth-error-username-ambiguous = Có nhiều tài khoản cũ trùng với cách 
 auth-registration-success = Đăng ký thành công! Giờ bạn có thể đăng nhập bằng tài khoản này.
 auth-username-taken = Tên đăng nhập đã được sử dụng. Vui lòng chọn tên khác.
 auth-username-reserved-bot = Tên này được dành riêng cho bot PlayAural. Vui lòng chọn tên đăng nhập khác.
+auth-username-reserved = Tên này được PlayAural dành riêng. Vui lòng chọn tên đăng nhập khác.
 
 login-welcome-title = Chào mừng bạn đến với PlayAural
 login-welcome-info = Vui lòng đăng nhập hoặc đăng ký để tiếp tục.
@@ -148,6 +149,11 @@ options-reset-confirm-title = Xác nhận khôi phục
 options-reset-confirm-message = Khôi phục tùy chỉnh { $tab } về giá trị đã lưu?
 
 slash-command-error = Lỗi khi xử lý lệnh gạch chéo { $command }.
+slash-command-state-required = Cần có tham số trạng thái.
+slash-command-invalid-state = Giá trị trạng thái không hợp lệ. Các giá trị bật: { $positive }. Các giá trị tắt: { $negative }.
+slash-command-not-found = Không tìm thấy lệnh gạch chéo { $command }.
+slash-command-min-arguments = Lệnh { $command } cần ít nhất { $count } tham số.
+slash-command-max-arguments = Lệnh { $command } nhận tối đa { $count } tham số.
 reg-error-exception = Lỗi: { $error }
 main-connection-error-title = Lỗi kết nối
 main-options-error = Các tùy chọn ứng dụng không khả dụng
@@ -178,6 +184,11 @@ main-reconnect-failed = Kết nối lại thất bại. Vui lòng khởi động
 main-reconnecting-as-attempt = Đang kết nối lại với tên { $username }... lần thử { $attempt }.
 logged-out = Bạn đã đăng xuất.
 goodbye = Tạm biệt!
+logout-confirm-title = Đăng xuất và đóng PlayAural?
+logout-confirm-message = Bạn có muốn rời hoạt động hiện tại, đăng xuất và đóng PlayAural không?
+logout-confirm-yes = Có, đăng xuất
+logout-confirm-no = Không, ở lại
+logout-in-progress = Đang rời hoạt động hiện tại và đăng xuất.
 
 update-available-title = Có bản cập nhật mới
 update-available-message = Đã có phiên bản mới ({ $version }). Bạn có muốn cập nhật ngay không?

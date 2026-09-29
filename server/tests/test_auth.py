@@ -983,6 +983,133 @@ class TestAuthSecurity:
         assert second_client.username == "Alice"
         assert self.server._ws_server.get_client_by_username("Alice") is second_client
 
+    @pytest.mark.parametrize(
+        ("source_client_type", "replacement_client_type"),
+        [
+            ("python", "web"),
+            ("python", "mobile"),
+            ("web", "python"),
+            ("web", "mobile"),
+            ("mobile", "python"),
+            ("mobile", "web"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_live_game_handover_rebuilds_for_every_client_type_pair(
+        self,
+        monkeypatch,
+        source_client_type,
+        replacement_client_type,
+    ):
+        record = self.db.create_user(
+            "Alice",
+            "hash",
+            approved=True,
+            email="alice@example.com",
+        )
+        self.server._auth.verify_password = lambda password, password_hash: True
+
+        async def allow_captcha(client, packet):
+            return True, ""
+
+        monkeypatch.setattr(
+            self.server,
+            "_verify_captcha_if_required",
+            allow_captcha,
+        )
+
+        source_client = MockClient()
+        self.server._ws_server.bind_client(source_client)
+        await self.server._activate_authenticated_session(
+            source_client,
+            canonical_username=record.username,
+            client_type=source_client_type,
+            client_platform="Source platform",
+            user_record=record,
+        )
+        source_user = self.server._users[record.username]
+
+        table = self.server._tables.create_table("pig", record.username, source_user)
+        game = PigGame()
+        table.game = game
+        game._table = table
+        game.initialize_lobby(record.username, source_user)
+        game.add_player("Botty", Bot("Botty"))
+        game.on_start()
+        player = game.get_player_by_id(record.uuid)
+        assert player is not None
+        player.reconnect_grace_ticks = 7
+        game.turn_index = 1
+        self.server._set_in_game_state(source_user, table.table_id)
+
+        self.server._voice_presence_by_user[record.username] = {
+            "scope": "table",
+            "context_id": table.table_id,
+        }
+        self.server._record_voice_join_authorization(
+            record.username,
+            scope="table",
+            context_id=table.table_id,
+        )
+        self.server._audio_input_devices_by_user[record.username] = [
+            {"id": "source-mic", "name": "Source microphone"}
+        ]
+        source_user.speak("stale source output", buffer="system")
+        source_client.sent_messages.clear()
+
+        replacement_client = MockClient()
+        replacement_client.address = "127.0.0.1:23456"
+        self.server._ws_server.bind_client(replacement_client)
+        await self.server._handle_authorize(
+            replacement_client,
+            {
+                "type": "authorize",
+                "client": replacement_client_type,
+                "platform": "Replacement platform",
+                "username": record.username,
+                "password": "Password123",
+                "version": VERSION,
+            },
+        )
+
+        replacement_user = self.server._users[record.username]
+        assert source_client.closed is True
+        assert len(source_client.sent_messages) == 1
+        assert source_client.sent_messages[0]["type"] == "disconnect"
+        assert source_client.sent_messages[0]["reason"]
+        assert source_client.sent_messages[0]["reconnect"] is False
+        assert source_user.active is False
+        assert source_user.get_queued_messages() == []
+        assert replacement_client.sent_messages[0]["type"] == "authorize_success"
+        assert replacement_client.sent_messages[0]["reset_ui"] is True
+        assert replacement_client.session_ready is True
+        assert replacement_user.client_type == replacement_client_type
+        assert replacement_user.client_platform == "Replacement platform"
+        assert replacement_user.connection is replacement_client
+        assert table.get_user(record.username) is replacement_user
+        assert game.get_user(player) is replacement_user
+        assert player.is_bot is False
+        assert player.reconnect_grace_ticks == 7
+        assert game.turn_index == 1
+        assert record.username not in self.server._voice_presence_by_user
+        assert record.username not in self.server._voice_join_authorizations_by_user
+        assert record.username not in self.server._audio_input_devices_by_user
+
+        rendered_items = replacement_user._current_menus.get("turn_menu", {}).get(
+            "items",
+            [],
+        )
+        item_ids = {
+            item.get("id")
+            for item in rendered_items
+            if isinstance(item, dict) and item.get("id")
+        }
+        if replacement_client_type in {"web", "mobile"}:
+            assert {"web_actions_menu", "web_leave_table"} <= item_ids
+        else:
+            assert "web_actions_menu" not in item_ids
+            assert "web_leave_table" not in item_ids
+
     @pytest.mark.asyncio
     async def test_retired_session_disconnect_cannot_clean_up_replacement(self):
         self.server._auth.register("Alice", "Password123")

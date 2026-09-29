@@ -611,3 +611,111 @@ def test_all_clients_dismiss_server_superseded_editboxes():
     )[1].split("const applyMenuPacket", 1)[0]
     assert "this.focusMenuOnNextPacket = true" in web_handler
     assert "requestNativeMenuFocusOnNextPacket();" in mobile_handler
+
+
+def test_all_clients_retire_runtime_ui_and_voice_on_session_displacement():
+    repo_root = CLIENT_DIR.parent
+    desktop_source = (CLIENT_DIR / "ui" / "main_window.py").read_text(
+        encoding="utf-8"
+    )
+    web_source = (repo_root / "web_client" / "app.js").read_text(
+        encoding="utf-8"
+    )
+    mobile_source = (
+        repo_root / "mobile_client" / "src" / "app" / "PlayAuralApp.tsx"
+    ).read_text(encoding="utf-8")
+
+    desktop_handler = desktop_source.split(
+        "    def on_server_disconnect(self, packet):", 1
+    )[1].split("    def on_force_exit", 1)[0]
+    assert (
+        "self.cleanup_voice_chat(send_leave=False, announce=False)"
+        in desktop_handler
+    )
+    assert "self.is_reconnecting = False" in desktop_handler
+    assert "self.quitting = True" in desktop_handler
+
+    web_retirement = web_source.split("  retireLocalSession(reason", 1)[1].split(
+        "  handleServerDisconnect(packet) {", 1
+    )[0]
+    web_disconnect_handler = web_source.split(
+        "  handleServerDisconnect(packet) {", 1
+    )[1].split(
+        "  handleForceExit(packet) {", 1
+    )[0]
+    web_force_exit_handler = web_source.split(
+        "  handleForceExit(packet) {", 1
+    )[1].split("  handleVoiceJoinError(packet) {", 1)[0]
+    assert "this.shouldReconnect = false;" in web_retirement
+    assert "this.cleanupRuntime(true);" in web_retirement
+    assert "this.clearSessionHistory();" in web_retirement
+    assert web_retirement.index("this.clearSessionHistory();") < (
+        web_retirement.index("this.speak(reason")
+    )
+    assert "this.retireLocalSession(reason);" in web_disconnect_handler
+    assert "this.retireLocalSession(reason);" in web_force_exit_handler
+    web_reconnect_failure = web_source.split("  failReconnect() {", 1)[1].split(
+        "  disconnectManually() {", 1
+    )[0]
+    web_manual_disconnect = web_source.split(
+        "  disconnectManually() {", 1
+    )[1].split("  cleanupRuntime(full = false) {", 1)[0]
+    assert "this.retireLocalSession(" in web_reconnect_failure
+    assert "this.retireLocalSession(" in web_manual_disconnect
+
+    web_voice_cleanup = web_source.split(
+        "  async cleanup(sendLeave = true, announce = true, cancelJoin = true) {",
+        1,
+    )[1].split("  leave() {", 1)[0]
+    assert web_voice_cleanup.index("this.presenceRegistered = false;") < (
+        web_voice_cleanup.index("await this.retireRoom(room);")
+    )
+    web_voice_connect = web_source.split(
+        "  async connect(packet, joinGeneration) {", 1
+    )[1].split("  attachExistingTracks(room) {", 1)[0]
+    assert web_voice_connect.count(
+        "this.ownsRoomAttempt(room, joinGeneration)"
+    ) == 4
+    web_voice_owner = web_source.split(
+        "  ownsRoomAttempt(room, joinGeneration) {", 1
+    )[1].split("  async retireRoom(room) {", 1)[0]
+    assert "this.room === room" in web_voice_owner
+    assert "this.joinGeneration === joinGeneration" in web_voice_owner
+
+    mobile_handler = mobile_source.split(
+        '        if (packet.type === "disconnect") {', 1
+    )[1].split('        if (packet.type === "force_exit") {', 1)[0]
+    assert "leaveVoiceChat({" in mobile_handler
+    assert "disableAutoReconnect();" in mobile_handler
+    assert "resetToLoginScreen(reason);" in mobile_handler
+
+
+def test_all_clients_clear_old_runtime_ui_before_restored_session_packets():
+    repo_root = CLIENT_DIR.parent
+    desktop_source = (CLIENT_DIR / "ui" / "main_window.py").read_text(
+        encoding="utf-8"
+    )
+    web_source = (repo_root / "web_client" / "app.js").read_text(
+        encoding="utf-8"
+    )
+    mobile_source = (
+        repo_root / "mobile_client" / "src" / "app" / "PlayAuralApp.tsx"
+    ).read_text(encoding="utf-8")
+
+    desktop_handler = desktop_source.split(
+        "    def on_authorize_success(self, packet):", 1
+    )[1].split("    def on_server_speak", 1)[0]
+    assert 'if packet.get("reset_ui", False):' in desktop_handler
+    assert "self.on_server_clear_ui({})" in desktop_handler
+
+    web_handler = web_source.split("  handleAuthorizeSuccess(packet) {", 1)[1].split(
+        "  retireLocalSession(reason", 1
+    )[0]
+    assert "if (packet.reset_ui === true)" in web_handler
+    assert "this.cleanupRuntime(true);" in web_handler
+
+    mobile_handler = mobile_source.split(
+        '        if (packet.type === "authorize_success") {', 1
+    )[1].split('        if (packet.type === "chat") {', 1)[0]
+    assert "if (authPacket.reset_ui === true)" in mobile_handler
+    assert "resetRuntimeUiForSession(false);" in mobile_handler

@@ -35,6 +35,7 @@ import {
   isImeCompositionKeyEvent,
   resolveTypingSoundCue,
 } from "./typing_sounds.js";
+import { retireVoiceRoom } from "./voice_lifecycle.js";
 
 const CLIENT_VERSION = String(window.PLAYAURAL_WEB_VERSION || "");
 const WEB_CLIENT_CONFIG = window.PLAYAURAL_WEB_CONFIG || {};
@@ -853,6 +854,9 @@ class VoiceChatManager {
     }
 
     await this.cleanup(false, false, false);
+    if (joinGeneration !== this.joinGeneration) {
+      return;
+    }
     const room = new LK.Room({ adaptiveStream: false, dynacast: false });
     this.room = room;
     this.state = "connecting";
@@ -863,10 +867,14 @@ class VoiceChatManager {
     this.updateUI();
 
     room.on("trackSubscribed", (track, publication, participant) => {
-      this.attachTrack(track, publication, participant);
+      if (this.ownsRoomAttempt(room, joinGeneration)) {
+        this.attachTrack(track, publication, participant);
+      }
     });
     room.on("trackUnsubscribed", (track, publication) => {
-      this.detachTrack(track, publication);
+      if (this.ownsRoomAttempt(room, joinGeneration)) {
+        this.detachTrack(track, publication);
+      }
     });
     room.on("disconnected", () => {
       const expected = this.expectedDisconnectRooms.has(room);
@@ -894,8 +902,11 @@ class VoiceChatManager {
 
     try {
       await room.connect(packet.url, packet.token, { autoSubscribe: true });
-      if (joinGeneration !== this.joinGeneration) {
-        room.disconnect();
+      if (!this.ownsRoomAttempt(room, joinGeneration)) {
+        if (this.room === room) {
+          this.room = null;
+        }
+        await this.retireRoom(room);
         return;
       }
       this.pendingJoin = false;
@@ -906,11 +917,18 @@ class VoiceChatManager {
       this.presenceRegistered = this.sendPresence("connected");
       this.requestedContextId = "";
       this.setStatus("voice-chat-listen-only", true);
+      this.updateUI();
     } catch (error) {
+      if (!this.ownsRoomAttempt(room, joinGeneration)) {
+        if (this.room === room) {
+          this.room = null;
+        }
+        await this.retireRoom(room);
+        return;
+      }
       console.warn("Voice Chat connection failed:", error);
       await this.cleanup(false, false);
       this.setStatus("voice-chat-connect-failed", true);
-    } finally {
       this.updateUI();
     }
   }
@@ -968,8 +986,27 @@ class VoiceChatManager {
     this.app.elements.voiceAudioContainer?.replaceChildren();
   }
 
+  ownsRoomAttempt(room, joinGeneration) {
+    return this.room === room && this.joinGeneration === joinGeneration;
+  }
+
+  async retireRoom(room) {
+    if (!room) {
+      return;
+    }
+    this.expectedDisconnectRooms.add(room);
+    await retireVoiceRoom(room);
+  }
+
   async cleanup(sendLeave = true, announce = true, cancelJoin = true) {
     const room = this.room;
+    const leavePacket = sendLeave && this.presenceRegistered && this.app.isConnected()
+      ? {
+        type: "voice_leave",
+        scope: this.context.scope || "table",
+        context_id: this.context.contextId || "",
+      }
+      : null;
     if (cancelJoin && (this.state === "connecting" || this.pendingJoin)) {
       this.joinGeneration += 1;
     }
@@ -981,28 +1018,20 @@ class VoiceChatManager {
     this.room = null;
     this.cleanupElements();
     this.app.audio.setMicrophoneActive(false);
-    if (room) {
-      this.expectedDisconnectRooms.add(room);
-      try {
-        await room.localParticipant?.setMicrophoneEnabled(false);
-      } catch {
-        // Ignore cleanup failures.
-      }
-      room.disconnect();
-    }
-    if (sendLeave && this.presenceRegistered && this.app.isConnected()) {
-      this.app.send({
-        type: "voice_leave",
-        scope: this.context.scope || "table",
-        context_id: this.context.contextId || "",
-      });
-    }
     this.presenceRegistered = false;
     this.context = { scope: "table", contextId: "" };
+    if (leavePacket) {
+      this.app.send(leavePacket);
+    }
     if (announce) {
       this.setStatus("voice-chat-left", true);
     }
     this.updateUI();
+    if (room) {
+      // All shared state is retired before awaiting device work, so a stale
+      // cleanup cannot overwrite a later room or authenticated session.
+      await this.retireRoom(room);
+    }
   }
 
   leave() {
@@ -2266,33 +2295,14 @@ class PlayAuralWebApp {
   }
 
   failReconnect() {
-    this.shouldReconnect = false;
-    this.manualDisconnect = true;
-    this.sessionEstablished = false;
-    this.resetReconnectState();
-    this.network.disconnect();
-    this.cleanupRuntime(true);
-    this.clearSessionHistory();
-    this.store.setConnection({ authenticated: false, status: "disconnected" });
-    this.showAuth();
-    this.updateConnectionStatus("main-reconnect-failed", true);
-    this.speak("main-reconnect-failed", {
-      buffer: "system",
-      assertive: true,
-    });
+    this.retireLocalSession(Localization.get("main-reconnect-failed"));
   }
 
   disconnectManually() {
-    this.shouldReconnect = false;
-    this.manualDisconnect = true;
-    this.sessionEstablished = false;
-    this.resetReconnectState();
-    this.network.disconnect();
-    this.store.setConnection({ authenticated: false, status: "disconnected" });
-    this.cleanupRuntime(true);
-    this.clearSessionHistory();
-    this.showAuth();
-    this.updateConnectionStatus("status-disconnected");
+    this.retireLocalSession(Localization.get("status-disconnected"), {
+      announce: false,
+      error: false,
+    });
   }
 
   cleanupRuntime(full = false) {
@@ -2541,6 +2551,24 @@ class PlayAuralWebApp {
     });
   }
 
+  retireLocalSession(reason, { announce = true, error = true } = {}) {
+    this.shouldReconnect = false;
+    this.manualDisconnect = true;
+    this.sessionEstablished = false;
+    this.resetReconnectState();
+    this.cleanupRuntime(true);
+    this.network.disconnect();
+    this.store.setConnection({ authenticated: false, status: "disconnected" });
+    this.clearSessionHistory();
+    this.showAuth();
+    this.updateConnectionStatus(reason, error);
+    if (announce) {
+      // Keep only the terminal reason in the newly cleared history so it
+      // remains reviewable without exposing output from the retired account.
+      this.speak(reason, { buffer: "system", assertive: true });
+    }
+  }
+
   handleServerDisconnect(packet) {
     if (packet.reconnect === true) {
       this.shouldReconnect = true;
@@ -2557,36 +2585,16 @@ class PlayAuralWebApp {
       });
       return;
     }
-    if (packet.reconnect === false) {
-      this.shouldReconnect = false;
-      this.manualDisconnect = true;
-      this.sessionEstablished = false;
-      this.resetReconnectState();
-    }
+    // Every non-reconnecting disconnect is terminal, including a malformed
+    // packet that omits the flag. Fail closed so a displaced browser cannot
+    // retain private UI, managed audio, an input overlay, or voice media.
     const reason = packet.reason ? Localization.get(packet.reason) : Localization.get("status-disconnected");
-    this.speak(reason, { buffer: "system", assertive: true });
-    this.network.disconnect();
-    this.store.setConnection({ authenticated: false, status: "disconnected" });
-    if (!this.shouldReconnect) {
-      this.clearSessionHistory();
-      this.showAuth();
-    }
-    this.updateConnectionStatus(reason, true);
+    this.retireLocalSession(reason);
   }
 
   handleForceExit(packet) {
-    this.shouldReconnect = false;
-    this.manualDisconnect = true;
-    this.sessionEstablished = false;
-    this.resetReconnectState();
     const reason = packet.reason ? Localization.get(packet.reason) : Localization.get("status-disconnected");
-    this.speak(reason, { buffer: "system", assertive: true });
-    this.network.disconnect();
-    this.store.setConnection({ authenticated: false, status: "disconnected" });
-    this.cleanupRuntime(true);
-    this.clearSessionHistory();
-    this.showAuth();
-    this.updateConnectionStatus(reason, true);
+    this.retireLocalSession(reason);
   }
 
   handleVoiceJoinError(packet) {

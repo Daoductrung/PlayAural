@@ -325,6 +325,7 @@ class TestGameRegistryIntegration:
             "explodingkittens": "cards",
             "farkle": "dice",
             "fivecarddraw": "poker",
+            "flip7": "cards",
             "holdem": "poker",
             "humanitycards": "cards",
             "leftrightcenter": "dice",

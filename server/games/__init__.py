@@ -50,6 +50,7 @@ from .explodingkittens.game import ExplodingKittensGame
 from .bang.game import BangGame
 from .monopoly.game import MonopolyGame
 from .breachpoint.game import BreachPointGame
+from .flip7.game import Flip7Game
 
 __all__ = [
     "Game",
@@ -102,4 +103,5 @@ __all__ = [
     "BangGame",
     "MonopolyGame",
     "BreachPointGame",
+    "Flip7Game",
 ]

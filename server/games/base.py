@@ -558,10 +558,6 @@ class Game(
 
         self.play_table_disconnect_sound(player)
 
-        # Check if this is the last human player (excluding spectators)
-        # If so, do NOT replace with bot - just pause the game (let them reconnect)
-        remaining_humans = sum(1 for p in self.players if not p.is_bot and not p.is_spectator and p.id != player_id)
-        
         # Spectators should just be removed, not replaced by bots
         if player.is_spectator:
             user = self.get_user(player)
@@ -575,10 +571,27 @@ class Game(
                 )
             return
 
-        if remaining_humans == 0:
-             # Last human leaving - don't replace
-             self.broadcast_l("game-paused-host-disconnect", buffer="system", player=player.name)
-             return
+        # A present spectator host can supervise continued bot play without
+        # occupying a seat.  Otherwise the last active human retains their
+        # seat so the bounded reconnect grace can pause the game safely.
+        remaining_humans = sum(
+            1
+            for candidate in self.players
+            if not candidate.is_bot
+            and not candidate.is_spectator
+            and candidate.id != player_id
+        )
+        spectator_host_online = bool(
+            self._table and self._table.has_online_spectator_host()
+        )
+
+        if remaining_humans == 0 and not spectator_host_online:
+            self.broadcast_l(
+                "game-paused-host-disconnect",
+                buffer="system",
+                player=player.name,
+            )
+            return
 
         if self._replace_with_bot(player):
             self.refresh_menus()

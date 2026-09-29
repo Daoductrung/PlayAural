@@ -256,46 +256,6 @@ class UnoGame(Game):
                 break
         self.refresh_menus()
 
-    def _perform_leave_game(self, player: Player) -> None:
-        if player.is_spectator:
-            self.remove_spectator(player.id)
-            if self._table:
-                self._table.remove_member(player.name)
-            self.play_table_leave_sound(player, is_spectator=True)
-            self.refresh_menus()
-            return
-
-        if self.status == "playing" and not player.is_bot:
-            other_humans = any(
-                not p.is_bot and not p.is_spectator and p.id != player.id
-                for p in self.players
-            )
-            if other_humans:
-                if self._replace_with_bot(player):
-                    self.play_table_leave_sound(
-                        player,
-                        is_bot=False,
-                        is_spectator=False,
-                    )
-                self.refresh_menus()
-                return
-
-        was_bot = player.is_bot
-        self.remove_player(player.id)
-        self.play_table_leave_sound(
-            player,
-            is_bot=was_bot,
-            is_spectator=False,
-        )
-        if self.status == "waiting" and self._table:
-            self._table.remove_member(player.name)
-
-        has_humans = any(not p.is_bot and not p.is_spectator for p in self.players)
-        if not has_humans:
-            self.destroy()
-            return
-        self.refresh_menus()
-
     # ==========================================================================
     # Action sets / keybinds
     # ==========================================================================

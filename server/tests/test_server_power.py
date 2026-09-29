@@ -909,6 +909,36 @@ def test_power_restore_complete_announces_after_all_players_return(
     assert not table.is_power_restore_grace_active()
 
 
+def test_power_restore_spectator_host_supervises_missing_seat_replacement(
+    tmp_path,
+) -> None:
+    server, table, game, alice, bob = _make_restored_playing_pig_table(tmp_path)
+    server.db.connect()
+    try:
+        alice_member = next(
+            member for member in table.members if member.username == alice.username
+        )
+        alice_player = game.get_player_by_id(alice.uuid)
+        assert alice_player is not None
+        alice_member.is_spectator = True
+        alice_player.is_spectator = True
+        _attach_restored_players(server, table, game, alice)
+        assert table.has_online_spectator_host()
+        assert table._power_restore_started_at is not None
+        table._power_restore_started_at -= table._power_restore_grace_seconds + 1
+
+        table.on_tick()
+
+        bob_player = game.get_player_by_id(bob.uuid)
+        assert bob_player is not None and bob_player.is_bot
+        assert bob_player.replaced_human_name == bob.username
+        assert not table.is_power_restore_grace_active()
+        assert table.host == alice.username
+        assert not table._destroyed
+    finally:
+        server.db.close()
+
+
 def test_power_restore_no_show_host_is_replaced_and_host_promoted(
     tmp_path,
 ) -> None:

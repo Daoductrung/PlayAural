@@ -189,51 +189,6 @@ class CrazyEightsGame(Game, TurnTimerMixin):
                 break
         self.refresh_menus()
 
-    def _perform_leave_game(self, player: Player) -> None:
-        if player.is_spectator:
-            # remove_spectator already broadcasts "spectator-left"
-            self.remove_spectator(player.id)
-            if self._table:
-                self._table.remove_member(player.name)
-            # Standard spectator leave sound
-            self.play_table_leave_sound(player, is_spectator=True)
-            self.refresh_menus()
-            return
-
-        if self.status == "playing" and not player.is_bot:
-            # Check if any humans remain (excluding spectators)
-            other_humans = any(not p.is_bot and not p.is_spectator and p.id != player.id for p in self.players)
-            
-            if other_humans:
-                self._replace_with_bot(player)
-                self.play_table_leave_sound(
-                    player,
-                    is_bot=False,
-                    is_spectator=False,
-                )
-                self.refresh_menus()
-                return
-
-        # Full removal logic
-        # remove_player already broadcasts "table-left"
-        self.remove_player(player.id)
-        if self.status == "waiting" and self._table:
-            self._table.remove_member(player.name)
-        
-        self.play_table_leave_sound(
-            player,
-            is_bot=player.is_bot,
-            is_spectator=False,
-        )
-
-        # Correct spectator eviction / destruction logic
-        has_humans = any(not p.is_bot and not p.is_spectator for p in self.players)
-        if not has_humans:
-            self.destroy()
-            return
-
-        self.refresh_menus()
-
     # ==========================================================================
     # Action sets
     # ==========================================================================

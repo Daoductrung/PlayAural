@@ -268,6 +268,12 @@ Use declarative `GameOptions` with `option_field()`.
   human requirement. Reject bot-only starts in shared validation and recheck
   after disconnected lobby seats are converted to replacement bots; never
   enter gameplay and rely on abandoned-table cleanup to reject the match.
+- Table ownership is independent from gameplay-seat role. A present host who
+  is spectating retains host controls and may change waiting-lobby options. In
+  an already-started game, that host may supervise bot-controlled seats and
+  keeps the table alive; an ordinary spectator never does. This exception does
+  not permit a bot-only start. If no active seat remains, retain the table but
+  keep gameplay paused until the host restarts or closes it.
 - `prestart_validate()` must block impossible deals, unsupported option
   combinations, and team-mode conflicts with clear localized errors.
 

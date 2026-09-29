@@ -588,6 +588,28 @@ class Table(DataClassJSONMixin):
         """Get all spectator members."""
         return [m for m in self.members if m.is_spectator]
 
+    def has_online_spectator_host(self) -> bool:
+        """Return whether the table owner is present as a live spectator.
+
+        Table ownership is independent from gameplay-seat ownership.  The
+        member registry is authoritative for the host's current role, while
+        the server session registry proves that the attached user is still the
+        live account session rather than a stale post-disconnect object.
+        """
+        host_member = next(
+            (member for member in self.members if member.username == self.host),
+            None,
+        )
+        if host_member is None or not host_member.is_spectator:
+            return False
+
+        table_user = self._users.get(self.host)
+        if table_user is None or getattr(table_user, "is_bot", False):
+            return False
+        if self._server is None:
+            return True
+        return self._server._users.get(self.host) is table_user
+
     @property
     def player_count(self) -> int:
         """Get the number of players (non-spectators)."""
@@ -698,9 +720,34 @@ class Table(DataClassJSONMixin):
             self._offline_since = None
             return False
 
-        if self._reserved_active_human_seat_count() == 0:
+        spectator_host_online = self.has_online_spectator_host()
+        if (
+            self._reserved_active_human_seat_count() == 0
+            and not spectator_host_online
+        ):
             self.destroy()
             return True
+
+        # A present owner may supervise an active table without occupying a
+        # gameplay seat.  Bot-controlled seats continue normally; a malformed
+        # or transitional game with no seats is retained but frozen so the
+        # owner can restart or close it safely.  Inspect structural seats here,
+        # not get_active_players(): games may temporarily exclude eliminated
+        # seats while a result sequence still needs to tick to completion.
+        if spectator_host_online and self._active_human_player_count() == 0:
+            self._offline_since = None
+            has_gameplay_seat = bool(
+                self._game
+                and any(not player.is_spectator for player in self._game.players)
+            )
+            return not has_gameplay_seat
+
+        # Reboot recovery has its own grace-period state machine.  Once the
+        # spectator owner is back, let that handler replace missing seats at
+        # expiry instead of trapping the table in abandonment pause first.
+        if spectator_host_online and self.is_power_restore_grace_active():
+            self._offline_since = None
+            return False
 
         should_pause = not self._online_active_humans() and (
             self._active_human_player_count() <= 1
@@ -751,7 +798,7 @@ class Table(DataClassJSONMixin):
             if not self._game:
                 self.clear_power_restore_grace()
                 return False
-            if not online_humans:
+            if not online_humans and not self.has_online_spectator_host():
                 # Nobody is present to supervise the restored game yet. Keep
                 # gameplay frozen. _handle_abandoned_playing_table() owns the
                 # shared normal/reboot timeout and its persisted timestamp.

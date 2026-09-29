@@ -1182,7 +1182,10 @@ PlayAural Server
                     None,
                 )
             if player is not None:
-                game._perform_leave_game(player)
+                # Account deletion must release the identity and reservation;
+                # unlike an ordinary leave, it can never create a reclaimable
+                # replacement bot for data that no longer exists.
+                game._perform_leave_game(player, allow_bot_takeover=False)
 
         if not table._destroyed:
             table.remove_member(username)

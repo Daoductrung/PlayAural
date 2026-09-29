@@ -11,6 +11,8 @@ from server.auth.auth import AuthManager
 from server.core.server import Server, TABLE_MEMBERS_MENU, TABLE_MEMBER_ACTIONS_MENU
 from server.games.crazyeights.game import CrazyEightsGame
 from server.games.pig.game import PigGame, PigOptions
+from server.games.uno.game import UnoGame
+from server.games.yahtzee.game import YahtzeeGame
 from server.messages.localization import Localization
 from server.persistence.database import Database
 from server.tables.table import (
@@ -1783,6 +1785,171 @@ class TestTableInviteReclaim:
 
         assert self.server._tables.get_table(table.table_id) is None
 
+    @pytest.mark.parametrize(
+        "game_class",
+        [PigGame, CrazyEightsGame, UnoGame],
+        ids=["pig", "crazy-eights", "uno"],
+    )
+    def test_spectator_host_keeps_kicked_disconnect_replacement_active(
+        self,
+        monkeypatch,
+        game_class,
+    ):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        game = game_class()
+        table = self.server._tables.create_table(
+            game.get_type(),
+            host.username,
+            host,
+        )
+        table.game = game
+        game._table = table
+        game.initialize_lobby(host.username, host)
+        table.add_member(guest.username, guest)
+        game.add_player(guest.username, guest)
+        self._add_named_bot(game, "Bot One")
+        host_player = game.get_player_by_id(host.uuid)
+        assert host_player is not None
+
+        game.execute_action(host_player, "toggle_spectator")
+        game.flush_menus()
+        game.execute_action(host_player, "start_game")
+        game.flush_menus()
+        assert game.status == "playing"
+        assert table.has_online_spectator_host()
+
+        game.on_player_disconnect(guest.uuid)
+        self.server._users.pop(guest.username, None)
+        replacement = game.get_player_by_id(guest.uuid)
+        assert replacement is not None and replacement.is_bot
+
+        assert self.server._perform_host_kick(host, table, guest.username)
+        assert all(member.username != guest.username for member in table.members)
+        assert table.player_count == 0
+        assert game.get_player_by_id(guest.uuid) is replacement
+
+        game_ticks: list[bool] = []
+        monkeypatch.setattr(game, "on_tick", lambda: game_ticks.append(True))
+        table.on_tick()
+
+        assert self.server._tables.get_table(table.table_id) is table
+        assert not table._destroyed
+        assert table.host == host.username
+        assert game.host == host.username
+        assert game_ticks == [True]
+
+    def test_waiting_spectator_host_can_change_options_but_other_spectators_cannot(
+        self,
+    ):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        spectator = self._create_online_user("Spectator")
+        game = PigGame(options=PigOptions(target_score=25))
+        table, game = self._create_waiting_table(host, guest, game)
+        table.add_member(spectator.username, spectator, as_spectator=True)
+        spectator_player = game.add_spectator(spectator.username, spectator)
+        host_player = game.get_player_by_id(host.uuid)
+        assert host_player is not None
+        for user in (host, guest, spectator):
+            self.server._set_in_game_state(user, table.table_id)
+
+        game.execute_action(host_player, "toggle_spectator")
+        game.flush_menus()
+
+        host_actions = {
+            resolved.action.id: resolved
+            for resolved in game.get_all_visible_actions(host_player)
+        }
+        spectator_action_ids = {
+            resolved.action.id
+            for resolved in game.get_all_visible_actions(spectator_player)
+        }
+        assert host_actions["set_target_score"].enabled
+        assert "set_target_score" not in spectator_action_ids
+        assert "set_target_score" in self._get_menu_action_ids(host, "turn_menu")
+        assert "set_target_score" not in self._get_menu_action_ids(
+            spectator,
+            "turn_menu",
+        )
+
+        game.execute_action(
+            host_player,
+            "set_target_score",
+            input_value="50",
+        )
+        game.flush_menus()
+        assert game.options.target_score == 50
+
+        spectator.clear_messages()
+        game.execute_action(
+            spectator_player,
+            "set_target_score",
+            input_value="75",
+        )
+        assert game.options.target_score == 50
+        assert spectator.get_last_spoken() == Localization.get(
+            spectator.locale,
+            "action-not-host",
+        )
+
+    def test_spectator_host_keeps_zero_seat_active_table_safely_frozen(
+        self,
+        monkeypatch,
+    ):
+        host = self._create_online_user("Host")
+        replacement = self._create_online_user("Replacement")
+        game = YahtzeeGame()
+        table = self.server._tables.create_table(
+            game.get_type(),
+            host.username,
+            host,
+        )
+        table.game = game
+        game._table = table
+        game.initialize_lobby(host.username, host)
+        table.add_member(
+            replacement.username,
+            replacement,
+            as_spectator=True,
+        )
+        replacement_spectator = game.add_spectator(
+            replacement.username,
+            replacement,
+        )
+        host_seat = game.get_player_by_id(host.uuid)
+        assert host_seat is not None
+
+        game.execute_action(host_seat, "start_game")
+        game.flush_menus()
+        assert game.status == "playing"
+        result = game.substitute_player_with_spectator(
+            host_seat,
+            replacement_spectator,
+            replacement,
+            outgoing_user=host,
+        )
+        assert result.outgoing_spectator is not None
+        assert table.apply_player_substitution(
+            replacement.username,
+            outgoing_username=host.username,
+            outgoing_becomes_spectator=True,
+        )
+        assert table.has_online_spectator_host()
+
+        game._perform_leave_game(host_seat, allow_bot_takeover=False)
+        table.remove_member(replacement.username)
+        assert not any(not player.is_spectator for player in game.players)
+        assert table.player_count == 0
+
+        game_ticks: list[bool] = []
+        monkeypatch.setattr(game, "on_tick", lambda: game_ticks.append(True))
+        table.on_tick()
+
+        assert self.server._tables.get_table(table.table_id) is table
+        assert not table._destroyed
+        assert game_ticks == []
+
     def test_spectating_host_cannot_start_bot_only_table(self):
         host = self._create_online_user("Host")
         table = self.server._tables.create_table("pig", host.username, host)
@@ -1923,6 +2090,58 @@ class TestTableInviteReclaim:
         assert not any(
             member.username == guest.username for member in table.members
         )
+        assert not any(
+            player.id == guest.uuid
+            or player.name == guest.username
+            or player.replaced_human_name == guest.username
+            for player in game.players
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "game_class",
+        [PigGame, CrazyEightsGame, UnoGame],
+        ids=["pig", "crazy-eights", "uno"],
+    )
+    async def test_account_deletion_does_not_leave_bot_reservation_with_spectator_host(
+        self,
+        game_class,
+    ):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        game = game_class()
+        table = self.server._tables.create_table(
+            game.get_type(),
+            host.username,
+            host,
+        )
+        table.game = game
+        game._table = table
+        game.initialize_lobby(host.username, host)
+        table.add_member(guest.username, guest)
+        game.add_player(guest.username, guest)
+        self._add_named_bot(game, "Bot One")
+        host_player = game.get_player_by_id(host.uuid)
+        assert host_player is not None
+        game.execute_action(host_player, "toggle_spectator")
+        game.flush_menus()
+        game.execute_action(host_player, "start_game")
+        game.flush_menus()
+        assert game.status == "playing"
+
+        deleted = await self.server._delete_account_and_evict(
+            guest.username,
+            {
+                "type": "disconnect",
+                "reason": "Account deleted",
+                "reconnect": False,
+            },
+        )
+
+        assert deleted
+        assert self.server._tables.get_table(table.table_id) is table
+        assert table.has_online_spectator_host()
+        assert self.server._tables.find_user_table(guest.username) is None
         assert not any(
             player.id == guest.uuid
             or player.name == guest.username

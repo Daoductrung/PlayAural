@@ -38,6 +38,16 @@ if TYPE_CHECKING:
     from .player import Player
 
 
+def _option_action(**kwargs: Any) -> Action:
+    """Create an option action available to the owning spectator host.
+
+    Visibility and enabled callbacks still enforce waiting-state and host-only
+    access.  Keeping the spectator transport flag here prevents individual
+    option types and nested selectors from drifting apart.
+    """
+    return Action(include_spectators=True, **kwargs)
+
+
 @dataclass
 class OptionMeta:
     """Metadata for a game option."""
@@ -135,7 +145,7 @@ class IntOption(OptionMeta):
         label = Localization.get(
             locale, self.label, **self.get_label_kwargs(current_value)
         )
-        return Action(
+        return _option_action(
             id=f"set_{option_name}",
             label=label,
             handler="_action_set_option",  # Generic handler extracts option_name from action_id
@@ -207,7 +217,7 @@ class FloatOption(OptionMeta):
         label = Localization.get(
             locale, self.label, **self.get_label_kwargs(current_value)
         )
-        return Action(
+        return _option_action(
             id=f"set_{option_name}",
             label=label,
             handler="_action_set_option",  # Generic handler extracts option_name from action_id
@@ -301,7 +311,7 @@ class MenuOption(OptionMeta):
             locale, self.label, **self.get_label_kwargs_localized(current_value, locale)
         )
 
-        return Action(
+        return _option_action(
             id=f"set_{option_name}",
             label=label,
             handler="_action_set_option",  # Generic handler extracts option_name from action_id
@@ -419,7 +429,7 @@ class BoolOption(OptionMeta):
         on_off_key = "option-on" if current_value else "option-off"
         on_off = Localization.get(locale, on_off_key)
         label = Localization.get(locale, self.label, **{self.value_key: on_off})
-        return Action(
+        return _option_action(
             id=f"toggle_{option_name}",
             label=label,
             handler="_action_toggle_option",  # Generic handler extracts option_name from action_id
@@ -530,7 +540,7 @@ class MultiSelectOption(OptionMeta):
         label = Localization.get(
             locale, self.label, **self.get_label_kwargs(current_value)
         )
-        return Action(
+        return _option_action(
             id=f"multiselect_{option_name}",
             label=label,
             handler="_action_open_multiselect",
@@ -766,7 +776,7 @@ class GameOptions(DataClassJSONMixin):
                             f"({selected_count} of {total_count} selected)"
                         )
                         action_set.add(
-                            Action(
+                            _option_action(
                                 id=f"msgroup_{current_level}_{group_name}",
                                 label=label,
                                 handler="_action_open_ms_group",
@@ -829,7 +839,7 @@ class GameOptions(DataClassJSONMixin):
             on_off = Localization.get(locale, on_off_key)
             display = meta.get_localized_choice(choice, locale)
             action_set.add(
-                Action(
+                _option_action(
                     id=f"mstoggle_{option_name}_{choice}",
                     label=f"{display}: {on_off}",
                     handler="_action_toggle_multiselect",
@@ -845,7 +855,7 @@ class GameOptions(DataClassJSONMixin):
     ) -> None:
         """Add Select all / Deselect all actions for the current view."""
         action_set.add(
-            Action(
+            _option_action(
                 id=f"mselectall_{option_name}",
                 label=Localization.get(locale, "option-select-all"),
                 handler="_action_select_all_multiselect",
@@ -855,7 +865,7 @@ class GameOptions(DataClassJSONMixin):
             )
         )
         action_set.add(
-            Action(
+            _option_action(
                 id=f"mdeselectall_{option_name}",
                 label=Localization.get(locale, "option-deselect-all"),
                 handler="_action_deselect_all_multiselect",
@@ -871,7 +881,7 @@ class GameOptions(DataClassJSONMixin):
     ) -> None:
         """Add a Back action that pops one level of options navigation."""
         action_set.add(
-            Action(
+            _option_action(
                 id="options_back",
                 label=Localization.get(locale, "option-back"),
                 handler=handler,

@@ -264,6 +264,8 @@ class ActionVisibilityMixin:
         """Options are visible in waiting state only."""
         if self.status != "waiting" or self.team_arrangement_active:
             return Visibility.HIDDEN
+        if player.is_spectator and player.name != self.host:
+            return Visibility.HIDDEN
         return Visibility.VISIBLE
 
     # --- Standard actions ---

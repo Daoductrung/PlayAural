@@ -650,6 +650,16 @@ again before team arrangement or `on_start()`. A bot-only roster must remain in
 the waiting lobby; do not enter gameplay and depend on abandoned-table cleanup
 to destroy it afterward.
 
+Table ownership is independent from gameplay-seat role. A live host who is
+spectating retains host controls and may edit declarative game options while
+the table is waiting. Once a valid game has started, that host counts as a
+human supervisor for disconnect replacement, planned-reboot recovery, and
+active-table retention, so bot-controlled seats may continue without forcing
+the owner back into a seat. Ordinary spectators never keep an abandoned table
+alive. This does not weaken the active-human start requirement. If an active
+table reaches zero gameplay seats, preserve it for the present spectator host
+but keep gameplay ticks paused until restart or explicit teardown.
+
 #### Server-Side Navigation Stack
 Server menus use the breadcrumb stack in `_user_states[username]["_stack"]`.
 

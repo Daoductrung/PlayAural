@@ -55,7 +55,7 @@ from ..administration.manager import (
     AdministrationManager,
 )
 from ..network.websocket_server import WebSocketServer, ClientConnection
-from ..persistence.database import Database
+from ..persistence.database import Database, UserRecord
 from ..auth.auth import AuthManager, is_valid_email
 from ..auth.captcha import verify_captcha
 from ..auth.rate_limit import RateLimiter
@@ -10847,6 +10847,7 @@ PlayAural Server
                             "kind": "user",
                             "id": human_name,
                             "name": human_name,
+                            "account_id": player.id,
                             "is_bot": False,
                             "is_spectator": replaced_member.is_spectator,
                             "is_host": human_name == table.host,
@@ -10868,6 +10869,7 @@ PlayAural Server
                             "kind": "bot",
                             "id": player.id,
                             "name": player.name,
+                            "account_id": "",
                             "is_bot": True,
                             "is_spectator": False,
                             "is_host": False,
@@ -10886,6 +10888,7 @@ PlayAural Server
                         "kind": "user",
                         "id": player.name,
                         "name": player.name,
+                        "account_id": player.id,
                         "is_bot": False,
                         "is_spectator": getattr(player, "is_spectator", False),
                         "is_host": player.name == table.host,
@@ -10903,11 +10906,17 @@ PlayAural Server
         for member in table.members:
             if member.username in seen_users:
                 continue
+            member_user = table.get_user(member.username)
+            # Fallback members have no serialized account identity.  Only an
+            # attached user can prove which account owns the row; resolving a
+            # detached row by username could target a newly recreated account.
+            account_id = str(getattr(member_user, "uuid", "") or "")
             rows.append(
                 {
                     "kind": "user",
                     "id": member.username,
                     "name": member.username,
+                    "account_id": account_id,
                     "is_bot": False,
                     "is_spectator": member.is_spectator,
                     "is_host": member.username == table.host,
@@ -11102,7 +11111,12 @@ PlayAural Server
         return None
 
     def _get_table_member_action_items(
-        self, user: NetworkUser, table: "Table", row: dict[str, Any]
+        self,
+        user: NetworkUser,
+        table: "Table",
+        row: dict[str, Any],
+        *,
+        expected_account_id: str,
     ) -> list[MenuItem]:
         """Build actions for one table roster entry."""
         locale = user.locale
@@ -11110,8 +11124,18 @@ PlayAural Server
         target_name = row["name"]
         is_self = target_name == user.username
         is_host = table.host == user.username
+        row_account_id = str(row.get("account_id") or "")
+        target_record = (
+            self._resolve_table_member_account(row)
+            if expected_account_id == row_account_id
+            else None
+        )
 
-        if is_host and not is_self:
+        if (
+            is_host
+            and not is_self
+            and (row["kind"] == "bot" or target_record)
+        ):
             if row["kind"] == "bot":
                 if table.game and table.game.status == "waiting":
                     items.append(
@@ -11174,7 +11198,7 @@ PlayAural Server
                     )
                 )
 
-        if row["kind"] == "user" and not is_self:
+        if target_record and not is_self:
             if self._find_current_friend_record(user, target_name):
                 items.extend(
                     item
@@ -11206,6 +11230,19 @@ PlayAural Server
         items.append(MenuItem(text=Localization.get(locale, "back"), id="back"))
         return items
 
+    def _resolve_table_member_account(
+        self,
+        row: dict[str, Any],
+    ) -> UserRecord | None:
+        """Resolve a human roster row only while its account identity matches."""
+        if row.get("kind") != "user":
+            return None
+        account_id = str(row.get("account_id") or "")
+        target_record = self._db.get_user(str(row.get("name") or ""))
+        if not target_record or target_record.uuid != account_id:
+            return None
+        return target_record
+
     def _show_table_member_actions_menu(
         self,
         user: NetworkUser,
@@ -11227,9 +11264,27 @@ PlayAural Server
             self._show_table_members_menu(user, table)
             return
 
+        current_state = self._user_states.get(user.username, {})
+        same_target = (
+            current_state.get("menu") == TABLE_MEMBER_ACTIONS_MENU
+            and current_state.get("table_id") == table.table_id
+            and current_state.get("target_kind") == target_kind
+            and current_state.get("target_id") == target_id
+        )
+        target_uuid = (
+            str(current_state.get("target_uuid") or "")
+            if same_target and "target_uuid" in current_state
+            else str(row.get("account_id") or "")
+        )
+
         user.show_menu(
             TABLE_MEMBER_ACTIONS_MENU,
-            self._get_table_member_action_items(user, table, row),
+            self._get_table_member_action_items(
+                user,
+                table,
+                row,
+                expected_account_id=target_uuid,
+            ),
             multiletter=True,
             escape_behavior=EscapeBehavior.SELECT_LAST,
         )
@@ -11238,6 +11293,7 @@ PlayAural Server
             "table_id": table.table_id,
             "target_kind": target_kind,
             "target_id": target_id,
+            "target_uuid": target_uuid,
         }
 
     async def _handle_table_members_selection(
@@ -11342,6 +11398,22 @@ PlayAural Server
             return
 
         target_name = row["name"]
+        target_record = self._resolve_table_member_account(row)
+        target_uuid = str(state.get("target_uuid") or "")
+        if row["kind"] == "user" and (
+            not target_record
+            or not target_uuid
+            or target_record.uuid != target_uuid
+        ):
+            user.speak_l("user-account-unavailable", buffer="system")
+            self._nav_refresh(
+                user,
+                self._show_table_member_actions_menu,
+                table,
+                target_kind,
+                target_id,
+            )
+            return
 
         if selection_id == "table_pass_host":
             changed = False
@@ -11412,14 +11484,14 @@ PlayAural Server
                 table,
                 seat.id,
             )
-        elif selection_id == "view_profile" and row["kind"] == "user":
-            self._nav_push(user, self._show_public_profile, target_name)
-        elif selection_id == "send_friend_request" and row["kind"] == "user":
-            target_record = self._db.get_user(target_name)
-            if not target_record:
-                user.speak_l("unknown-user", buffer="system")
-            else:
-                self._send_friend_request_to_record(user, target_record)
+        elif selection_id == "view_profile" and target_record:
+            self._nav_push(
+                user,
+                self._show_public_profile,
+                target_record.username,
+            )
+        elif selection_id == "send_friend_request" and target_record:
+            self._send_friend_request_to_record(user, target_record)
             self._nav_refresh(
                 user,
                 self._show_table_member_actions_menu,
@@ -11427,24 +11499,41 @@ PlayAural Server
                 target_kind,
                 target_id,
             )
-        elif selection_id == "send_pm" and row["kind"] == "user":
+        elif selection_id == "send_pm" and target_record:
             user.show_editbox(
                 "send_pm_input",
-                Localization.get(user.locale, "enter-pm-message", username=target_name),
+                Localization.get(
+                    user.locale,
+                    "enter-pm-message",
+                    username=target_record.username,
+                ),
                 multiline=True,
                 max_length=MAX_CHAT_MESSAGE_LENGTH,
             )
-            self._enter_input_state(user, "send_pm_input", target_username=target_name)
-        elif selection_id == "block" and row["kind"] == "user":
+            self._enter_input_state(
+                user,
+                "send_pm_input",
+                target_username=target_record.username,
+            )
+        elif selection_id == "block" and target_record:
             self._nav_push(
                 user,
                 self._show_user_block_confirm_menu,
-                target_name,
+                target_record.username,
             )
-        elif selection_id == "unblock" and row["kind"] == "user":
-            self._perform_unblock_user(user, target_name)
-        elif selection_id == "join_table" and row["kind"] == "user":
-            if not self._get_current_friend_record(user, target_name):
+        elif selection_id == "report" and target_record:
+            if not self._open_user_report(user, target_record.username):
+                self._nav_refresh(
+                    user,
+                    self._show_table_member_actions_menu,
+                    table,
+                    target_kind,
+                    target_id,
+                )
+        elif selection_id == "unblock" and target_record:
+            self._perform_unblock_user(user, target_record.username)
+        elif selection_id == "join_table" and target_record:
+            if not self._get_current_friend_record(user, target_record.username):
                 self._nav_refresh(
                     user,
                     self._show_table_member_actions_menu,
@@ -11453,7 +11542,7 @@ PlayAural Server
                     target_id,
                 )
                 return
-            target_table = self._tables.find_user_table(target_name)
+            target_table = self._tables.find_user_table(target_record.username)
             if not target_table:
                 user.speak_l("table-not-exists", buffer="system")
                 self._nav_refresh(
@@ -11487,8 +11576,8 @@ PlayAural Server
                 )
                 return
             self._auto_join_table(user, target_table, target_table.game_type)
-        elif selection_id == "remove_friend" and row["kind"] == "user":
-            if not self._get_current_friend_record(user, target_name):
+        elif selection_id == "remove_friend" and target_record:
+            if not self._get_current_friend_record(user, target_record.username):
                 self._nav_refresh(
                     user,
                     self._show_table_member_actions_menu,
@@ -11497,7 +11586,11 @@ PlayAural Server
                     target_id,
                 )
                 return
-            self._nav_push(user, self._show_friend_remove_confirm_menu, target_name)
+            self._nav_push(
+                user,
+                self._show_friend_remove_confirm_menu,
+                target_record.username,
+            )
 
     async def _handle_saved_tables_selection(
         self, user: NetworkUser, selection_id: str, state: dict
@@ -13847,6 +13940,7 @@ PlayAural Server
                 table_id,
                 frame.get("target_kind", ""),
                 frame.get("target_id", ""),
+                frame.get("target_uuid", ""),
             )
         if menu == HOST_SUBSTITUTION_SPECTATOR_MENU:
             return (menu, table_id, frame.get("seat_id", ""))

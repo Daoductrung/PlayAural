@@ -8,7 +8,12 @@ from types import SimpleNamespace
 import pytest
 
 from server.auth.auth import AuthManager
-from server.core.server import Server, TABLE_MEMBERS_MENU, TABLE_MEMBER_ACTIONS_MENU
+from server.core.server import (
+    Server,
+    TABLE_MEMBERS_MENU,
+    TABLE_MEMBER_ACTIONS_MENU,
+    USER_REPORT_REASON_MENU,
+)
 from server.games.crazyeights.game import CrazyEightsGame
 from server.games.pig.game import PigGame, PigOptions
 from server.games.uno.game import UnoGame
@@ -1347,6 +1352,161 @@ class TestTableInviteReclaim:
         assert self.server._user_states[host.username]["menu"] == TABLE_MEMBERS_MENU
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "member_state",
+        ["active_player", "replaced_player", "spectator"],
+    )
+    async def test_table_member_report_opens_shared_flow_and_restores_focus(
+        self,
+        member_state: str,
+    ):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, game = self._create_started_table(host, guest)
+        target = guest
+        if member_state == "replaced_player":
+            guest_player = game.get_player_by_id(guest.uuid)
+            assert guest_player is not None
+            assert game._replace_with_bot(guest_player) is True
+            self.server._users.pop(guest.username, None)
+        elif member_state == "spectator":
+            target = self._create_online_user("Spectator")
+            table.add_member(target.username, target, as_spectator=True)
+            game.add_spectator(target.username, target)
+
+        self.server._show_table_members_menu(host, table)
+        client = SimpleNamespace(username=host.username)
+        await self.server._handle_menu(
+            client,
+            {
+                "menu_id": TABLE_MEMBERS_MENU,
+                "selection_id": f"table_member_user_{target.username}",
+            },
+        )
+
+        action_ids = self._get_menu_action_ids(host, TABLE_MEMBER_ACTIONS_MENU)
+        assert "report" in action_ids
+
+        await self.server._handle_menu(
+            client,
+            {
+                "menu_id": TABLE_MEMBER_ACTIONS_MENU,
+                "selection_id": "report",
+            },
+        )
+
+        state = self.server._user_states[host.username]
+        assert state["menu"] == USER_REPORT_REASON_MENU
+        assert state["target_uuid"] == target.uuid
+
+        await self.server._handle_menu(
+            client,
+            {
+                "menu_id": USER_REPORT_REASON_MENU,
+                "selection_id": "back",
+            },
+        )
+
+        state = self.server._user_states[host.username]
+        assert state["menu"] == TABLE_MEMBER_ACTIONS_MENU
+        assert host.menus[TABLE_MEMBER_ACTIONS_MENU]["selection_id"] == "report"
+
+    @pytest.mark.asyncio
+    async def test_table_member_account_actions_reject_username_reuse(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, _ = self._create_started_table(host, guest)
+        self.server._show_table_members_menu(host, table)
+        client = SimpleNamespace(username=host.username)
+        await self.server._handle_menu(
+            client,
+            {
+                "menu_id": TABLE_MEMBERS_MENU,
+                "selection_id": f"table_member_user_{guest.username}",
+            },
+        )
+        action_ids = self._get_menu_action_ids(host, TABLE_MEMBER_ACTIONS_MENU)
+        assert "report" in action_ids
+
+        assert self.db.delete_user(guest.username)
+        replacement = self.db.create_user(
+            guest.username,
+            "Password123",
+            approved=True,
+            email="replacement@example.com",
+        )
+        assert replacement.uuid != guest.uuid
+        host.clear_messages()
+
+        await self.server._handle_menu(
+            client,
+            {
+                "menu_id": TABLE_MEMBER_ACTIONS_MENU,
+                "selection_id": "report",
+            },
+        )
+
+        state = self.server._user_states[host.username]
+        assert state["menu"] == TABLE_MEMBER_ACTIONS_MENU
+        assert self._get_menu_action_ids(host, TABLE_MEMBER_ACTIONS_MENU) == [
+            "table_member_no_actions",
+            "back",
+        ]
+        assert host.get_last_spoken() == Localization.get(
+            host.locale,
+            "user-account-unavailable",
+        )
+        assert self.db.count_moderation_reports() == 0
+
+    @pytest.mark.asyncio
+    async def test_fallback_table_member_actions_keep_original_account_identity(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        original = self._create_online_user("FallbackMember")
+        table, _ = self._create_started_table(host, guest)
+        assert table.add_member(original.username, original, as_spectator=True)
+
+        self.server._show_table_members_menu(host, table)
+        await self.server._handle_table_members_selection(
+            host,
+            f"table_member_user_{original.username}",
+            self.server._user_states[host.username],
+        )
+        assert "report" in self._get_menu_action_ids(
+            host,
+            TABLE_MEMBER_ACTIONS_MENU,
+        )
+
+        assert self.db.delete_user(original.username)
+        replacement = self.db.create_user(
+            original.username,
+            "Password123",
+            approved=True,
+            email="fallback-replacement@example.com",
+        )
+        assert replacement.uuid != original.uuid
+        replacement_user = MockUser(original.username, uuid=replacement.uuid)
+        table.attach_user(original.username, replacement_user)
+        self.server._users[original.username] = replacement_user
+        host.clear_messages()
+
+        await self.server._handle_table_member_actions_selection(
+            host,
+            "report",
+            self.server._user_states[host.username],
+        )
+
+        assert self._get_menu_action_ids(host, TABLE_MEMBER_ACTIONS_MENU) == [
+            "table_member_no_actions",
+            "back",
+        ]
+        assert host.get_last_spoken() == Localization.get(
+            host.locale,
+            "user-account-unavailable",
+        )
+        assert self.db.count_moderation_reports() == 0
+
+    @pytest.mark.asyncio
     async def test_table_roster_shows_multiple_statuses_and_blocks_self_selection(self):
         host = self._create_online_user("Host")
         guest = self._create_online_user("Guest")
@@ -1595,6 +1755,7 @@ class TestTableInviteReclaim:
 
         action_ids = self._get_menu_action_ids(host, TABLE_MEMBER_ACTIONS_MENU)
         assert "table_remove_bot" in action_ids
+        assert "report" not in action_ids
 
         await self.server._handle_table_member_actions_selection(
             host,

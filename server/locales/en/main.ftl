@@ -344,6 +344,10 @@ action-start-requires-exact-players = Cannot start. Active players: { $current }
 action-start-needs-human-player = Cannot start with only bots. At least one human must participate as a player. Switch from spectator to player; if the table is full, remove a bot first.
 action-no-bots = There are no bots to remove.
 action-bots-cannot = Bots cannot do this.
+action-role-change-rate-limited = You are switching between playing and spectating too quickly. Try again in { $seconds ->
+    [one] 1 second
+   *[other] { $seconds } seconds
+}.
 action-no-scores = No scores available yet.
 
 options-category-audio = Audio
@@ -1183,13 +1187,22 @@ player-substitution-complete-replacement-you = You took control of { $replaced_p
 player-substitution-complete-replacement = { $player } took control of { $replaced_player }'s reserved seat from { $bot }. The former reservation has ended.
 host-invite-no-friends = (No friends available to invite)
 host-invite-sent = Invite sent to { $player }.
-host-invite-friend-unavailable = That friend is not currently online.
+host-invite-friend-unavailable = That friend is no longer available to invite.
 host-invite-already-pending = An invite is already pending for that friend.
 host-invite-friend-busy = That friend is already in a game.
+host-invite-pair-cooldown = Please wait { $seconds ->
+    [one] 1 second
+   *[other] { $seconds } seconds
+} before inviting that friend again.
+host-invite-rate-limited = You are sending table invites too quickly. Try again in { $seconds ->
+    [one] 1 second
+   *[other] { $seconds } seconds
+}.
 host-invite-declined = { $player } declined your table invite.
 table-invite-received = { $host } has invited you to { GENDER_TERM($host_gender, "possessive-determiner") } { $game } table.
 table-invite-queued = { $host } invited you to { GENDER_TERM($host_gender, "possessive-determiner") } { $game } table. Finish your current input to respond.
 table-invite-expired = The table invite has expired.
+table-invite-no-longer-available = That table invite is no longer available.
 invite-accept = Accept Invite
 invite-decline = Decline Invite
 host-management-no-longer-host = You are no longer the host of this table.

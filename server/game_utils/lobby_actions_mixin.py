@@ -695,6 +695,14 @@ class LobbyActionsMixin:
                     user.speak_l("table-full", buffer="game")
                 return
 
+        rate_limit_reason = self._role_change_rate_limit_reason(
+            player,
+            consume=True,
+        )
+        if rate_limit_reason:
+            self._speak_action_disabled_reason(player, rate_limit_reason)
+            return
+
         player.is_spectator = not player.is_spectator
         
         # SYNC FIX: Update the table member record to match

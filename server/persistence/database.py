@@ -6331,12 +6331,31 @@ class Database:
                 friends.append(row["requester_id"])
         return friends
 
+    def are_friends(self, user1_id: str, user2_id: str) -> bool:
+        """Return whether two distinct accounts share an accepted friendship."""
+        if not user1_id or not user2_id or user1_id == user2_id:
+            return False
+        cursor = self._conn.cursor()
+        cursor.execute(
+            """
+            SELECT 1 FROM friendships
+            WHERE status = 'accepted'
+              AND ((requester_id = ? AND receiver_id = ?)
+                OR (requester_id = ? AND receiver_id = ?))
+            LIMIT 1
+            """,
+            (user1_id, user2_id, user2_id, user1_id),
+        )
+        return cursor.fetchone() is not None
+
     def count_pending_incoming_requests(self, user_id: str) -> int:
         """Count pending incoming friend requests without loading every row."""
         cursor = self._conn.cursor()
         cursor.execute("""
             SELECT COUNT(*) AS count FROM friendships
-            WHERE receiver_id = ? AND status = 'pending'
+            JOIN users ON users.uuid = friendships.requester_id
+            WHERE friendships.receiver_id = ?
+              AND friendships.status = 'pending'
         """, (user_id,))
         row = cursor.fetchone()
         return int(row["count"] if row else 0)
@@ -6351,9 +6370,14 @@ class Database:
         """Get UUIDs who sent a pending friend request to this user."""
         cursor = self._conn.cursor()
         query = """
-            SELECT requester_id FROM friendships
-            WHERE receiver_id = ? AND status = 'pending'
-            ORDER BY created_at ASC, requester_id ASC
+            SELECT friendships.requester_id
+            FROM friendships
+            JOIN users ON users.uuid = friendships.requester_id
+            WHERE friendships.receiver_id = ?
+              AND friendships.status = 'pending'
+            ORDER BY friendships.created_at ASC,
+                     users.username COLLATE NOCASE ASC,
+                     friendships.requester_id ASC
         """
         params: list[object] = [user_id]
         if limit is not None:

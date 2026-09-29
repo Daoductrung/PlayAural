@@ -8,6 +8,8 @@ from types import SimpleNamespace
 import pytest
 
 from server.auth.auth import AuthManager
+from server.auth.table_interaction_rate_limit import TableInteractionRateLimiter
+from server.core import server as server_module
 from server.core.server import (
     Server,
     TABLE_MEMBERS_MENU,
@@ -58,6 +60,10 @@ class TestTableInviteReclaim:
         self.server._user_states[username] = {"menu": "main_menu"}
         return user
 
+    def _make_friends(self, first: MockUser, second: MockUser) -> None:
+        assert self.db.send_friend_request(first.uuid, second.uuid) == "sent"
+        assert self.db.accept_friend_request(first.uuid, second.uuid)
+
     def _create_started_table(
         self, host: MockUser, guest: MockUser
     ) -> tuple:
@@ -100,6 +106,20 @@ class TestTableInviteReclaim:
 
     def _sound_names(self, user: MockUser) -> list[str]:
         return [message.data["name"] for message in user.messages if message.type == "play_sound"]
+
+    def _install_table_interaction_clock(self):
+        clock = SimpleNamespace(now=100.0)
+        self.server._table_interaction_rate_limiter = TableInteractionRateLimiter(
+            clock=lambda: clock.now,
+        )
+        return clock
+
+    def _invite_decision_id(self, user: MockUser, decision: str) -> str:
+        state = self.server._user_states[user.username]
+        return self.server._table_invite_action_id(
+            decision,
+            state["invite_id"],
+        )
 
     def _add_named_bot(self, game: PigGame, name: str):
         bot_user = Bot(name)
@@ -265,7 +285,9 @@ class TestTableInviteReclaim:
     async def test_table_invite_always_plays_invite_notification_sound(self):
         host = self._create_online_user("Host")
         guest = self._create_online_user("Guest")
-        table, _ = self._create_started_table(host, guest)
+        seated = self._create_online_user("Seated")
+        table, _ = self._create_started_table(host, seated)
+        self._make_friends(host, guest)
 
         guest.preferences.notify_table_created = False
 
@@ -278,6 +300,236 @@ class TestTableInviteReclaim:
             host=host.username,
             game=Localization.get(guest.locale, "game-name-pig"),
         )
+        action_ids = self._get_menu_action_ids(guest, "table_invite_prompt")
+        assert self._invite_decision_id(guest, "accept") in action_ids
+        assert self._invite_decision_id(guest, "decline") in action_ids
+        assert "accept" not in action_ids
+        assert "decline" not in action_ids
+
+    @pytest.mark.asyncio
+    async def test_direct_invite_rejects_non_friend_without_notifying_target(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        seated = self._create_online_user("Seated")
+        table, _ = self._create_started_table(host, seated)
+
+        assert not await self.server._send_table_invite(host, table, guest)
+
+        assert guest.username not in self.server._pending_invites
+        assert guest.messages == []
+        assert host.get_last_spoken() == Localization.get(
+            host.locale,
+            "host-invite-friend-unavailable",
+        )
+
+    @pytest.mark.asyncio
+    async def test_direct_invite_rejects_table_name_conflict_without_notifying_target(
+        self,
+    ):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        seated = self._create_online_user("Seated")
+        table, game = self._create_started_table(host, seated)
+        self._make_friends(host, guest)
+        self._add_named_bot(game, guest.username)
+
+        assert not await self.server._send_table_invite(host, table, guest)
+
+        assert guest.username not in self.server._pending_invites
+        assert guest.messages == []
+        assert host.get_last_spoken() == Localization.get(
+            host.locale,
+            "host-invite-friend-unavailable",
+        )
+
+    @pytest.mark.asyncio
+    async def test_declined_invite_enforces_pair_cooldown_without_renotifying(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        seated = self._create_online_user("Seated")
+        table, _ = self._create_started_table(host, seated)
+        self._make_friends(host, guest)
+        clock = self._install_table_interaction_clock()
+
+        assert await self.server._send_table_invite(host, table, guest)
+        state = dict(self.server._user_states[guest.username])
+        await self.server._handle_table_invite_selection(
+            guest,
+            self._invite_decision_id(guest, "decline"),
+            state,
+        )
+        guest.clear_messages()
+
+        assert not await self.server._send_table_invite(host, table, guest)
+        assert guest.messages == []
+        assert host.get_last_spoken() == Localization.get(
+            host.locale,
+            "host-invite-pair-cooldown",
+            seconds=60,
+        )
+
+        clock.now += 60.0
+        assert await self.server._send_table_invite(host, table, guest)
+
+    @pytest.mark.asyncio
+    async def test_stale_expiry_generation_cannot_cancel_reissued_invite(
+        self,
+        monkeypatch,
+    ):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        seated = self._create_online_user("Seated")
+        table, _ = self._create_started_table(host, seated)
+        self._make_friends(host, guest)
+        clock = self._install_table_interaction_clock()
+
+        assert await self.server._send_table_invite(host, table, guest)
+        old_invite_id = self.server._pending_invites[guest.username]["invite_id"]
+        self.server._cancel_invite(guest.username, invite_id=old_invite_id)
+        clock.now += 60.0
+        assert await self.server._send_table_invite(host, table, guest)
+        current_invite = self.server._pending_invites[guest.username]
+        current_invite_id = current_invite["invite_id"]
+        current_invite["task"].cancel()
+        current_invite["task"] = None
+        monkeypatch.setattr(
+            server_module,
+            "INTERACTIVE_TABLE_REQUEST_TIMEOUT_SECONDS",
+            0.0,
+        )
+
+        await self.server._expire_invite(guest.username, old_invite_id)
+
+        assert self.server._pending_invites[guest.username]["invite_id"] == current_invite_id
+
+    @pytest.mark.asyncio
+    async def test_automatic_host_transfer_cancels_invite_without_social_block(self):
+        original_host = self._create_online_user("OriginalHost")
+        new_host = self._create_online_user("NewHost")
+        invitee = self._create_online_user("Invitee")
+        table, _ = self._create_waiting_table(
+            original_host,
+            new_host,
+            PigGame(options=PigOptions(target_score=25)),
+        )
+        self._make_friends(original_host, invitee)
+
+        assert await self.server._send_table_invite(
+            original_host,
+            table,
+            invitee,
+        )
+        game = table.game
+        original_player = game.get_player_by_id(original_host.uuid)
+        assert original_player is not None
+        game.remove_player(original_player.id)
+        assert table.remove_member(original_host.username)
+
+        assert table.host == new_host.username
+        assert invitee.username not in self.server._pending_invites
+        assert self.server._user_states[invitee.username]["menu"] == "main_menu"
+        assert "table_invite_prompt" not in invitee.menus
+        assert invitee.get_last_spoken() == Localization.get(
+            invitee.locale,
+            "table-invite-no-longer-available",
+        )
+
+    @pytest.mark.asyncio
+    async def test_table_destruction_cancels_invite_and_restores_prompt(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        seated = self._create_online_user("Seated")
+        table, _ = self._create_started_table(host, seated)
+        self._make_friends(host, guest)
+
+        assert await self.server._send_table_invite(host, table, guest)
+        table.destroy()
+
+        assert guest.username not in self.server._pending_invites
+        assert self.server._user_states[guest.username]["menu"] == "main_menu"
+        assert "table_invite_prompt" not in guest.menus
+        assert guest.get_last_spoken() == Localization.get(
+            guest.locale,
+            "table-invite-no-longer-available",
+        )
+
+    @pytest.mark.asyncio
+    async def test_host_disconnect_cancels_invite_and_restores_prompt(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        seated = self._create_online_user("Seated")
+        table, _ = self._create_started_table(host, seated)
+        self._make_friends(host, guest)
+
+        assert await self.server._send_table_invite(host, table, guest)
+        self.server._users.pop(host.username)
+        self.server.on_user_presence_changed()
+
+        assert guest.username not in self.server._pending_invites
+        assert self.server._user_states[guest.username]["menu"] == "main_menu"
+        assert "table_invite_prompt" not in guest.menus
+        assert guest.get_last_spoken() == Localization.get(
+            guest.locale,
+            "table-invite-no-longer-available",
+        )
+
+    @pytest.mark.asyncio
+    async def test_friendship_removal_cancels_invite_and_restores_prompt(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        seated = self._create_online_user("Seated")
+        table, _ = self._create_started_table(host, seated)
+        self._make_friends(host, guest)
+
+        assert await self.server._send_table_invite(host, table, guest)
+        assert self.server._perform_remove_friend(host, guest.username)
+
+        assert guest.username not in self.server._pending_invites
+        assert self.server._user_states[guest.username]["menu"] == "main_menu"
+        assert "table_invite_prompt" not in guest.menus
+        assert guest.get_last_spoken() == Localization.get(
+            guest.locale,
+            "table-invite-no-longer-available",
+        )
+
+    def test_role_change_throttle_blocks_broadcast_sound_and_state_spam(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, game = self._create_waiting_table(
+            host,
+            guest,
+            PigGame(options=PigOptions(target_score=25)),
+        )
+        clock = self._install_table_interaction_clock()
+        guest_player = game.get_player_by_id(guest.uuid)
+        assert guest_player is not None
+        host.clear_messages()
+        guest.clear_messages()
+
+        game._action_toggle_spectator(guest_player, "toggle_spectator")
+        game._action_toggle_spectator(guest_player, "toggle_spectator")
+        host_spoken = list(host.get_spoken_messages())
+        host_sounds = list(self._sound_names(host))
+
+        game._action_toggle_spectator(guest_player, "toggle_spectator")
+
+        guest_member = next(
+            member for member in table.members if member.username == guest.username
+        )
+        assert guest_player.is_spectator is False
+        assert guest_member.is_spectator is False
+        assert host.get_spoken_messages() == host_spoken
+        assert self._sound_names(host) == host_sounds
+        assert guest.get_last_spoken() == Localization.get(
+            guest.locale,
+            "action-role-change-rate-limited",
+            seconds=15,
+        )
+
+        clock.now += 15.0
+        game._action_toggle_spectator(guest_player, "toggle_spectator")
+        assert guest_player.is_spectator is True
+        assert guest_member.is_spectator is True
 
     @pytest.mark.asyncio
     async def test_host_invite_success_refreshes_invite_menu(self):
@@ -311,6 +563,7 @@ class TestTableInviteReclaim:
         guest = self._create_online_user("Guest")
         seated = self._create_online_user("Seated")
         table, _ = self._create_started_table(host, seated)
+        self._make_friends(host, guest)
 
         await self.server._send_table_invite(host, table, guest)
         state = dict(self.server._user_states[guest.username])
@@ -327,7 +580,7 @@ class TestTableInviteReclaim:
         self.server._cancel_invite(guest.username)
 
     @pytest.mark.asyncio
-    async def test_second_table_invite_does_not_replace_pending_invite(self):
+    async def test_simultaneous_invites_use_one_slot_and_only_winner_can_be_accepted(self):
         first_host = self._create_online_user("FirstHost")
         second_host = self._create_online_user("SecondHost")
         guest = self._create_online_user("Guest")
@@ -335,22 +588,126 @@ class TestTableInviteReclaim:
         second_seated = self._create_online_user("SecondSeated")
         first_table, _ = self._create_started_table(first_host, first_seated)
         second_table, _ = self._create_started_table(second_host, second_seated)
+        self._make_friends(first_host, guest)
+        self._make_friends(second_host, guest)
 
-        await self.server._send_table_invite(first_host, first_table, guest)
-        pending_task = self.server._pending_invites[guest.username]["task"]
-        second_host.clear_messages()
+        outcomes = await asyncio.gather(
+            self.server._send_table_invite(first_host, first_table, guest),
+            self.server._send_table_invite(second_host, second_table, guest),
+        )
 
-        sent = await self.server._send_table_invite(second_host, second_table, guest)
-
-        assert sent is False
-        assert self.server._pending_invites[guest.username]["table_id"] == first_table.table_id
-        assert self.server._pending_invites[guest.username]["task"] is pending_task
-        assert second_host.get_last_spoken() == Localization.get(
-            second_host.locale,
+        assert outcomes.count(True) == 1
+        assert outcomes.count(False) == 1
+        candidates = [
+            (first_host, first_table),
+            (second_host, second_table),
+        ]
+        winner_host, winner_table = candidates[outcomes.index(True)]
+        loser_host, _loser_table = candidates[outcomes.index(False)]
+        pending = self.server._pending_invites[guest.username]
+        assert pending["table_id"] == winner_table.table_id
+        assert pending["host_username"] == winner_host.username
+        assert loser_host.get_last_spoken() == Localization.get(
+            loser_host.locale,
             "host-invite-already-pending",
         )
 
-        self.server._cancel_invite(guest.username)
+        state = dict(self.server._user_states[guest.username])
+        await self.server._handle_table_invite_selection(
+            guest,
+            self._invite_decision_id(guest, "accept"),
+            state,
+        )
+
+        assert guest.username not in self.server._pending_invites
+        assert self.server._tables.find_user_table(guest.username) is winner_table
+        assert self.server._user_states[guest.username]["table_id"] == winner_table.table_id
+
+    @pytest.mark.asyncio
+    async def test_joining_another_table_dismisses_pending_invite(self):
+        inviting_host = self._create_online_user("InvitingHost")
+        other_host = self._create_online_user("OtherHost")
+        guest = self._create_online_user("Guest")
+        inviting_seated = self._create_online_user("InvitingSeated")
+        other_seated = self._create_online_user("OtherSeated")
+        inviting_table, _ = self._create_started_table(
+            inviting_host,
+            inviting_seated,
+        )
+        other_table, _ = self._create_started_table(other_host, other_seated)
+        self._make_friends(inviting_host, guest)
+
+        assert await self.server._send_table_invite(
+            inviting_host,
+            inviting_table,
+            guest,
+        )
+        self.server._auto_join_table(guest, other_table, other_table.game_type)
+
+        assert guest.username not in self.server._pending_invites
+        assert "table_invite_prompt" not in guest.menus
+        assert self.server._tables.find_user_table(guest.username) is other_table
+        assert self.server._user_states[guest.username] == {
+            "menu": "in_game",
+            "table_id": other_table.table_id,
+        }
+
+    @pytest.mark.asyncio
+    async def test_stale_decision_cannot_accept_replacement_invite(self):
+        first_host = self._create_online_user("FirstHost")
+        second_host = self._create_online_user("SecondHost")
+        guest = self._create_online_user("Guest")
+        first_seated = self._create_online_user("FirstSeated")
+        second_seated = self._create_online_user("SecondSeated")
+        first_table, _ = self._create_started_table(first_host, first_seated)
+        second_table, _ = self._create_started_table(second_host, second_seated)
+        self._make_friends(first_host, guest)
+        self._make_friends(second_host, guest)
+
+        assert await self.server._send_table_invite(first_host, first_table, guest)
+        stale_state = dict(self.server._user_states[guest.username])
+        stale_accept_id = self._invite_decision_id(guest, "accept")
+        self.server._users.pop(first_host.username)
+
+        assert await self.server._send_table_invite(second_host, second_table, guest)
+        current_accept_id = self._invite_decision_id(guest, "accept")
+        assert current_accept_id != stale_accept_id
+        pending = self.server._pending_invites[guest.username]
+        assert pending["host_username"] == second_host.username
+
+        await self.server._handle_table_invite_selection(
+            guest,
+            stale_accept_id,
+            stale_state,
+        )
+        assert self.server._pending_invites[guest.username] is pending
+        assert self.server._user_states[guest.username]["invite_id"] == pending["invite_id"]
+
+        client = SimpleNamespace(username=guest.username)
+        await self.server._handle_menu(
+            client,
+            {
+                "type": "menu",
+                "menu_id": "table_invite_prompt",
+                "selection_id": stale_accept_id,
+            },
+        )
+
+        assert self.server._pending_invites[guest.username] is pending
+        assert self.server._tables.find_user_table(guest.username) is None
+        assert self.server._user_states[guest.username]["menu"] == "table_invite_prompt"
+
+        await self.server._handle_menu(
+            client,
+            {
+                "type": "menu",
+                "menu_id": "table_invite_prompt",
+                "selection_id": current_accept_id,
+            },
+        )
+
+        assert guest.username not in self.server._pending_invites
+        assert self.server._tables.find_user_table(guest.username) is second_table
 
     @pytest.mark.asyncio
     async def test_table_invite_waits_until_private_message_input_finishes(self):
@@ -358,6 +715,7 @@ class TestTableInviteReclaim:
         guest = self._create_online_user("Guest")
         friend = self._create_online_user("Friend")
         table, _ = self._create_started_table(host, friend)
+        self._make_friends(host, guest)
 
         self.db.send_friend_request(guest.uuid, friend.uuid)
         self.db.send_friend_request(friend.uuid, guest.uuid)
@@ -407,6 +765,7 @@ class TestTableInviteReclaim:
         guest = self._create_online_user("Guest")
         friend = self._create_online_user("Friend")
         table, _ = self._create_started_table(host, friend)
+        self._make_friends(host, guest)
 
         self.server._user_states[guest.username] = {
             "menu": "friend_actions_menu",
@@ -445,6 +804,7 @@ class TestTableInviteReclaim:
         host = self._create_online_user("Host")
         guest = self._create_online_user("Guest")
         table, game = self._create_started_table(host, guest)
+        self._make_friends(host, guest)
 
         guest_player = game.get_player_by_id(guest.uuid)
         assert guest_player is not None
@@ -463,7 +823,11 @@ class TestTableInviteReclaim:
         state = self.server._user_states[guest.username]
         host.clear_messages()
         guest.clear_messages()
-        await self.server._handle_table_invite_selection(guest, "accept", state)
+        await self.server._handle_table_invite_selection(
+            guest,
+            self._invite_decision_id(guest, "accept"),
+            state,
+        )
         await asyncio.sleep(0)
 
         reclaimed = game.get_player_by_id(guest.uuid)
@@ -499,6 +863,7 @@ class TestTableInviteReclaim:
         host = self._create_online_user("Host")
         guest = self._create_online_user("Guest")
         table, game = self._create_started_table(host, guest)
+        self._make_friends(host, guest)
 
         guest_player = game.get_player_by_id(guest.uuid)
         assert guest_player is not None
@@ -512,7 +877,11 @@ class TestTableInviteReclaim:
         state = self.server._user_states[guest.username]
         host.clear_messages()
         guest.clear_messages()
-        await self.server._handle_table_invite_selection(guest, "accept", state)
+        await self.server._handle_table_invite_selection(
+            guest,
+            self._invite_decision_id(guest, "accept"),
+            state,
+        )
         await asyncio.sleep(0)
 
         reclaimed = game.get_player_by_id(guest.uuid)
@@ -552,6 +921,7 @@ class TestTableInviteReclaim:
         game.initialize_lobby(original_host.username, original_host)
         table.add_member(new_host.username, new_host, as_spectator=False)
         game.add_player(new_host.username, new_host)
+        self._make_friends(original_host, invitee)
 
         assert await self.server._send_table_invite(original_host, table, invitee)
         invite_state = self.server._user_states[invitee.username]

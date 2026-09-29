@@ -11,6 +11,7 @@ from server.core.server import (
     USER_REPORT_REASON_MENU,
     VERSION,
 )
+from server.games.crazyeights.game import CrazyEightsGame
 from server.ui.confirmation import CONFIRMATION_PROMPT_ITEM_ID
 from server.users.network_user import NetworkUser
 import tempfile
@@ -1073,6 +1074,10 @@ class TestFriendsSystem:
             alice.username,
             alice_user,
         )
+        game = CrazyEightsGame()
+        table.game = game
+        game._table = table
+        game.initialize_lobby(alice.username, alice_user)
         try:
             assert await self.server._send_table_invite(
                 alice_user,

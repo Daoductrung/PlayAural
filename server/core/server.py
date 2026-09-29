@@ -13,7 +13,10 @@ import weakref
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+if TYPE_CHECKING:
+    from ..game_utils import Player
 
 from .power import (
     POWER_REBOOT_EXIT_CODE,
@@ -66,6 +69,10 @@ from ..auth.chat_rate_limit import (
     normalize_chat_content,
 )
 from ..auth.voice_rate_limit import VoiceRateLimiter
+from ..auth.table_interaction_rate_limit import (
+    TableInteractionRateLimiter,
+    TableInteractionScope,
+)
 from ..tables.manager import TableManager
 from ..tables.table import Table
 from ..copy_protocol import parse_copy_directive
@@ -187,6 +194,11 @@ CLIENT_RELEASE_ARTIFACTS = freeze_release_registry(
 MAX_CLIENT_VOICE_IDENTIFIER_LENGTH = 512
 TABLE_CREATED_NOTIFICATION_SOUND = "table_created.ogg"
 TABLE_INVITE_NOTIFICATION_SOUND = "table_invite.ogg"
+TABLE_INVITE_ID_BYTES = 16
+TABLE_INVITE_ACTION_PREFIXES = {
+    "accept": "accept_invite_",
+    "decline": "decline_invite_",
+}
 PLAYER_SUBSTITUTION_NOTIFICATION_SOUND = TABLE_INVITE_NOTIFICATION_SOUND
 INTERACTIVE_TABLE_REQUEST_TIMEOUT_SECONDS = 30.0
 VOICE_CHAT_JOIN_SOUND = "voice_join.ogg"
@@ -470,7 +482,8 @@ class Server:
         self._session_exit_handlers: tuple[
             Callable[[NetworkUser], Awaitable[None]], ...
         ] = (self._leave_table_for_session_exit,)
-        # Pending table invites: invitee_username -> {table_id, host_username, task, deferred, game_name}
+        # Pending table invites are runtime-only, expiry-bounded, and pinned to
+        # a unique generation plus both immutable account IDs.
         self._pending_invites: dict[str, dict] = {}
         # Runtime-only consent requests. They are bounded by an expiry task and
         # are cancelled on disconnect, table teardown, restart, host changes,
@@ -513,6 +526,7 @@ class Server:
         self._rate_limiter = RateLimiter()
         self._chat_rate_limiter = ChatRateLimiter()
         self._voice_rate_limiter = VoiceRateLimiter()
+        self._table_interaction_rate_limiter = TableInteractionRateLimiter()
 
         # Initialize localization
         if locales_dir is None:
@@ -1151,6 +1165,7 @@ PlayAural Server
             self._remove_deleted_account_from_table(username, user)
             self._chat_rate_limiter.remove_user(account.uuid)
             self._voice_rate_limiter.remove_user(username)
+            self._table_interaction_rate_limiter.remove_account(account.uuid)
 
         await self._close_retired_session(client, packet)
         if affected_social_peers:
@@ -3211,6 +3226,8 @@ PlayAural Server
 
     def on_user_presence_changed(self) -> None:
         """Called when a user logs in or disconnects to refresh social menus."""
+        if getattr(self, "_pending_invites", None):
+            self._cancel_invalid_table_invites()
         for username, user in self._users.items():
             state = self._user_states.get(username, {})
             self._refresh_social_presence_menu(user, state)
@@ -6772,6 +6789,10 @@ PlayAural Server
             user.uuid,
             target_record.uuid,
         )
+        self._cancel_social_invites_between(
+            user.username,
+            target_record.username,
+        )
         return True
 
     def _return_after_friend_remove_confirm(self, user: NetworkUser) -> None:
@@ -7185,7 +7206,8 @@ PlayAural Server
                 invitee_name,
                 str(invite.get("host_username", "")),
             }
-            == pair
+            == pair,
+            message_key="table-invite-no-longer-available",
         )
         self._cancel_player_substitution_requests_matching(
             lambda incoming_name, request: pair.issubset(
@@ -7202,7 +7224,8 @@ PlayAural Server
         """Cancel runtime table invites that cannot outlive an account."""
         self._cancel_matching_social_invites(
             lambda invitee_name, invite: username
-            in {invitee_name, str(invite.get("host_username", ""))}
+            in {invitee_name, str(invite.get("host_username", ""))},
+            message_key="table-invite-no-longer-available",
         )
         self._cancel_player_substitution_requests_for_user(username)
 
@@ -7219,32 +7242,47 @@ PlayAural Server
             message_key="player-substitution-no-longer-available",
         )
 
-    def _cancel_invalid_table_invites_for_table(self, table: "Table") -> None:
-        """Retire pending invites invalidated by a table's current host."""
+    def _cancel_invalid_table_invites(self) -> None:
+        """Retire pending invites whose current consent conditions no longer hold."""
         self._cancel_matching_social_invites(
             lambda invitee_name, invite: (
-                str(invite.get("table_id", "")) == table.table_id
-                and (invitee_user := self._users.get(invitee_name)) is not None
-                and self._is_new_table_admission_blocked(invitee_user, table)
-            )
+                (invitee_user := self._users.get(invitee_name)) is None
+                or self._resolve_valid_pending_table_invite(
+                    invitee_user,
+                    invite,
+                )
+                is None
+            ),
+            message_key="table-invite-no-longer-available",
         )
 
     def _cancel_matching_social_invites(
         self,
         predicate: Callable[[str, dict], bool],
+        *,
+        message_key: str | None = None,
     ) -> None:
-        """Cancel matching invites and silently restore any displaced prompt."""
-        for invitee_name, invite in list(self._pending_invites.items()):
+        """Cancel matching invites and restore any displaced prompt."""
+        pending_invites = getattr(self, "_pending_invites", {})
+        for invitee_name, invite in list(pending_invites.items()):
             if not predicate(invitee_name, invite):
                 continue
             table_id = str(invite.get("table_id", ""))
+            invite_id = invite.get("invite_id")
             invitee_user = self._users.get(invitee_name)
             state = self._user_states.get(invitee_name, {})
-            self._cancel_invite(invitee_name, table_id=table_id)
+            self._cancel_invite(
+                invitee_name,
+                table_id=table_id,
+                invite_id=invite_id,
+            )
+            if invitee_user and message_key:
+                invitee_user.speak_l(message_key, buffer="system")
             if (
                 invitee_user
                 and state.get("menu") == "table_invite_prompt"
                 and state.get("table_id") == table_id
+                and state.get("invite_id") == invite_id
             ):
                 invitee_user.remove_menu(
                     "table_invite_prompt",
@@ -10273,6 +10311,94 @@ PlayAural Server
 
     # --- Invite ---
 
+    def _table_invite_eligibility_error(
+        self,
+        host_user: NetworkUser,
+        table: "Table",
+        invitee_user: NetworkUser,
+    ) -> str | None:
+        """Return the localized key blocking a new authoritative invite."""
+        if (
+            not table
+            or self._tables.get_table(table.table_id) is not table
+            or not table.game
+            or table.host != host_user.username
+            or self._users.get(host_user.username) is not host_user
+            or self._users.get(invitee_user.username) is not invitee_user
+            or host_user.username == invitee_user.username
+        ):
+            return "host-invite-friend-unavailable"
+
+        reclaimed_player = self._find_reclaimable_bot_player(table.game, invitee_user)
+        if self._table_name_conflicts(
+            invitee_user,
+            table,
+            allowed_user_uuid=invitee_user.uuid if reclaimed_player else None,
+        ):
+            return "host-invite-friend-unavailable"
+
+        host_record = self._db.get_user(host_user.username)
+        invitee_record = self._db.get_user(invitee_user.username)
+        if (
+            not host_record
+            or not invitee_record
+            or host_record.uuid != host_user.uuid
+            or invitee_record.uuid != invitee_user.uuid
+            or not self._db.are_friends(host_record.uuid, invitee_record.uuid)
+            or self._db.has_block_between(host_record.uuid, invitee_record.uuid)
+            or table.is_banned(invitee_record.uuid)
+        ):
+            return "host-invite-friend-unavailable"
+        if self._tables.find_user_table(invitee_user.username):
+            return "host-invite-friend-busy"
+        return None
+
+    def _resolve_valid_pending_table_invite(
+        self,
+        invitee_user: NetworkUser,
+        invite: dict,
+    ) -> "Table | None":
+        """Resolve a pending invite only while every consent condition holds."""
+        if (
+            not self._is_valid_table_invite_id(invite.get("invite_id"))
+            or invite.get("invitee_uuid") != invitee_user.uuid
+        ):
+            return None
+        table = self._tables.get_table(str(invite.get("table_id", "")))
+        if not table or not table.game:
+            return None
+        host_name = str(invite.get("host_username", ""))
+        host_user = self._users.get(host_name)
+        if (
+            not host_user
+            or host_user.uuid != invite.get("host_uuid")
+            or table.host != host_name
+            or self._table_invite_eligibility_error(
+                host_user,
+                table,
+                invitee_user,
+            )
+        ):
+            return None
+        return table
+
+    @staticmethod
+    def _is_valid_table_invite_id(invite_id: object) -> bool:
+        """Accept only canonical, fixed-size invitation generation tokens."""
+        return (
+            isinstance(invite_id, str)
+            and len(invite_id) == TABLE_INVITE_ID_BYTES * 2
+            and all(character in "0123456789abcdef" for character in invite_id)
+        )
+
+    @classmethod
+    def _table_invite_action_id(cls, decision: str, invite_id: str) -> str:
+        """Bind a consent action to one invitation generation."""
+        prefix = TABLE_INVITE_ACTION_PREFIXES.get(decision)
+        if not prefix or not cls._is_valid_table_invite_id(invite_id):
+            raise ValueError("Table invite actions require a decision and invite ID")
+        return f"{prefix}{invite_id}"
+
     def _get_invitable_friends(self, user: NetworkUser, table: "Table") -> list[str]:
         """Return friends who are online, idle (not in any table), and not already invited."""
         friend_uuids = self._db.get_friends(user.uuid)
@@ -10290,7 +10416,7 @@ PlayAural Server
             if f_name in self._pending_invites:
                 continue  # already has a pending invite
             result.append(f_name)
-        return result
+        return sorted(result, key=username_key)
 
     def _get_host_invite_menu_items(self, user: NetworkUser, table: "Table") -> list[MenuItem]:
         """Build items for the invite friends menu."""
@@ -10347,15 +10473,6 @@ PlayAural Server
             user.speak_l("host-invite-friend-unavailable", buffer="system")
             self._nav_refresh(user, self._show_host_invite_menu, table)
             return
-        if invitee_name in self._pending_invites:
-            user.speak_l("host-invite-already-pending", buffer="system")
-            self._nav_refresh(user, self._show_host_invite_menu, table)
-            return
-        if self._tables.find_user_table(invitee_name):
-            user.speak_l("host-invite-friend-busy", buffer="system")
-            self._nav_refresh(user, self._show_host_invite_menu, table)
-            return
-
         sent = await self._send_table_invite(user, table, invitee_user)
         if sent:
             user.speak_l("host-invite-sent", buffer="system", player=invitee_name)
@@ -10366,11 +10483,51 @@ PlayAural Server
     ) -> bool:
         """Send a table invite and schedule its bounded expiry."""
         invitee_name = invitee_user.username
-        if self._db.has_block_between(host_user.uuid, invitee_user.uuid):
-            host_user.speak_l("host-invite-friend-unavailable", buffer="system")
+        pending_invite = self._pending_invites.get(invitee_name)
+        if pending_invite:
+            current_invitee = self._users.get(invitee_name)
+            if (
+                current_invitee
+                and self._resolve_valid_pending_table_invite(
+                    current_invitee,
+                    pending_invite,
+                )
+            ):
+                host_user.speak_l("host-invite-already-pending", buffer="system")
+                return False
+            stale_invite_id = str(pending_invite.get("invite_id", ""))
+            self._cancel_matching_social_invites(
+                lambda current_name, invite: (
+                    current_name == invitee_name
+                    and str(invite.get("invite_id", "")) == stale_invite_id
+                )
+            )
+        eligibility_error = self._table_invite_eligibility_error(
+            host_user,
+            table,
+            invitee_user,
+        )
+        if eligibility_error:
+            host_user.speak_l(eligibility_error, buffer="system")
             return False
-        if invitee_name in self._pending_invites:
-            host_user.speak_l("host-invite-already-pending", buffer="system")
+
+        rate_limit_rejection = self._table_interaction_rate_limiter.try_consume(
+            self._table_interaction_rate_limiter.invite_keys(
+                host_user.uuid,
+                invitee_user.uuid,
+            )
+        )
+        if rate_limit_rejection:
+            message_key = (
+                "host-invite-pair-cooldown"
+                if rate_limit_rejection.scope is TableInteractionScope.INVITE_PAIR
+                else "host-invite-rate-limited"
+            )
+            host_user.speak_l(
+                message_key,
+                buffer="system",
+                seconds=rate_limit_rejection.seconds,
+            )
             return False
 
         game_class = get_game_class(table.game_type)
@@ -10380,11 +10537,17 @@ PlayAural Server
             else table.game_type
         )
 
+        invite_id = secrets.token_hex(TABLE_INVITE_ID_BYTES)
         self._pending_invites[invitee_name] = {
+            "invite_id": invite_id,
             "table_id": table.table_id,
             "host_username": host_user.username,
+            "host_uuid": host_user.uuid,
+            "invitee_uuid": invitee_user.uuid,
             "game_name": game_name,
-            "task": asyncio.create_task(self._expire_invite(invitee_name, table.table_id)),
+            "task": asyncio.create_task(
+                self._expire_invite(invitee_name, invite_id)
+            ),
             "deferred": False,
         }
         if self._user_has_blocking_modal_state(invitee_name):
@@ -10409,6 +10572,19 @@ PlayAural Server
     ) -> None:
         """Display a pending table invite prompt, preserving its existing expiry timer."""
         invitee_name = invitee_user.username
+        invite_id = invite.get("invite_id")
+        if self._pending_invites.get(invitee_name) is not invite:
+            return
+        if (
+            not self._is_valid_table_invite_id(invite_id)
+            or not self._resolve_valid_pending_table_invite(invitee_user, invite)
+        ):
+            self._cancel_invite(invitee_name)
+            invitee_user.speak_l(
+                "table-invite-no-longer-available",
+                buffer="system",
+            )
+            return
         table_id = invite.get("table_id", "")
         host_username = invite.get("host_username", "")
         game_name = invite.get("game_name", "")
@@ -10417,6 +10593,7 @@ PlayAural Server
         self._user_states[invitee_name] = {
             "menu": "table_invite_prompt",
             "table_id": table_id,
+            "invite_id": invite_id,
             "prev_state": prev_state,
         }
 
@@ -10433,13 +10610,27 @@ PlayAural Server
                     "host",
                 ),
             },
-            confirm_choice=ConfirmationChoice("accept", "invite-accept"),
-            cancel_choice=ConfirmationChoice("decline", "invite-decline"),
+            confirm_choice=ConfirmationChoice(
+                self._table_invite_action_id(
+                    "accept",
+                    invite_id,
+                ),
+                "invite-accept",
+            ),
+            cancel_choice=ConfirmationChoice(
+                self._table_invite_action_id(
+                    "decline",
+                    invite_id,
+                ),
+                "invite-decline",
+            ),
             buffer="system",
         )
 
         if not invite.get("task"):
-            invite["task"] = asyncio.create_task(self._expire_invite(invitee_name, table_id))
+            invite["task"] = asyncio.create_task(
+                self._expire_invite(invitee_name, invite_id)
+            )
         invite["deferred"] = False
 
     def _maybe_show_deferred_table_invite(self, user: NetworkUser) -> bool:
@@ -10450,29 +10641,27 @@ PlayAural Server
         if self._user_has_blocking_modal_state(user.username):
             return False
 
-        table_id = invite.get("table_id", "")
-        table = self._tables.get_table(table_id)
-        if not table or not table.game or self._tables.find_user_table(user.username):
-            self._cancel_invite(user.username)
-            user.speak_l("table-invite-expired", buffer="system")
-            return True
-
         self._show_table_invite_prompt(user, invite)
         return True
 
-    async def _expire_invite(self, invitee_name: str, table_id: str) -> None:
+    async def _expire_invite(self, invitee_name: str, invite_id: str) -> None:
         """Auto-expire an invite after the shared interactive timeout."""
         try:
             await asyncio.sleep(INTERACTIVE_TABLE_REQUEST_TIMEOUT_SECONDS)
             invite = self._pending_invites.get(invitee_name)
-            if not invite or invite.get("table_id") != table_id:
+            if not invite or invite.get("invite_id") != invite_id:
                 return
+            table_id = invite.get("table_id", "")
             self._pending_invites.pop(invitee_name, None)
             invitee_user = self._users.get(invitee_name)
             if not invitee_user:
                 return
             state = self._user_states.get(invitee_name, {})
-            if state.get("menu") == "table_invite_prompt" and state.get("table_id") == table_id:
+            if (
+                state.get("menu") == "table_invite_prompt"
+                and state.get("table_id") == table_id
+                and state.get("invite_id") == invite_id
+            ):
                 invitee_user.speak_l("table-invite-expired", buffer="system")
                 invitee_user.remove_menu("table_invite_prompt", send_packet=False)
                 prev_state = state.get("prev_state", {})
@@ -10482,10 +10671,18 @@ PlayAural Server
         except asyncio.CancelledError:
             pass
 
-    def _cancel_invite(self, invitee_name: str, *, table_id: str | None = None) -> None:
+    def _cancel_invite(
+        self,
+        invitee_name: str,
+        *,
+        table_id: str | None = None,
+        invite_id: str | None = None,
+    ) -> None:
         """Cancel a pending invite and stop its expiry task."""
         invite = self._pending_invites.get(invitee_name)
         if table_id is not None and invite and invite.get("table_id") != table_id:
+            return
+        if invite_id is not None and invite and invite.get("invite_id") != invite_id:
             return
         invite = self._pending_invites.pop(invitee_name, None)
         if invite:
@@ -10498,37 +10695,52 @@ PlayAural Server
     ) -> None:
         """Handle accept/decline of a table invite."""
         table_id = state.get("table_id")
+        invite_id = state.get("invite_id")
         prev_state = state.get("prev_state", {})
 
-        if selection_id not in ("accept", "decline"):
+        if not self._is_valid_table_invite_id(invite_id):
+            return
+        expected_accept = self._table_invite_action_id("accept", invite_id)
+        expected_decline = self._table_invite_action_id("decline", invite_id)
+        if selection_id == expected_accept:
+            decision = "accept"
+        elif selection_id == expected_decline:
+            decision = "decline"
+        else:
             return
 
         invite = self._pending_invites.get(user.username)
-        if not invite or invite.get("table_id") != table_id:
-            user.remove_menu("table_invite_prompt", send_packet=False)
-            self._restore_menu_from_state(user, prev_state)
+        if (
+            not invite
+            or invite.get("table_id") != table_id
+            or invite.get("invite_id") != invite_id
+        ):
+            current_state = self._user_states.get(user.username, {})
+            if (
+                current_state.get("menu") == "table_invite_prompt"
+                and current_state.get("table_id") == table_id
+                and current_state.get("invite_id") == invite_id
+            ):
+                user.remove_menu("table_invite_prompt", send_packet=False)
+                self._restore_menu_from_state(user, prev_state)
             return
 
-        self._cancel_invite(user.username, table_id=table_id)
+        table = self._resolve_valid_pending_table_invite(user, invite)
+        self._cancel_invite(
+            user.username,
+            table_id=table_id,
+            invite_id=invite_id,
+        )
         user.remove_menu("table_invite_prompt", send_packet=False)
 
-        table = self._tables.get_table(table_id)
-
-        if selection_id == "accept" and table and table.game:
-            user_record = self._db.get_user(user.username)
-            if user_record and table.is_banned(user_record.uuid):
-                user.speak_l("table-you-are-banned", buffer="system")
-                self._restore_menu_from_state(user, prev_state)
-                return
-            if self._is_new_table_admission_blocked(user, table):
-                user.speak_l("table-join-social-blocked", buffer="system")
-                self._restore_menu_from_state(user, prev_state)
-                return
+        if decision == "accept" and table:
             # _auto_join_table sets _user_states itself, so just call it
             self._auto_join_table(user, table, table.game_type, allow_private_join=True)
         else:
-            if table and selection_id == "decline":
-                host_user = self._users.get(table.host)
+            if decision == "accept":
+                user.speak_l("table-invite-no-longer-available", buffer="system")
+            elif table:
+                host_user = self._users.get(str(invite.get("host_username", "")))
                 if host_user:
                     host_user.speak_l("host-invite-declined", buffer="system", player=user.username)
             self._restore_menu_from_state(user, prev_state)
@@ -10599,7 +10811,6 @@ PlayAural Server
         ):
             table.host = new_host_name
             table.game.host = new_host_name
-            self._cancel_invalid_table_invites_for_table(table)
             self._cancel_player_substitution_requests_matching(
                 lambda _name, request: request.get("table_id") == table.table_id,
                 message_key="player-substitution-no-longer-available",
@@ -12775,6 +12986,17 @@ PlayAural Server
 
     def on_table_destroy(self, table) -> None:
         """Handle table destruction. Called by TableManager."""
+        interaction_limiter = getattr(
+            self,
+            "_table_interaction_rate_limiter",
+            None,
+        )
+        if interaction_limiter:
+            interaction_limiter.remove_table(table.table_id)
+        self._cancel_matching_social_invites(
+            lambda _name, invite: invite.get("table_id") == table.table_id,
+            message_key="table-invite-no-longer-available",
+        )
         self._cancel_player_substitution_requests_matching(
             lambda _name, request: request.get("table_id") == table.table_id,
             message_key="player-substitution-no-longer-available",

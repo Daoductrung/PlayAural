@@ -344,6 +344,10 @@ action-start-requires-exact-players = Chưa thể bắt đầu. Số người đ
 action-start-needs-human-player = Không thể bắt đầu khi chỉ có bot. Phải có ít nhất một người chơi thật tham gia. Hãy chuyển từ khán giả sang người chơi; nếu bàn đã đầy, trước tiên hãy xóa một bot.
 action-no-bots = Không có bot nào để xóa.
 action-bots-cannot = Bot không thể làm điều này.
+action-role-change-rate-limited = Bạn đang chuyển đổi giữa người chơi và khán giả quá nhanh. Hãy thử lại sau { $seconds ->
+    [one] 1 giây
+   *[other] { $seconds } giây
+}.
 action-no-scores = Chưa có điểm số nào.
 
 options-category-audio = Âm thanh
@@ -1172,13 +1176,22 @@ player-substitution-complete-replacement-you = Bạn đã tiếp quản chỗ d�
 player-substitution-complete-replacement = { $player } đã tiếp quản chỗ dành riêng cho { $replaced_player } từ { $bot }. Quyền giữ chỗ trước đây đã kết thúc.
 host-invite-no-friends = (Không có bạn bè nào để mời)
 host-invite-sent = Đã gửi lời mời đến { $player }.
-host-invite-friend-unavailable = Người bạn đó hiện không trực tuyến.
+host-invite-friend-unavailable = Hiện không thể mời người bạn đó.
 host-invite-already-pending = Lời mời đang chờ xử lý đã được gửi cho người bạn đó.
 host-invite-friend-busy = Người bạn đó đang trong một trò chơi.
+host-invite-pair-cooldown = Vui lòng chờ { $seconds ->
+    [one] 1 giây
+   *[other] { $seconds } giây
+} trước khi mời lại người bạn đó.
+host-invite-rate-limited = Bạn đang gửi lời mời vào bàn quá nhanh. Hãy thử lại sau { $seconds ->
+    [one] 1 giây
+   *[other] { $seconds } giây
+}.
 host-invite-declined = { $player } đã từ chối lời mời bàn của bạn.
 table-invite-received = { $host } đã mời bạn tham gia bàn { $game } { GENDER_TERM($host_gender, "possessive-determiner") }.
 table-invite-queued = { $host } đã mời bạn tham gia bàn { $game } { GENDER_TERM($host_gender, "possessive-determiner") }. Hãy hoàn tất phần nhập hiện tại để trả lời.
 table-invite-expired = Lời mời bàn đã hết hạn.
+table-invite-no-longer-available = Lời mời vào bàn đó không còn hiệu lực.
 invite-accept = Chấp nhận lời mời
 invite-decline = Từ chối lời mời
 host-management-no-longer-host = Bạn không còn là chủ bàn này.

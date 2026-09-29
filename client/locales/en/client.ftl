@@ -178,6 +178,11 @@ main-reconnect-failed = Reconnection failed. Please restart the application.
 main-reconnecting-as-attempt = Reconnecting as { $username }... attempt { $attempt }.
 logged-out = You have logged out.
 goodbye = Goodbye!
+logout-confirm-title = Log out and close PlayAural?
+logout-confirm-message = Do you want to leave your current activity, log out, and close PlayAural?
+logout-confirm-yes = Yes, log out
+logout-confirm-no = No, stay
+logout-in-progress = Leaving your current activity and logging out.
 
 update-available-title = Update Available
 update-available-message = A new version ({ $version }) is available. Do you want to update now?

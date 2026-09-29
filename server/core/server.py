@@ -10,9 +10,10 @@ import signal
 import sys
 import time
 import weakref
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Literal
+from typing import Any, Literal
 
 from .power import (
     POWER_REBOOT_EXIT_CODE,
@@ -463,6 +464,12 @@ class Server:
             asyncio.Lock,
         ] = weakref.WeakValueDictionary()
         self._pending_session_state_cleanups: dict[str, asyncio.Task] = {}
+        # Ordered, runtime-only teardown hooks for authenticated activities.
+        # Clients request one generic logout; the server remains authoritative
+        # about every area that must be left before the session is retired.
+        self._session_exit_handlers: tuple[
+            Callable[[NetworkUser], Awaitable[None]], ...
+        ] = (self._leave_table_for_session_exit,)
         # Pending table invites: invitee_username -> {table_id, host_username, task, deferred, game_name}
         self._pending_invites: dict[str, dict] = {}
         # Runtime-only consent requests. They are bounded by an expiry task and
@@ -1444,13 +1451,23 @@ PlayAural Server
         if self.maintenance_manager.is_active:
             if packet_type == "ping" and client.authenticated:
                 await self._handle_ping(client)
+                return
+            if packet_type != "logout" or not client.authenticated:
+                await self.maintenance_manager.reject_packet(client, packet)
+                return
+
+            # Preserve an authenticated intentional exit across the exclusive
+            # database barrier. It will run as soon as normal runtime mutation
+            # is safe again instead of degrading into a resumable disconnect.
+            if not await self.maintenance_manager.begin_tracked_work_when_available():
+                return
+        elif not self.maintenance_manager.begin_tracked_work():
+            if packet_type == "logout" and client.authenticated:
+                if not await self.maintenance_manager.begin_tracked_work_when_available():
+                    return
             else:
                 await self.maintenance_manager.reject_packet(client, packet)
-            return
-
-        if not self.maintenance_manager.begin_tracked_work():
-            await self.maintenance_manager.reject_packet(client, packet)
-            return
+                return
 
         try:
             if packet_type == "authorize":
@@ -1507,6 +1524,12 @@ PlayAural Server
         packet_type = packet.get("type")
         if packet_type == "ping":
             await self._handle_ping(client)
+            return
+        if packet_type == "logout":
+            await self._complete_logout(
+                user,
+                leave_activities=not self.power_manager.is_finalizing,
+            )
             return
 
         if self.power_manager.is_finalizing:
@@ -7747,21 +7770,72 @@ PlayAural Server
     ) -> None:
         """Handle logout confirmation selection."""
         if selection_id == "yes":
-            # An intentional logout must never leave a resumable confirmation
-            # behind for the next login. Unexpected disconnects still retain
-            # stable navigation state through the normal bounded lifecycle.
-            self._user_states.pop(user.username, None)
-            self._deferred_navigation.pop(user.username, None)
-
-            # Send force_exit command
-            # The client will speak "Goodbye" and sys.exit(0), checking self.quitting to avoid reconnects
-            await user.connection.send({"type": "force_exit"})
-            
-            # We don't close the connection immediately. We let the client close it.
-            # But we can schedule a failsafe close in case client is stuck
-            asyncio.create_task(self._failsafe_close(user))
+            await self._complete_logout(
+                user,
+                leave_activities=not self.power_manager.is_finalizing,
+            )
         elif selection_id == "no":
             self._nav_back(user)
+
+    async def _leave_table_for_session_exit(self, user: NetworkUser) -> None:
+        """Leave the user's table through the shared authoritative lifecycle."""
+        table = self._tables.find_user_table(user.username)
+        if not table:
+            return
+
+        await self._clear_voice_presence(
+            user.username,
+            "voice-status-left-table",
+            table=table,
+        )
+
+        game = table.game
+        player = game.get_player_by_id(user.uuid) if game else None
+        if player is not None:
+            game._perform_leave_game(player)
+
+        if (
+            not table._destroyed
+            and any(member.username == user.username for member in table.members)
+        ):
+            table.remove_member(user.username)
+
+        user.set_table_context("")
+
+    async def _leave_session_activities(self, user: NetworkUser) -> None:
+        """Run every registered activity teardown before an intentional logout."""
+        for handler in self._session_exit_handlers:
+            await handler(user)
+
+    async def _complete_logout(
+        self,
+        user: NetworkUser,
+        *,
+        leave_activities: bool = True,
+    ) -> bool:
+        """Gracefully leave runtime activities, retire the session, and exit."""
+        if self._users.get(user.username) is not user:
+            return False
+
+        if leave_activities:
+            await self._leave_session_activities(user)
+
+        retired_user, client = await self._retire_account_session_locked(
+            user.username
+        )
+        if retired_user is not user:
+            return False
+
+        await self._close_retired_session(client, {"type": "force_exit"})
+        if not self.power_manager.is_finalizing:
+            self._broadcast_presence(
+                user.username,
+                user.uuid,
+                trust_level=user.trust_level,
+                is_online=False,
+            )
+            self.on_user_presence_changed()
+        return True
 
     async def _failsafe_close(self, user):
         """Close connection after delay if client hasn't already."""

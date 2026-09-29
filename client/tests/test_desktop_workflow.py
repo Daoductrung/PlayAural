@@ -11,7 +11,7 @@ from ui.copy_directive import (
     execute_copy_directive,
     validate_copy_directive,
 )
-from ui.main_window import MainWindow
+from ui.main_window import LOGOUT_RESPONSE_TIMEOUT_MS, MainWindow
 
 
 CLIENT_DIR = Path(__file__).resolve().parents[1]
@@ -20,6 +20,177 @@ COPY_CONFORMANCE = json.loads(
         encoding="utf-8"
     )
 )
+
+
+def test_desktop_logout_dialog_localizes_decisions_and_defaults_safe(monkeypatch):
+    captured = {}
+
+    class Dialog:
+        def __init__(self, parent, message, title, style):
+            captured.update(
+                parent=parent,
+                message=message,
+                title=title,
+                style=style,
+            )
+
+        @staticmethod
+        def SetYesNoLabels(yes, no):
+            captured["labels"] = (yes, no)
+
+        @staticmethod
+        def ShowModal():
+            return main_window_module.wx.ID_NO
+
+        @staticmethod
+        def Destroy():
+            captured["destroyed"] = True
+
+    monkeypatch.setattr(main_window_module.wx, "MessageDialog", Dialog)
+    window = object()
+
+    assert MainWindow._show_logout_confirmation(window) is False
+    assert captured["parent"] is window
+    assert captured["labels"] == (
+        main_window_module.Localization.get("logout-confirm-yes"),
+        main_window_module.Localization.get("logout-confirm-no"),
+    )
+    assert captured["style"] & main_window_module.wx.NO_DEFAULT
+    assert captured["destroyed"] is True
+
+
+def test_desktop_close_cancel_preserves_session_and_restores_focus(monkeypatch):
+    sent_packets = []
+    focus_restores = []
+    vetoes = []
+
+    focused = type(
+        "FocusedControl",
+        (),
+        {
+            "IsEnabled": staticmethod(lambda: True),
+            "IsShown": staticmethod(lambda: True),
+            "SetFocus": staticmethod(lambda: focus_restores.append(True)),
+        },
+    )()
+    monkeypatch.setattr(
+        main_window_module.wx,
+        "Window",
+        type("Window", (), {"FindFocus": staticmethod(lambda: focused)}),
+    )
+    monkeypatch.setattr(
+        main_window_module.wx,
+        "CallAfter",
+        lambda callback: callback(),
+    )
+
+    window = type(
+        "WindowHarness",
+        (),
+        {
+            "connected": True,
+            "quitting": False,
+            "_logout_request_pending": False,
+            "_show_logout_confirmation": staticmethod(lambda: False),
+            "network": type(
+                "Network",
+                (),
+                {"send_packet": staticmethod(lambda packet: sent_packets.append(packet))},
+            )(),
+            "_restore_focus_after_close_cancel": staticmethod(
+                MainWindow._restore_focus_after_close_cancel
+            ),
+        },
+    )()
+    event = type(
+        "CloseEvent",
+        (),
+        {
+            "CanVeto": staticmethod(lambda: True),
+            "Veto": staticmethod(lambda: vetoes.append(True)),
+        },
+    )()
+
+    MainWindow.on_close(window, event)
+
+    assert vetoes == [True]
+    assert sent_packets == []
+    assert focus_restores == [True]
+
+
+def test_desktop_confirmed_close_sends_one_generic_logout_request(monkeypatch):
+    sent_packets = []
+    scheduled = []
+    vetoes = []
+    spoken = []
+
+    monkeypatch.setattr(
+        main_window_module.wx,
+        "Window",
+        type("Window", (), {"FindFocus": staticmethod(lambda: None)}),
+    )
+    timer = type("Timer", (), {"Stop": staticmethod(lambda: None)})()
+
+    def call_later(delay, callback):
+        scheduled.append((delay, callback))
+        return timer
+
+    monkeypatch.setattr(main_window_module.wx, "CallLater", call_later)
+
+    window = type(
+        "WindowHarness",
+        (),
+        {
+            "connected": True,
+            "quitting": False,
+            "is_reconnecting": True,
+            "expecting_reconnect": True,
+            "_logout_request_pending": False,
+            "_logout_response_timer": None,
+            "_show_logout_confirmation": staticmethod(lambda: True),
+            "network": type(
+                "Network",
+                (),
+                {
+                    "send_packet": staticmethod(
+                        lambda packet: sent_packets.append(packet) or True
+                    )
+                },
+            )(),
+            "speaker": type(
+                "Speaker",
+                (),
+                {
+                    "speak": staticmethod(
+                        lambda text, interrupt: spoken.append((text, interrupt))
+                    )
+                },
+            )(),
+            "_finish_local_exit": staticmethod(lambda: None),
+            "_restore_focus_after_close_cancel": staticmethod(
+                MainWindow._restore_focus_after_close_cancel
+            ),
+        },
+    )()
+    event = type(
+        "CloseEvent",
+        (),
+        {
+            "CanVeto": staticmethod(lambda: True),
+            "Veto": staticmethod(lambda: vetoes.append(True)),
+        },
+    )()
+
+    MainWindow.on_close(window, event)
+    MainWindow.on_close(window, event)
+
+    assert vetoes == [True, True]
+    assert sent_packets == [{"type": "logout"}]
+    assert window._logout_request_pending is True
+    assert window.is_reconnecting is False
+    assert window.expecting_reconnect is False
+    assert spoken and spoken[0][1] is True
+    assert scheduled == [(LOGOUT_RESPONSE_TIMEOUT_MS, window._finish_local_exit)]
 
 
 def test_read_only_menu_rows_never_send_desktop_selections():

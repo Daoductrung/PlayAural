@@ -811,6 +811,96 @@ test("Back from the landing screen exits locally and cannot send a server action
   assert.equal(exited, true);
 });
 
+test("confirmed mobile logout sends one generic request and waits for the server", () => {
+  const calls = [];
+  const logoutResponseTimerRef = { current: null };
+  let timeoutCallback = null;
+  const requestLogout = handler("requestLogout", {
+    LOGOUT_RESPONSE_TIMEOUT_MS: 5000,
+    announce: (message, buffer) => calls.push(["announce", message, buffer]),
+    closeDialog: () => calls.push(["close-dialog"]),
+    connectionRef: {
+      current: {
+        send: (packet) => {
+          calls.push(["send", packet]);
+          return true;
+        },
+      },
+    },
+    disableAutoReconnect: () => calls.push(["disable-reconnect"]),
+    handleTerminalSessionExit: (message, announce) => calls.push(["exit", message, announce]),
+    localization: { t: (key) => key },
+    logoutResponseTimerRef,
+    setStatusText: (message) => calls.push(["status", message]),
+    setTimeout: (callback, delay) => {
+      timeoutCallback = callback;
+      calls.push(["timeout", delay]);
+      return 1;
+    },
+  });
+
+  requestLogout();
+  requestLogout();
+
+  assert.deepEqual(calls, [
+    ["close-dialog"],
+    ["disable-reconnect"],
+    ["send", { type: "logout" }],
+    ["status", "logout-in-progress"],
+    ["announce", "logout-in-progress", "system"],
+    ["timeout", 5000],
+  ]);
+  assert.equal(logoutResponseTimerRef.current, 1);
+
+  timeoutCallback();
+  assert.equal(logoutResponseTimerRef.current, null);
+  assert.deepEqual(calls.at(-1), ["exit", "logout-complete", false]);
+});
+
+test("mobile logout confirmation exposes the prompt and focuses the safe choice", () => {
+  let dialog = null;
+  const closeDialog = () => {};
+  const requestLogout = () => {};
+  const confirmLogout = handler("confirmLogout", {
+    closeDialog,
+    localization: { t: (key) => key },
+    logoutResponseTimerRef: { current: null },
+    openDialog: (value) => { dialog = value; },
+    requestLogout,
+  });
+
+  confirmLogout();
+
+  assert.equal(dialog.id, "logout-confirmation");
+  assert.equal(dialog.message, "logout-message");
+  assert.equal(dialog.focusIndex, 1);
+  assert.deepEqual(dialog.buttons.map((button) => button.id), ["confirm", "cancel"]);
+  assert.equal(dialog.buttons[0].onPress, requestLogout);
+  assert.equal(dialog.buttons[1].onPress, closeDialog);
+});
+
+test("mobile logout falls back locally when no authenticated transport can send", () => {
+  const calls = [];
+  const requestLogout = handler("requestLogout", {
+    announce: () => calls.push("announce"),
+    closeDialog: () => calls.push("close-dialog"),
+    connectionRef: { current: { send: () => false } },
+    disableAutoReconnect: () => calls.push("disable-reconnect"),
+    handleTerminalSessionExit: (message, announce) => calls.push(["exit", message, announce]),
+    localization: { t: (key) => key },
+    logoutResponseTimerRef: { current: null },
+    setStatusText: () => calls.push("status"),
+  });
+
+  requestLogout();
+
+  assert.deepEqual(calls, [
+    "close-dialog",
+    "disable-reconnect",
+    ["exit", "logout-complete", false],
+  ]);
+});
+
 test("online-list refreshes preserve escape behavior and stable focus through repeated presence changes", () => {
   const { MenuFocusContextStore, resolveMenuFocusIndex } = compile(readFileSync(new URL("../src/app/menuFocus.ts", import.meta.url), "utf8"));
   const menuStateRef = { current: { menuId: "main_menu", items: [], focusIndex: 0 } };

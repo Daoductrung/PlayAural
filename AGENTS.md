@@ -670,6 +670,12 @@ manager, never ad-hoc database calls from an admin handler.
 - Account handover is serialized per canonical username. Only the exact
   connection owned by the current `NetworkUser` may dispatch packets or run
   disconnect cleanup; stale sockets and callbacks must be harmless.
+- Intentional application exit uses the generic authenticated `logout` packet.
+  The server runs its ordered session-activity teardown handlers (including
+  table and voice departure) before retiring the session and sending
+  `force_exit`; clients must not duplicate game- or room-specific cleanup.
+  Forced process loss remains an ordinary disconnect because browsers and
+  mobile operating systems cannot guarantee a final network callback.
 - Credential verification, password-reset eviction, moderation eviction, and
   account deletion must use that same account lock so a checked credential
   cannot install a session after its account or password changed.

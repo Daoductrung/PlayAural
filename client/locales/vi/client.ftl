@@ -178,6 +178,11 @@ main-reconnect-failed = Kết nối lại thất bại. Vui lòng khởi động
 main-reconnecting-as-attempt = Đang kết nối lại với tên { $username }... lần thử { $attempt }.
 logged-out = Bạn đã đăng xuất.
 goodbye = Tạm biệt!
+logout-confirm-title = Đăng xuất và đóng PlayAural?
+logout-confirm-message = Bạn có muốn rời hoạt động hiện tại, đăng xuất và đóng PlayAural không?
+logout-confirm-yes = Có, đăng xuất
+logout-confirm-no = Không, ở lại
+logout-in-progress = Đang rời hoạt động hiện tại và đăng xuất.
 
 update-available-title = Có bản cập nhật mới
 update-available-message = Đã có phiên bản mới ({ $version }). Bạn có muốn cập nhật ngay không?

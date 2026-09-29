@@ -112,11 +112,17 @@ export class PlayAuralConnection {
     });
   }
 
-  send(packet: ClientPacket): void {
+  send(packet: ClientPacket): boolean {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      return;
+      return false;
     }
-    this.socket.send(JSON.stringify(packet));
+    try {
+      this.socket.send(JSON.stringify(packet));
+      return true;
+    } catch {
+      this.handlers.onError?.("Connection error.");
+      return false;
+    }
   }
 
   requestTemporary(

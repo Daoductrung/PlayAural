@@ -103,6 +103,8 @@ const NATIVE_FOCUS_RESET_GUARD_MS = 900;
 const CONNECTION_AUDIO_ASSET = "connectloop.ogg";
 const CONNECTION_AUDIO_HANDLE = "client:connection";
 const CONNECTION_AUDIO_LAYER = "connection";
+const TRANSPORT_CLOSE_TIMEOUT_MS = 1500;
+const LOGOUT_RESPONSE_TIMEOUT_MS = 5000;
 
 type ReleaseDownloadInfo = {
   target?: string;
@@ -683,6 +685,7 @@ export function PlayAuralApp() {
   const modeRef = useRef(mode);
   const voiceJoinPendingRef = useRef(false);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const logoutResponseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectWindowStartedAtRef = useRef<number | null>(null);
   const reconnectDelayMsRef = useRef(1000);
   const reconnectAttemptsRef = useRef(0);
@@ -2256,9 +2259,20 @@ export function PlayAuralApp() {
     });
   }, [appState, audio, audioRevision, connected, localization, voiceMicBusy, voiceMicEnabled, voiceState]);
 
+  const clearLogoutResponseTimer = useCallback(() => {
+    if (logoutResponseTimerRef.current === null) {
+      return;
+    }
+    clearTimeout(logoutResponseTimerRef.current);
+    logoutResponseTimerRef.current = null;
+  }, []);
+
+  useEffect(() => clearLogoutResponseTimer, [clearLogoutResponseTimer]);
+
   const exitApplication = useCallback(() => {
+    clearLogoutResponseTimer();
     disableAutoReconnect();
-    const disconnectPromise = connectionRef.current?.disconnectAndWait(1500) ?? Promise.resolve();
+    const disconnectPromise = connectionRef.current?.disconnectAndWait(TRANSPORT_CLOSE_TIMEOUT_MS) ?? Promise.resolve();
     void disconnectPromise.finally(async () => {
       if (Platform.OS === "android") {
         await androidForegroundService.stop();
@@ -2274,7 +2288,7 @@ export function PlayAuralApp() {
         window.close();
       }
     });
-  }, [audio, disableAutoReconnect, tts, voice]);
+  }, [audio, clearLogoutResponseTimer, disableAutoReconnect, tts, voice]);
 
   const resetToLoginScreen = useCallback((statusMessage: string, authMessage = statusMessage) => {
     buffers.clear();
@@ -2315,12 +2329,13 @@ export function PlayAuralApp() {
   }, [audio, buffers, clearScheduledNativeFocus, resetVoiceUiState, voice]);
 
   const handleTerminalSessionExit = useCallback((message: string, announceMessage = true) => {
+    clearLogoutResponseTimer();
     disableAutoReconnect();
     if (announceMessage) {
       announce(message, "system");
     }
     resetToLoginScreen(message);
-    const disconnectPromise = connectionRef.current?.disconnectAndWait(1500) ?? Promise.resolve();
+    const disconnectPromise = connectionRef.current?.disconnectAndWait(TRANSPORT_CLOSE_TIMEOUT_MS) ?? Promise.resolve();
     void disconnectPromise.finally(async () => {
       if (Platform.OS === "android") {
         await androidForegroundService.stop();
@@ -2330,7 +2345,7 @@ export function PlayAuralApp() {
         BackHandler.exitApp();
       }
     });
-  }, [announce, disableAutoReconnect, resetToLoginScreen, tts]);
+  }, [announce, clearLogoutResponseTimer, disableAutoReconnect, resetToLoginScreen, tts]);
 
   const openDialog = useCallback((nextDialog: Omit<DialogState, "focusIndex"> & { focusIndex?: number }) => {
     Keyboard.dismiss();
@@ -4404,16 +4419,37 @@ export function PlayAuralApp() {
     }
   };
 
-  const logoutAndExitIfAndroid = () => {
-    handleTerminalSessionExit(localization.t("logout-complete"), false);
+  const requestLogout = () => {
+    if (logoutResponseTimerRef.current !== null) {
+      return;
+    }
+    closeDialog();
+    disableAutoReconnect();
+
+    const sent = connectionRef.current?.send({ type: "logout" }) ?? false;
+    if (!sent) {
+      handleTerminalSessionExit(localization.t("logout-complete"), false);
+      return;
+    }
+
+    const message = localization.t("logout-in-progress");
+    setStatusText(message);
+    announce(message, "system");
+    logoutResponseTimerRef.current = setTimeout(() => {
+      logoutResponseTimerRef.current = null;
+      handleTerminalSessionExit(localization.t("logout-complete"), false);
+    }, LOGOUT_RESPONSE_TIMEOUT_MS);
   };
 
   const confirmLogout = () => {
+    if (logoutResponseTimerRef.current !== null) {
+      return;
+    }
     openDialog({
       buttons: [
         {
           id: "confirm",
-          onPress: logoutAndExitIfAndroid,
+          onPress: requestLogout,
           text: localization.t("logout-confirm"),
           variant: "danger",
         },
@@ -4424,6 +4460,7 @@ export function PlayAuralApp() {
           variant: "secondary",
         },
       ],
+      focusIndex: 1,
       id: "logout-confirmation",
       message: localization.t("logout-message"),
       title: localization.t("logout-title"),

@@ -75,6 +75,7 @@ BUFFER_NAVIGATION_HANDLE = "client:buffer-navigation"
 DOWNLOAD_PROGRESS_INTERVAL_SECONDS = 0.1
 DOWNLOAD_PROGRESS_UI_TIMEOUT_SECONDS = 5.0
 DOWNLOAD_SPEECH_PERCENT_STEP = 10
+LOGOUT_RESPONSE_TIMEOUT_MS = 5000
 
 
 @dataclass(slots=True)
@@ -159,6 +160,10 @@ class MainWindow(wx.Frame):
         self.expecting_reconnect = False  # Track if we're expecting to reconnect (server restart)
         self.is_reconnecting = False # Track if we are in silent reconnect mode
         self.quitting = False # Track if finding to exit
+        self._logout_request_pending = False
+        self._logout_response_timer = None
+        self._close_cleanup_complete = False
+        self._window_destroy_started = False
         self.reconnect_start_time = None
         self.max_silent_reconnect_duration = 30 # seconds
         self.reconnect_attempts = 0  # Track reconnection attempts
@@ -681,16 +686,119 @@ class MainWindow(wx.Frame):
         pass
 
     def on_close(self, event):
-        """Clean up background voice resources before the frame closes."""
+        """Confirm an ordinary close and request an authoritative logout."""
+        can_veto = bool(event.CanVeto())
+        if self._logout_request_pending and can_veto:
+            event.Veto()
+            return
+
+        if not self.quitting and can_veto:
+            event.Veto()
+            focused = wx.Window.FindFocus()
+            if not self._show_logout_confirmation():
+                self._restore_focus_after_close_cancel(focused)
+                return
+
+            if self.connected and self.network.send_packet({"type": "logout"}):
+                self._logout_request_pending = True
+                self.is_reconnecting = False
+                self.expecting_reconnect = False
+                self.speaker.speak(
+                    Localization.get("logout-in-progress"),
+                    interrupt=True,
+                )
+                self._logout_response_timer = wx.CallLater(
+                    LOGOUT_RESPONSE_TIMEOUT_MS,
+                    self._finish_local_exit,
+                )
+                return
+
+            # The user already confirmed. If no authenticated transport can
+            # carry the request, close locally instead of trapping the window.
+            self._finish_local_exit()
+            return
+
+        self._cleanup_close_resources()
+        event.Skip()
+
+    def _show_logout_confirmation(self):
+        """Show the localized, safe-default native logout confirmation."""
+        dialog = wx.MessageDialog(
+            self,
+            Localization.get("logout-confirm-message"),
+            Localization.get("logout-confirm-title"),
+            wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION,
+        )
+        try:
+            dialog.SetYesNoLabels(
+                Localization.get("logout-confirm-yes"),
+                Localization.get("logout-confirm-no"),
+            )
+            return dialog.ShowModal() == wx.ID_YES
+        finally:
+            dialog.Destroy()
+
+    @staticmethod
+    def _restore_focus_after_close_cancel(focused):
+        """Restore the control that owned focus before the native dialog."""
+        if focused is None:
+            return
+        try:
+            if focused.IsShown() and focused.IsEnabled():
+                wx.CallAfter(focused.SetFocus)
+        except RuntimeError:
+            pass
+
+    def _cancel_logout_response_timer(self):
+        timer = self._logout_response_timer
+        self._logout_response_timer = None
+        if timer is None:
+            return
+        try:
+            timer.Stop()
+        except RuntimeError:
+            pass
+
+    def _cleanup_close_resources(self):
+        """Release client-owned resources exactly once during final shutdown."""
+        if self._close_cleanup_complete:
+            return
+        self._close_cleanup_complete = True
+        self._cancel_logout_response_timer()
         for observer in self._typing_input_observers:
-            observer.close()
+            try:
+                observer.close()
+            except Exception:
+                pass
         self._typing_input_observers.clear()
         self._native_typing_control_handles.clear()
+        try:
+            self.network.disconnect()
+        except Exception:
+            pass
         try:
             self.voice_manager.shutdown()
         except Exception:
             pass
-        event.Skip()
+        try:
+            self.sound_manager.stop_all(fade_ms=0)
+        except Exception:
+            pass
+
+    def _finish_local_exit(self):
+        """Finish a confirmed or forced exit without reopening confirmation."""
+        if self._window_destroy_started:
+            return
+        self._window_destroy_started = True
+        self.quitting = True
+        self._logout_request_pending = False
+        self._cleanup_close_resources()
+        try:
+            self.Destroy()
+        finally:
+            app = wx.GetApp()
+            if app is not None:
+                app.ExitMainLoop()
 
     def on_focus_menu(self, event):
         """Handle Alt+M shortcut to focus menu list."""
@@ -2141,6 +2249,12 @@ class MainWindow(wx.Frame):
 
     def on_connection_lost(self):
         """Handle connection loss."""
+        if self._logout_request_pending:
+            # The user already confirmed the exit. A transport loss while the
+            # server is processing logout must never start a reconnect loop.
+            self._finish_local_exit()
+            return
+
         # If we are quitting/exiting, ignore any connection loss events logic
         if self.quitting:
             return
@@ -2253,15 +2367,11 @@ class MainWindow(wx.Frame):
         
         # Internal codes: EXIT
         if reason == "exit":
+            self.quitting = True
+            self._logout_request_pending = False
+            self._cancel_logout_response_timer()
             self.speaker.speak(Localization.get("goodbye"), interrupt=True)
-            
-            # Hard exit after 1s to allow speech
-            def hard_exit():
-                import sys
-                self.Destroy()
-                sys.exit(0)
-            
-            wx.CallLater(1000, hard_exit)
+            wx.CallLater(1000, self._finish_local_exit)
             return
 
         # Localize specific reasons
@@ -2287,30 +2397,20 @@ class MainWindow(wx.Frame):
         """Handle forced exit command from server."""
         try:
             self.quitting = True
+            self._logout_request_pending = False
+            self._cancel_logout_response_timer()
             
             try:
                 self.speaker.speak(Localization.get("goodbye"), interrupt=True)
             except Exception:
                 pass
             
-            def hard_exit():
-                try:
-                    # Try graceful exit first
-                    self.Destroy()
-                    sys.exit(0)
-                except Exception:
-                    # Fallback to hard process termination
-                    os._exit(0)
-                finally:
-                    # Should not assume we get here, but just in case
-                    os._exit(0)
-
-            # Give 1s for speech then kill process
-            wx.CallLater(1000, hard_exit)
+            # Give the final speech a moment to start, then use the same
+            # idempotent shutdown path as every other accepted close.
+            wx.CallLater(1000, self._finish_local_exit)
 
         except Exception:
-             # If setup fails, die immediately
-             os._exit(0)
+            self._finish_local_exit()
 
     def on_update_preference(self, packet):
         """Handle preference update from server."""

@@ -458,11 +458,11 @@ class Table(DataClassJSONMixin):
 
         if username == self.host:
             promoted = self._promote_table_host(message_key="new-host")
-            if not promoted and self.effective_status() == "waiting":
-                # No non-spectator human can take over as host: destroy the table.
-                # This handles the case where only spectators remain after the host leaves
-                # (e.g. host is the only player and others joined as spectators, or the
-                # host toggled to spectator and all remaining members are spectators).
+            if not promoted:
+                # Ownership must never point at an account that has left. A
+                # live spectator host can deliberately supervise an active
+                # bot-only table, but once that host leaves and no seated human
+                # can inherit ownership, the table has no valid controller.
                 self.destroy()
                 return True
 

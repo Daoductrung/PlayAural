@@ -393,6 +393,10 @@ export type PingPacket = {
   type: "ping";
 };
 
+export type LogoutPacket = {
+  type: "logout";
+};
+
 export type ListOnlinePacket = {
   type: "list_online" | "list_online_with_games";
 };
@@ -433,6 +437,7 @@ export type ClientPacket =
   | EscapePacket
   | KeybindPacket
   | ListOnlinePacket
+  | LogoutPacket
   | MenuSelectionPacket
   | OpenSystemPacket
   | PingPacket

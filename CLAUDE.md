@@ -105,6 +105,11 @@ Important server-driven packets include:
 - `voice_leave_ack`
 - `voice_context_closed`
 
+Authenticated clients use the payload-free `logout` packet for an intentional
+application exit. The server, not the client, leaves every registered runtime
+activity before retiring the session and returning `force_exit`; this keeps
+table, voice, and future room teardown authoritative and ordered.
+
 **`silent` flag on `chat` packets**: Adding `"silent": True` suppresses both chat notification sounds and TTS in the first-party clients. Use it only when the server is also sending explicit `speak` and/or `audio` packets to control the output precisely.
 
 ### Social Blocking Boundary
@@ -694,6 +699,13 @@ queued send, transport-finally callback, or voice event must be harmless to its
 successor. Credential verification and account/password deletion or eviction
 must share the same account lock so a checked credential cannot become stale
 before session activation.
+
+Intentional application exit uses the generic authenticated `logout` packet.
+The server runs its ordered session-activity teardown handlers (including table
+and voice departure) before retiring the session and sending `force_exit`;
+clients must not duplicate game- or room-specific cleanup. Forced process loss
+remains an ordinary disconnect because browsers and mobile operating systems
+cannot guarantee a final network callback.
 
 First-party releases update the server and all clients in lockstep. Installing
 an authenticated session requires an exact client/server version match.

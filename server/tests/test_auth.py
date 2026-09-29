@@ -15,7 +15,9 @@ from server.core.server import (
     WELCOME_SOUND,
 )
 from server.gender import Gender
+from server.games.pig.game import PigGame
 from server.persistence.database import Database
+from server.users.bot import Bot
 from server.users.network_user import NetworkUser
 
 
@@ -827,16 +829,122 @@ class TestAuthSecurity:
             {},
         )
 
-        async def skip_failsafe(_user):
-            return None
-
-        self.server._failsafe_close = skip_failsafe
         await self.server._handle_logout_confirm_selection(user, "yes")
         await asyncio.sleep(0)
 
         assert client.sent_messages == [{"type": "force_exit"}]
+        assert client.closed is True
+        assert user.username not in self.server._users
         assert user.username not in self.server._user_states
         assert user.username not in self.server._deferred_navigation
+
+    @pytest.mark.asyncio
+    async def test_direct_logout_leaves_active_table_before_retiring_session(self):
+        alice_record = self.db.create_user(
+            "Alice",
+            "hash",
+            approved=True,
+            email="alice@example.com",
+        )
+        bob_record = self.db.create_user(
+            "Bob",
+            "hash",
+            approved=True,
+            email="bob@example.com",
+        )
+        alice_client = MockClient()
+        alice_client.username = alice_record.username
+        alice_client.authenticated = True
+        bob_client = MockClient()
+        bob_client.username = bob_record.username
+        bob_client.authenticated = True
+        alice = NetworkUser(
+            alice_record.username,
+            "en",
+            alice_client,
+            uuid=alice_record.uuid,
+            approved=True,
+        )
+        bob = NetworkUser(
+            bob_record.username,
+            "en",
+            bob_client,
+            uuid=bob_record.uuid,
+            approved=True,
+        )
+        self.server._users = {alice.username: alice, bob.username: bob}
+        self.server._user_states[alice.username] = {"menu": "in_game"}
+        self.server._user_states[bob.username] = {"menu": "in_game"}
+
+        table = self.server._tables.create_table("pig", alice.username, alice)
+        game = PigGame()
+        table.game = game
+        game._table = table
+        game.initialize_lobby(alice.username, alice)
+        table.add_member(bob.username, bob, as_spectator=False)
+        game.add_player(bob.username, bob)
+        game.on_start()
+
+        await self.server._handle_authenticated_message(
+            alice_client,
+            alice,
+            {"type": "logout"},
+        )
+
+        assert alice_client.sent_messages[-1] == {"type": "force_exit"}
+        assert alice_client.closed is True
+        assert alice.username not in self.server._users
+        assert self.server._tables.find_user_table(alice.username) is None
+        assert all(member.username != alice.username for member in table.members)
+        replacement = game.get_player_by_id(alice.uuid)
+        assert replacement is not None
+        assert replacement.is_bot is True
+        assert replacement.replaced_human_name == alice.username
+        assert table.host == bob.username
+
+    @pytest.mark.asyncio
+    async def test_spectator_host_logout_closes_unowned_bot_only_table(self):
+        host_record = self.db.create_user(
+            "Host",
+            "hash",
+            approved=True,
+            email="host@example.com",
+        )
+        client = MockClient()
+        client.username = host_record.username
+        client.authenticated = True
+        host = NetworkUser(
+            host_record.username,
+            "en",
+            client,
+            uuid=host_record.uuid,
+            approved=True,
+        )
+        self.server._users[host.username] = host
+        self.server._user_states[host.username] = {"menu": "in_game"}
+
+        table = self.server._tables.create_table("pig", host.username, host)
+        game = PigGame()
+        table.game = game
+        game._table = table
+        game.initialize_lobby(host.username, host)
+        game.add_player("Botty", Bot("Botty"))
+        game.on_start()
+        host_player = game.get_player_by_id(host.uuid)
+        assert host_player is not None
+        host_player.is_spectator = True
+        table.members[0].is_spectator = True
+
+        await self.server._handle_authenticated_message(
+            client,
+            host,
+            {"type": "logout"},
+        )
+
+        assert table._destroyed is True
+        assert self.server._tables.get_table(table.table_id) is None
+        assert client.sent_messages[-1] == {"type": "force_exit"}
+        assert client.closed is True
 
     @pytest.mark.asyncio
     async def test_authorize_kicks_existing_session_across_case_variants(self):

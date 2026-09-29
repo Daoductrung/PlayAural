@@ -231,8 +231,6 @@ class BingoOptions(GameOptions):
 class BingoGame(GridGameMixin, Game):
     """Classic 75-ball Bingo with configurable winning patterns."""
 
-    relevant_preferences: ClassVar[list[str]] = ["brief_announcements"]
-
     players: list[BingoPlayer] = field(default_factory=list)
     options: BingoOptions = field(default_factory=BingoOptions)
 
@@ -260,10 +258,6 @@ class BingoGame(GridGameMixin, Game):
     # payload) so is_grid_cell_enabled/whose_turn/tests can read "is a
     # draw in flight" directly without inspecting active_sequences.
     pending_call_number: int | None = None
-    # How many calls had been announced the last time a bot's daub cue
-    # played, so a call produces at most one public daub cue.
-    daub_cue_call_count: int = -1
-
     # Set for the duration of a claim's suspense beat (see
     # CLAIM_SEQUENCE_TAG); the claim itself is verified fresh, against
     # the live board, inside the resolution callback -- not stashed
@@ -415,7 +409,7 @@ class BingoGame(GridGameMixin, Game):
         # context/modified activation gesture: a Web press-and-hold, a mobile
         # long-press, or a one-finger double-tap-and-hold when mobile
         # self-voicing is active. It is bound to a separate hidden action that
-        # only exists for touch clients, while the visible Claim Bingo item
+        # only exists for touch clients, while the visible Call Bingo item
         # remains an equivalent assistive-technology path.
         self.define_keybind(
             "shift+enter",
@@ -459,7 +453,6 @@ class BingoGame(GridGameMixin, Game):
                 handler="_action_claim_bingo",
                 is_enabled="_is_claim_enabled",
                 is_hidden="_is_claim_hidden",
-                show_in_actions_menu=False,
             )
         )
 
@@ -474,18 +467,10 @@ class BingoGame(GridGameMixin, Game):
             )
         )
 
-        # claim_bingo deliberately stays LAST in this set's natural add
-        # order (grid cells, then the hidden nav actions, then this),
-        # on every client including touch. The 25 grid cells must occupy
-        # flat indices 0..24 in exact row-major order for the client's
-        # grid_height/grid_width math (see GridGameMixin) to line up
-        # visual position with logical (row, col) -- an earlier attempt
-        # to move claim_bingo to index 0 for touch shifted every cell by
-        # one and pushed the last cell into a phantom sixth row, so
-        # desktop, Web, and touch all navigated a board whose logical
-        # coordinates no longer matched what was on screen. Landing
-        # immediately after the 25th cell keeps Claim one step away
-        # rather than requiring a trip through the whole standard menu.
+        # Touch clients paint Claim immediately after the 25 contiguous grid
+        # cells, which preserves the grid's row-major coordinate mapping.
+        # Desktop hides the row from the board but can still reach the same
+        # action through the Escape menu or its B shortcut.
         return action_set
 
     def create_standard_action_set(self, player: Player) -> ActionSet:
@@ -620,7 +605,9 @@ class BingoGame(GridGameMixin, Game):
     def _is_claim_hidden(self, player: Player) -> Visibility:
         if self.status != "playing" or player.is_spectator:
             return Visibility.HIDDEN
-        return Visibility.VISIBLE
+        if self.is_touch_client(self.get_user(player)):
+            return Visibility.VISIBLE
+        return Visibility.HIDDEN
 
     def _is_repeat_call_enabled(self, player: Player) -> str | None:
         if self.status != "playing":
@@ -630,13 +617,17 @@ class BingoGame(GridGameMixin, Game):
         return None
 
     def _is_repeat_call_hidden(self, player: Player) -> Visibility:
-        return Visibility.HIDDEN if self.status != "playing" else Visibility.VISIBLE
+        if self.status == "playing" and self.is_touch_client(self.get_user(player)):
+            return Visibility.VISIBLE
+        return Visibility.HIDDEN
 
     def _is_check_called_enabled(self, player: Player) -> str | None:
         return None if self.status == "playing" else "action-not-playing"
 
     def _is_check_called_hidden(self, player: Player) -> Visibility:
-        return Visibility.HIDDEN if self.status != "playing" else Visibility.VISIBLE
+        if self.status == "playing" and self.is_touch_client(self.get_user(player)):
+            return Visibility.VISIBLE
+        return Visibility.HIDDEN
 
     # ------------------------------------------------------------------ #
     # Action handlers                                                     #
@@ -693,11 +684,13 @@ class BingoGame(GridGameMixin, Game):
             )
             if claimer is not None and claimer.id == player.id:
                 user.speak_l("bingo-whose-turn-checking-you", buffer="game")
+            elif claimer is None:
+                user.speak_l("bingo-whose-turn-checking-card", buffer="game")
             else:
                 user.speak_l(
                     "bingo-whose-turn-checking",
                     buffer="game",
-                    player=claimer.name if claimer else "",
+                    player=claimer.name,
                 )
         elif self.pending_call_number is not None:
             user.speak_l("bingo-whose-turn-drawing", buffer="game")
@@ -858,16 +851,19 @@ class BingoGame(GridGameMixin, Game):
         return errors
 
     def on_start(self) -> None:
+        self.cancel_sequences_by_tag(CALL_SEQUENCE_TAG)
+        self.cancel_sequences_by_tag(CLAIM_SEQUENCE_TAG)
         self.status = "playing"
         self._sync_table_status()
         self.game_active = True
         self.round = 0
         self.called_numbers = []
-        self.daub_cue_call_count = -1
         self.available_numbers = list(range(1, TOTAL_BALLS + 1))
         random.shuffle(self.available_numbers)
         self.winner_ids = []
         self.call_countdown_ticks = CALL_WARMUP_TICKS
+        self.pending_call_number = None
+        self.pending_claim_player_id = None
 
         active_players = [
             player
@@ -875,6 +871,7 @@ class BingoGame(GridGameMixin, Game):
             if isinstance(player, BingoPlayer)
         ]
         self.set_turn_players(active_players)
+        self.grid_cursors = {}
         self._init_grid()
         self.grid_col_labels = list(COLUMN_LETTERS)
         self.grid_row_labels = [str(i + 1) for i in range(CARD_ROWS)]
@@ -883,7 +880,10 @@ class BingoGame(GridGameMixin, Game):
             player.card, player.marked = self._generate_card()
             player.has_bingo = False
             player.rejected_claim_signatures = []
-            self.grid_cursors[player.id] = GridCursor(row=0, col=0)
+            player.pending_mark_number = None
+            player.pending_mark_ticks = 0
+            player.bot_pending_action = None
+            player.bot_think_ticks = 0
 
         # Background music loops quietly under the whole calling phase.
         # Keep it a low, non-intrusive bed if you ever swap this track:
@@ -958,15 +958,22 @@ class BingoGame(GridGameMixin, Game):
             self._process_bots()
 
     def _process_bots(self) -> None:
-        """Bots never poll themselves speculatively -- they only ever
-        react the instant a number they needed gets called (see
-        _handle_announce_call). This counts down and executes whatever
-        is scheduled for them: first the mark itself (delayed a beat,
-        see BOT_MARK_DELAY_*), and only once that's actually happened,
-        a claim -- if marking just completed their pattern."""
+        """Advance delayed bot marks and claims.
+
+        Ordinary bots react when a number is announced. Replacement bots also
+        reconcile the inherited card with the public call history so taking
+        over a human seat cannot lose earlier calls or preserve invalid marks.
+        """
         for player in self.get_active_players():
+            # A claim can begin while iterating this roster. Observe that new
+            # pause before touching the next bot so no mark or timer advances
+            # during the suspense window, even within the same server tick.
+            if self.is_sequence_bot_paused():
+                return
             if not isinstance(player, BingoPlayer) or not player.is_bot:
                 continue
+
+            self._sync_bot_card_to_calls(player)
 
             if player.pending_mark_number is not None:
                 if player.pending_mark_ticks > 0:
@@ -976,23 +983,45 @@ class BingoGame(GridGameMixin, Game):
                 continue  # mark first; claiming (if any) is next tick at the earliest
 
             if not player.bot_pending_action:
+                # A human seat may become bot-controlled after several calls.
+                # Once its inherited card is reconciled above, let the bot
+                # claim a pattern that the public call history already proves.
+                if self._check_pattern(player):
+                    player.bot_pending_action = "claim_bingo"
+                    player.bot_think_ticks = random.randint(
+                        BOT_REACTION_MIN_TICKS, BOT_REACTION_MAX_TICKS
+                    )
                 continue
             if player.bot_think_ticks > 0:
                 player.bot_think_ticks -= 1
                 continue
             action_id = player.bot_pending_action
-            # Bots are paused for the whole duration of any claim
-            # sequence (see on_tick), so this only matters for the
-            # single tick where a claim could start and be executed by
-            # a *different* bot within this same _process_bots call.
-            # Don't clear/execute a claim that would just be rejected
-            # for arriving mid-lock -- leave it queued and retry next
-            # tick instead of silently dropping a claim that was
-            # legitimate when it was scheduled.
+            # A non-bot-pausing gameplay lock may still reject the claim.
+            # Leave it queued rather than discarding a legitimate action.
             if action_id == "claim_bingo" and self._is_claim_enabled(player) is not None:
                 continue
             player.bot_pending_action = None
             self.execute_action(player, action_id)
+
+    def _sync_bot_card_to_calls(self, player: BingoPlayer) -> None:
+        """Reconcile a bot-controlled seat with the public call history.
+
+        This is normally a no-op because bots mark each new number through
+        their delayed reaction. It matters when a human seat becomes a
+        replacement bot: called numbers the human missed must be recovered,
+        while accidental marks on uncalled numbers must not become bot claims.
+        The currently scheduled number stays unmarked until its reaction delay
+        completes.
+        """
+        called = set(self.called_numbers)
+        pending = player.pending_mark_number
+        for row in range(CARD_ROWS):
+            for col in range(CARD_COLS):
+                if self._is_free_cell(row, col):
+                    player.marked[row][col] = True
+                    continue
+                number = player.card[row][col]
+                player.marked[row][col] = number in called and number != pending
 
     def _execute_bot_mark(self, player: BingoPlayer) -> None:
         number = player.pending_mark_number
@@ -1001,20 +1030,6 @@ class BingoGame(GridGameMixin, Game):
             return
 
         self._auto_mark(player, number)
-        # A single, un-narrated cue that "some activity happened" --
-        # not the exact square, and not naming the bot. Announcing every
-        # bot's exact letter+number to the whole table (as this used to)
-        # meant a table with several bots produced a burst of speech
-        # lines per call, potentially drowning out the caller itself.
-        # This is deliberately the only feedback: real bingo doesn't
-        # narrate other players' marks either.
-        # Only ONE public cue per announced number, however many bots
-        # happen to hold it -- one cue per bot stacked identical sounds
-        # into a burst.
-        if self.daub_cue_call_count != len(self.called_numbers):
-            self.daub_cue_call_count = len(self.called_numbers)
-            self.play_sound(SOUND_DAUB)
-
         if self._check_pattern(player) and not player.bot_pending_action:
             player.bot_pending_action = "claim_bingo"
             player.bot_think_ticks = random.randint(
@@ -1048,10 +1063,27 @@ class BingoGame(GridGameMixin, Game):
     def _handle_announce_call(self, payload: dict) -> None:
         number = payload.get("number")
         self.pending_call_number = None
-        if not isinstance(number, int):
+        if (
+            not isinstance(number, int)
+            or isinstance(number, bool)
+            or not 1 <= number <= TOTAL_BALLS
+            or number in self.called_numbers
+        ):
+            # Sequence payloads are internal, but saved state can outlive code
+            # versions or become corrupt. Drop an invalid callback and allow
+            # the next tick to continue instead of duplicating a call or
+            # leaving the board stuck in its drawing state.
+            self.call_countdown_ticks = 0
+            self.refresh_menus()
             return
 
         self.called_numbers.append(number)
+        # Rejections are scoped to one called-number state. Once a new number
+        # arrives, every old signature is obsolete and retaining it would let
+        # a long round accumulate needless serialized history.
+        for player in self.get_active_players():
+            if isinstance(player, BingoPlayer):
+                player.rejected_claim_signatures = []
         col = self._column_for_number(number)
         # The spin's own delay already ran before this callback fired, so
         # only the remainder of the configured interval is left before the
@@ -1130,6 +1162,10 @@ class BingoGame(GridGameMixin, Game):
             (p for p in self.get_active_players() if p.id == player_id), None
         )
         if not isinstance(player, BingoPlayer):
+            # The claimant may have left or been replaced while the suspense
+            # sequence was running. The lock ends with this callback, so paint
+            # the now-available controls even though there is no card to check.
+            self.refresh_menus()
             return
 
         is_valid, bad_number, winning_numbers = self._verify_claim(player)

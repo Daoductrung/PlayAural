@@ -1,57 +1,96 @@
 \*\*Bingo\*\*
 
-Bingo là trò chơi đọc số kinh điển dành cho 2 đến 12 người chơi. Mỗi người chơi nhận một thẻ 5x5 được xáo trộn độc lập, với các cột B-I-N-G-O và một ô miễn phí ở giữa. Trò chơi đọc từng số một trong tổng số 75 số, và người chơi đánh dấu thẻ của mình khi các số được đọc. Người chơi đầu tiên hoàn thành mẫu đã chọn và hô lên sẽ thắng.
+\*\*Bingo là gì?\*\*
 
-\*\*Cách chơi\*\*
+Bingo là trò chơi nghe và đánh dấu số dành cho 2 đến 12 người. Mọi người cùng nghe một người xướng số, nhưng mỗi người có một thẻ Bingo khác nhau. Khi một số được xướng lên, bạn tìm số đó trên thẻ và đánh dấu, đồng thời chú ý tới mẫu thắng mà chủ bàn đã chọn.
 
-Khi vòng chơi bắt đầu, mọi người đều nhận một thẻ. Sau đó, một số mới sẽ tự động được đọc theo khoảng thời gian cố định:
+Bingo không chia lượt. Tất cả người chơi cùng nghe số và hoàn thiện thẻ của mình.
 
-\* \*\*Di chuyển trên thẻ:\*\* Phím mũi tên trái/phải di chuyển giữa năm chữ cái B-I-N-G-O; phím mũi tên lên/xuống di chuyển giữa năm số trong cột đó. Mỗi ô bạn dừng lại sẽ thông báo trực tiếp đầy đủ, ví dụ "B 2" hoặc "O 75".
+\*\*Cách giành chiến thắng\*\*
 
-\* \*\*Đánh dấu một ô:\*\* Nhấn Enter trên một ô để đánh dấu, và nhấn lại để bỏ đánh dấu. Bạn có thể đánh dấu bất kỳ ô nào vào bất kỳ lúc nào, dù số đó đã được đọc hay chưa — đánh dấu trước không bị chặn. Ô miễn phí ở giữa được đánh dấu sẵn ngay từ đầu và giữ nguyên như vậy suốt cả vòng chơi: nó luôn được tính là đã đánh dấu trong bất kỳ mẫu nào có bao gồm nó (Chữ X, Kín cả thẻ), và phím Enter không có tác dụng gì trên ô này, vì không có gì để đánh dấu hay bỏ đánh dấu.
+Hoàn thành mẫu thắng bằng những số đã được xướng, rồi chọn \*\*Hô Bingo!\*\* hoặc nhấn B. Trò chơi sẽ kiểm tra thẻ trước khi xác nhận chiến thắng.
 
-\* \*\*Hô Bingo:\*\* Nhấn B khi các ô đã đánh dấu của bạn hoàn thành mẫu thắng. Lúc này yêu cầu sẽ được kiểm tra: nếu tất cả các ô đã đánh dấu trong mẫu hoàn chỉnh đều thực sự đã được đọc, bạn thắng. Nếu một trong các ô đó được đánh dấu trước khi số của nó được đọc, yêu cầu sẽ bị từ chối và cho biết cụ thể ô nào, để bạn biết là chỉ còn chờ số đó được đọc.
+Chỉ hoàn thành mẫu thôi vẫn chưa đủ: bạn phải hô Bingo khi vòng chơi còn đang diễn ra. Người đầu tiên hô Bingo hợp lệ sẽ thắng.
 
-Hoàn thành mẫu thắng chưa phải là thắng -- chỉ có hô Bingo (bằng phím B) và được xác nhận mới tính. Nếu cả 75 số đã được đọc mà không ai hô Bingo trước khi hết khoảng thời gian thường lệ sau lần đọc số cuối, ván chơi sẽ kết thúc mà không có người thắng, kể cả khi thẻ của ai đó đã đủ điều kiện.
+\*\*Thẻ Bingo của bạn\*\*
+
+Thẻ có năm hàng và năm cột mang các chữ B-I-N-G-O. Mỗi cột dùng một khoảng số cố định:
+
+\* \*\*B:\*\* từ 1 đến 15.
+\* \*\*I:\*\* từ 16 đến 30.
+\* \*\*N:\*\* từ 31 đến 45.
+\* \*\*G:\*\* từ 46 đến 60.
+\* \*\*O:\*\* từ 61 đến 75.
+
+Ô ở chính giữa là ô miễn phí. Ô này được đánh dấu sẵn và được tính vào mọi mẫu thắng đi qua nó.
+
+Khi bạn di chuyển trên thẻ, mỗi ô sẽ được đọc cùng chữ cái, con số và trạng thái đã đánh dấu hay chưa. Ví dụ, bạn có thể nghe “B 7, chưa đánh dấu” hoặc “G 52, đã đánh dấu.”
+
+\*\*Diễn biến một vòng chơi\*\*
+
+Sau một khoảng chờ ngắn, bạn sẽ nghe tiếng lồng cầu quay, rồi số tiếp theo được xướng lên. Nếu số đó có trên thẻ, hãy đánh dấu nó. Nhấn Enter lần nữa nếu bạn muốn bỏ dấu. Âm thanh và lời xác nhận khi đánh dấu chỉ phát cho riêng bạn, vì vậy người khác không nghe thấy bạn đang thao tác trên thẻ.
+
+Trò chơi cho phép bạn đánh dấu bất kỳ ô nào để có thể sửa thẻ một cách thuận tiện, nhưng bạn vẫn phải tự theo dõi người xướng số. Nếu mẫu đã hoàn thành có một số chưa được xướng, lời hô Bingo sẽ không hợp lệ và trò chơi sẽ cho bạn biết số nào đang gây ra vấn đề.
+
+Bạn vẫn có thể đánh dấu trong lúc chờ số tiếp theo. Việc đánh dấu và hô Bingo sẽ tạm dừng trong vài giây khi trò chơi đang kiểm tra thẻ của một người.
+
+\*\*Hô Bingo\*\*
+
+Hãy hô Bingo ngay khi các ô đã đánh dấu tạo thành mẫu thắng đã chọn. Một hồi trống ngắn sẽ vang lên trong lúc trò chơi kiểm tra thẻ.
+
+Nếu thẻ hợp lệ, vòng chơi kết thúc và các số tạo nên mẫu thắng được xướng lại. Với mẫu Phủ kín thẻ, trò chơi chỉ thông báo người thắng để tránh xướng một danh sách quá dài.
+
+Nếu thẻ chưa hợp lệ, vòng chơi tiếp tục. Bạn không thể hô lại ngay khi thẻ vẫn chưa thay đổi; hãy đánh dấu hoặc bỏ dấu ở một ô, hoặc chờ số tiếp theo. Quy tắc này giúp một người không thể liên tục làm cả bàn phải chờ.
 
 \*\*Các mẫu thắng\*\*
 
-Chủ phòng chọn một mẫu trước khi vòng chơi bắt đầu:
+Chủ bàn chọn một mẫu trước khi vòng chơi bắt đầu:
 
-\* \*\*Bất kỳ hàng nào:\*\* Hoàn thành một hàng ngang, cột dọc, hoặc đường chéo bất kỳ. Hàng giữa, cột giữa và cả hai đường chéo đều đi qua ô miễn phí ở giữa, nên bốn hình đó chỉ cần ít hơn một ô đánh dấu thật so với các hình còn lại.
+\* \*\*Một đường bất kỳ:\*\* Đánh dấu đủ năm ô theo một hàng ngang, cột dọc hoặc đường chéo.
+\* \*\*Bốn góc:\*\* Đánh dấu cả bốn ô góc.
+\* \*\*Hình chữ X:\*\* Đánh dấu cả hai đường chéo.
+\* \*\*Phủ kín thẻ:\*\* Đánh dấu toàn bộ thẻ.
 
-\* \*\*Bốn góc:\*\* Đánh dấu cả bốn ô ở góc của thẻ.
+Ô miễn phí ở giữa luôn được tính nếu nằm trong mẫu thắng.
 
-\* \*\*Chữ X:\*\* Đánh dấu cả hai đường chéo, tạo thành hình chữ X trên thẻ. Ô miễn phí ở giữa đã được tính là đánh dấu sẵn, nên chỉ cần đánh dấu phần còn lại của mỗi đường chéo.
+\*\*Chơi trên máy tính\*\*
 
-\* \*\*Kín cả thẻ:\*\* Đánh dấu toàn bộ các ô trên thẻ. Ô miễn phí ở giữa đã được tính là đánh dấu sẵn, nên chỉ cần đánh dấu phần còn lại.
+Màn hình chơi chính chỉ chứa thẻ gồm năm hàng và năm cột, giúp việc di chuyển bằng phím mũi tên luôn rõ ràng và dễ đoán với trình đọc màn hình.
 
-\*\*Tùy chọn có thể chỉnh\*\*
+Dùng các phím mũi tên để di chuyển và Enter để đánh dấu hoặc bỏ dấu. Nhấn B để hô Bingo, R để nghe lại số vừa xướng, hoặc C để mở danh sách các số đã xướng. Bạn cũng có thể tìm các lệnh này trong trình đơn hành động mở bằng Escape; chúng không được chèn vào giữa thẻ Bingo.
 
-\* \*\*Mẫu thắng:\*\* Bất kỳ hàng nào, Bốn góc, Chữ X, hoặc Kín cả thẻ (mặc định là Bất kỳ hàng nào).
+\*\*Chơi trên Web và điện thoại\*\*
 
-\* \*\*Khoảng thời gian đọc số:\*\* 5, 15, 30, 45, hoặc 60 giây giữa mỗi lần đọc số (mặc định 15). Sau mỗi số luôn còn ít nhất 4 giây để hô Bingo, nên tùy chọn 5 giây thực tế mất khoảng 7 giây mỗi số, và số cuối cùng giữ nguyên khoảng thời gian đầy đủ.
+Trên thiết bị cảm ứng, ngay sau thẻ là các nút \*\*Hô Bingo!\*\*, \*\*Nghe lại số vừa xướng\*\* và \*\*Xem các số đã xướng\*\*. Nhờ vậy, các hành động luôn dễ tìm mà bố cục năm hàng, năm cột của thẻ vẫn được giữ nguyên.
 
-\*\*Xem các số đã đọc\*\*
+Bạn cũng có thể hô Bingo ngay trên thẻ bằng thao tác chạm giữ có chủ ý. Trên Web, hãy nhấn và giữ một ô. Khi dùng chế độ tự đọc trên điện thoại, hãy chạm hai lần bằng một ngón rồi giữ. Với các chế độ hỗ trợ tiếp cận khác, bạn có thể dùng thao tác nhấn giữ hoặc nhấp giữ quen thuộc. Nút \*\*Hô Bingo!\*\* luôn là cách thay thế.
 
-\*\*Xem các số đã đọc\*\* mở một bảng trực tiếp cho biết đã đọc bao nhiêu trong số 75 số, cùng với 10 số được đọc gần đây nhất.
+\*\*Tùy chọn\*\*
 
-\*\*Phím tắt\*\*
+\* \*\*Mẫu thắng:\*\* Một đường bất kỳ, Bốn góc, Hình chữ X hoặc Phủ kín thẻ. Mặc định là Một đường bất kỳ.
+\* \*\*Nhịp xướng số:\*\* Mục tiêu 5, 15, 30, 45 hoặc 60 giây giữa hai số được xướng. Mặc định là 15 giây.
 
-\* \*\*Trái/Phải:\*\* Di chuyển giữa các chữ cái B-I-N-G-O.
+Sau mỗi số, trò chơi luôn dành ít nhất bốn giây để người chơi hô Bingo. Vì tiếng lồng cầu cũng cần phát xong, nhịp nhanh nhất có thể chậm hơn mục tiêu năm giây một chút. Sau số cuối cùng, người chơi được hưởng trọn khoảng thời gian đã chọn.
 
-\* \*\*Lên/Xuống:\*\* Di chuyển giữa các số trong cột đó.
+\*\*Các hành động thông tin\*\*
 
-\* \*\*Enter:\*\* Đánh dấu hoặc bỏ đánh dấu ô đang chọn.
+\* \*\*Nghe lại số vừa xướng:\*\* Nghe lại chữ cái và con số vừa được xướng.
+\* \*\*Xem các số đã xướng:\*\* Mở danh sách trực tiếp, gồm tổng số đã xướng và mười số gần nhất.
+\* \*\*Trạng thái vòng chơi:\*\* Nghe còn bao lâu tới số tiếp theo, một số có đang được rút hay trò chơi đang kiểm tra thẻ của ai. Bingo không chia lượt nên thông tin này thay cho câu trả lời “đến lượt ai.”
 
+Khán giả có thể dùng các hành động thông tin công khai, nhưng không có thẻ, không thể đánh dấu và không thể hô Bingo.
+
+\*\*Kết thúc vòng chơi\*\*
+
+Lời hô Bingo hợp lệ đầu tiên sẽ kết thúc vòng chơi. Nếu cả 75 số đã được xướng mà không ai hô Bingo hợp lệ trước khi khoảng chờ cuối kết thúc, vòng chơi sẽ khép lại mà không có người thắng.
+
+\*\*Phím tắt bàn phím\*\*
+
+\* \*\*Mũi tên Trái và Phải:\*\* Di chuyển giữa các cột B-I-N-G-O.
+\* \*\*Mũi tên Lên và Xuống:\*\* Di chuyển trong cột hiện tại.
+\* \*\*Enter:\*\* Đánh dấu hoặc bỏ dấu ở ô đang chọn.
 \* \*\*B:\*\* Hô Bingo.
-
-\* \*\*Thao tác chạm và giữ (Web và điện thoại):\*\* Dùng thao tác phụ chạm và giữ của ứng dụng trên bất kỳ ô nào để hô Bingo mà không cần di chuyển tới nút Hô Bingo. Trên Web, nhấn và giữ ô đó. Khi dùng chế độ tự đọc trên điện thoại, chạm hai lần bằng một ngón rồi giữ; các chế độ hỗ trợ tiếp cận khác có thể dùng thao tác nhấn giữ của hệ thống. Mục Hô Bingo trong menu luôn là cách thay thế dùng được trên mọi thiết bị. Trên máy tính, chỉ phím B để hô Bingo.
-
-\* \*\*R:\*\* Lặp lại số vừa đọc.
-
-\* \*\*C:\*\* Xem các số đã đọc.
-
-\* \*\*T:\*\* Cho biết vòng chơi đang diễn ra thế nào: còn bao nhiêu giây đến số tiếp theo, đang rút một số, hoặc đang kiểm tra một thẻ (thẻ của bạn được báo là "thẻ của bạn"). Bingo không có lượt chơi nên phím này thay cho phím "đến lượt ai" thông thường.
-
-\* \*\*Hô nhiều lần:\*\* Nếu yêu cầu của bạn bị từ chối, bạn không thể hô lại với cùng tấm thẻ đó cho đến khi có số mới được đọc hoặc bạn đổi các ô đã đánh dấu. Nhờ vậy một tấm thẻ không thể làm cả bàn chờ mãi.
+\* \*\*R:\*\* Nghe lại số vừa xướng.
+\* \*\*C:\*\* Xem các số đã xướng.
+\* \*\*T:\*\* Nghe trạng thái hiện tại của vòng chơi.
+\* \*\*Escape:\*\* Mở trình đơn hành động trong trò chơi.

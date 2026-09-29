@@ -1,57 +1,96 @@
 \*\*Bingo\*\*
 
-Bingo es un clásico juego de cantar números para 2 a 12 jugadores. Cada jugador recibe un cartón de 5x5 barajado de forma independiente, con columnas B-I-N-G-O y una casilla libre en el centro. El juego canta un número a la vez de entre los 75 posibles, y los jugadores marcan su cartón a medida que se cantan los números. El primer jugador en completar el patrón elegido y reclamarlo gana.
+\*\*¿Qué es el Bingo?\*\*
 
-\*\*Jugabilidad\*\*
+El Bingo es un juego de números para 2 a 12 jugadores. Todos escuchan al mismo cantor, pero cada jugador tiene un cartón diferente. A medida que se cantan los números, marcas las casillas correspondientes y buscas el patrón elegido por el anfitrión.
 
-Al comenzar la ronda, todos reciben un cartón. A partir de ahí, se canta un número nuevo automáticamente a un intervalo fijo:
+No hay turnos. Todos siguen los números y juegan en sus cartones al mismo tiempo.
 
-\* \*\*Navegar tu cartón:\*\* Las flechas izquierda y derecha se mueven entre las cinco letras, B-I-N-G-O; las flechas arriba y abajo se mueven entre los cinco números de esa columna. Cada casilla a la que llegas anuncia directamente su identidad completa, por ejemplo "B 2" u "O 75".
+\*\*Cómo ganar\*\*
 
-\* \*\*Marcar una casilla:\*\* Presiona Enter en una casilla para marcarla, y de nuevo para desmarcarla. Puedes marcar cualquier casilla en cualquier momento, se haya cantado o no ese número — marcar por adelantado no está bloqueado. La casilla libre del centro empieza marcada y se queda así toda la ronda: cuenta como marcada para cualquier patrón que la incluya (Letra X, Cartón lleno), y Enter no hace nada sobre ella, porque no hay nada que marcar o desmarcar.
+Completa el patrón elegido con números que realmente se hayan cantado y luego elige \*\*¡Cantar Bingo!\*\* o presiona B. El juego comprueba tu cartón antes de concederte la victoria.
 
-\* \*\*Cantar Bingo:\*\* Presiona B una vez que tus casillas marcadas completen el patrón para ganar. Ahí se verifica el reclamo: si todas las casillas marcadas del patrón completado fueron realmente cantadas, ganas. Si alguna de esas casillas la marcaste antes de que saliera su número, el reclamo se rechaza y te dice específicamente cuál casilla fue, para que sepas que solo faltaba que se cantara.
+Completar el patrón por sí solo no basta: debes cantar Bingo mientras la ronda siga activa. Gana el primer canto válido.
 
-Completar el patrón no es en sí mismo ganar -- solo reclamarlo (con B) lo es. Si se cantan los 75 números y nadie reclamó cuando termina la ventana habitual tras la última llamada, la ronda simplemente termina sin ganador, incluso si el cartón de alguien ya cumple el patrón.
+\*\*Tu cartón de Bingo\*\*
+
+El cartón tiene cinco filas y cinco columnas con las letras B-I-N-G-O. Cada columna usa su rango tradicional:
+
+\* \*\*B:\*\* del 1 al 15.
+\* \*\*I:\*\* del 16 al 30.
+\* \*\*N:\*\* del 31 al 45.
+\* \*\*G:\*\* del 46 al 60.
+\* \*\*O:\*\* del 61 al 75.
+
+La casilla central es libre. Empieza marcada y cuenta para cualquier patrón que pase por ella.
+
+Al moverte por el cartón, cada casilla anuncia su letra, número y estado. Por ejemplo, puedes oír «B 7, sin marcar» o «G 52, marcada».
+
+\*\*Cómo transcurre una ronda\*\*
+
+Tras una breve pausa inicial, oyes el bombo y luego el siguiente número. Si aparece en tu cartón, márcalo. Presiona Enter otra vez si necesitas quitar la marca. El sonido y la confirmación son privados, así que los demás no oyen cómo trabajas en tu cartón.
+
+El juego te permite marcar cualquier casilla para que puedas corregir errores con facilidad, pero eres responsable de seguir al cantor. Si un patrón completo contiene un número que no se ha cantado, tu canto de Bingo se rechaza y el juego te indica qué número causó el problema.
+
+Puedes seguir marcando mientras esperas el siguiente número. Las marcas y los cantos de Bingo se detienen brevemente mientras se comprueba otro cartón.
+
+\*\*Cantar Bingo\*\*
+
+Canta Bingo en cuanto tus casillas marcadas formen el patrón elegido. Suena un breve redoble mientras se comprueba el cartón.
+
+Si el cartón es válido, la ronda termina y se anuncian los números ganadores. En Cartón lleno, el juego omite la lista larga y anuncia directamente al ganador.
+
+Si el cartón aún no es válido, la partida continúa. No puedes enviar inmediatamente el mismo cartón sin cambios; cambia una marca o espera otro número. Así, los cantos repetidos no retrasan a toda la mesa.
 
 \*\*Patrones para ganar\*\*
 
-El anfitrión elige un patrón antes de que comience la ronda:
+El anfitrión elige un patrón antes de comenzar:
 
-\* \*\*Cualquier línea:\*\* Completa cualquier fila, columna o diagonal. La fila del medio, la columna del medio y ambas diagonales pasan por la casilla libre del centro, así que a esas cuatro les basta con una marca real menos que al resto.
+\* \*\*Cualquier línea:\*\* Marca las cinco casillas de una fila, columna o diagonal.
+\* \*\*Cuatro esquinas:\*\* Marca las cuatro esquinas.
+\* \*\*Letra X:\*\* Marca ambas diagonales.
+\* \*\*Cartón lleno:\*\* Marca todo el cartón.
 
-\* \*\*Cuatro esquinas:\*\* Marca las cuatro casillas de las esquinas del cartón.
+La casilla libre cuenta automáticamente cuando forma parte del patrón.
 
-\* \*\*Letra X:\*\* Marca ambas diagonales, formando una X en el cartón. La casilla libre del centro ya cuenta como marcada, así que solo falta el resto de cada diagonal.
+\*\*Jugar en escritorio\*\*
 
-\* \*\*Cartón lleno:\*\* Marca todas las casillas del cartón. La casilla libre del centro ya cuenta como marcada, así que solo falta el resto.
+La vista principal contiene únicamente tu cartón de 5 por 5, para que la navegación con las flechas sea predecible con un lector de pantalla.
 
-\*\*Opciones configurables\*\*
+Usa las flechas para moverte y Enter para marcar o desmarcar. Presiona B para cantar Bingo, R para repetir el último número o C para abrir la lista de números cantados. Estos comandos también aparecen en el menú de acciones que se abre con Escape; no se mezclan con las casillas del cartón.
 
-\* \*\*Patrón para ganar:\*\* Cualquier línea, Cuatro esquinas, Letra X, o Cartón lleno (por defecto Cualquier línea).
+\*\*Jugar en Web y móvil\*\*
 
-\* \*\*Intervalo de canto:\*\* 5, 15, 30, 45, o 60 segundos entre cada número cantado (por defecto 15). Tras cada número siempre quedan al menos 4 segundos para reclamar, así que la opción de 5 segundos en realidad va a unos 7 segundos por número, y el último número conserva el intervalo completo.
+En dispositivos táctiles, después del cartón aparecen los botones \*\*¡Cantar Bingo!\*\*, \*\*Repetir el último número\*\* y \*\*Ver números cantados\*\*. De este modo, las acciones son fáciles de encontrar sin romper la cuadrícula de 5 por 5.
 
-\*\*Ver números cantados\*\*
+También puedes cantar Bingo desde el cartón con un gesto deliberado de mantener pulsado. En Web, mantén pulsada una casilla. Con la lectura automática del móvil, toca dos veces con un dedo y mantén. Otros modos de accesibilidad pueden usar su pulsación larga habitual. El botón visible \*\*¡Cantar Bingo!\*\* siempre está disponible como alternativa.
 
-\*\*Ver números cantados\*\* abre un panel en vivo que muestra cuántos de los 75 números se han cantado hasta el momento, junto con los 10 números cantados más recientes.
+\*\*Opciones\*\*
+
+\* \*\*Patrón para ganar:\*\* Cualquier línea, Cuatro esquinas, Letra X o Cartón lleno. El valor predeterminado es Cualquier línea.
+\* \*\*Intervalo de canto:\*\* Un objetivo de 5, 15, 30, 45 o 60 segundos entre números anunciados. El valor predeterminado es 15 segundos.
+
+Después de cada número, el juego deja al menos cuatro segundos para cantar Bingo. Como el sonido del bombo también debe terminar, el ritmo más rápido puede ser algo más lento que su objetivo de cinco segundos. El último número recibe todo el intervalo elegido.
+
+\*\*Acciones de información\*\*
+
+\* \*\*Repetir el último número:\*\* Vuelve a oír la letra y el número anunciados más recientemente.
+\* \*\*Ver números cantados:\*\* Abre una lista en vivo con el total y los diez números más recientes.
+\* \*\*Estado de la ronda:\*\* Indica cuánto falta para el próximo número, si se está sacando uno o de quién es el cartón que se está comprobando. Como Bingo no tiene turnos, sustituye la respuesta habitual sobre el turno actual.
+
+Los espectadores pueden usar las acciones de información pública, pero no tienen cartón ni pueden marcar o cantar Bingo.
+
+\*\*Fin de la ronda\*\*
+
+El primer canto válido termina la ronda. Si se anuncian los 75 números y nadie canta un Bingo válido antes de que termine la última espera, la ronda acaba sin ganador.
 
 \*\*Atajos de teclado\*\*
 
-\* \*\*Izquierda/Derecha:\*\* Moverte entre las letras B-I-N-G-O.
-
-\* \*\*Arriba/Abajo:\*\* Moverte entre los números de esa columna.
-
+\* \*\*Flechas Izquierda y Derecha:\*\* Moverse entre las columnas B-I-N-G-O.
+\* \*\*Flechas Arriba y Abajo:\*\* Moverse dentro de la columna actual.
 \* \*\*Enter:\*\* Marcar o desmarcar la casilla seleccionada.
-
 \* \*\*B:\*\* Cantar Bingo.
-
-\* \*\*Gesto de mantener pulsado (Web y móvil):\*\* Usa la acción modificada de mantener pulsado del cliente sobre cualquier casilla para cantar sin moverte al botón Cantar Bingo. En Web, mantén pulsada la casilla. Con la lectura automática del móvil, toca dos veces con un dedo y mantén; otros modos de accesibilidad móvil pueden usar su acción de pulsación larga. La opción Cantar Bingo del menú sigue siendo la alternativa universal. En escritorio, solo B canta Bingo.
-
-\* \*\*R:\*\* Repetir el último número cantado.
-
+\* \*\*R:\*\* Repetir el último número.
 \* \*\*C:\*\* Ver números cantados.
-
-\* \*\*T:\*\* Informa qué está pasando en la ronda ahora mismo: cuántos segundos faltan para el siguiente número, que se está sacando un número, o que se está verificando un cartón (el tuyo se anuncia como "tu cartón"). El Bingo no tiene turnos, así que este atajo sustituye al habitual "de quién es el turno".
-
-\* \*\*Reclamos repetidos:\*\* Si tu reclamo es rechazado, no puedes volver a reclamar con el mismo cartón hasta que se cante un número nuevo o cambies tus marcas. Así un solo cartón no puede detener toda la mesa.
+\* \*\*T:\*\* Oír el estado actual de la ronda.
+\* \*\*Escape:\*\* Abrir el menú de acciones del juego.

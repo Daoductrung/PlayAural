@@ -2,11 +2,8 @@
 
 CALL_SPIN_DELAY_TICKS and CLAIM_SUSPENSE_TICKS decide how long the game
 waits for call.ogg and suspense.ogg to finish before announcing a number
-or revealing a claim's result. They used to be hardcoded seconds in
-game.py, which silently desynchronizes game state and audio the moment
-either asset is replaced by one of a different length (the previous
-suspense.ogg ran slightly longer than the hardcoded wait, so the reveal
-could fire before the roll had finished).
+or revealing a claim's result. Measuring the assets prevents replacements
+with different lengths from silently desynchronizing game state and audio.
 
 ``sound_ticks()`` measures the real shipped asset (same idiom as Bang!'s
 and Monopoly's audio.py) and only falls back to the fixed durations below
@@ -27,7 +24,7 @@ SOUND_CALL = "game_bingo/call.ogg"
 SOUND_SUSPENSE = "game_bingo/suspense.ogg"
 
 # Measured from the checked-in assets (see
-# test_bingo_timed_audio_fallbacks_match_shipped_assets); used only as the
+# test_bingo_timed_audio_is_measured_from_the_shipped_assets); used only as the
 # fallback when the actual file cannot be measured.
 AUDIO_DURATIONS_TICKS = {
     SOUND_CALL: 68,

@@ -1,18 +1,21 @@
 """Tests for the Bingo game."""
 
 import random
+import re
 from pathlib import Path
 
 from ..core.server import Server
 from ..game_utils.actions import Visibility
 from ..game_utils.audio_duration import measure_audio_duration_ticks
-from ..game_utils.grid_mixin import grid_cell_id
+from ..game_utils.grid_mixin import GridCursor, grid_cell_id
+from ..game_utils.sequence_runner_mixin import SequenceBeat
 from ..games.bingo import audio as bingo_audio
 from ..games.bingo.game import (
     CALL_SEQUENCE_TAG,
     CALL_SPIN_DELAY_TICKS,
     CARD_COLS,
     CARD_ROWS,
+    CLAIM_SEQUENCE_TAG,
     COLUMN_LETTERS,
     COLUMN_RANGES,
     FREE_COL,
@@ -21,6 +24,7 @@ from ..games.bingo.game import (
     MIN_CLAIM_WINDOW_TICKS,
     PATTERN_BLACKOUT,
     PATTERN_FOUR_CORNERS,
+    PATTERN_LABELS,
     PATTERN_LETTER_X,
     PATTERN_LINE,
     SOUND_ERROR,
@@ -38,7 +42,32 @@ from ..users.bot import Bot
 from ..users.test_user import MockUser
 
 _locales_dir = Path(__file__).parent.parent / "locales"
+_docs_dir = Path(__file__).parent.parent / "documentation" / "content"
 Localization.init(_locales_dir)
+
+
+def _ftl_schema(text: str) -> dict[str, set[str]]:
+    """Return each Fluent key and the variables referenced by its message."""
+    schema: dict[str, set[str]] = {}
+    current_key: str | None = None
+    current_lines: list[str] = []
+    for line in text.splitlines():
+        if line and not line.startswith((" ", "\t")) and "=" in line:
+            if current_key is not None:
+                schema[current_key] = set(
+                    re.findall(
+                        r"\{\s*\$([a-zA-Z_][\w-]*)", "\n".join(current_lines)
+                    )
+                )
+            current_key = line.split("=", 1)[0].strip()
+            current_lines = [line]
+        elif current_key is not None:
+            current_lines.append(line)
+    if current_key is not None:
+        schema[current_key] = set(
+            re.findall(r"\{\s*\$([a-zA-Z_][\w-]*)", "\n".join(current_lines))
+        )
+    return schema
 
 
 def make_game(
@@ -94,6 +123,87 @@ def test_game_registered_defaults_and_metadata() -> None:
     assert game.get_min_players() == 2
     assert game.get_max_players() == 12
     assert game.get_supported_leaderboards() == ["wins", "games_played"]
+    assert game.relevant_preferences == []
+
+
+def test_start_clears_stale_round_and_bot_state() -> None:
+    game = make_game(player_count=2, bot_indices={0})
+    bot = game.players[0]
+    game.pending_call_number = 42
+    game.pending_claim_player_id = bot.id
+    game.called_numbers = [1, 2, 3]
+    game.winner_ids = [bot.id]
+    bot.has_bingo = True
+    bot.rejected_claim_signatures = ["3:11111"]
+    bot.pending_mark_number = 7
+    bot.pending_mark_ticks = 12
+    bot.bot_pending_action = "claim_bingo"
+    bot.bot_think_ticks = 9
+    game.grid_cursors = {"departed-player": GridCursor(row=4, col=4)}
+    game.start_sequence(
+        "old-call",
+        [SequenceBeat.pause(100)],
+        tag=CALL_SEQUENCE_TAG,
+    )
+    game.start_sequence(
+        "old-claim",
+        [SequenceBeat.pause(100)],
+        tag=CLAIM_SEQUENCE_TAG,
+    )
+
+    game.on_start()
+
+    assert game.pending_call_number is None
+    assert game.pending_claim_player_id is None
+    assert game.called_numbers == []
+    assert game.winner_ids == []
+    assert not game.has_active_sequence(tag=CALL_SEQUENCE_TAG)
+    assert not game.has_active_sequence(tag=CLAIM_SEQUENCE_TAG)
+    assert bot.has_bingo is False
+    assert bot.rejected_claim_signatures == []
+    assert bot.pending_mark_number is None
+    assert bot.pending_mark_ticks == 0
+    assert bot.bot_pending_action is None
+    assert bot.bot_think_ticks == 0
+    assert set(game.grid_cursors) == {player.id for player in game.get_active_players()}
+    assert all(cursor == GridCursor() for cursor in game.grid_cursors.values())
+
+
+def test_locales_and_manuals_share_the_same_player_facing_terms() -> None:
+    english_schema = _ftl_schema(
+        (_locales_dir / "en" / "bingo.ftl").read_text(encoding="utf-8")
+    )
+    for locale in ("es", "pt", "vi"):
+        localized_schema = _ftl_schema(
+            (_locales_dir / locale / "bingo.ftl").read_text(encoding="utf-8")
+        )
+        assert localized_schema == english_schema
+
+    for locale in ("en", "vi"):
+        manual = (_docs_dir / locale / "games" / "bingo.md").read_text(
+            encoding="utf-8"
+        )
+        for key in (
+            *PATTERN_LABELS.values(),
+            "bingo-claim-bingo",
+            "bingo-repeat-call",
+            "bingo-check-called",
+        ):
+            assert Localization.get(locale, key) in manual
+
+    vietnamese = (
+        (_locales_dir / "vi" / "bingo.ftl").read_text(encoding="utf-8")
+        + (_docs_dir / "vi" / "games" / "bingo.md").read_text(encoding="utf-8")
+    )
+    for obsolete_term in (
+        "Bất kỳ hàng nào",
+        "Chữ X",
+        "Kín cả thẻ",
+        "Lặp lại số vừa đọc",
+        "Xem các số đã đọc",
+        "yêu cầu Bingo",
+    ):
+        assert obsolete_term not in vietnamese
 
 
 def test_card_generation_matches_column_ranges_and_has_free_space() -> None:
@@ -668,14 +778,9 @@ def test_bot_marks_but_does_not_claim_while_pattern_still_incomplete() -> None:
     assert bot.bot_pending_action is None  # one square is not a full line
 
 
-def test_bot_mark_is_audible_but_not_narrated_per_square() -> None:
-    """A bot's mark still plays the daub cue -- silently auto-marking
-    would look like the bot wasn't doing anything at all -- but it must
-    NOT narrate the exact square to the whole table. Announcing every
-    bot's precise letter+number used to mean a table with several bots
-    could produce a burst of speech lines per call, potentially
-    drowning out the caller; real bingo doesn't narrate other players'
-    marks either, so this is deliberately just the sound cue."""
+def test_bot_mark_does_not_expose_private_card_activity() -> None:
+    """A bot's card is private, just like a human card. Its marks must not
+    add unexplained table-wide sounds or reveal an exact square."""
     game = make_game(
         player_count=2, pattern=PATTERN_LINE, bot_indices={0}, start=True
     )
@@ -687,12 +792,48 @@ def test_bot_mark_is_audible_but_not_narrated_per_square() -> None:
     value = bot.card[row][col]
 
     listener = game.get_user(human_listener)
+    sounds_before = list(listener.get_sounds_played())
     _force_announce(game, value)
     assert advance_until(game, lambda: bot.pending_mark_number is None)
 
-    assert "game_bingo/daub.ogg" in listener.get_sounds_played()
+    assert listener.get_sounds_played() == sounds_before
     spoken = listener.get_spoken_messages()
     assert not any(bot.name in m for m in spoken)
+
+
+def test_replacement_bot_reconciles_inherited_card_and_can_claim() -> None:
+    """A bot taking over a human seat must reconstruct private marks solely
+    from the public call history, including calls the human never marked."""
+    game = make_game(player_count=2, pattern=PATTERN_LINE, start=True)
+    replacement = game.players[0]
+    row = 0
+    game.called_numbers = [replacement.card[row][col] for col in range(CARD_COLS)]
+
+    # Simulate an incomplete and partly invalid card inherited from a human.
+    replacement.marked = [
+        [False for _ in range(CARD_COLS)] for _ in range(CARD_ROWS)
+    ]
+    uncalled_row, uncalled_col = next(
+        (r, c)
+        for r in range(CARD_ROWS)
+        for c in range(CARD_COLS)
+        if (r, c) != (FREE_ROW, FREE_COL)
+        and replacement.card[r][c] not in game.called_numbers
+    )
+    replacement.marked[uncalled_row][uncalled_col] = True
+    replacement.is_bot = True
+    replacement.replaced_human = True
+    replacement.replaced_human_name = replacement.name
+
+    game._process_bots()
+
+    called = set(game.called_numbers)
+    for r in range(CARD_ROWS):
+        for c in range(CARD_COLS):
+            expected = (r, c) == (FREE_ROW, FREE_COL) or replacement.card[r][c] in called
+            assert replacement.marked[r][c] is expected
+    assert replacement.bot_pending_action == "claim_bingo"
+    assert replacement.bot_think_ticks > 0
 
 
 def test_bot_reacts_and_claims_after_a_call_completes_its_line() -> None:
@@ -831,7 +972,9 @@ def test_whose_turn_reports_drawing_while_a_number_is_pending() -> None:
 
     game._action_whose_turn(player, "whose_turn")
 
-    assert user.get_last_spoken() == "Drawing the next number..."
+    assert user.get_last_spoken() == Localization.get(
+        "en", "bingo-whose-turn-drawing"
+    )
 
 
 def test_whose_turn_reports_the_claimer_while_a_claim_is_pending() -> None:
@@ -844,6 +987,24 @@ def test_whose_turn_reports_the_claimer_while_a_claim_is_pending() -> None:
     game._action_whose_turn(listener, "whose_turn")
 
     assert listener_user.get_last_spoken() == f"Checking {claimer.name}'s card..."
+
+
+def test_missing_claimant_has_neutral_status_and_unlocks_menus() -> None:
+    """A claimant can disappear while the serialized suspense beat is active.
+    Status must remain intelligible and resolution must repaint unlocked UI."""
+    game = make_game(player_count=2, start=True)
+    listener = game.players[0]
+    game.pending_claim_player_id = "missing-player"
+
+    game._action_whose_turn(listener, "whose_turn")
+    assert game.get_user(listener).get_last_spoken() == Localization.get(
+        "en", "bingo-whose-turn-checking-card"
+    )
+
+    game._menu_dirty_all = False
+    game._handle_resolve_claim({"player_id": "missing-player"})
+    assert game.pending_claim_player_id is None
+    assert game._menu_dirty_all is True
 
 
 def test_deck_exhaustion_without_a_claim_ends_with_no_winner() -> None:
@@ -902,20 +1063,20 @@ def test_touch_turn_menu_keeps_the_grid_contiguous_and_aligned() -> None:
     assert action_set._order[: len(expected)] == expected
 
 
-def test_claim_bingo_lands_right_after_the_grid_on_every_client() -> None:
-    """Claim doesn't need to be first to be "quickly reachable" -- it
-    just can't corrupt the board to get there. Sitting immediately after
-    the 25th cell (rather than buried behind the whole standard menu)
-    is one step away on every client, desktop and touch alike."""
-    for client_type in (None, "mobile"):
+def test_claim_bingo_is_direct_on_touch_and_actions_menu_only_on_desktop() -> None:
+    """Touch keeps Claim directly after the intact grid. Desktop keeps the
+    board clean while retaining Claim in the Escape/actions menu."""
+    for client_type in (None, "web", "mobile"):
         game = make_game(player_count=2, start=True)
         player = game.players[0]
         game.get_user(player).client_type = client_type
-        action_set = game.create_turn_action_set(player)
-        grid_cells = _grid_cell_order(action_set)
-        assert len(grid_cells) == CARD_ROWS * CARD_COLS
-        claim_index = action_set._order.index("claim_bingo")
-        assert claim_index > action_set._order.index(grid_cells[-1])
+        build_ids = _menu_ids(game, player)
+        enabled_ids = {item.action.id for item in game.get_all_enabled_actions(player)}
+        assert "claim_bingo" in enabled_ids
+        if client_type in {"web", "mobile"}:
+            assert build_ids.index("claim_bingo") == CARD_ROWS * CARD_COLS
+        else:
+            assert "claim_bingo" not in build_ids
 
 
 def test_touch_standard_actions_follow_touch_order_and_are_visible() -> None:
@@ -942,13 +1103,23 @@ def test_touch_standard_actions_follow_touch_order_and_are_visible() -> None:
 
 
 def test_desktop_standard_actions_keep_base_visibility() -> None:
-    """The touch-only visibility override must not leak onto desktop --
-    whose_turn/whos_at_table stay keybind-only there, matching every
-    other game's base behavior."""
+    """Desktop keeps utility rows off the board without losing them from
+    the Escape/actions menu."""
     game = make_game(player_count=2, start=True)
     player = game.players[0]
+    _force_announce(game, 7)
+    assert game._is_claim_hidden(player) == Visibility.HIDDEN
+    assert game._is_repeat_call_hidden(player) == Visibility.HIDDEN
+    assert game._is_check_called_hidden(player) == Visibility.HIDDEN
     assert game._is_whose_turn_hidden(player) == Visibility.HIDDEN
     assert game._is_whos_at_table_hidden(player) == Visibility.HIDDEN
+    enabled = {item.action.id for item in game.get_all_enabled_actions(player)}
+    assert {"claim_bingo", "repeat_call", "check_called"} <= enabled
+    game._action_show_actions_menu(player, "show_actions_menu")
+    action_menu_ids = {
+        item.id for item in game.get_user(player).menus["actions_menu"]["items"]
+    }
+    assert {"claim_bingo", "repeat_call", "check_called"} <= action_menu_ids
 
 
 def test_before_menu_build_resyncs_standard_order_on_device_handover() -> None:
@@ -1031,6 +1202,38 @@ def test_bot_claim_is_retried_rather_than_dropped_when_locked() -> None:
     assert other_bot.has_bingo is False
     assert bot.has_bingo is True
     assert game.status == "finished"
+
+
+def test_bot_claim_pauses_later_bot_marks_in_the_same_tick() -> None:
+    game = make_game(player_count=2, pattern=PATTERN_LINE, bot_all=True, start=True)
+    claimer, waiting_bot = game.players
+    _force_line_win(game, claimer)
+    claimer.bot_pending_action = "claim_bingo"
+    claimer.bot_think_ticks = 0
+
+    pending_number = next(
+        value
+        for row in waiting_bot.card
+        for value in row
+        if value != FREE_VALUE and value not in game.called_numbers
+    )
+    game.called_numbers.append(pending_number)
+    waiting_bot.pending_mark_number = pending_number
+    waiting_bot.pending_mark_ticks = 5
+    pending_cell = next(
+        (r, c)
+        for r in range(CARD_ROWS)
+        for c in range(CARD_COLS)
+        if waiting_bot.card[r][c] == pending_number
+    )
+    waiting_bot.marked[pending_cell[0]][pending_cell[1]] = False
+
+    game._process_bots()
+
+    assert game.pending_claim_player_id == claimer.id
+    assert game.is_sequence_bot_paused()
+    assert waiting_bot.pending_mark_ticks == 5
+    assert waiting_bot.marked[pending_cell[0]][pending_cell[1]] is False
 
 
 def test_claim_messages_use_second_person_for_the_claimant() -> None:
@@ -1241,8 +1444,10 @@ def test_uncalled_number_claim_cannot_be_retried_until_something_changes() -> No
     assert _locked_ticks_while_claiming(game, player) == 0
 
     # A new call is a meaningful change: the same card may claim again, and
-    # this time it is legitimately valid.
+    # obsolete signatures are discarded rather than retained for the rest of
+    # the serialized round. This time the same marks are legitimately valid.
     _force_announce(game, missing)
+    assert player.rejected_claim_signatures == []
     assert game._is_claim_enabled(player) is None
     game._action_claim_bingo(player, "claim_bingo")
     _resolve_claim(game)
@@ -1427,8 +1632,10 @@ def test_built_menu_keeps_grid_aligned_on_web_and_mobile_with_handover() -> None
         assert build.grid_kwargs["grid_enabled"] is True
         assert build.grid_kwargs["grid_width"] == CARD_COLS
         assert build.grid_kwargs["grid_height"] == CARD_ROWS
-        assert "claim_bingo" in ids[25:]
         touch = client_type in ("web", "mobile")
+        assert ("claim_bingo" in ids[25:]) is touch
+        assert ("repeat_call" in ids[25:]) is touch
+        assert ("check_called" in ids[25:]) is touch
         assert ("web_actions_menu" in ids) is touch
         assert ("web_leave_table" in ids) is touch
         # Claim comes before the static touch controls, never after.
@@ -1469,10 +1676,11 @@ def test_game_start_tells_each_client_how_to_claim() -> None:
     web_line = web_user.get_spoken_messages()[0]
     spectator_line = spectator_user.get_spoken_messages()[0]
     desktop_line = desktop.get_user(desktop.players[0]).get_spoken_messages()[0]
-    assert "hold gesture" in mobile_line and "Claim Bingo" in mobile_line
-    assert "hold gesture" in web_line and "Claim Bingo" in web_line
+    assert "hold gesture" in mobile_line and "Call Bingo" in mobile_line
+    assert "hold gesture" in web_line and "Call Bingo" in web_line
     assert "press B" in desktop_line
-    assert "claim" not in spectator_line.lower()
+    assert "press B" not in spectator_line
+    assert "hold gesture" not in spectator_line
     assert all(
         "Shift+Enter" not in line
         for line in (mobile_line, web_line, spectator_line, desktop_line)
@@ -1498,26 +1706,6 @@ def test_spectators_see_no_card_controls_and_cannot_claim_or_mark() -> None:
     assert game.pending_claim_player_id is None
 
 
-def test_bot_daub_cue_is_public_at_most_once_per_call() -> None:
-    """Several bots holding the same number used to each broadcast their
-    own identical daub cue, stacking into a burst per call."""
-    game = make_game(player_count=4, bot_indices={1, 2, 3}, start=True)
-    listener, *bots = game.players
-    for bot in bots[1:]:
-        bot.card = [row[:] for row in bots[0].card]
-        bot.marked = [row[:] for row in bots[0].marked]
-    number = next(v for row in bots[0].card for v in row if v != FREE_VALUE)
-    user = game.get_user(listener)
-
-    _force_announce(game, number)
-    assert advance_until(
-        game,
-        lambda: all(b.pending_mark_number is None for b in bots),
-    )
-    assert all(b.marked[r][c] for b in bots for r in range(CARD_ROWS) for c in range(CARD_COLS) if b.card[r][c] == number)
-    assert user.get_sounds_played().count("game_bingo/daub.ogg") == 1
-
-
 def test_call_sequence_round_trips_through_save_and_load() -> None:
     game = make_game(player_count=2, start=True)
     users = {p.id: game.get_user(p) for p in game.players}
@@ -1537,6 +1725,23 @@ def test_call_sequence_round_trips_through_save_and_load() -> None:
     assert advance_until(restored, lambda: restored.pending_call_number is None)
     assert restored.called_numbers[-1:] == [42]
     assert restored.call_countdown_ticks > 0
+
+
+def test_invalid_or_duplicate_call_callback_recovers_without_mutating_history() -> None:
+    game = make_game(player_count=2, start=True)
+    game.called_numbers = [7]
+
+    for invalid_number in (None, True, 0, TOTAL_BALLS + 1, 7):
+        game.pending_call_number = 42
+        game.call_countdown_ticks = 99
+        game._menu_dirty_all = False
+
+        game._handle_announce_call({"number": invalid_number})
+
+        assert game.pending_call_number is None
+        assert game.called_numbers == [7]
+        assert game.call_countdown_ticks == 0
+        assert game._menu_dirty_all is True
 
 
 def test_claim_sequence_round_trips_through_save_and_load() -> None:

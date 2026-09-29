@@ -6,7 +6,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from ..core.server import NON_RESUMABLE_ACTION_MENUS, Server
+from ..core.server import (
+    INCOMING_FRIEND_REQUEST_ITEM_PREFIX,
+    NON_RESUMABLE_ACTION_MENUS,
+    SENT_FRIEND_REQUESTS_MENU,
+    SENT_FRIEND_REQUEST_ITEM_PREFIX,
+    Server,
+)
 from ..gender import Gender
 from ..users.test_user import MockUser
 
@@ -772,7 +778,9 @@ async def test_action_close_uses_position_when_parent_item_disappears(tmp_path) 
                 "type": "menu",
                 "menu_id": "friend_requests_menu",
                 "selection": 1,
-                "selection_id": "req_Requester",
+                "selection_id": (
+                    f"{INCOMING_FRIEND_REQUEST_ITEM_PREFIX}{requester.uuid}"
+                ),
             },
         )
         await server._handle_menu(
@@ -799,15 +807,26 @@ async def test_friend_requests_menu_pages_large_pending_lists(tmp_path) -> None:
     try:
         viewer = server._db.get_user(user.username)
         assert viewer is not None
+        requesters = []
         for index in range(101):
             requester = server._db.create_user(f"Requester{index:03d}", "hash")
             assert requester is not None
+            requesters.append(requester)
             assert server._db.send_friend_request(requester.uuid, viewer.uuid) == "sent"
 
         server._show_friend_requests_menu(user)
         ids = _menu_ids(user, "friend_requests_menu")
-        assert len([item_id for item_id in ids if item_id.startswith("req_")]) == 100
-        assert "req_Requester100" not in ids
+        assert len(
+            [
+                item_id
+                for item_id in ids
+                if item_id.startswith(INCOMING_FRIEND_REQUEST_ITEM_PREFIX)
+            ]
+        ) == 100
+        last_request_id = (
+            f"{INCOMING_FRIEND_REQUEST_ITEM_PREFIX}{requesters[-1].uuid}"
+        )
+        assert last_request_id not in ids
         assert "refresh" not in ids
         assert "page_next" in ids
 
@@ -819,10 +838,61 @@ async def test_friend_requests_menu_pages_large_pending_lists(tmp_path) -> None:
 
         second_page_ids = _menu_ids(user, "friend_requests_menu")
         assert server._user_states[user.username]["friend_requests_page"] == 2
-        assert "req_Requester100" in second_page_ids
+        assert last_request_id in second_page_ids
         assert "page_previous" in second_page_ids
         assert "page_next" not in second_page_ids
         assert user.menus["friend_requests_menu"]["position"] == 1
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_sent_friend_requests_menu_pages_newest_first(tmp_path) -> None:
+    server, user = _make_server(tmp_path)
+    try:
+        viewer = server._db.get_user(user.username)
+        assert viewer is not None
+        targets = []
+        for index in range(101):
+            target = server._db.create_user(f"Target{index:03d}", "hash")
+            assert target is not None
+            targets.append(target)
+            assert server._db.send_friend_request(viewer.uuid, target.uuid) == "sent"
+            server._db._conn.execute(
+                """
+                UPDATE friendships SET created_at = ?
+                WHERE requester_id = ? AND receiver_id = ?
+                """,
+                (f"2026-01-01T00:{index // 60:02d}:{index % 60:02d}", viewer.uuid, target.uuid),
+            )
+
+        server._show_sent_friend_requests_menu(user)
+        ids = _menu_ids(user, SENT_FRIEND_REQUESTS_MENU)
+        newest_id = f"{SENT_FRIEND_REQUEST_ITEM_PREFIX}{targets[-1].uuid}"
+        oldest_id = f"{SENT_FRIEND_REQUEST_ITEM_PREFIX}{targets[0].uuid}"
+        assert len(
+            [
+                item_id
+                for item_id in ids
+                if item_id.startswith(SENT_FRIEND_REQUEST_ITEM_PREFIX)
+            ]
+        ) == 100
+        assert newest_id in ids
+        assert oldest_id not in ids
+        assert "page_next" in ids
+
+        await server._handle_sent_friend_requests_selection(
+            user,
+            "page_next",
+            server._user_states[user.username],
+        )
+
+        second_page_ids = _menu_ids(user, SENT_FRIEND_REQUESTS_MENU)
+        assert server._user_states[user.username]["sent_friend_requests_page"] == 2
+        assert oldest_id in second_page_ids
+        assert "page_previous" in second_page_ids
+        assert "page_next" not in second_page_ids
+        assert user.menus[SENT_FRIEND_REQUESTS_MENU]["position"] == 1
     finally:
         server._db.close()
 

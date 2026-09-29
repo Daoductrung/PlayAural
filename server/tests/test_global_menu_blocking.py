@@ -306,6 +306,7 @@ async def test_private_message_input_survives_game_over_and_sends_before_result(
             host,
             guest.username,
             "Still here",
+            expected_uuid=guest.uuid,
         )
         assert server._user_states[host.username]["menu"] == "friend_actions_menu"
 

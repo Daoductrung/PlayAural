@@ -114,6 +114,7 @@ class UserRecord:
     motd_version: int = 0
     gender: str = "Not set"
     registration_date: str = ""
+    # Legacy schema name; stores the latest authoritative online observation.
     last_login_date: str = ""
 
 
@@ -4172,6 +4173,18 @@ class Database:
         """Get a user by exact or unambiguous Unicode-insensitive username."""
         return self.resolve_user(username).user
 
+    def get_user_by_uuid(self, user_uuid: str) -> UserRecord | None:
+        """Get one current account by its immutable identifier."""
+        if not user_uuid:
+            return None
+        cursor = self._conn.cursor()
+        cursor.execute(
+            f"SELECT {_USER_RECORD_COLUMNS} FROM users WHERE uuid = ? LIMIT 1",
+            (user_uuid,),
+        )
+        row = cursor.fetchone()
+        return self._user_record_from_row(row) if row else None
+
     def create_user(
         self,
         username: str,
@@ -4335,10 +4348,29 @@ class Database:
         """Update a user's gender after enforcing the canonical value set."""
         self._update_user_value(username, "gender", require_gender(gender).value)
 
-    def update_user_last_login(self, username: str) -> None:
-        """Update a user's last login date."""
-        now_iso = datetime.now().isoformat()
-        self._update_user_value(username, "last_login_date", now_iso)
+    def update_user_last_seen(
+        self,
+        username: str,
+        *,
+        observed_at: datetime | None = None,
+    ) -> bool:
+        """Persist the latest authoritative online observation for an account.
+
+        The existing ``last_login_date`` column is retained for schema and
+        backup compatibility, but now records both successful session starts
+        and authoritative session endings. Cross-device handoffs update it at
+        the new login only; retiring the displaced transport must not make the
+        still-online replacement appear offline. This metadata has the same
+        lifetime as its account row and is removed by normal account deletion;
+        legacy local-naive values remain readable without a schema migration.
+        """
+        timestamp = observed_at or datetime.now(timezone.utc)
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.astimezone()
+        now_iso = timestamp.astimezone(timezone.utc).isoformat(
+            timespec="microseconds"
+        )
+        return self._update_user_value(username, "last_login_date", now_iso)
 
     def get_user_count(self) -> int:
         """Get the total number of users in the database."""
@@ -6331,6 +6363,25 @@ class Database:
                 friends.append(row["requester_id"])
         return friends
 
+    def get_friend_records(self, user_id: str) -> list[UserRecord]:
+        """Return current account records for every accepted friend in one query."""
+        cursor = self._conn.cursor()
+        cursor.execute(
+            """
+            SELECT users.*
+            FROM friendships
+            JOIN users ON users.uuid = CASE
+                WHEN friendships.requester_id = ?
+                    THEN friendships.receiver_id
+                ELSE friendships.requester_id
+            END
+            WHERE friendships.status = 'accepted'
+              AND (friendships.requester_id = ? OR friendships.receiver_id = ?)
+            """,
+            (user_id, user_id, user_id),
+        )
+        return [self._user_record_from_row(row) for row in cursor.fetchall()]
+
     def are_friends(self, user1_id: str, user2_id: str) -> bool:
         """Return whether two distinct accounts share an accepted friendship."""
         if not user1_id or not user2_id or user1_id == user2_id:
@@ -6387,6 +6438,91 @@ class Database:
             params.extend([safe_limit, safe_offset])
         cursor.execute(query, tuple(params))
         return [row["requester_id"] for row in cursor.fetchall()]
+
+    def count_pending_outgoing_requests(self, user_id: str) -> int:
+        """Count pending sent requests whose target account still exists."""
+        cursor = self._conn.cursor()
+        cursor.execute(
+            """
+            SELECT COUNT(*) AS count
+            FROM friendships
+            JOIN users ON users.uuid = friendships.receiver_id
+            WHERE friendships.requester_id = ?
+              AND friendships.status = 'pending'
+            """,
+            (user_id,),
+        )
+        row = cursor.fetchone()
+        return int(row["count"] if row else 0)
+
+    def get_pending_outgoing_request_records(
+        self,
+        user_id: str,
+        *,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> list[UserRecord]:
+        """Return target accounts for pending sent requests, newest first."""
+        cursor = self._conn.cursor()
+        query = """
+            SELECT users.*
+            FROM friendships
+            JOIN users ON users.uuid = friendships.receiver_id
+            WHERE friendships.requester_id = ?
+              AND friendships.status = 'pending'
+            ORDER BY friendships.created_at DESC,
+                     users.username_key ASC,
+                     users.username COLLATE BINARY ASC,
+                     friendships.receiver_id ASC
+        """
+        params: list[object] = [user_id]
+        if limit is not None:
+            safe_limit = max(1, int(limit))
+            safe_offset = max(0, int(offset))
+            query += " LIMIT ? OFFSET ?"
+            params.extend([safe_limit, safe_offset])
+        cursor.execute(query, tuple(params))
+        return [self._user_record_from_row(row) for row in cursor.fetchall()]
+
+    def cancel_outgoing_friend_request(
+        self,
+        requester_id: str,
+        receiver_id: str,
+    ) -> bool:
+        """Atomically cancel one still-pending request and its stale alert.
+
+        The status predicate prevents a late cancellation from deleting an
+        accepted friendship. Removing the undelivered offline alert keeps a
+        recipient from hearing about a request that no longer exists.
+        """
+        with self._transaction(immediate=True) as cursor:
+            cursor.execute(
+                "SELECT username FROM users WHERE uuid = ? LIMIT 1",
+                (requester_id,),
+            )
+            requester = cursor.fetchone()
+            if requester is None:
+                return False
+            cursor.execute(
+                """
+                DELETE FROM friendships
+                WHERE requester_id = ? AND receiver_id = ?
+                  AND status = 'pending'
+                """,
+                (requester_id, receiver_id),
+            )
+            if cursor.rowcount <= 0:
+                return False
+            cursor.execute(
+                """
+                DELETE FROM user_notifications
+                WHERE user_id = ?
+                  AND source_username = ? COLLATE BINARY
+                  AND event_type = 'friend_request_received'
+                """,
+                (receiver_id, requester["username"]),
+            )
+            return True
 
     def has_blocked(self, blocker_id: str, blocked_id: str) -> bool:
         """Return whether one account has directionally blocked another."""
@@ -6635,6 +6771,15 @@ class Database:
                         OR
                         (blocker_id = source.uuid AND blocked_id = notification.user_id)
                       )
+                  )
+                  AND (
+                    notification.event_type != 'friend_request_received'
+                    OR EXISTS (
+                        SELECT 1 FROM friendships
+                        WHERE friendships.requester_id = source.uuid
+                          AND friendships.receiver_id = notification.user_id
+                          AND friendships.status = 'pending'
+                    )
                   )
                 ORDER BY notification.created_at ASC
                 """,

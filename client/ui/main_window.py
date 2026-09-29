@@ -1243,7 +1243,13 @@ class MainWindow(wx.Frame):
     _FRIENDS_MENU_IDS = frozenset({
         "friends_hub_menu", "friends_list_menu", "friend_actions_menu",
         "friend_requests_menu", "friend_request_actions_menu",
-        "send_friend_request_input",
+        "sent_friend_requests_menu", "sent_friend_request_actions_menu",
+        "friend_request_cancel_confirm_menu", "friend_remove_confirm_menu",
+        "blocked_users_menu", "blocked_user_actions_menu",
+        "user_block_confirm_menu", "user_report_reason_menu",
+        "user_report_confirm_menu", "public_profile_menu",
+        "send_friend_request_input", "block_user_input", "report_user_input",
+        "send_pm_input",
     })
     # Administration-family menus. Permission remains enforced by the server.
     _ADMIN_MENU_IDS = frozenset({

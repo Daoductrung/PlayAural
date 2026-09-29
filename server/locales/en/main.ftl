@@ -1056,6 +1056,10 @@ auth-error-rate-limit = { error-rate-limit-login }
 friends-my-friends = My Friends
 friends-pending-requests = Pending Requests ({ $count })
 friends-no-pending-requests = Pending Requests
+friends-sent-requests = { $count ->
+    [0] Sent Requests
+   *[other] Sent Requests ({ $count })
+}
 friends-send-request = Send Friend Request
 friends-block-user = Block a User
 enter-block-username = Enter the username of the person you want to block:
@@ -1066,6 +1070,7 @@ friends-blocked-users = { $count ->
 friends-blocked-empty = You have not blocked anyone.
 friends-list-empty = You have no friends yet.
 friend-status-offline = Offline
+friend-status-offline-last-online = Offline, last online { $relative_time }
 friend-status-playing = Playing { $game }
 friend-status-spectating = Spectating { $game }
 friend-status-lobby = Main menu
@@ -1084,7 +1089,9 @@ friend-removed-success = { $username } has been removed from your friends list.
 friend-removed-notify = { $username } has removed you from { GENDER_TERM($username_gender, "possessive-determiner") } friends list.
 
 no-pending-requests = No pending requests.
+no-sent-requests = You have no pending sent requests.
 friend-request-from = Friend request from { $username }
+friend-request-to = Friend request sent to { $username }
 accept = Accept
 decline = Decline
 friend-accepted-success = You are now friends with { $username }.
@@ -1092,6 +1099,38 @@ friend-accepted-notify = { $username } has accepted your friend request!
 request-not-found = Friend request no longer exists.
 friend-declined-success = Friend request declined.
 friend-declined-notify = { $username } declined your friend request.
+friend-request-manage-sent = Manage Sent Friend Request
+friend-request-accept-action = Accept Friend Request
+friend-request-cancel-action = Cancel Friend Request
+friend-request-cancel-confirm = Cancel your pending friend request to { $username }?
+friend-request-cancelled = Your friend request to { $username } was cancelled.
+friend-request-cancel-unavailable = This friend request is no longer pending, so it was not cancelled.
+
+relative-time-just-now = just now
+relative-time-minutes-ago = { $count ->
+    [one] 1 minute ago
+   *[other] { $count } minutes ago
+}
+relative-time-hours-ago = { $count ->
+    [one] 1 hour ago
+   *[other] { $count } hours ago
+}
+relative-time-days-ago = { $count ->
+    [one] 1 day ago
+   *[other] { $count } days ago
+}
+relative-time-weeks-ago = { $count ->
+    [one] 1 week ago
+   *[other] { $count } weeks ago
+}
+relative-time-months-ago = { $count ->
+    [one] 1 month ago
+   *[other] { $count } months ago
+}
+relative-time-years-ago = { $count ->
+    [one] 1 year ago
+   *[other] { $count } years ago
+}
 
 public-profile-title = { $username }'s Profile
 enter-friend-username = Enter the username of the person you want to friend:

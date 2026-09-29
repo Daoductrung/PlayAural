@@ -1048,6 +1048,10 @@ auth-error-rate-limit = { error-rate-limit-login }
 friends-my-friends = Bạn bè của tôi
 friends-pending-requests = Lời mời kết bạn ({ $count })
 friends-no-pending-requests = Lời mời kết bạn
+friends-sent-requests = { $count ->
+    [0] Lời mời đã gửi
+   *[other] Lời mời đã gửi ({ $count })
+}
 friends-send-request = Gửi lời mời kết bạn
 friends-block-user = Chặn một người dùng
 enter-block-username = Nhập tên người dùng bạn muốn chặn:
@@ -1058,6 +1062,7 @@ friends-blocked-users = { $count ->
 friends-blocked-empty = Bạn chưa chặn người dùng nào.
 friends-list-empty = Bạn chưa có người bạn nào.
 friend-status-offline = Ngoại tuyến
+friend-status-offline-last-online = Ngoại tuyến, trực tuyến lần cuối { $relative_time }
 friend-status-playing = Đang chơi { $game }
 friend-status-spectating = Đang xem { $game }
 friend-status-lobby = Menu chính
@@ -1076,7 +1081,9 @@ friend-removed-success = Đã xóa { $username } khỏi danh sách bạn bè c�
 friend-removed-notify = { $username } đã xóa bạn khỏi danh sách bạn bè { GENDER_TERM($username_gender, "possessive-determiner") }.
 
 no-pending-requests = Không có lời mời kết bạn nào đang chờ.
+no-sent-requests = Bạn không có lời mời kết bạn đã gửi nào đang chờ.
 friend-request-from = Lời mời kết bạn từ { $username }
+friend-request-to = Lời mời kết bạn đã gửi đến { $username }
 accept = Chấp nhận
 decline = Từ chối
 friend-accepted-success = Bạn và { $username } hiện đã là bạn bè.
@@ -1084,6 +1091,38 @@ friend-accepted-notify = { $username } đã chấp nhận lời mời kết bạ
 request-not-found = Lời mời kết bạn không còn tồn tại.
 friend-declined-success = Đã từ chối lời mời kết bạn.
 friend-declined-notify = { $username } đã từ chối lời mời kết bạn của bạn.
+friend-request-manage-sent = Quản lý lời mời kết bạn đã gửi
+friend-request-accept-action = Chấp nhận lời mời kết bạn
+friend-request-cancel-action = Hủy lời mời kết bạn
+friend-request-cancel-confirm = Hủy lời mời kết bạn đang chờ mà bạn đã gửi đến { $username }?
+friend-request-cancelled = Đã hủy lời mời kết bạn gửi đến { $username }.
+friend-request-cancel-unavailable = Lời mời kết bạn này không còn ở trạng thái chờ nên không thể hủy.
+
+relative-time-just-now = vừa xong
+relative-time-minutes-ago = { $count ->
+    [one] 1 phút trước
+   *[other] { $count } phút trước
+}
+relative-time-hours-ago = { $count ->
+    [one] 1 giờ trước
+   *[other] { $count } giờ trước
+}
+relative-time-days-ago = { $count ->
+    [one] 1 ngày trước
+   *[other] { $count } ngày trước
+}
+relative-time-weeks-ago = { $count ->
+    [one] 1 tuần trước
+   *[other] { $count } tuần trước
+}
+relative-time-months-ago = { $count ->
+    [one] 1 tháng trước
+   *[other] { $count } tháng trước
+}
+relative-time-years-ago = { $count ->
+    [one] 1 năm trước
+   *[other] { $count } năm trước
+}
 
 public-profile-title = Hồ sơ của { $username }
 enter-friend-username = Nhập tên người dùng bạn muốn kết bạn:

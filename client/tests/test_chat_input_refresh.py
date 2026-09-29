@@ -178,6 +178,27 @@ def test_desktop_options_shortcut_covers_every_server_owned_options_menu():
     } <= desktop_menu_ids
 
 
+def test_desktop_friends_shortcut_covers_nested_social_surfaces():
+    desktop_menu_ids = _get_main_window_frozenset("_FRIENDS_MENU_IDS")
+
+    assert {
+        "sent_friend_requests_menu",
+        "sent_friend_request_actions_menu",
+        "friend_request_cancel_confirm_menu",
+        "friend_remove_confirm_menu",
+        "blocked_users_menu",
+        "blocked_user_actions_menu",
+        "user_block_confirm_menu",
+        "user_report_reason_menu",
+        "user_report_confirm_menu",
+        "public_profile_menu",
+        "send_friend_request_input",
+        "block_user_input",
+        "report_user_input",
+        "send_pm_input",
+    } <= desktop_menu_ids
+
+
 def test_read_online_users_never_moves_focus():
     method = _get_main_window_function("on_list_online")
     namespace = {}

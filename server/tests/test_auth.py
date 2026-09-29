@@ -2,6 +2,7 @@ import asyncio
 import os
 import tempfile
 import uuid
+from datetime import datetime, timezone
 
 import pytest
 
@@ -1130,6 +1131,15 @@ class TestAuthSecurity:
         await self.server._handle_authorize(first_client, auth_packet)
         await self.server._handle_authorize(second_client, auth_packet)
 
+        sentinel = datetime(2000, 1, 1, tzinfo=timezone.utc)
+        assert self.server._db.update_user_last_seen(
+            "Alice",
+            observed_at=sentinel,
+        )
+        last_seen_before_retired_close = self.server._db.get_user(
+            "Alice"
+        ).last_login_date
+
         replacement = self.server._users["Alice"]
         self.server._user_states["Alice"] = {"menu": "options_menu"}
         self.server._voice_presence_by_user["Alice"] = {
@@ -1147,6 +1157,9 @@ class TestAuthSecurity:
         assert self.server._user_states["Alice"] == {"menu": "options_menu"}
         assert "Alice" in self.server._voice_presence_by_user
         assert "Alice" in self.server._audio_input_devices_by_user
+        assert self.server._db.get_user("Alice").last_login_date == (
+            last_seen_before_retired_close
+        )
 
     @pytest.mark.asyncio
     async def test_retired_session_packets_cannot_mutate_replacement(self):

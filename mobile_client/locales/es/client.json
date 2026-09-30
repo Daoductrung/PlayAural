@@ -229,5 +229,5 @@
   "current-music-track": "Música: {value}",
   "current-ambience-track": "Ambiente: {value}",
   "footer-gestures-line-1": "La autolectura usa gestos al estilo de un lector de pantalla. Desactiva TalkBack después de conectarte si quieres que PlayAural controle la voz directamente.",
-  "footer-gestures-line-2": "Los deslizamientos con 1 dedo mueven entre elementos; desliza y mantén presionado medio segundo para seguir moviéndote. Doble toque activa; doble toque y mantener presionado envía la acción modificada. Los deslizamientos con 2 dedos abren Atrás, Chat, Historial o Atajos. El toque con 2 dedos detiene la voz. 3 dedos hacia arriba o abajo salta al primer o último elemento. El triple toque con 3 dedos alterna la autolectura."
+  "footer-gestures-line-2": "Los deslizamientos con 1 dedo mueven entre elementos; desliza y mantén presionado medio segundo para seguir moviéndote. Doble toque activa; doble toque y mantener presionado envía la acción modificada. Los deslizamientos con 2 dedos abren Atrás, Chat, Historial o Atajos. El toque con 2 dedos detiene la voz. Un toque con 3 dedos lee la descripción del elemento de menú enfocado. 3 dedos hacia arriba o abajo salta al primer o último elemento. El triple toque con 3 dedos alterna la autolectura."
 }

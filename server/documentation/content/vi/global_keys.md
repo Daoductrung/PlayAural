@@ -6,7 +6,7 @@ Tài liệu này giải thích các cách điều khiển dùng chung trong Play
 
 Theo mặc định, mục trình đơn nào có phần trợ giúp sẽ đọc luôn phần mô tả sau tên mục, nhờ vậy bạn vừa biết lựa chọn là gì vừa biết nó có tác dụng gì. Nếu muốn trình đơn ngắn gọn hơn, hãy mở \*\*Cá nhân và Tùy chỉnh > Tùy chỉnh chung > Hỗ trợ tiếp cận > Gợi ý trong trình đơn\*\* rồi tắt tùy chọn này. Thiết lập được áp dụng trên mọi thiết bị cho trình đơn hệ thống, tùy chọn trước ván và các lựa chọn trong trò chơi có kèm mô tả.
 
-Khi tắt Gợi ý trong trình đơn, người dùng máy tính vẫn có thể nhấn \*\*Space\*\* tại một mục hệ thống hoặc tùy chọn trước ván có mô tả để nghe phần trợ giúp mà không kích hoạt mục đó. Trong lúc ván đang diễn ra, Space vẫn giữ chức năng phím tắt của trò chơi. Bạn có thể bật lại Gợi ý trong trình đơn bất cứ lúc nào để phần mô tả tự xuất hiện.
+Khi tắt Gợi ý trong trình đơn, hãy chọn một mục có mô tả rồi nhấn \*\*F1\*\* trên ứng dụng máy tính hoặc bản web khi dùng bàn phím, hoặc chạm một lần bằng ba ngón trong chế độ tự đọc của ứng dụng di động, để nghe phần trợ giúp mà không kích hoạt mục đó. Cách này dùng được trong trình đơn hệ thống, phần thiết lập trước ván và cả khi ván đang diễn ra. Bạn có thể bật lại Gợi ý trong trình đơn bất cứ lúc nào để phần mô tả tự xuất hiện.
 
 \*\*Phím tắt trên máy tính\*\*
 
@@ -47,6 +47,7 @@ PlayAural chia tin nhắn thành nhiều bộ đệm để bạn dễ xem riêng
 \* \*\*Enter:\*\* Kích hoạt mục đang được chọn.
 \* \*\*Escape:\*\* Quay lại hoặc mở trình đơn hành động.
 \* \*\*Home / End:\*\* Nhảy tới mục đầu tiên hoặc cuối cùng trong danh sách hiện tại.
+\* \*\*F1:\*\* Nghe mô tả của mục trình đơn đang được chọn, nếu mục đó có mô tả.
 \* \*\*Các chữ cái A-Z:\*\* Nhảy nhanh tới những mục bắt đầu bằng chữ tương ứng.
 
 \*\*Điều khiển trên di động\*\*
@@ -63,7 +64,7 @@ Nếu bạn đang dùng ứng dụng di động, tốt nhất hãy tắt trình 
 \* \*\*Vuốt sang trái bằng hai ngón:\*\* Mở hoặc đóng Nhật ký.
 \* \*\*Vuốt xuống bằng hai ngón:\*\* Mở hoặc đóng Phím tắt.
 \* \*\*Chạm bằng hai ngón:\*\* Dừng lời đọc hiện tại.
-\* \*\*Chạm bằng ba ngón:\*\* Đọc lại thông báo gần nhất.
+\* \*\*Chạm bằng ba ngón:\*\* Nghe mô tả của mục trình đơn đang được chọn, nếu mục đó có mô tả.
 \* \*\*Chạm ba lần bằng ba ngón:\*\* Bật hoặc tắt chế độ tự đọc.
 \* \*\*Vuốt lên bằng ba ngón:\*\* Nhảy tới mục đầu tiên trong danh sách hiện tại.
 \* \*\*Vuốt xuống bằng ba ngón:\*\* Nhảy tới mục cuối cùng trong danh sách hiện tại.

@@ -23,6 +23,9 @@ server-authorized but media flows through the separate LiveKit service. Never
 merge voice media into gameplay WebSocket traffic. Voice membership is
 runtime-only table state unless a future feature explicitly defines retention,
 cleanup, and account-deletion behavior.
+Focused menu help uses the semantic `menu_description` request with the current
+menu and stable item ids. The server validates both against the visible menu;
+never route this UI command through gameplay keybind dispatch.
 Server-requested voice joins reuse `voice_join_info` with
 `server_requested=true`; clients connect listen-only and must never enable the
 microphone without a separate explicit user action. `voice_context_closed`
@@ -245,6 +248,10 @@ Rules:
   `whose_turn`, `whos_at_table`.
 - Use `_order_touch_standard_actions(action_set, target_order)`; do not copy
   manual ordering loops. Keep desktop ordering separate.
+- In mobile self-voicing mode, a three-finger single tap requests the focused
+  menu description. Defer it through the recognizer's shared multi-finger
+  multi-tap window and cancel it when another chord starts so it never fires
+  during the global three-finger triple-tap toggle.
 
 ## Keybinds
 
@@ -260,10 +267,12 @@ while idle and select a grid cell while active.
 
 Base/client bindings to respect: `enter`, `escape`, `b`, `shift+b`, `f3`, `t`,
 `s`, `shift+s`, `ctrl+m`, `ctrl+q`, `ctrl+u`, `ctrl+s`, `ctrl+r`, `ctrl+i`,
-`ctrl+f1`. Do not reuse `ALWAYS` bindings or same-state base/client bindings
-for unrelated game-specific actions unless deliberately matching the standard
-behavior. When reusing a key across states, keep the scope explicit and add
-coverage for the intended separation.
+`f1`, `ctrl+f1`. Plain `F1` is the client-owned focused-menu-description
+command and must send the semantic `menu_description` request, never a game
+keybind; `Ctrl+F1` remains How to Play. Do not reuse `ALWAYS` bindings or
+same-state base/client bindings for unrelated game-specific actions unless
+deliberately matching the standard behavior. When reusing a key across states,
+keep the scope explicit and add coverage for the intended separation.
 
 ## Options
 

@@ -6,7 +6,7 @@ This guide explains the controls that work across PlayAural. Desktop users mainl
 
 Menu items that have extra help include that description in the item by default, so moving through the menu reads both the choice and what it does. To use shorter menu items, open \*\*Personal and Options > General options > Accessibility > Menu Hints\*\* and turn the setting off. This preference applies to system menus, game setup options, and game choices that provide descriptions on every client.
 
-When Menu Hints are off, desktop users can press \*\*Space\*\* on a described system or game-setup option to hear its help without activating it. Space keeps its normal game shortcut during an active game. You can turn Menu Hints on again whenever you want descriptions included automatically.
+When Menu Hints are off, focus any described menu item and press \*\*F1\*\* in the Desktop client or Web client with a hardware keyboard, or tap once with three fingers in the mobile client's self-voicing mode, to hear its help without activating it. This works in system menus, game setup, and active games. You can turn Menu Hints on again whenever you want descriptions included automatically.
 
 \*\*Desktop Keyboard Shortcuts\*\*
 
@@ -47,6 +47,7 @@ PlayAural groups messages into separate buffers so you can review game messages,
 \* \*\*Enter:\*\* Activate the focused item.
 \* \*\*Escape:\*\* Go back or open the action menu.
 \* \*\*Home / End:\*\* Jump to the first or last item in the current list.
+\* \*\*F1:\*\* Hear the focused menu item's description, when one is available.
 \* \*\*Letter keys A-Z:\*\* Jump quickly to items that begin with that letter.
 
 \*\*Mobile Controls\*\*
@@ -63,7 +64,7 @@ The mobile client has its own built-in spoken navigation. You can temporarily tu
 \* \*\*2-finger swipe left:\*\* Open or close History.
 \* \*\*2-finger swipe down:\*\* Open or close Shortcuts.
 \* \*\*2-finger tap:\*\* Stop current speech.
-\* \*\*3-finger tap:\*\* Repeat the most recent announcement.
+\* \*\*3-finger tap:\*\* Hear the focused menu item's description, when one is available.
 \* \*\*3-finger triple tap:\*\* Toggle self-voicing on or off.
 \* \*\*3-finger swipe up:\*\* Jump to the first item in the current list.
 \* \*\*3-finger swipe down:\*\* Jump to the last item in the current list.

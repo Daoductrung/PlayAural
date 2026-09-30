@@ -6,7 +6,7 @@ Este guia explica os controles que funcionam em todo o PlayAural. Jogadores de c
 
 Itens de menu que possuem ajuda extra incluem sua descrição no próprio item por padrão, de modo que a navegação pelo menu lê tanto a escolha quanto sua função. Para usar itens de menu mais curtos, abra **Pessoal e Opções > Opções gerais > Acessibilidade > Dicas de Menu** e desative a configuração. Essa preferência se aplica a menus do sistema, opções de configuração de jogo e escolhas de jogo que fornecem descrições em cada cliente.
 
-Quando as Dicas de Menu estão desativadas, os usuários de computador podem pressionar **Espaço** em uma opção descrita de sistema ou de configuração de jogo para ouvir sua ajuda sem ativá-la. O Espaço mantém seu atalho de jogo normal durante uma partida ativa. Você pode ativar as Dicas de Menu novamente sempre que quiser que as descrições sejam incluídas automaticamente.
+Quando as Dicas de Menu estão desativadas, foque qualquer item de menu com descrição e pressione **F1** no cliente Desktop ou no cliente Web com um teclado físico, ou toque uma vez com três dedos no modo de auto-vocalização do cliente móvel, para ouvir a ajuda sem ativar o item. Isso funciona nos menus do sistema, na configuração do jogo e durante uma partida. Você pode ativar as Dicas de Menu novamente sempre que quiser que as descrições sejam incluídas automaticamente.
 
 # **Atalhos de Teclado para Computador**
 
@@ -47,6 +47,7 @@ O PlayAural agrupa mensagens em buffers separados para que você possa revisar m
 * **Enter:** Ativa o item em foco.
 * **Escape:** Volta ou abre o menu de ação.
 * **Home / End:** Vai para o primeiro ou último item na lista atual.
+* **F1:** Ouve a descrição do item de menu em foco, quando houver uma.
 * **Teclas de letras A-Z:** Saltam rapidamente para itens que começam com essa letra.
 
 # **Controles Móveis**
@@ -63,7 +64,7 @@ O cliente móvel possui sua própria navegação falada integrada. Você pode re
 * **Deslizar para a esquerda com 2 dedos:** Abre ou fecha o Histórico.
 * **Deslizar para baixo com 2 dedos:** Abre ou fecha os Atalhos.
 * **Toque com 2 dedos:** Interrompe a fala atual.
-* **Toque com 3 dedos:** Repete o anúncio mais recente.
+* **Toque com 3 dedos:** Ouve a descrição do item de menu em foco, quando houver uma.
 * **Toque triplo com 3 dedos:** Alterna a auto-vocalização entre ligada e desligada.
 * **Deslizar para cima com 3 dedos:** Vai para o primeiro item na lista atual.
 * **Deslizar para baixo com 3 dedos:** Vai para o último item na lista atual.

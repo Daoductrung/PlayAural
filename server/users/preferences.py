@@ -35,7 +35,7 @@ class PrefMeta:
     category: str
     label: str  # Fluent key; receives $status (bool) or $choice (menu)
     change_msg: str  # Fluent key for the change announcement
-    description: str = ""  # Fluent key spoken on space
+    description: str = ""  # Fluent key exposed as menu help
     kind: str = "bool"  # "bool" or "menu"
     default: Any = None
     choices: list[tuple[str, str]] | None = None  # (value, fluent_key)

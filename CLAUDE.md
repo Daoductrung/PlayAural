@@ -110,6 +110,11 @@ application exit. The server, not the client, leaves every registered runtime
 activity before retiring the session and returning `force_exit`; this keeps
 table, voice, and future room teardown authoritative and ordered.
 
+Clients request the focused row's available help with `menu_description`,
+carrying the current `menu_id` and stable `menu_item_id`. The server validates
+both against the visible menu before speaking. This is a semantic UI request,
+not a gameplay keybind.
+
 **`silent` flag on `chat` packets**: Adding `"silent": True` suppresses both chat notification sounds and TTS in the first-party clients. Use it only when the server is also sending explicit `speak` and/or `audio` packets to control the output precisely.
 
 ### Social Blocking Boundary
@@ -437,11 +442,14 @@ select a grid cell while active.
 
 Base/client bindings to respect include `enter`, `escape`, `b`, `shift+b`,
 `f3`, `t`, `s`, `shift+s`, `ctrl+m`, `ctrl+q`, `ctrl+u`, `ctrl+s`, `ctrl+r`,
-`ctrl+i`, and `ctrl+f1`. Do not reuse `ALWAYS` bindings or same-state
-base/client bindings for unrelated game-specific actions unless the behavior is
-deliberately shared or overridden. When reusing a key across states, keep the
-scope explicit, keep matching `Action`/`Keybind` spectator visibility aligned,
-and add tests or clear coverage for the intended state separation.
+`ctrl+i`, `f1`, and `ctrl+f1`. Plain `F1` is the client-owned
+focused-menu-description command and sends `menu_description`, never a game
+keybind; `Ctrl+F1` remains How to Play. Do not reuse `ALWAYS` bindings or
+same-state base/client bindings for unrelated game-specific actions unless the
+behavior is deliberately shared or overridden. When reusing a key across
+states, keep the scope explicit, keep matching `Action`/`Keybind` spectator
+visibility aligned, and add tests or clear coverage for the intended state
+separation.
 
 #### Turn Management Rules
 - `set_turn_players(players)` resets `turn_index` to `0`
@@ -1164,6 +1172,10 @@ Mobile rules:
 - credentials are stored in SecureStore
 - Back resolves the visible dialog/input before local tabs or server menus;
   same-menu updates retain the server's escape behavior
+- In self-voicing mode, a three-finger single tap requests the focused menu
+  description. Defer it through the recognizer's shared multi-finger multi-tap
+  window and cancel it as soon as another gesture chord starts so it never
+  fires during the global three-finger triple-tap toggle.
 - boards scroll on both axes without shrinking touch targets below the UI
   minimum; self-voicing focus reveals the selected cell without delaying cursor
   or speech updates. Android boards use one native two-axis gesture owner and

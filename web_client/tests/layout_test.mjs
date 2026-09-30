@@ -200,6 +200,58 @@ test("touch-rendered menu cells retain hardware-keyboard navigation", () => {
   assert.equal(prevented, true);
 });
 
+test("F1 requests focused menu help while Ctrl+F1 remains How to Play", () => {
+  const menuButton = { tagName: "BUTTON" };
+  const menuElement = { contains: (element) => element === menuButton };
+  const descriptions = [];
+  const keybinds = [];
+  let keydown = null;
+  globalThis.document = {
+    activeElement: menuButton,
+    addEventListener(type, listener) {
+      if (type === "keydown") {
+        keydown = listener;
+      }
+    },
+  };
+  installKeybinds({
+    store: {
+      state: {
+        connection: { authenticated: true },
+        currentMenu: {
+          gridEnabled: false,
+          gridWidth: 1,
+          items: [{ id: "status_row", read_only: true, text: "Status" }],
+          menuId: "turn_menu",
+          selection: 0,
+        },
+      },
+    },
+    menuView: { getElement: () => menuElement },
+    sendKeybind: (packet) => keybinds.push(packet),
+    sendMenuDescription: (...args) => descriptions.push(args),
+  });
+
+  const pressF1 = (control = false) => keydown({
+    key: "F1",
+    altKey: false,
+    ctrlKey: control,
+    shiftKey: false,
+    metaKey: false,
+    preventDefault() {},
+  });
+
+  pressF1();
+  assert.deepEqual(descriptions, [["turn_menu", "status_row"]]);
+  assert.deepEqual(keybinds, []);
+
+  pressF1(true);
+  assert.equal(keybinds.length, 1);
+  assert.equal(keybinds[0].key, "f1");
+  assert.equal(keybinds[0].control, true);
+  assert.equal(keybinds[0].menu_item_id, null);
+});
+
 test("message-history punctuation shortcuts keep their established dispatch", () => {
   const menuElement = { contains: () => false };
   const calls = [];
@@ -287,7 +339,7 @@ test("locale metadata identifies Persian as right-to-left", async () => {
 
 test("the offline shell precaches the updated UI modules", async () => {
   const serviceWorker = await readFile(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(serviceWorker, /playaural-web-v1\.0\.5\.1-shell-16/u);
+  assert.match(serviceWorker, /playaural-web-v1\.0\.5\.1-shell-17/u);
   for (const asset of [
     "store.js",
     "spatial_audio.js",

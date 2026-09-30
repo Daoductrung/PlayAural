@@ -400,6 +400,81 @@ def test_desktop_copy_directives_cover_modified_enter_and_escape(monkeypatch):
     assert sent_packets == []
 
 
+def test_desktop_f1_requests_menu_description_without_stealing_ctrl_f1(monkeypatch):
+    sent_packets = []
+    menu_list = type(
+        "MenuList",
+        (),
+        {
+            "GetCount": staticmethod(lambda: 1),
+            "GetSelection": staticmethod(lambda: 0),
+        },
+    )()
+    monkeypatch.setattr(
+        main_window_module.wx,
+        "Window",
+        type("Window", (), {"FindFocus": staticmethod(lambda: menu_list)}),
+    )
+    window = type(
+        "WindowHarness",
+        (),
+        {
+            "connected": True,
+            "current_menu_id": "turn_menu",
+            "current_menu_item_ids": ["status_row"],
+            "current_menu_item_read_only": [True],
+            "current_mode": "list",
+            "menu_list": menu_list,
+            "multiletter_enabled": True,
+            "network": type(
+                "Network",
+                (),
+                {"send_packet": staticmethod(sent_packets.append)},
+            )(),
+            "_native_typing_control_handles": set(),
+            "_request_focused_menu_description": MainWindow._request_focused_menu_description,
+        },
+    )()
+
+    def event(*, control=False):
+        modifiers = main_window_module.wx.MOD_CONTROL if control else 0
+        return type(
+            "EventHarness",
+            (),
+            {
+                "AltDown": staticmethod(lambda: False),
+                "ControlDown": staticmethod(lambda: control),
+                "GetKeyCode": staticmethod(lambda: main_window_module.wx.WXK_F1),
+                "GetModifiers": staticmethod(lambda: modifiers),
+                "MetaDown": staticmethod(lambda: False),
+                "ShiftDown": staticmethod(lambda: False),
+                "Skip": staticmethod(lambda: None),
+            },
+        )()
+
+    MainWindow.on_char_hook(window, event())
+    assert sent_packets == [
+        {
+            "type": "menu_description",
+            "menu_id": "turn_menu",
+            "menu_item_id": "status_row",
+        }
+    ]
+
+    window.current_menu_item_read_only = [False]
+    MainWindow.on_char_hook(window, event(control=True))
+    assert sent_packets[-1] == {
+        "type": "keybind",
+        "key": "f1",
+        "control": True,
+        "alt": False,
+        "shift": False,
+        "menu_id": "turn_menu",
+        "menu_index": 1,
+        "menu_item_id": "status_row",
+    }
+
+
 def test_desktop_copy_directives_fail_closed_for_malformed_or_failed_payloads():
     invalid = execute_copy_directive(
         {

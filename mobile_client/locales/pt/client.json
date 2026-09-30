@@ -230,5 +230,5 @@
   "current-music-track": "Música: {value}",
   "current-ambience-track": "Som ambiente: {value}",
   "footer-gestures-line-1": "A narração automática usa gestos no estilo dos leitores de tela. Desative o TalkBack após conectar se quiser que o PlayAural controle a fala diretamente.",
-  "footer-gestures-line-2": "Deslizes com 1 dedo movem entre os itens; deslize e segure por meio segundo para continuar se movendo. O toque duplo ativa; toque duplo e segurar envia a ação modificada. Deslizes com 2 dedos abrem Voltar, Chat, Histórico ou Atalhos. Um toque com 2 dedos interrompe a fala. Deslizar com 3 dedos para cima ou para baixo pula para o primeiro ou o último item. Toque triplo com 3 dedos alterna a narração automática."
+  "footer-gestures-line-2": "Deslizes com 1 dedo movem entre os itens; deslize e segure por meio segundo para continuar se movendo. O toque duplo ativa; toque duplo e segurar envia a ação modificada. Deslizes com 2 dedos abrem Voltar, Chat, Histórico ou Atalhos. Um toque com 2 dedos interrompe a fala. Um toque com 3 dedos lê a descrição do item de menu em foco. Deslizar com 3 dedos para cima ou para baixo pula para o primeiro ou o último item. Toque triplo com 3 dedos alterna a narração automática."
 }

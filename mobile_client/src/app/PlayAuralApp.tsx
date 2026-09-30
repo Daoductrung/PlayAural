@@ -105,6 +105,7 @@ const CONNECTION_AUDIO_HANDLE = "client:connection";
 const CONNECTION_AUDIO_LAYER = "connection";
 const TRANSPORT_CLOSE_TIMEOUT_MS = 1500;
 const LOGOUT_RESPONSE_TIMEOUT_MS = 5000;
+const MENU_DESCRIPTION_HARDWARE_KEY = "F1";
 
 type ReleaseDownloadInfo = {
   target?: string;
@@ -4422,6 +4423,27 @@ export function PlayAuralApp() {
     }
   };
 
+  const requestFocusedMenuDescription = useCallback(() => {
+    if (
+      !sessionEstablishedRef.current ||
+      dialogStateRef.current ||
+      inputStateRef.current ||
+      modeRef.current !== "main"
+    ) {
+      return;
+    }
+    const currentMenu = menuStateRef.current;
+    const item = currentMenu.items[currentMenu.focusIndex];
+    if (!currentMenu.menuId || typeof item?.id !== "string" || !item.id) {
+      return;
+    }
+    connectionRef.current?.send({
+      type: "menu_description",
+      menu_id: currentMenu.menuId,
+      menu_item_id: item.id,
+    });
+  }, []);
+
   const requestLogout = () => {
     if (logoutResponseTimerRef.current !== null) {
       return;
@@ -4581,6 +4603,7 @@ export function PlayAuralApp() {
     onDoubleTapHold: handleModifiedActivate,
     onSingleFingerSwipe: handleDirectionalNavigation,
     onSingleFingerSwipeHold: handleDirectionalNavigation,
+    onThreeFingerTap: requestFocusedMenuDescription,
     onThreeFingerSwipe: (direction) => {
       if (direction === "up") {
         handleBoundaryJump("top");
@@ -4648,6 +4671,17 @@ export function PlayAuralApp() {
       if ((event.key === "r" || event.key === "R") && event.ctrlKey) {
         event.preventDefault();
         handleRepeatLast();
+        return;
+      }
+      if (
+        event.key === MENU_DESCRIPTION_HARDWARE_KEY
+        && !event.altKey
+        && !event.ctrlKey
+        && !event.metaKey
+        && !event.shiftKey
+      ) {
+        event.preventDefault();
+        requestFocusedMenuDescription();
         return;
       }
       if (event.ctrlKey) {
@@ -4719,7 +4753,7 @@ export function PlayAuralApp() {
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [handleBoundaryJump, handleDirectionalNavigation, handleModifiedActivate, handlePrimaryActivate, handleSystemSwipe, selfVoicingKeyboardEnabled]);
+  }, [handleBoundaryJump, handleDirectionalNavigation, handleModifiedActivate, handlePrimaryActivate, handleSystemSwipe, requestFocusedMenuDescription, selfVoicingKeyboardEnabled]);
 
   useEffect(() => {
     if (!storageReady || !selfVoicingEnabled) {

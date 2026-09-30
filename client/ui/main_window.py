@@ -76,6 +76,7 @@ DOWNLOAD_PROGRESS_INTERVAL_SECONDS = 0.1
 DOWNLOAD_PROGRESS_UI_TIMEOUT_SECONDS = 5.0
 DOWNLOAD_SPEECH_PERCENT_STEP = 10
 LOGOUT_RESPONSE_TIMEOUT_MS = 5000
+MENU_DESCRIPTION_KEY_CODE = wx.WXK_F1
 
 
 @dataclass(slots=True)
@@ -1558,6 +1559,26 @@ class MainWindow(wx.Frame):
     def _is_message_muted_for_history(self, buffer_name):
         return self.buffer_system.is_effectively_muted(buffer_name)
 
+    def _request_focused_menu_description(self):
+        """Request help for the focused row without dispatching a game key."""
+        if not self.connected or not self.current_menu_id:
+            return
+        selection = self.menu_list.GetSelection()
+        if selection == wx.NOT_FOUND or not (
+            0 <= selection < len(self.current_menu_item_ids)
+        ):
+            return
+        menu_item_id = self.current_menu_item_ids[selection]
+        if not isinstance(menu_item_id, str) or not menu_item_id:
+            return
+        self.network.send_packet(
+            {
+                "type": "menu_description",
+                "menu_id": self.current_menu_id,
+                "menu_item_id": menu_item_id,
+            }
+        )
+
     def on_char_hook(self, event):
         """Handle character input for game keypresses."""
         focused = wx.Window.FindFocus()
@@ -1621,7 +1642,15 @@ class MainWindow(wx.Frame):
                 event.Skip()
                 return
         # Handle function keys
-        elif key_code == wx.WXK_F1:
+        elif key_code == MENU_DESCRIPTION_KEY_CODE:
+            if (
+                not event.ControlDown()
+                and not event.ShiftDown()
+                and not event.AltDown()
+                and not event.MetaDown()
+            ):
+                self._request_focused_menu_description()
+                return
             key_name = "f1"
         elif key_code == wx.WXK_F2:
             # F2 is handled by accelerator table for online list

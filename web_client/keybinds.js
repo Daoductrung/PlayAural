@@ -1,5 +1,7 @@
 import { isMenuItemActionable } from "./ui/menus.js";
 
+const MENU_DESCRIPTION_KEY = "F1";
+
 function keyFromEvent(event) {
   if (event.key === " ") {
     return "space";
@@ -56,6 +58,7 @@ export function installKeybinds({
   store,
   menuView,
   sendMenuSelection,
+  sendMenuDescription,
   sendEscape,
   sendKeybind,
   sendListOnline,
@@ -172,7 +175,7 @@ export function installKeybinds({
 
     if (
       connected
-      && event.key === "F1"
+      && event.key === MENU_DESCRIPTION_KEY
       && event.ctrlKey
       && !event.altKey
       && !event.shiftKey
@@ -209,9 +212,15 @@ export function installKeybinds({
         }
         return;
       }
-      if (event.key === "F1" && !event.shiftKey) {
+      if (event.key === MENU_DESCRIPTION_KEY && !event.shiftKey) {
         event.preventDefault();
-        onPing?.();
+        if (menuFocused) {
+          const item = menu.items[menu.selection] || null;
+          const itemId = typeof item?.id === "string" ? item.id : "";
+          if (itemId) {
+            sendMenuDescription?.(menu.menuId, itemId);
+          }
+        }
         return;
       }
       if (menuFocused && event.key === "F4" && !event.shiftKey) {

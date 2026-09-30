@@ -1375,6 +1375,9 @@ class PlayAuralWebApp {
         const item = this.store.state.currentMenu.items[index];
         this.activateMenuItem(item, index);
       },
+      sendMenuDescription: (menuId, menuItemId) => (
+        this.sendMenuDescription(menuId, menuItemId)
+      ),
       historyView: this.historyView,
       sendKeybind: (key, menuItemId, modifiers) => this.sendKeybind(key, menuItemId, modifiers),
       sendEscape: () => this.sendEscape(),
@@ -3025,6 +3028,23 @@ class PlayAuralWebApp {
       control: Boolean(modifiers.ctrl || modifiers.control),
       alt: Boolean(modifiers.alt),
       meta: Boolean(modifiers.meta),
+    });
+  }
+
+  sendMenuDescription(menuId, menuItemId) {
+    if (
+      !this.isConnected()
+      || typeof menuId !== "string"
+      || !menuId
+      || typeof menuItemId !== "string"
+      || !menuItemId
+    ) {
+      return false;
+    }
+    return this.send({
+      type: "menu_description",
+      menu_id: menuId,
+      menu_item_id: menuItemId,
     });
   }
 

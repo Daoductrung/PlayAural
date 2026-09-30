@@ -363,6 +363,12 @@ export type MenuSelectionPacket = {
   selection_value?: string;
 };
 
+export type MenuDescriptionPacket = {
+  type: "menu_description";
+  menu_id: string;
+  menu_item_id: string;
+};
+
 export type EscapePacket = {
   type: "escape";
   menu_id?: string;
@@ -439,6 +445,7 @@ export type ClientPacket =
   | KeybindPacket
   | ListOnlinePacket
   | LogoutPacket
+  | MenuDescriptionPacket
   | MenuSelectionPacket
   | OpenSystemPacket
   | PingPacket

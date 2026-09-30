@@ -1606,6 +1606,8 @@ PlayAural Server
                 client,
                 {**packet, "type": "menu", "selection_id": "back"},
             )
+        elif packet_type == "menu_description":
+            await self._handle_menu_description(client, packet)
         elif packet_type == "keybind":
             await self._handle_keybind(client, packet)
         elif packet_type == "editbox":
@@ -13928,21 +13930,6 @@ PlayAural Server
             )
             state = self._user_states.get(username, {})
 
-        if user and current_menu in self.GLOBAL_SYSTEM_MENUS:
-            key = (packet.get("key") or "").lower()
-            menu_item_id = packet.get("menu_item_id")
-            packet_menu = packet.get("menu_id")
-            if key == "space" and menu_item_id and (
-                not packet_menu or packet_menu == current_menu
-            ):
-                # Menu-row descriptions are explicit metadata on the active
-                # item.  Game preference rows still use their declarative
-                # preference metadata so generic Back/reset rows stay silent.
-                if self._speak_menu_item_description(
-                    user, current_menu, menu_item_id
-                ):
-                    return
-
         if current_menu not in self.GLOBAL_SYSTEM_MENUS:
             table = self._tables.find_user_table(username)
             if table and table.game and user:
@@ -13959,6 +13946,60 @@ PlayAural Server
                     if game_user is not user:
                         table.remove_member(username)
                         self._show_main_menu(user)
+
+    async def _handle_menu_description(
+        self,
+        client: ClientConnection,
+        packet: dict,
+    ) -> None:
+        """Speak help for the exact focused row in the currently visible menu.
+
+        This is a semantic UI request rather than a gameplay keybind.  Keeping
+        it on its own packet means a client's help key or gesture can never
+        trigger a game action, even while a match is active.
+        """
+        username = client.username
+        if not username:
+            return
+        user = self._users.get(username)
+        if not user:
+            return
+
+        menu_id = packet.get("menu_id")
+        menu_item_id = packet.get("menu_item_id")
+        if (
+            not isinstance(menu_id, str)
+            or not menu_id
+            or not isinstance(menu_item_id, str)
+            or not menu_item_id
+        ):
+            return
+
+        state = self._user_states.get(username, {})
+        current_menu = self._recover_gameplay_menu_desync(
+            user,
+            state.get("menu"),
+            packet,
+        )
+
+        # Global menus are authoritative in _user_states.  Gameplay menus are
+        # rendered by the game, so NetworkUser's last packet identifies the
+        # one surface that is actually visible.  Both checks reject stale or
+        # forged requests without exposing help from a hidden menu.
+        visible_menu_id = getattr(user, "_last_menu_packet_id", None)
+        if isinstance(user, NetworkUser) and menu_id != visible_menu_id:
+            return
+        if current_menu in self.GLOBAL_SYSTEM_MENUS:
+            if menu_id != current_menu:
+                return
+        else:
+            table = self._tables.find_user_table(username)
+            if not table or not table.game:
+                return
+            if isinstance(visible_menu_id, str) and menu_id != visible_menu_id:
+                return
+
+        self._speak_menu_item_description(user, menu_id, menu_item_id)
 
     async def _handle_editbox(self, client: ClientConnection, packet: dict) -> None:
         """Handle editbox submission."""

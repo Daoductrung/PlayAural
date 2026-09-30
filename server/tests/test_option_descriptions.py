@@ -1,7 +1,7 @@
 """Tests for automatic and on-demand game-option descriptions.
 
 Menu hints include custom or generated help in lobby rows by default. Turning
-them off keeps Space-to-describe support while preserving active-game keybinds.
+them off keeps the description metadata that clients request semantically.
 """
 
 from pathlib import Path
@@ -30,44 +30,46 @@ def _make_game(locale: str = "en") -> tuple[PusoyDosGame, MockUser, object]:
     return game, user, player
 
 
-def _space(game, player, menu_item_id) -> None:
-    game.handle_event(
-        player, {"type": "keybind", "key": "space", "menu_item_id": menu_item_id}
+def _menu_item(game, user, player, menu_item_id):
+    game.refresh_menus(player)
+    game.flush_menus()
+    return next(
+        item
+        for item in user.get_current_menu_items("turn_menu")
+        if item.id == menu_item_id
     )
 
 
-def test_space_speaks_option_description_en() -> None:
+def test_option_menu_item_retains_description_en() -> None:
     game, user, player = _make_game("en")
-    _space(game, player, "set_game_mode")
-    spoken = user.get_spoken_messages()
-    assert spoken, "expected a description to be spoken"
-    assert "Elimination" in spoken[-1]
+    item = _menu_item(game, user, player, "set_game_mode")
+    assert "Elimination" in item.description
 
 
-def test_space_speaks_option_description_vi() -> None:
+def test_option_menu_item_retains_description_vi() -> None:
     game, user, player = _make_game("vi")
-    _space(game, player, "toggle_instant_wins")
-    spoken = user.get_spoken_messages()
-    assert spoken, "expected a Vietnamese description to be spoken"
+    item = _menu_item(game, user, player, "toggle_instant_wins")
+    assert item.description
     # The Vietnamese description contains non-ASCII characters.
-    assert any(ord(ch) > 127 for ch in spoken[-1])
+    assert any(ord(ch) > 127 for ch in item.description)
 
 
-def test_space_on_non_option_says_nothing() -> None:
-    game, user, player = _make_game("en")
-    _space(game, player, "some_unrelated_button")
-    assert user.get_spoken_messages() == []
+def test_non_option_id_has_no_generated_description() -> None:
+    game, _user, player = _make_game("en")
+    assert game._option_description_text(player, "some_unrelated_button") is None
 
 
-def test_space_during_play_is_not_hijacked_for_descriptions() -> None:
+def test_space_keybind_is_not_repurposed_for_descriptions() -> None:
     game, user, player = _make_game("en")
     game.status = "playing"
-    _space(game, player, "set_game_mode")
-    # No description spoken; space is reserved for game keybinds during play.
+    game.handle_event(
+        player,
+        {"type": "keybind", "key": "space", "menu_item_id": "set_game_mode"},
+    )
     assert user.get_spoken_messages() == []
 
 
-def test_space_speaks_generated_description_for_option_without_custom_text() -> None:
+def test_generated_description_exists_for_option_without_custom_text() -> None:
     game = YahtzeeGame()
     user = MockUser("Alice")
     player = game.add_player("Alice", user)
@@ -111,12 +113,9 @@ def test_conventional_custom_description_is_used_before_generated_fallback() -> 
     game.status = "waiting"
     game.setup_player_actions(player)
 
-    _space(game, player, "set_starting_tokens")
-
-    spoken = user.get_spoken_messages()
-    assert spoken, "expected custom option help to be spoken"
-    assert "How many survival tokens each Ninety Nine player begins with" in spoken[-1]
-    assert "Enter a whole number" not in spoken[-1]
+    item = _menu_item(game, user, player, "set_starting_tokens")
+    assert "How many survival tokens each Ninety Nine player begins with" in item.description
+    assert "Enter a whole number" not in item.description
 
 
 def _option_action_id(option_name: str, meta) -> str:
@@ -149,7 +148,7 @@ def test_every_declarative_game_option_produces_localized_help() -> None:
     assert not missing
 
 
-def test_menu_hints_control_inline_option_help_without_removing_space_help() -> None:
+def test_menu_hints_control_inline_help_without_removing_description_metadata() -> None:
     game, user, player = _make_game("en")
     game.refresh_menus(player)
     game.flush_menus()
@@ -170,10 +169,7 @@ def test_menu_hints_control_inline_option_help_without_removing_space_help() -> 
         if item.id == "set_game_mode"
     )
     assert "win rounds to go out" not in item.text
-
-    user.clear_messages()
-    _space(game, player, "set_game_mode")
-    assert "win rounds to go out" in user.get_spoken_messages()[-1]
+    assert "win rounds to go out" in item.description
 
 
 def test_every_declarative_game_option_has_custom_description_key() -> None:

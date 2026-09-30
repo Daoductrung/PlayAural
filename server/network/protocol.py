@@ -11,6 +11,7 @@ class PacketType(Enum):
     # Client to server
     AUTHORIZE = "authorize"
     MENU = "menu"
+    MENU_DESCRIPTION = "menu_description"
     KEYBIND = "keybind"
     ESCAPE = "escape"
     EDITBOX = "editbox"

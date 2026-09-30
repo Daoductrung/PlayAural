@@ -76,7 +76,6 @@ auth-error-user-not-found = User does not exist.
 auth-error-username-ambiguous = More than one legacy account matches this spelling. Enter the exact registered spelling.
 auth-registration-success = Registration successful! You can now log in with your credentials.
 auth-username-taken = Username already taken. Please choose a different username.
-auth-username-reserved-bot = This name is reserved for PlayAural bots. Please choose a different username.
 auth-username-reserved = This name is reserved by PlayAural. Please choose a different username.
 
 login-welcome-title = Welcome to PlayAural

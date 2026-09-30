@@ -122,8 +122,10 @@ class TestTableInviteReclaim:
         )
 
     def _add_named_bot(self, game: PigGame, name: str):
-        bot_user = Bot(name)
-        bot_player = game.create_player(bot_user.uuid, name, is_bot=True)
+        display_name = game._allocate_bot_display_name(name)
+        bot_user = Bot(display_name)
+        bot_player = game.create_player(bot_user.uuid, display_name, is_bot=True)
+        bot_player.bot_name_base = name
         game.players.append(bot_player)
         game.attach_user(bot_player.id, bot_user)
         game.setup_player_actions(bot_player)
@@ -323,7 +325,7 @@ class TestTableInviteReclaim:
         )
 
     @pytest.mark.asyncio
-    async def test_direct_invite_rejects_table_name_conflict_without_notifying_target(
+    async def test_direct_invite_allows_human_to_share_bot_base_name(
         self,
     ):
         host = self._create_online_user("Host")
@@ -333,13 +335,14 @@ class TestTableInviteReclaim:
         self._make_friends(host, guest)
         self._add_named_bot(game, guest.username)
 
-        assert not await self.server._send_table_invite(host, table, guest)
+        assert await self.server._send_table_invite(host, table, guest)
 
-        assert guest.username not in self.server._pending_invites
-        assert guest.messages == []
-        assert host.get_last_spoken() == Localization.get(
-            host.locale,
-            "host-invite-friend-unavailable",
+        assert guest.username in self.server._pending_invites
+        assert any(
+            player.is_bot
+            and player.bot_name_base == guest.username
+            and player.name == guest.username
+            for player in game.players
         )
 
     @pytest.mark.asyncio
@@ -1321,7 +1324,34 @@ class TestTableInviteReclaim:
         assert "table_join.ogg" in self._sound_names(guest)
         assert "reconnect.ogg" not in self._sound_names(host)
 
-    def test_auto_join_rejects_name_matching_existing_bot(self):
+    def test_reclaim_is_unambiguous_when_dedicated_bot_shares_human_base(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, game = self._create_started_table(host, guest)
+        dedicated_bot = self._add_named_bot(game, guest.username)
+        guest_player = game.get_player_by_id(guest.uuid)
+        assert guest_player is not None
+
+        game._perform_leave_game(guest_player)
+        table.remove_member(guest.username)
+
+        replacement = game.get_player_by_id(guest.uuid)
+        assert replacement is not None
+        assert replacement.is_bot is True
+        assert replacement.name != dedicated_bot.name
+        assert replacement.replaced_human_name == guest.username
+
+        self.server._auto_join_table(guest, table, table.game_type)
+
+        reclaimed = game.get_player_by_id(guest.uuid)
+        assert reclaimed is not None
+        assert reclaimed.name == guest.username
+        assert reclaimed.is_bot is False
+        assert reclaimed.bot_name_base == ""
+        assert dedicated_bot.name == "Guest (Bot)"
+        assert dedicated_bot.bot_name_base == "Guest"
+
+    def test_auto_join_allows_human_to_share_a_bot_base_name(self):
         host = self._create_online_user("Host")
         entrant = self._create_online_user("Test")
         current_host = self._create_online_user("CurrentHost")
@@ -1335,18 +1365,35 @@ class TestTableInviteReclaim:
         table.game = game
         game._table = table
         game.initialize_lobby(host.username, host)
-        self._add_named_bot(game, "Test")
+        host.preferences.allow_custom_bot_names = True
+        host_player = game.get_player_by_id(host.uuid)
+        assert host_player is not None
+        game.execute_action(host_player, "add_bot")
+        game.handle_event(
+            host_player,
+            {
+                "type": "editbox",
+                "input_id": "action_input_editbox",
+                "text": "Test",
+            },
+        )
 
         self.server._auto_join_table(entrant, table, table.game_type)
 
-        assert self.server._tables.find_user_table(entrant.username) is current_table
-        assert game.get_player_by_id(entrant.uuid) is None
-        assert entrant.get_last_spoken() == Localization.get(
-            entrant.locale,
-            "table-name-already-used",
+        assert self.server._tables.find_user_table(entrant.username) is table
+        assert game.get_player_by_id(entrant.uuid).name == "Test"
+        assert any(
+            player.is_bot
+            and player.bot_name_base == "Test"
+            and player.name == "Test (Bot)"
+            for player in game.players
+        )
+        assert all(
+            member.username != entrant.username
+            for member in current_table.members
         )
 
-    def test_custom_bot_name_rejects_registered_account_name(self):
+    def test_custom_bot_name_accepts_registered_account_base_name(self):
         host = self._create_online_user("Host")
         self._create_online_user("Test")
         table = self.server._tables.create_table("pig", host.username, host)
@@ -1368,15 +1415,16 @@ class TestTableInviteReclaim:
             },
         )
 
-        assert not any(player.name == "Test" and player.is_bot for player in game.players)
-        assert host.get_last_spoken() == Localization.get(
-            host.locale,
-            "bot-name-registered-account",
+        assert any(
+            player.name == "Test"
+            and player.bot_name_base == "Test"
+            and player.is_bot
+            for player in game.players
         )
 
-    def test_generated_bot_name_skips_registered_account_name(self, monkeypatch):
+    def test_generated_bot_name_can_match_registered_account_base(self, monkeypatch):
         host = self._create_online_user("Host")
-        self._create_online_user("Pho Pixel")
+        self._create_online_user("Alice")
         table = self.server._tables.create_table("pig", host.username, host)
         game = PigGame(options=PigOptions(target_score=25))
         table.game = game
@@ -1392,13 +1440,12 @@ class TestTableInviteReclaim:
         game.execute_action(host_player, "add_bot")
 
         bot_names = [player.name for player in game.players if player.is_bot]
-        assert bot_names
-        assert "Pho Pixel" not in bot_names
+        assert bot_names == ["Alice"]
 
-    def test_replacement_bot_name_skips_registered_account_name(self, monkeypatch):
+    def test_replacement_bot_name_can_match_registered_account_base(self, monkeypatch):
         host = self._create_online_user("Host")
         guest = self._create_online_user("Guest")
-        self._create_online_user("Pho Pixel")
+        self._create_online_user("Alice")
         table, game = self._create_started_table(host, guest)
         guest_player = game.get_player_by_id(guest.uuid)
         assert guest_player is not None
@@ -1410,7 +1457,8 @@ class TestTableInviteReclaim:
         game._replace_with_bot(guest_player)
 
         assert guest_player.is_bot is True
-        assert guest_player.name != "Pho Pixel"
+        assert guest_player.bot_name_base == "Alice"
+        assert guest_player.name == "Alice"
 
     def test_disconnect_replacement_bot_survives_stale_waiting_table_status(
         self, monkeypatch
@@ -2850,6 +2898,7 @@ class TestTableInviteReclaim:
         assert replacement.is_bot is True
         assert replacement.replaced_human is True
         replacement_name = replacement.name
+        replacement_base_name = replacement.bot_name_base
 
         assert table.reset_game()
         assert table.game is not None
@@ -2860,6 +2909,7 @@ class TestTableInviteReclaim:
         )
         assert fresh_bot.id != guest.uuid
         assert fresh_bot.replaced_human is False
+        assert fresh_bot.bot_name_base == replacement_base_name
 
     @pytest.mark.asyncio
     async def test_friend_join_reclaims_bot_replaced_seat(self):

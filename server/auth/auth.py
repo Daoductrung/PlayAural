@@ -9,12 +9,10 @@ from argon2.exceptions import VerifyMismatchError, InvalidHashError
 import logging
 
 try:
-    from ..game_utils.bot_names import is_reserved_bot_name
     from ..users.identity import username_validation_error
     from ..users.system_identities import is_reserved_system_username
     from ..users.roles import DEVELOPER_TRUST_LEVEL
 except ImportError:  # pragma: no cover - supports direct server/cli imports
-    from game_utils.bot_names import is_reserved_bot_name
     from users.identity import username_validation_error
     from users.system_identities import is_reserved_system_username
     from users.roles import DEVELOPER_TRUST_LEVEL
@@ -68,7 +66,6 @@ class AuthManager:
 
         Returns "ok" on success, or an error key:
         - "username_taken" if the username already exists
-        - "username_reserved_bot" if the username is reserved for generated bots
         - "username_reserved" if the username belongs to a server identity
         - "username_length" or "username_invalid_chars" if the name is invalid
         - "db_error" if the INSERT failed unexpectedly
@@ -79,8 +76,6 @@ class AuthManager:
             return validation_error
         if self._db.user_exists(username):
             return "username_taken"
-        if is_reserved_bot_name(username):
-            return "username_reserved_bot"
         if is_reserved_system_username(username):
             return "username_reserved"
 

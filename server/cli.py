@@ -60,7 +60,8 @@ try:
     # Try direct imports first (script execution)
     from messages.localization import Localization  # noqa: E402
     from games.registry import GameRegistry, get_game_class  # noqa: E402
-    from games.base import Game, BOT_NAMES  # noqa: E402
+    from games.base import Game  # noqa: E402
+    from game_utils.bot_names import get_localized_bot_name_pool  # noqa: E402
     from audio import AudioCommand  # noqa: E402
     from users.base import MenuItem, User, generate_uuid  # noqa: E402
     from users.bot import Bot  # noqa: E402
@@ -69,7 +70,8 @@ except ImportError:
     HAS_SERVER_PACKAGE = True
     from server.messages.localization import Localization  # noqa: E402
     from server.games.registry import GameRegistry, get_game_class  # noqa: E402
-    from server.games.base import Game, BOT_NAMES  # noqa: E402
+    from server.games.base import Game  # noqa: E402
+    from server.game_utils.bot_names import get_localized_bot_name_pool  # noqa: E402
     from server.audio import AudioCommand  # noqa: E402
     from server.users.base import MenuItem, User, generate_uuid  # noqa: E402
     from server.users.bot import Bot  # noqa: E402
@@ -266,7 +268,7 @@ class GameSimulator:
         self.game: Game | None = None
         self.spectator: SpectatorUser | None = None
         self.game_class: type | None = None
-        self.capturing_bots: dict[str, CapturingBot] = {}  # name -> CapturingBot
+        self.capturing_bots: dict[str, CapturingBot] = {}  # UUID -> CapturingBot
 
     def setup(self) -> bool:
         """Set up the game. Returns True on success."""
@@ -322,17 +324,23 @@ class GameSimulator:
             _quiet=self.quiet,
         )
 
-        # Set up host
-        self.game.host = self.bot_names[0]
-
         # Add bot players using CapturingBot for menu/sound inspection
         for name in self.bot_names:
-            bot_user = CapturingBot(name, locale=self.locale)
-            self.capturing_bots[name] = bot_user
-            player = self.game.create_player(bot_user.uuid, name, is_bot=True)
+            display_name = self.game._allocate_bot_display_name(name)
+            bot_user = CapturingBot(display_name, locale=self.locale)
+            self.capturing_bots[bot_user.uuid] = bot_user
+            player = self.game.create_player(
+                bot_user.uuid,
+                display_name,
+                is_bot=True,
+            )
+            player.bot_name_base = name
             self.game.players.append(player)
             self.game.attach_user(player.id, bot_user)
             self.game.setup_player_actions(player)
+
+        self.game.ensure_bot_display_names(self.locale)
+        self.game.host = self.game.players[0].name
 
         # Add spectator as a player to receive broadcasts
         spectator_player = self.game.create_player(self.spectator.uuid, "__spectator__", is_bot=False)
@@ -467,7 +475,8 @@ class GameSimulator:
         # Per-player menu captures
         player_menus: dict[str, list[dict]] = {}
         player_sounds: dict[str, list[dict]] = {}
-        for name, bot in self.capturing_bots.items():
+        for bot in self.capturing_bots.values():
+            name = bot.username
             if bot.captured_menus:
                 player_menus[name] = bot.captured_menus
             if bot.captured_sounds:
@@ -657,7 +666,7 @@ def cmd_simulate(args):
     # Parse bot names
     if args.bots.isdigit():
         num_bots = int(args.bots)
-        bot_names = BOT_NAMES[:num_bots]
+        bot_names = list(get_localized_bot_name_pool(args.locale)[:num_bots])
     else:
         bot_names = [name.strip() for name in args.bots.split(",")]
 
@@ -832,9 +841,6 @@ def cmd_create_user(args):
                     )
         elif result == "username_taken":
             print(f"Error: User '{args.username}' already exists.")
-            sys.exit(1)
-        elif result == "username_reserved_bot":
-            print(f"Error: User '{args.username}' is reserved for generated bots.")
             sys.exit(1)
         elif result == "username_reserved":
             print(f"Error: User '{args.username}' is reserved by PlayAural.")

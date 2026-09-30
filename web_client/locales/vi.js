@@ -172,7 +172,6 @@ export default {
   "auth-error-captcha-execute-failed": "Không thể hoàn tất xác minh. Vui lòng tải lại trang rồi thử lại.",
   "auth-registration-success": "Đăng ký thành công. Bây giờ bạn có thể đăng nhập.",
   "auth-username-taken": "Tên đăng nhập đã được sử dụng.",
-  "auth-username-reserved-bot": "Tên này được dành riêng cho bot PlayAural. Vui lòng chọn tên đăng nhập khác.",
   "auth-username-reserved": "Tên này được PlayAural dành riêng. Vui lòng chọn tên đăng nhập khác.",
   "auth-error-username-length": "Tên đăng nhập phải dài từ 3 đến 30 ký tự.",
   "auth-error-password-weak": "Mật khẩu phải dài ít nhất 8 ký tự và bao gồm cả chữ lẫn số.",

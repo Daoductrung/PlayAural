@@ -184,7 +184,6 @@
   "auth-reset-failed": "Password reset failed.",
   "auth-username-password-required": "Username and password are required.",
   "auth-username-taken": "Username already taken. Please choose a different username.",
-  "auth-username-reserved-bot": "This name is reserved for PlayAural bots. Please choose a different username.",
   "auth-username-reserved": "This name is reserved by PlayAural. Please choose a different username.",
   "auth-registration-error": "Registration failed due to a server error. Please try again.",
   "auth-error-wrong-password": "Incorrect password.",

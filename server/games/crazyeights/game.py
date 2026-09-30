@@ -13,7 +13,6 @@ from ...game_utils.bot_helper import BotHelper
 from ...game_utils.poker_timer import PokerTurnTimer
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
-from ...users.bot import Bot
 from ...users.base import User
 from datetime import datetime
 from .bot import bot_think
@@ -167,17 +166,6 @@ class CrazyEightsGame(Game, TurnTimerMixin):
 
     def add_spectator(self, name: str, user: User) -> Player:
         return super().add_spectator(name, user)
-
-    def _action_add_bot(self, player: Player, bot_name: str, action_id: str) -> None:
-        bot_name = self._resolve_add_bot_name(player, bot_name)
-        if bot_name is None:
-            return
-
-        bot_user = Bot(bot_name)
-        bot_player = self.add_player(bot_name, bot_user)
-        self.broadcast_l("table-joined", buffer="game", player=bot_name)
-        self.play_table_join_sound(bot_player)
-        self.refresh_menus()
 
     def _action_remove_bot(self, player: Player, action_id: str) -> None:
         for i in range(len(self.players) - 1, -1, -1):

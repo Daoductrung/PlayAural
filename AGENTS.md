@@ -62,6 +62,18 @@ names are introduced, identity-sensitive profiles, reports, moderation views,
 and confirmations must expose the owning username, while every action id and
 payload remains bound to the UUID.
 
+Bot identity is likewise structural, never name-derived. `Player.id` and
+`Player.is_bot` are authoritative; `bot_name_base` is serialized presentation
+data used to preserve a bot's personality across save/load. Localized base
+names may match usernames or other bot bases. Every production bot must expose
+a collision-free table label: use the bare base while it is unique, add the
+localized bot marker only while a human or another bot shares that base, and
+add a stable ordinal when multiple bots share it. A replacement bot retains the
+disconnected human's account UUID and reclaim metadata. Reconcile labels across
+joins, leaves, replacements, reconnects, and save/load. Never reserve localized
+bot bases from registration, infer bot status from text, or route an action by
+an unqualified base name.
+
 ## Commands
 
 Run server tests from the repo root through uv:

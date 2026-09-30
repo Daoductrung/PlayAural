@@ -178,29 +178,28 @@ class TestAuthSecurity:
         assert self.db.get_user("Nguyễn Văn An") is None
 
     @pytest.mark.asyncio
-    async def test_registration_rejects_generated_bot_name(self):
+    async def test_registration_accepts_generated_bot_base_name(self):
         client = MockClient()
         packet = {
-            "username": "Pho Pixel",
+            "username": "Alice",
             "password": "Password123",
             "email": "botname@test.com",
         }
 
         await self.server._handle_register(client, packet)
 
-        assert client.sent_messages[-1]["status"] == "error"
-        assert client.sent_messages[-1]["error"] == "username_reserved_bot"
-        assert self.db.get_user("Pho Pixel") is None
+        assert client.sent_messages[-1]["status"] == "success"
+        assert self.db.get_user("Alice") is not None
 
     @pytest.mark.asyncio
-    async def test_registration_rejects_active_runtime_bot_name(self):
+    async def test_registration_ignores_active_runtime_bot_labels(self):
         class FakePlayer:
             def __init__(self, name, is_bot):
                 self.name = name
                 self.is_bot = is_bot
 
         class FakeGame:
-            players = [FakePlayer("Pho Pixel 2", True), FakePlayer("Human", False)]
+            players = [FakePlayer("Alice 2 (Bot)", True), FakePlayer("Human", False)]
 
         class FakeTable:
             game = FakeGame()
@@ -208,22 +207,21 @@ class TestAuthSecurity:
         self.server._tables.get_all_tables = lambda: [FakeTable()]
         client = MockClient()
         packet = {
-            "username": "pho pixel 2",
+            "username": "alice 2",
             "password": "Password123",
             "email": "runtimebot@test.com",
         }
 
         await self.server._handle_register(client, packet)
 
-        assert client.sent_messages[-1]["status"] == "error"
-        assert client.sent_messages[-1]["error"] == "username_reserved_bot"
-        assert self.db.get_user("pho pixel 2") is None
+        assert client.sent_messages[-1]["status"] == "success"
+        assert self.db.get_user("alice 2") is not None
 
-    def test_auth_manager_rejects_generated_bot_name(self):
-        result = self.server._auth.register("Omega Alpha", "Password123")
+    def test_auth_manager_accepts_generated_bot_base_name(self):
+        result = self.server._auth.register("Bob", "Password123")
 
-        assert result == "username_reserved_bot"
-        assert self.db.get_user("Omega Alpha") is None
+        assert result == "ok"
+        assert self.db.get_user("Bob") is not None
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("username", ["System", "system", "Ｓｙｓｔｅｍ"])

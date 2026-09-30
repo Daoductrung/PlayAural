@@ -444,6 +444,57 @@ class Localization:
         return False
 
     @classmethod
+    def get_message_attribute_values(
+        cls,
+        locale: str,
+        message_id: str,
+        *,
+        include_fallback: bool = True,
+    ) -> tuple[str, ...]:
+        """Render a message's attributes in stable key order with fallback.
+
+        Attribute collections are useful for locale-owned extensible data such
+        as bot-name pools. A translated attribute overrides the matching
+        English attribute; omitted attributes fall back individually, while a
+        community locale may add new attributes without a code change. Callers
+        that need to exhaust locale-native data before using English can turn
+        off fallback and request the two pools separately.
+        """
+        if not isinstance(message_id, str) or not message_id or "." in message_id:
+            return ()
+        try:
+            resolved_locale = cls.resolve_locale(locale)
+            locale_order = [resolved_locale]
+            if include_fallback and resolved_locale != DEFAULT_LOCALE:
+                locale_order.append(DEFAULT_LOCALE)
+
+            attribute_names: set[str] = set()
+            for candidate_locale in locale_order:
+                bundle = cls._get_bundle(candidate_locale)
+                try:
+                    message = bundle.get_message(message_id)
+                except KeyError:
+                    message = None
+                if message is not None:
+                    attribute_names.update(message.attributes)
+
+            values: list[str] = []
+            for attribute_name in sorted(attribute_names):
+                attribute_id = f"{message_id}.{attribute_name}"
+                for candidate_locale in locale_order:
+                    value = cls._format_from_bundle(
+                        candidate_locale,
+                        attribute_id,
+                        {},
+                    )
+                    if value is not None:
+                        values.append(value)
+                        break
+            return tuple(values)
+        except Exception:
+            return ()
+
+    @classmethod
     def _babel_locale(cls, locale: str) -> str:
         """Return a Babel-safe locale code with English fallback."""
         resolved = cls.resolve_locale(locale)

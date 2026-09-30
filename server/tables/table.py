@@ -419,12 +419,20 @@ class Table(DataClassJSONMixin):
             for player in self._game.players:
                 if allowed_user_uuid and getattr(player, "id", None) == allowed_user_uuid:
                     continue
-                player_names = [player.name]
                 replaced_name = getattr(player, "replaced_human_name", "")
-                if replaced_name:
-                    player_names.append(replaced_name)
-                if any(bot_name_key(name) == username_key for name in player_names):
+                if replaced_name and bot_name_key(replaced_name) == username_key:
                     return True
+                if bot_name_key(player.name) != username_key:
+                    continue
+                if getattr(player, "is_bot", False):
+                    base_name = normalize_bot_name(
+                        getattr(player, "bot_name_base", "") or player.name
+                    )
+                    if bot_name_key(base_name) == username_key:
+                        # The game will conditionally mark this bot before the
+                        # human is appended. Bot identity is never name-based.
+                        continue
+                return True
 
         return False
 
@@ -1149,7 +1157,14 @@ class Table(DataClassJSONMixin):
                 if user:
                     if getattr(player, "replaced_human", False):
                         user = Bot(player.name)
-                    active_bots.append((user.uuid, player.name, user))
+                    active_bots.append(
+                        (
+                            user.uuid,
+                            player.name,
+                            player.bot_name_base,
+                            user,
+                        )
+                    )
 
         # 4. Re-evaluate host
         # If the old host left, they won't be in active_players or active_spectators
@@ -1206,12 +1221,15 @@ class Table(DataClassJSONMixin):
         for uuid_str, name, user in active_spectators:
              _restore_member(uuid_str, name, user, is_spectator=True)
 
-        for uuid_str, name, user in active_bots:
+        for uuid_str, name, base_name, user in active_bots:
              # Use the raw create_player/append logic for bots to perfectly match LobbyActionsMixin
              bot_player = new_game.create_player(uuid_str, name, is_bot=True)
+             bot_player.bot_name_base = base_name
              new_game.players.append(bot_player)
              new_game.attach_user(bot_player.id, user)
              new_game.setup_player_actions(bot_player)
+
+        new_game.ensure_bot_display_names()
 
         # 10. Announce new host if changed
         if old_host != self.host:

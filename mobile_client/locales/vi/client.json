@@ -184,7 +184,6 @@
   "auth-reset-failed": "Đặt lại mật khẩu thất bại.",
   "auth-username-password-required": "Cần nhập tên đăng nhập và mật khẩu.",
   "auth-username-taken": "Tên đăng nhập đã được sử dụng. Vui lòng chọn tên khác.",
-  "auth-username-reserved-bot": "Tên này được dành riêng cho bot PlayAural. Vui lòng chọn tên đăng nhập khác.",
   "auth-username-reserved": "Tên này được PlayAural dành riêng. Vui lòng chọn tên đăng nhập khác.",
   "auth-registration-error": "Đăng ký thất bại do lỗi máy chủ. Vui lòng thử lại.",
   "auth-error-wrong-password": "Sai mật khẩu.",

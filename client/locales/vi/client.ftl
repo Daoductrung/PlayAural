@@ -76,7 +76,6 @@ auth-error-user-not-found = Người dùng không tồn tại.
 auth-error-username-ambiguous = Có nhiều tài khoản cũ trùng với cách viết này khi không phân biệt chữ hoa chữ thường. Hãy nhập đúng từng ký tự như tên đã đăng ký.
 auth-registration-success = Đăng ký thành công! Giờ bạn có thể đăng nhập bằng tài khoản này.
 auth-username-taken = Tên đăng nhập đã được sử dụng. Vui lòng chọn tên khác.
-auth-username-reserved-bot = Tên này được dành riêng cho bot PlayAural. Vui lòng chọn tên đăng nhập khác.
 auth-username-reserved = Tên này được PlayAural dành riêng. Vui lòng chọn tên đăng nhập khác.
 
 login-welcome-title = Chào mừng bạn đến với PlayAural

@@ -172,7 +172,6 @@ export default {
   "auth-error-captcha-execute-failed": "No se pudo completar la verificación. Recarga la página e inténtalo de nuevo.",
   "auth-registration-success": "Registro exitoso. Ya puedes iniciar sesión.",
   "auth-username-taken": "Ese nombre de usuario ya está en uso.",
-  "auth-username-reserved-bot": "Este nombre está reservado para los bots de PlayAural. Elige otro nombre de usuario.",
   "auth-error-username-length": "El nombre de usuario debe tener entre 3 y 30 caracteres.",
   "auth-error-password-weak": "La contraseña debe tener al menos 8 caracteres e incluir letras y números.",
   "auth-error-rate-limit": "Demasiados intentos fallidos de inicio de sesión. Inténtalo de nuevo en 15 minutos.",

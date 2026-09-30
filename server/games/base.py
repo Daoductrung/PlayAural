@@ -33,7 +33,12 @@ from ..game_utils.turn_management_mixin import TurnManagementMixin
 from ..game_utils.menu_management_mixin import MenuManagementMixin
 from ..game_utils.action_visibility_mixin import ActionVisibilityMixin
 from ..game_utils.lobby_actions_mixin import LobbyActionsMixin
-from ..game_utils.bot_names import get_valid_bot_name_pool
+from ..game_utils.bot_names import (
+    allocate_bot_display_name,
+    bot_name_key,
+    normalize_bot_name,
+    plan_bot_display_names,
+)
 from ..game_utils.event_handling_mixin import EventHandlingMixin
 from ..game_utils.action_set_creation_mixin import ActionSetCreationMixin
 from ..game_utils.action_execution_mixin import ActionExecutionMixin
@@ -44,12 +49,10 @@ from ..game_utils.client_types import (
     is_touch_client_type,
 )
 from ..game_utils.player import Player
+from ..messages.localization import Localization
 from ..ui.keybinds import Keybind
 from ..users.bot import Bot
 from .categories import CATEGORY_MISC, normalize_category
-
-BOT_NAMES = get_valid_bot_name_pool()
-
 
 def _replace_exact_state_value(value: Any, old_value: str, new_value: str) -> Any:
     """Replace one exact player identity value inside Mashumaro-safe state.
@@ -614,6 +617,8 @@ class Game(
         discard_end_screen = getattr(self, "_discard_end_screen_player_id", None)
         if discard_end_screen:
             discard_end_screen(player_id)
+
+        self.ensure_bot_display_names()
         
         # Notify others
         self.broadcast_l("spectator-left", buffer="system", player=player.name)
@@ -644,6 +649,8 @@ class Game(
         discard_end_screen = getattr(self, "_discard_end_screen_player_id", None)
         if discard_end_screen:
             discard_end_screen(player_id)
+
+        self.ensure_bot_display_names()
         
         # Notify others
         self.broadcast_l("table-left", buffer="system", player=player.name)
@@ -663,13 +670,21 @@ class Game(
         if player.is_bot:
             return False
 
+        naming_locale = self._bot_naming_locale(player)
         human_name = player.replaced_human_name or player.name
-        existing_names = self._reserved_table_names(exclude_player_id=player.id)
-        existing_names.append(human_name)
-        bot_name = self._generate_available_bot_name(existing_names)
+        bot_base_name = self._generate_available_bot_base_name(
+            player=player,
+            exclude_player_id=player.id,
+        )
+        bot_name = self._allocate_bot_display_name(
+            bot_base_name,
+            player=player,
+            exclude_player_id=player.id,
+        )
 
         player.replaced_human = True
         player.is_bot = True
+        player.bot_name_base = bot_base_name
         player.replaced_human_name = human_name
         player.replacement_bot_name = bot_name
         player.name = bot_name
@@ -680,6 +695,8 @@ class Game(
         # Use same UUID so user can reclaim it
         bot_user = Bot(bot_name, uuid=player.id)
         self.attach_user(player.id, bot_user)
+        self.ensure_bot_display_names(naming_locale)
+        bot_name = player.name
         
         self.broadcast_l(
             "player-replaced-by-bot",
@@ -820,6 +837,7 @@ class Game(
         self.host = retained_host
 
         seat_player.is_bot = False
+        seat_player.bot_name_base = ""
         seat_player.replaced_human = False
         seat_player.replaced_human_name = ""
         seat_player.replacement_bot_name = ""
@@ -852,6 +870,8 @@ class Game(
             self.players.append(outgoing_spectator)
             self.attach_user(old_id, outgoing_user)
             self.setup_player_actions(outgoing_spectator)
+
+        self.ensure_bot_display_names()
 
         self.refresh_menus()
         return SeatSubstitutionResult(
@@ -896,6 +916,103 @@ class Game(
                 if existing_player.replaced_human_name:
                     names.append(existing_player.replaced_human_name)
         return names
+
+    def ensure_bot_display_names(
+        self,
+        locale: str | None = None,
+        *,
+        additional_human_names: tuple[str, ...] = (),
+    ) -> None:
+        """Reconcile conditional bot labels across the complete game state.
+
+        Current saves carry ``bot_name_base``. Pre-feature saves carry only a
+        bare ``name`` and acquire that base during this pass. Display-name
+        changes are rekeyed through serialized and bounded runtime state using
+        temporary values so duplicate-base bots cannot overwrite one another.
+        """
+        occupied: dict[str, str] = {}
+        for current_player in self.players:
+            key = bot_name_key(current_player.name)
+            if not key:
+                raise ValueError("A player has an empty display name")
+            if key in occupied:
+                raise ValueError("Player display names must be unique")
+            occupied[key] = current_player.id
+
+        bots: list[Player] = []
+        bot_bases: list[str] = []
+        human_names = [
+            current_player.name
+            for current_player in self.players
+            if not current_player.is_bot
+        ]
+        human_names.extend(additional_human_names)
+
+        for current_player in self.players:
+            if not current_player.is_bot:
+                if current_player.bot_name_base:
+                    raise ValueError("A human player cannot own a bot base name")
+                continue
+
+            base_name = normalize_bot_name(current_player.bot_name_base)
+            if not base_name:
+                base_name = normalize_bot_name(current_player.name)
+            if not base_name:
+                raise ValueError("A bot has an empty legacy display name")
+            current_player.bot_name_base = base_name
+            bots.append(current_player)
+            bot_bases.append(base_name)
+            if current_player.replaced_human_name:
+                human_names.append(current_player.replaced_human_name)
+
+        naming_locale = Localization.resolve_locale(
+            locale or self._bot_naming_locale()
+        )
+        planned_names = plan_bot_display_names(
+            bot_bases,
+            human_names,
+            naming_locale,
+        )
+        renames = [
+            (bot, bot.name, planned_name)
+            for bot, planned_name in zip(bots, planned_names, strict=True)
+            if bot.name != planned_name
+        ]
+
+        # All current display labels are unique, so a two-phase rekey safely
+        # handles swaps and chains. Bot bases and reclaim identities are
+        # presentation metadata, not live name references, and are restored
+        # after the shared legacy-state walker has done its work.
+        protected_metadata = [
+            (bot, bot.bot_name_base, bot.replaced_human_name)
+            for bot in bots
+        ]
+        temporary_names: list[tuple[str, str]] = []
+        for index, (_bot, old_name, _new_name) in enumerate(renames):
+            temporary_name = f"\x00bot-label:{index}:{old_name}"
+            self._rekey_game_state_value(old_name, temporary_name)
+            temporary_names.append((temporary_name, _new_name))
+        for temporary_name, new_name in temporary_names:
+            self._rekey_game_state_value(temporary_name, new_name)
+
+        for bot, base_name, replaced_human_name in protected_metadata:
+            bot.bot_name_base = base_name
+            bot.replaced_human_name = replaced_human_name
+            bot.replacement_bot_name = bot.name if bot.replaced_human else ""
+            bot_user = self._users.get(bot.id)
+            if isinstance(bot_user, Bot) and bot_user.username != bot.name:
+                bot_user.set_display_name(bot.name)
+
+        final_keys = [bot_name_key(player.name) for player in self.players]
+        if len(final_keys) != len(set(final_keys)):
+            raise ValueError("Bot display-name reconciliation produced a collision")
+
+    def prepare_human_name_for_roster(self, name: str) -> None:
+        """Disambiguate any matching bots before a human joins the roster."""
+        normalized = normalize_bot_name(name)
+        if not normalized:
+            raise ValueError("A human player cannot have an empty display name")
+        self.ensure_bot_display_names(additional_human_names=(normalized,))
 
     # Player management
 
@@ -1034,7 +1151,12 @@ class Game(
         return None
 
     def get_player_by_name(self, name: str) -> Player | None:
-        """Get a player by display name. Note: Names may not be unique."""
+        """Get a player by the table-unique full display label.
+
+        Bot base names may repeat or match a human username; the full bot
+        label is marked and ordinal-disambiguated whenever a collision exists.
+        Identity-sensitive code should still prefer ``get_player_by_id``.
+        """
         for player in self.players:
             if player.name == name:
                 return player

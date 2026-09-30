@@ -172,7 +172,6 @@ export default {
   "auth-error-captcha-execute-failed": "Verification could not complete. Please reload the page and try again.",
   "auth-registration-success": "Registration successful. You can now log in.",
   "auth-username-taken": "Username already taken.",
-  "auth-username-reserved-bot": "This name is reserved for PlayAural bots. Please choose a different username.",
   "auth-username-reserved": "This name is reserved by PlayAural. Please choose a different username.",
   "auth-error-username-length": "Username must be between 3 and 30 characters.",
   "auth-error-password-weak": "Password must be at least 8 characters long and contain both letters and numbers.",

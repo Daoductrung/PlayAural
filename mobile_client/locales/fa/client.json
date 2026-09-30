@@ -154,7 +154,6 @@
   "auth-reset-failed": "بازنشانی رمز عبور ناموفق بود.",
   "auth-username-password-required": "نام کاربری و رمز عبور الزامی هستند.",
   "auth-username-taken": "این نام کاربری قبلاً گرفته شده است. لطفاً نام کاربری دیگری انتخاب کنید.",
-  "auth-username-reserved-bot": "این نام برای ربات‌های PlayAural رزرو شده است. لطفاً نام کاربری دیگری انتخاب کنید.",
   "auth-registration-error": "ثبت‌نام به دلیل خطای سرور ناموفق بود. لطفاً دوباره تلاش کنید.",
   "auth-error-wrong-password": "رمز عبور اشتباه است.",
   "auth-error-user-not-found": "کاربر وجود ندارد.",

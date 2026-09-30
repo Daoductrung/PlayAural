@@ -12,7 +12,6 @@ from ...game_utils.options import IntOption, MenuOption, BoolOption, option_fiel
 from ...game_utils.bot_helper import BotHelper
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
-from ...users.bot import Bot
 from ...users.base import User
 from . import cards
 from .cards import UnoCard
@@ -237,15 +236,6 @@ class UnoGame(Game):
     # ==========================================================================
     # Lobby roster
     # ==========================================================================
-
-    def _action_add_bot(self, player: Player, bot_name: str, action_id: str) -> None:
-        bot_name = self._resolve_add_bot_name(player, bot_name)
-        if bot_name is None:
-            return
-        bot = self.add_player(bot_name, Bot(bot_name))
-        self.broadcast_l("table-joined", buffer="game", player=bot_name)
-        self.play_table_join_sound(bot, is_bot=True)
-        self.refresh_menus()
 
     def _action_remove_bot(self, player: Player, action_id: str) -> None:
         for i in range(len(self.players) - 1, -1, -1):

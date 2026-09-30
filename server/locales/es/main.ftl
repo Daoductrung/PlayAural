@@ -1,7 +1,6 @@
 auth-username-password-required = Se requieren un nombre de usuario y una contraseña.
 auth-registration-success = ¡Registro exitoso! Ya puedes iniciar sesión con tus credenciales.
 auth-username-taken = Ese nombre de usuario ya está en uso. Elige otro.
-auth-username-reserved-bot = Este nombre está reservado para los bots de PlayAural. Elige otro nombre de usuario.
 auth-registration-error = El registro falló debido a un error del servidor. Inténtalo de nuevo.
 auth-error-wrong-password = Contraseña incorrecta.
 auth-error-user-not-found = El usuario no existe.
@@ -237,12 +236,9 @@ pref-desc-clear-kept-on-roll = En juegos de dados compatibles como Yahtzee, suel
 pref-desc-dice-keeping-style = Posición de los dados: usa 1-5, o 1-6 en Midnight, para alternar dados por posición. Valores de los dados: usa 1-6 para soltar un dado guardado con ese valor y Shift+1-6 para guardar un dado suelto que coincida. Durante la fase de intercambio de Tradeoff, 1-6 guarda un dado que coincida y Shift+1-6 lo marca para intercambiar; durante la fase de toma, 1-6 toma un dado que coincida del montón.
 
 cancel = Cancelar
-no-bot-names-available = No hay nombres de bot disponibles.
 enter-bot-name = Ingresa el nombre del bot
 bot-name-invalid-length = Los nombres de bot deben tener entre 3 y 30 caracteres.
 bot-name-invalid-characters = Los nombres de bot solo pueden contener letras, números y espacios.
-bot-name-already-used = Ya hay un jugador o bot con ese nombre en esta mesa.
-bot-name-registered-account = Este nombre pertenece a una cuenta registrada. Elige otro nombre de bot.
 table-name-already-used = Ya hay un jugador o bot con ese nombre en esta mesa.
 no-options-available = No hay opciones disponibles.
 no-scores-available = No hay puntuaciones disponibles.

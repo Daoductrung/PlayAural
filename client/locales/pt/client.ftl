@@ -77,7 +77,6 @@ auth-error-username-ambiguous = Mais de uma conta antiga corresponde a esta graf
 auth-error-server-maintenance = A manutenção do banco de dados do servidor está em andamento. Login, cadastro e alterações de senha estão temporariamente indisponíveis. Tente novamente depois que a manutenção terminar.
 auth-registration-success = Cadastro realizado! Agora você pode fazer login com suas credenciais.
 auth-username-taken = Nome de usuário já em uso. Por favor, escolha um nome de usuário diferente.
-auth-username-reserved-bot = Este nome é reservado para bots do PlayAural. Por favor, escolha um nome de usuário diferente.
 
 login-welcome-title = Bem-vindo ao PlayAural
 login-welcome-info = Faça login ou cadastre-se para continuar.

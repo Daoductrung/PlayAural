@@ -141,7 +141,6 @@ from ..game_utils.client_types import (
     is_mobile_client_type,
     is_web_client_type,
 )
-from ..game_utils.bot_names import bot_name_key
 from ..game_utils.game_result import GameResult
 from ..audio import SameTurnAudioBatcher
 
@@ -779,6 +778,8 @@ PlayAural Server
                 game.rebuild_runtime_state()
                 table.game = game
                 game._table = table
+                game.ensure_bot_display_names()
+                table.game_json = game.to_json()
 
                 # Setup keybinds (runtime only, not serialized)
                 game.setup_keybinds()
@@ -2616,15 +2617,6 @@ PlayAural Server
             })
             return
 
-        if self._active_bot_name_exists(username):
-            await client.send({
-                "type": "register_response",
-                "status": "error",
-                "error": "username_reserved_bot",
-                "text": Localization.get(locale, "auth-username-reserved-bot")
-            })
-            return
-
         # Try to register the user
         reg_result = self._auth.register(username, password, locale=locale, email=email, bio=bio)
         if reg_result == "ok":
@@ -2641,13 +2633,6 @@ PlayAural Server
                 "status": "error",
                 "error": "username_taken",
                 "text": Localization.get(locale, "auth-username-taken")
-            })
-        elif reg_result == "username_reserved_bot":
-            await client.send({
-                "type": "register_response",
-                "status": "error",
-                "error": "username_reserved_bot",
-                "text": Localization.get(locale, "auth-username-reserved-bot")
             })
         elif reg_result == "username_reserved":
             await client.send({
@@ -9645,29 +9630,6 @@ PlayAural Server
             allowed_user_uuid=allowed_user_uuid,
         )
 
-    def _active_bot_name_exists(self, username: str) -> bool:
-        """Return whether any live table currently has a bot using this name."""
-        username_key = bot_name_key(username)
-        if not username_key:
-            return False
-
-        for table in self._tables.get_all_tables():
-            for table_user in getattr(table, "_users", {}).values():
-                if not getattr(table_user, "is_bot", False):
-                    continue
-                if bot_name_key(table_user.username) == username_key:
-                    return True
-
-            game = table.game
-            if not game:
-                continue
-            for player in game.players:
-                if not getattr(player, "is_bot", False):
-                    continue
-                if bot_name_key(player.name) == username_key:
-                    return True
-        return False
-
     def _reclaim_bot_replaced_slot(
         self,
         user: NetworkUser,
@@ -9698,8 +9660,10 @@ PlayAural Server
         self._set_in_game_state(user, table.table_id)
         bot_name = reclaimed_player.name
         human_name = reclaimed_player.replaced_human_name or user.username
+        game.prepare_human_name_for_roster(user.username)
         game._rekey_game_state_value(bot_name, user.username)
         reclaimed_player.is_bot = False
+        reclaimed_player.bot_name_base = ""
         reclaimed_player.replaced_human = False
         reclaimed_player.replaced_human_name = ""
         reclaimed_player.replacement_bot_name = ""
@@ -9744,6 +9708,7 @@ PlayAural Server
             )
         if hasattr(game, "_on_replacement_slot_reclaimed"):
             game._on_replacement_slot_reclaimed(bot_name, user.username)
+        game.ensure_bot_display_names(user.locale)
         game.refresh_menus()
         self._flush_game_menus_now(game)
         self.on_tables_changed()
@@ -12873,6 +12838,7 @@ PlayAural Server
             table.game = game
             game._table = table
             game.host = user.username
+            game.ensure_bot_display_names(user.locale)
 
             human_users_by_id = {
                 str(player.id): participant
@@ -12895,6 +12861,7 @@ PlayAural Server
                     else ""
                 )
                 player.is_bot = False
+                player.bot_name_base = ""
                 player.replaced_human = False
                 player.name = participant.username
                 player.replaced_human_name = ""
@@ -12922,6 +12889,7 @@ PlayAural Server
                 self._set_in_game_state(participant, table.table_id)
             for bot_name, human_name in reclaimed_slots:
                 game._on_replacement_slot_reclaimed(bot_name, human_name)
+            game.ensure_bot_display_names(user.locale)
             game.refresh_menus()
             game.broadcast_l("table-restored", buffer="system")
         except Exception:

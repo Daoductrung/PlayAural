@@ -33,6 +33,12 @@ class Bot(User):
     def username(self) -> str:
         return self._username
 
+    def set_display_name(self, name: str) -> None:
+        """Keep the runtime bot facade aligned with its roster presentation."""
+        if not isinstance(name, str) or not name:
+            raise ValueError("Bot display name must be a non-empty string")
+        self._username = name
+
     @property
     def locale(self) -> str:
         return self._locale

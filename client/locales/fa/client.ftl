@@ -71,7 +71,6 @@ auth-error-wrong-password = رمز عبور نادرست است.
 auth-error-user-not-found = کاربر وجود ندارد.
 auth-registration-success = ثبت‌نام با موفقیت انجام شد! حالا می‌توانید با اطلاعات خود وارد شوید.
 auth-username-taken = این نام کاربری قبلاً انتخاب شده است. لطفاً نام دیگری انتخاب کنید.
-auth-username-reserved-bot = این نام برای ربات‌های PlayAural رزرو شده است. لطفاً نام دیگری انتخاب کنید.
 
 login-welcome-title = خوش آمدید به PlayAural
 login-welcome-info = برای ادامه لطفاً وارد شوید یا ثبت‌نام کنید.

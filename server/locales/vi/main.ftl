@@ -1,7 +1,6 @@
 auth-username-password-required = Yêu cầu tên đăng nhập và mật khẩu.
 auth-registration-success = Đăng ký thành công! Giờ bạn có thể đăng nhập.
 auth-username-taken = Tên đăng nhập đã có người dùng. Vui lòng chọn tên khác.
-auth-username-reserved-bot = Tên này được dành riêng cho bot PlayAural. Vui lòng chọn tên đăng nhập khác.
 auth-username-reserved = Tên này được PlayAural dành riêng. Vui lòng chọn tên đăng nhập khác.
 auth-registration-error = Đăng ký thất bại do lỗi máy chủ. Vui lòng thử lại.
 auth-error-wrong-password = Sai mật khẩu.
@@ -237,12 +236,9 @@ pref-desc-clear-kept-on-roll = Trong các trò xúc xắc có hỗ trợ, chẳn
 pref-desc-dice-keeping-style = Theo vị trí: dùng phím 1-5, hoặc 1-6 trong 1-4-24, để đổi trạng thái từng viên theo vị trí. Theo giá trị: dùng phím 1-6 để thả một viên đang giữ có mặt tương ứng, và Shift+1-6 để giữ lại một viên đã thả. Trong giai đoạn đổi của Tradeoff, phím 1-6 giữ lại một viên cùng mặt, còn Shift+1-6 đánh dấu một viên để đổi; trong giai đoạn lấy, phím số thường 1-6 lấy một viên cùng mặt từ hũ chung.
 
 cancel = Hủy
-no-bot-names-available = Không có tên bot nào.
 enter-bot-name = Nhập tên bot
 bot-name-invalid-length = Tên bot phải dài từ 3 đến 30 ký tự.
 bot-name-invalid-characters = Tên bot chỉ được dùng chữ cái, số và khoảng trắng.
-bot-name-already-used = Một người chơi hoặc bot với tên này đã có tại bàn.
-bot-name-registered-account = Tên này thuộc về một tài khoản đã đăng ký. Vui lòng chọn tên bot khác.
 table-name-already-used = Một người chơi hoặc bot với tên này đã có tại bàn.
 no-options-available = Không có tùy chọn nào.
 no-scores-available = Chưa có điểm số.

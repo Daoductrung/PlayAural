@@ -182,8 +182,8 @@ def test_active_tables_menu_counts_replacement_without_exposing_bot_name(
     game.on_start()
     monkeypatch.setattr(
         game,
-        "_generate_available_bot_name",
-        lambda _existing_names: "Substitute",
+        "_generate_available_bot_base_name",
+        lambda **_kwargs: "Substitute",
     )
     game.on_player_disconnect(guest.uuid)
     server._users.pop(guest.username)

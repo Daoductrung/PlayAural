@@ -1,7 +1,6 @@
 auth-username-password-required = Username and password are required.
 auth-registration-success = Registration successful! You can now log in with your credentials.
 auth-username-taken = Username already taken. Please choose a different username.
-auth-username-reserved-bot = This name is reserved for PlayAural bots. Please choose a different username.
 auth-username-reserved = This name is reserved by PlayAural. Please choose a different username.
 auth-registration-error = Registration failed due to a server error. Please try again.
 auth-error-wrong-password = Incorrect password.
@@ -237,12 +236,9 @@ pref-desc-clear-kept-on-roll = In supported dice games such as Yahtzee, release 
 pref-desc-dice-keeping-style = Dice indexes: use 1-5, or 1-6 in Midnight, to toggle dice by position. Dice values: use 1-6 to release one kept die with that face value and Shift+1-6 to keep one matching released die. During Tradeoff's trading phase, 1-6 keeps one matching die and Shift+1-6 marks one for trading; during the taking phase, plain 1-6 takes a matching die from the pool.
 
 cancel = Cancel
-no-bot-names-available = No bot names available.
 enter-bot-name = Enter bot name
 bot-name-invalid-length = Bot names must be 3 to 30 characters.
 bot-name-invalid-characters = Bot names can only contain letters, numbers, and spaces.
-bot-name-already-used = A player or bot with this name is already at this table.
-bot-name-registered-account = This name belongs to a registered account. Please choose a different bot name.
 table-name-already-used = A player or bot with this name is already at this table.
 no-options-available = No options available.
 no-scores-available = No scores available.

@@ -17,6 +17,7 @@ class Player(DataClassJSONMixin):
     id: str
     name: str
     is_bot: bool = False
+    bot_name_base: str = ""
     replaced_human: bool = False
     replaced_human_name: str = ""
     replacement_bot_name: str = ""

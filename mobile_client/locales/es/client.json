@@ -184,7 +184,6 @@
   "auth-reset-failed": "Falló el restablecimiento de contraseña.",
   "auth-username-password-required": "Se requieren un nombre de usuario y una contraseña.",
   "auth-username-taken": "Ese nombre de usuario ya está en uso. Elige otro.",
-  "auth-username-reserved-bot": "Este nombre está reservado para los bots de PlayAural. Elige otro nombre de usuario.",
   "auth-registration-error": "El registro falló debido a un error del servidor. Inténtalo de nuevo.",
   "auth-error-wrong-password": "Contraseña incorrecta.",
   "auth-error-user-not-found": "El usuario no existe.",

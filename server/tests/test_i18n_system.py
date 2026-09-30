@@ -46,6 +46,39 @@ hello = Bonjour, { $name }.
     assert Localization.resolve_locale("zz") == DEFAULT_LOCALE
 
 
+def test_attribute_collection_uses_stable_per_attribute_fallback(tmp_path):
+    locales_dir = tmp_path / "locales"
+    _write(
+        locales_dir / "en" / "main.ftl",
+        """
+names =
+    .name-001 = First English
+    .name-002 = Second English
+""".strip(),
+    )
+    _write(
+        locales_dir / "vi" / "main.ftl",
+        """
+names =
+    .name-001 = Tên thứ nhất
+    .name-003 = Tên bổ sung
+""".strip(),
+    )
+
+    Localization.init(locales_dir)
+
+    assert Localization.get_message_attribute_values("vi", "names") == (
+        "Tên thứ nhất",
+        "Second English",
+        "Tên bổ sung",
+    )
+    assert Localization.get_message_attribute_values("unknown", "names") == (
+        "First English",
+        "Second English",
+    )
+    assert Localization.get_message_attribute_values("vi", "names.bad") == ()
+
+
 def test_available_languages_uses_installed_dirs_and_safe_fallbacks(tmp_path):
     locales_dir = tmp_path / "locales"
     _write(

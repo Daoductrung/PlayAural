@@ -76,7 +76,6 @@ auth-error-user-not-found = El usuario no existe.
 auth-error-username-ambiguous = Hay más de una cuenta antigua que coincide con esta escritura. Ingresa el nombre de usuario exactamente como está registrado.
 auth-registration-success = ¡Registro exitoso! Ya puedes iniciar sesión con tus credenciales.
 auth-username-taken = Ese nombre de usuario ya está en uso. Elige otro.
-auth-username-reserved-bot = Este nombre está reservado para los bots de PlayAural. Elige otro nombre de usuario.
 
 login-welcome-title = Bienvenido a PlayAural
 login-welcome-info = Inicia sesión o regístrate para continuar.

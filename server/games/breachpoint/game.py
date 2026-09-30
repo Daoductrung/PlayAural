@@ -20,6 +20,15 @@ from ...ui.keybinds import KeybindState
 from ...users.base import MenuItem
 from ..base import Game, GameOptions, Player
 from ..registry import register_game
+from .agents import (
+    AGENT_VOICE_DEFUSE,
+    AGENT_VOICE_PLANT,
+    AGENT_VOICE_PLANT_SITE_EVENTS,
+    AGENT_VOICE_ROUND_START,
+    get_agent_persona,
+    get_agent_personas_for_side,
+    get_utility_voice_event,
+)
 from .arsenal import (
     BUY_CATEGORIES,
     BUY_CATEGORY_EQUIPMENT,
@@ -399,6 +408,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         self._bot_coordinator = BreachPointBotCoordinator()
         self._gameplay_rng = random.Random()  # nosec B311 - non-security game state
         self._spatial_rng = random.Random()  # nosec B311 - cosmetic placement
+        self._agent_rng = random.Random()  # nosec B311 - cosmetic voice assignment
         self._restored_finite_audio_sequence_ids: set[str] = set()
         self._buy_menu_views: dict[str, BuyMenuState] = {}
         self._combat_menu_views: dict[str, CombatMenuState] = {}
@@ -576,6 +586,92 @@ class BreachPointGame(BreachPointAudioMixin, Game):
     def _apply_current_sides(self, active_players: list[BreachPointPlayer]) -> None:
         for player in active_players:
             player.team_index = self._side_for_squad(player.squad_index)
+
+    @staticmethod
+    def _agent_id_for_side(
+        player: BreachPointPlayer,
+        side_index: int,
+    ) -> str:
+        return (
+            player.terrorist_agent_id
+            if side_index == TEAM_TERRORISTS
+            else player.counter_terrorist_agent_id
+        )
+
+    @staticmethod
+    def _set_agent_id_for_side(
+        player: BreachPointPlayer,
+        side_index: int,
+        persona_id: str,
+    ) -> None:
+        if side_index == TEAM_TERRORISTS:
+            player.terrorist_agent_id = persona_id
+        else:
+            player.counter_terrorist_agent_id = persona_id
+
+    def _assign_agent_personas(
+        self,
+        active_players: list[BreachPointPlayer],
+    ) -> None:
+        """Give every squad unique, side-appropriate voices for the match."""
+
+        for player in active_players:
+            player.terrorist_agent_id = ""
+            player.counter_terrorist_agent_id = ""
+        self._normalize_agent_personas(active_players)
+
+    def _normalize_agent_personas(
+        self,
+        active_players: list[BreachPointPlayer],
+    ) -> None:
+        """Preserve valid assignments and repair missing legacy/save data."""
+
+        for squad_index in TEAM_INDEXES:
+            squad_players = [
+                player
+                for player in active_players
+                if player.squad_index == squad_index
+            ]
+            for side_index in TEAM_INDEXES:
+                roster = list(get_agent_personas_for_side(side_index))
+                if len(squad_players) > len(roster):
+                    raise ValueError(
+                        "Breach Point agent roster cannot cover the configured squad"
+                    )
+                used_ids: set[str] = set()
+                unassigned: list[BreachPointPlayer] = []
+                for player in squad_players:
+                    persona_id = self._agent_id_for_side(player, side_index)
+                    persona = get_agent_persona(persona_id)
+                    if (
+                        persona
+                        and persona.side_index == side_index
+                        and persona.id not in used_ids
+                    ):
+                        used_ids.add(persona.id)
+                    else:
+                        self._set_agent_id_for_side(player, side_index, "")
+                        unassigned.append(player)
+                available = [
+                    persona for persona in roster if persona.id not in used_ids
+                ]
+                self._agent_rng.shuffle(available)
+                for player, persona in zip(
+                    unassigned,
+                    available[: len(unassigned)],
+                    strict=True,
+                ):
+                    self._set_agent_id_for_side(player, side_index, persona.id)
+
+    def _play_round_start_agent_voices(self) -> None:
+        """Rotate one spawn callout per side instead of overlapping a full squad."""
+
+        for side_index in TEAM_INDEXES:
+            players = self._turn_order_players_on_team(side_index, alive_only=True)
+            if not players:
+                continue
+            speaker = players[(self.round - 1) % len(players)]
+            self._play_agent_voice(speaker, AGENT_VOICE_ROUND_START)
 
     def _apply_team_indexes_from_manager(
         self,
@@ -1685,6 +1781,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         self.ambient_stinger_due_ticks = {}
         self._reset_dropped_weapons()
         self._apply_current_sides(active_players)
+        self._assign_agent_personas(active_players)
         self._reset_economy(self.economy.starting_cash, active_players)
         self._prepare_combat_round(active_players)
         self._start_map_ambience()
@@ -1878,6 +1975,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         self.phase = PHASE_COMBAT
         self.buy_transactions = []
         self.pending_weapon_donation = None
+        self._play_round_start_agent_voices()
         self._play_action_start_music()
         self.start_sequence(
             MUSIC_ACTION_STOP_SEQUENCE_TAG,
@@ -2017,6 +2115,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         if sorted(self.side_squad_indexes) != list(TEAM_INDEXES):
             self.side_squad_indexes = list(TEAM_INDEXES)
         self._apply_current_sides(active_players)
+        self._normalize_agent_personas(active_players)
         if self.status == "playing":
             self._normalize_dropped_weapons()
         else:
@@ -8449,6 +8548,9 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             return
         sequence.metadata["audio_stage"] = "flight"
         self._play_utility_release(thrower, utility)
+        voice_event = get_utility_voice_event(utility.id)
+        if voice_event:
+            self._play_agent_voice(thrower, voice_event)
         self._start_utility_flight_audio(
             sequence_id,
             thrower,
@@ -9361,6 +9463,18 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         self.bomb_state = BOMB_PLANTING
         self.planting_player_id = terrorist.id
         self.planting_location_id = terrorist.position_id
+        bomb_site_ids = self.tactical_map.bomb_site_ids()
+        try:
+            site_voice_event = AGENT_VOICE_PLANT_SITE_EVENTS[
+                bomb_site_ids.index(terrorist.position_id)
+            ]
+        except (IndexError, ValueError):
+            site_voice_event = AGENT_VOICE_PLANT
+        self._play_agent_voice(
+            terrorist,
+            site_voice_event,
+            fallback_event=AGENT_VOICE_PLANT,
+        )
         self._play_bomb_plant_audio(terrorist)
         self._record_bot_acoustic_point(
             terrorist,
@@ -9390,6 +9504,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         self._clear_held_angle(counter_terrorist)
         self.defusing_player_id = counter_terrorist.id
         self.defusing_location_id = self.bomb_location_id
+        self._play_agent_voice(counter_terrorist, AGENT_VOICE_DEFUSE)
         self._play_bomb_audio(
             BOMB_DEFUSE_START_ASSET,
             self.bomb_location_id,

@@ -12,6 +12,21 @@ from ..game_utils.actions import Visibility
 from ..game_utils.reaction_window import ReactionWindow
 from ..game_utils.stats_helpers import RatingHelper
 from ..games.breachpoint import audio as breachpoint_audio
+from ..games.breachpoint.agents import (
+    AGENT_GENDER_FEMALE,
+    AGENT_GENDER_MALE,
+    AGENT_PERSONAS,
+    AGENT_RADIO_CLICK_ASSET,
+    AGENT_VOICE_DEFUSE,
+    AGENT_VOICE_PLANT,
+    AGENT_VOICE_PLANT_SITE_EVENTS,
+    AGENT_VOICE_ROUND_START,
+    AGENT_VOICE_THROW_INCENDIARY,
+    AGENT_VOICE_THROW_MOLOTOV,
+    AGENT_VOICE_THROW_SMOKE,
+    get_agent_persona,
+    get_utility_voice_event,
+)
 from ..games.breachpoint.arsenal import (
     AK47,
     AWP,
@@ -72,6 +87,7 @@ from ..games.breachpoint.audio import (
     FIRE_IGNITE_FAMILY,
     FIRE_LOOP_ASSET,
     FIRE_OUTRO_ASSET,
+    FEMALE_DEATH_VOICE_ASSETS,
     FLASH_TINNITUS_ASSET,
     FOOTSTEP_ASSETS_BY_SURFACE,
     FOOTSTEP_ATTENUATION,
@@ -209,6 +225,7 @@ def make_game(
     game._bot_coordinator.seed_strategy(2)
     game._gameplay_rng.seed(2)
     game._spatial_rng.seed(2)
+    game._agent_rng.seed(2)
     game.setup_keybinds()
     bot_indexes = bot_indexes or set()
     touch_indexes = touch_indexes or set()
@@ -3978,6 +3995,7 @@ def test_only_the_final_lethal_bullet_starts_headshot_and_death_audio() -> None:
     game = make_game(start=True)
     shooter = tactical_player(game, 0)
     target = tactical_player(game, 1)
+    target.counter_terrorist_agent_id = "lt_commander_ricksaw"
     game._place_player_in_node(shooter, "mid")
     game._place_player_in_node(target, "mid")
     shooter_user = game.get_user(shooter)
@@ -4861,6 +4879,287 @@ def test_breachpoint_audio_assets_are_complete_and_identical_across_clients() ->
         assert len({hashlib.sha256(path.read_bytes()).digest() for path in paths}) == 1
         if asset.suffix == ".ogg":
             assert sound_ticks(PurePosixPath(*asset.parts).as_posix()) > 0
+
+
+def test_agent_persona_catalog_covers_each_side_and_gender() -> None:
+    personas_by_side = {
+        side_index: [
+            persona
+            for persona in AGENT_PERSONAS
+            if persona.side_index == side_index
+        ]
+        for side_index in (TEAM_TERRORISTS, TEAM_COUNTER_TERRORISTS)
+    }
+
+    assert all(len(personas) == 5 for personas in personas_by_side.values())
+    assert all(
+        {persona.gender for persona in personas}
+        == {AGENT_GENDER_FEMALE, AGENT_GENDER_MALE}
+        for personas in personas_by_side.values()
+    )
+    assert all(
+        len(assets) == 3
+        for persona in AGENT_PERSONAS
+        for _, assets in persona.voice_assets
+    )
+    assert get_utility_voice_event(MOLOTOV.id) == AGENT_VOICE_THROW_MOLOTOV
+    assert (
+        get_utility_voice_event(INCENDIARY_GRENADE.id)
+        == AGENT_VOICE_THROW_INCENDIARY
+    )
+
+
+def test_agent_personas_are_unique_per_squad_and_follow_halftime_sides() -> None:
+    game = make_game(start=True, player_count=10)
+
+    for squad_index in (TEAM_TERRORISTS, TEAM_COUNTER_TERRORISTS):
+        squad = [
+            player
+            for player in game.get_active_players()
+            if player.squad_index == squad_index
+        ]
+        terrorist_ids = {player.terrorist_agent_id for player in squad}
+        counter_terrorist_ids = {
+            player.counter_terrorist_agent_id for player in squad
+        }
+        assert len(terrorist_ids) == len(squad)
+        assert len(counter_terrorist_ids) == len(squad)
+        assert all(
+            get_agent_persona(persona_id).side_index == TEAM_TERRORISTS
+            for persona_id in terrorist_ids
+        )
+        assert all(
+            get_agent_persona(persona_id).side_index == TEAM_COUNTER_TERRORISTS
+            for persona_id in counter_terrorist_ids
+        )
+
+    player = tactical_player(game, 0)
+    assert player.team_index == TEAM_TERRORISTS
+    assert game._agent_persona_for_player(player).id == player.terrorist_agent_id
+
+    game._swap_sides()
+
+    assert player.team_index == TEAM_COUNTER_TERRORISTS
+    assert (
+        game._agent_persona_for_player(player).id
+        == player.counter_terrorist_agent_id
+    )
+
+
+def test_agent_personas_survive_save_restore_and_repair_invalid_assignments() -> None:
+    game = make_game(start=True, player_count=6)
+    original_assignments = {
+        player.id: (player.terrorist_agent_id, player.counter_terrorist_agent_id)
+        for player in game.get_active_players()
+    }
+
+    restored = BreachPointGame.from_json(game.to_json())
+    restored._agent_rng.seed(2)
+    restored.rebuild_runtime_state()
+
+    assert {
+        player.id: (player.terrorist_agent_id, player.counter_terrorist_agent_id)
+        for player in restored.get_active_players()
+    } == original_assignments
+
+    first = tactical_player(restored, 0)
+    teammate = tactical_player(restored, 2)
+    teammate.terrorist_agent_id = first.terrorist_agent_id
+    teammate.counter_terrorist_agent_id = "not-an-agent"
+    restored.rebuild_runtime_state()
+
+    squad = [
+        player
+        for player in restored.get_active_players()
+        if player.squad_index == first.squad_index
+    ]
+    assert len({player.terrorist_agent_id for player in squad}) == len(squad)
+    assert len({player.counter_terrorist_agent_id for player in squad}) == len(squad)
+    assert all(
+        get_agent_persona(player.terrorist_agent_id).side_index
+        == TEAM_TERRORISTS
+        and get_agent_persona(player.counter_terrorist_agent_id).side_index
+        == TEAM_COUNTER_TERRORISTS
+        for player in squad
+    )
+
+
+def test_agent_radio_is_simultaneous_positional_and_team_only() -> None:
+    game = make_game(start=True)
+    speaker = tactical_player(game, 0)
+    teammate = tactical_player(game, 2)
+    opponent = tactical_player(game, 1)
+    spectator_user = MockUser("Watcher", uuid="watcher")
+    spectator = game.add_spectator("Watcher", spectator_user)
+    game._place_player_in_node(speaker, "t_spawn")
+    game._place_player_in_node(teammate, "b_site")
+
+    listeners = (speaker, teammate, opponent, spectator)
+    for listener in listeners:
+        user = game.get_user(listener)
+        assert isinstance(user, MockUser)
+        user.clear_messages()
+
+    game._play_agent_voice(speaker, AGENT_VOICE_ROUND_START)
+
+    for listener in (speaker, teammate):
+        user = game.get_user(listener)
+        assert isinstance(user, MockUser)
+        chain = next(
+            message
+            for message in user.messages
+            if message.type == "play_sound"
+            and message.data.get("handle")
+            == f"breachpoint.agent-voice.{speaker.id}"
+        )
+        assert chain.data["bus"] == "radio"
+        assert chain.data["buffer"] == "game"
+        assert len(chain.data["segments"]) == 2
+        assert chain.data["segments"][0]["asset"] == AGENT_RADIO_CLICK_ASSET
+        assert chain.data["segments"][0]["next_start_ratio"] == 0.0
+        assert chain.data["segments"][0]["position"] is None
+        assert chain.data["segments"][0]["attenuation"] is None
+        if listener is teammate:
+            assert chain.data["segments"][1]["position"] is not None
+            assert chain.data["segments"][1]["attenuation"]["min_gain"] == 0.22
+        else:
+            assert chain.data["segments"][1]["position"] is None
+            assert chain.data["segments"][1]["attenuation"] is None
+
+    for listener in (opponent, spectator):
+        user = game.get_user(listener)
+        assert isinstance(user, MockUser)
+        assert not any(
+            message.type == "play_sound"
+            and message.data.get("handle")
+            == f"breachpoint.agent-voice.{speaker.id}"
+            for message in user.messages
+        )
+
+
+def test_round_start_agent_voice_waits_until_buy_countdown_finishes() -> None:
+    game = make_game(start=True, finish_buy_phase=False)
+
+    def agent_voice_messages(user: MockUser) -> list:
+        return [
+            message
+            for message in user.messages
+            if message.type == "play_sound"
+            and str(message.data.get("handle", "")).startswith(
+                "breachpoint.agent-voice."
+            )
+        ]
+
+    users = [game.get_user(player) for player in game.get_active_players()]
+    assert all(isinstance(user, MockUser) for user in users)
+    assert all(not agent_voice_messages(user) for user in users)
+
+    while not game.has_active_sequence(tag=BUY_COUNTDOWN_SEQUENCE_TAG):
+        waiting = game._buy_waiting_players()
+        assert waiting
+        for buyer in waiting:
+            game.execute_action(buyer, "finish_buy")
+
+    assert game.phase == PHASE_BUY
+    assert all(not agent_voice_messages(user) for user in users)
+
+    complete_buy_countdown(game)
+
+    assert game.phase == PHASE_COMBAT
+    assert all(len(agent_voice_messages(user)) == 1 for user in users)
+
+
+def test_active_agent_gender_selects_the_death_voice_family() -> None:
+    game = make_game(start=True)
+    target = tactical_player(game, 1)
+    target.counter_terrorist_agent_id = "special_agent_ava"
+
+    female_assets = game._death_audio_assets(target)
+
+    assert female_assets is not None
+    assert female_assets[0] in FEMALE_DEATH_VOICE_ASSETS
+
+    target.counter_terrorist_agent_id = "lt_commander_ricksaw"
+    male_assets = game._death_audio_assets(target)
+
+    assert male_assets is not None
+    assert male_assets[0] in DEATH_VOICE_ASSETS
+
+
+def test_utility_plant_and_defuse_actions_trigger_the_assigned_agent_voice() -> None:
+    utility_game = make_game(start=True)
+    thrower = tactical_player(utility_game, 0)
+    thrower.utility_counts = {SMOKE_GRENADE.id: 1}
+    thrower_user = utility_game.get_user(thrower)
+    assert isinstance(thrower_user, MockUser)
+    thrower_user.clear_messages()
+
+    utility_game.execute_action(thrower, "throw_smoke_t_spawn")
+    complete_utility(utility_game)
+
+    utility_persona = utility_game._agent_persona_for_player(thrower)
+    assert utility_persona is not None
+    assert any(
+        message.type == "play_sound"
+        and any(
+            segment["asset"]
+            in utility_persona.assets_for(AGENT_VOICE_THROW_SMOKE)
+            for segment in message.data.get("segments", [])
+        )
+        for message in thrower_user.messages
+    )
+
+    plant_game = make_game(start=True)
+    planter = plant_game._breach_player_by_id(plant_game.bomb_carrier_id)
+    assert planter is not None
+    plant_game._place_player_in_node(planter, "a_site")
+    start_activation(plant_game, planter)
+    planter_user = plant_game.get_user(planter)
+    assert isinstance(planter_user, MockUser)
+    planter_user.clear_messages()
+
+    plant_game.execute_action(planter, "plant")
+
+    plant_persona = plant_game._agent_persona_for_player(planter)
+    assert plant_persona is not None
+    plant_assets = (
+        plant_persona.assets_for(AGENT_VOICE_PLANT_SITE_EVENTS[0])
+        or plant_persona.assets_for(AGENT_VOICE_PLANT)
+    )
+    assert any(
+        message.type == "play_sound"
+        and any(
+            segment["asset"] in plant_assets
+            for segment in message.data.get("segments", [])
+        )
+        for message in planter_user.messages
+    )
+
+    defuse_game = make_game(start=True)
+    defender = tactical_player(defuse_game, 1)
+    defuse_game._place_player_in_node(defender, "a_site")
+    defuse_game.bomb_state = BOMB_PLANTED
+    defuse_game.bomb_carrier_id = ""
+    defuse_game.bomb_location_id = "a_site"
+    defuse_game.bomb_fuse_remaining = defuse_game.bomb_fuse_tactical_rounds
+    defuse_game._set_bomb_grid_point(defuse_game._player_grid_point(defender))
+    start_activation(defuse_game, defender)
+    defender_user = defuse_game.get_user(defender)
+    assert isinstance(defender_user, MockUser)
+    defender_user.clear_messages()
+
+    defuse_game.execute_action(defender, "defuse")
+
+    defuse_persona = defuse_game._agent_persona_for_player(defender)
+    assert defuse_persona is not None
+    assert any(
+        message.type == "play_sound"
+        and any(
+            segment["asset"] in defuse_persona.assets_for(AGENT_VOICE_DEFUSE)
+            for segment in message.data.get("segments", [])
+        )
+        for message in defender_user.messages
+    )
 
 
 def test_server_timing_metadata_matches_assets_and_supports_wheel_deployments(
@@ -8151,6 +8450,7 @@ def test_fatal_utility_starts_spatial_death_and_surface_body_fall_audio() -> Non
     game = make_game(start=True)
     thrower = tactical_player(game, 0)
     target = tactical_player(game, 1)
+    target.counter_terrorist_agent_id = "lt_commander_ricksaw"
     observer = tactical_player(game, 3)
     game._place_player_in_node(target, "a_site")
     target.health = 1

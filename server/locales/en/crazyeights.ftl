@@ -21,8 +21,6 @@ crazyeights-game-blocked = The game is blocked! No one can play.
 crazyeights-new-hand = Round { $round }.
 crazyeights-start-card-you = You turn up { $card }.
 crazyeights-start-card = { $player } turns up { $card }.
-crazyeights-wild-played = { $player } played a Wild 8.
-
 crazyeights-no-players = No players.
 crazyeights-no-top = No top card.
 
@@ -32,14 +30,12 @@ crazyeights-reverse = Reverse of { $suit }
 crazyeights-skip = Skip of { $suit }
 crazyeights-draw-two = Draw Two of { $suit }
 
-crazyeights-suit-chosen = Suit is now { $suit }.
 crazyeights-you-choose-suit = You choose { $suit }. The next player must follow that suit or play another Wild 8.
 crazyeights-player-chooses-suit = { $player } chooses { $suit }. The next player must follow that suit or play another Wild 8.
 
 crazyeights-round-summary = { $player } wins the round. { $details }. { $player } gains { $total } points.
 crazyeights-round-summary-you = You win the round. { $details }. You gain { $total } points.
 crazyeights-round-details-none = No points were taken from opponents.
-crazyeights-round-winner = { $player } wins { $points } points. { $detail }
 crazyeights-round-points-from = { $points } from { $player }
 crazyeights-dealt-cards = Everyone is dealt in with { $cards } cards.
 

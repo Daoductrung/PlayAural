@@ -43,7 +43,6 @@ game-winner = { $player } wins!
 game-winner-you = You win!
 game-winner-score = { $player } wins with { $score } points!
 game-tiebreaker = It's a tie! Tiebreaker round!
-game-tiebreaker-players = It's a tie between { $players }! Tiebreaker round!
 game-eliminated = { $player } has been eliminated with { $score } points.
 
 game-set-target-score = Target score: { $score }
@@ -87,9 +86,6 @@ status-box-closed = Status information closed.
 game-leave = Leave game
 
 round-timer-paused = { $player } has paused the game (press p to start the next round).
-round-timer-resumed = Round timer resumed.
-round-timer-countdown = Next round in { $seconds }...
-
 dice-keeping = Keeping { $value }.
 dice-rerolling = Rerolling { $value }.
 dice-locked = That die is locked and cannot be changed.

@@ -41,7 +41,6 @@ chaosbear-position-other-brief = { $player }: ô { $position }, cách { $gap }.
 
 chaosbear-draw-card-you = Bạn rút một lá bài hỗn loạn.
 chaosbear-draw-card-other = { $player } rút một lá bài hỗn loạn.
-chaosbear-draws-card = { $player } rút một lá bài.
 chaosbear-draw-card-you-brief = Bạn rút bài.
 chaosbear-draw-card-other-brief = { $player } rút bài.
 chaosbear-card-impulsion-you = Tăng tốc! Bạn lao lên ô { $position }, cách gấu { $gap } ô.

@@ -1260,7 +1260,11 @@ class CitadelsGame(Game):
             selection_id=self._preferred_focus_action_id(player),
         )
         if user:
-            user.speak_l("citadels-selection-prompt", buffer="game")
+            user.speak_l(
+                "citadels-selection-prompt",
+                buffer="game",
+                history=False,
+            )
         self._schedule_bot_turn(player)
 
     def _district_name(self, card: DistrictCard, locale: str) -> str:

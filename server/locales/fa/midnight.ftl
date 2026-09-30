@@ -1,7 +1,6 @@
 game-name-midnight = ۱-۴-۲۴
 
 midnight-roll = پرتاب تاس
-midnight-keep-die = نگهداشتن { $value }
 midnight-bank = ذخیره
 midnight-check-dice = مشاهده‌ی تاس‌های فعلی
 midnight-check-round-status = مشاهده‌ی وضعیت دور

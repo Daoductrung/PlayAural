@@ -50,8 +50,6 @@ smtp-enc-ssl = Usar SSL
 smtp-enc-tls = Ativar criptografia TLS automaticamente (STARTTLS)
 smtp-current-enc = * { $value }
 
-main-menu-title = Menu Principal
-
 play = Jogar
 view-active-tables = Ver mesas ativas
 options = Opções
@@ -61,7 +59,6 @@ go-back = Voltar
 context-menu = Menu de contexto.
 no-actions-available = Nenhuma ação disponível.
 table-new-host-promoted = { $player } agora é o host da mesa.
-return-to-lobby = Retornar ao lobby
 return-to-table = Retornar à mesa
 create-table = Criar uma nova mesa
 leave-table = Sair da mesa
@@ -127,9 +124,7 @@ friend-offline = Seu amigo { $player } ficou offline.
 permission-denied = Você não tem permissão para realizar esta ação contra um Desenvolvedor.
 kick-user = Expulsar Usuário
 kick-broadcast = { $target } foi expulso por { $actor }.
-you-were-kicked = Você foi expulso por { $actor }.
 user-not-online = O usuário { $target } não está online.
-kick-immune = Você não pode expulsar este usuário.
 kick-confirm = Tem certeza de que deseja expulsar { $player }?
 no-users-to-kick = Nenhum usuário disponível para expulsar.
 usage-kick = Uso: /kick <nome_de_usuário>
@@ -198,11 +193,7 @@ option-deselected-count = { $count } desmarcado(s)
 option-min-selected = Você deve selecionar pelo menos { $count }.
 option-max-selected = Você pode selecionar no máximo { $count }.
 
-turn-sound-option = Som de turno: { $status }
-
 custom-bot-names-option = Nomes de bot personalizados: { $status }
-confirm-destructive-option = Confirmar ações arriscadas: { $status }
-clear-kept-option = Limpar dados guardados ao rolar: { $status }
 option-notify-table-created = Notificar quando mesa for criada: { $status }
 option-notify-user-presence = Notificações de usuário online/offline: { $status }
 option-notify-friend-presence = Notificações de amigo online/offline: { $status }
@@ -344,13 +335,9 @@ action-start-requires-exact-players = Não é possível iniciar. Jogadores ativo
 action-start-needs-human-player = Não é possível iniciar apenas com bots. Pelo menos um humano deve participar como jogador. Mude de espectador para jogador; se a mesa estiver cheia, remova um bot primeiro.
 action-no-bots = Não há bots para remover.
 action-bots-cannot = Os bots não podem fazer isso.
-action-no-scores = Nenhuma pontuação disponível ainda.
-
 options-category-audio = Áudio
 options-category-accessibility = Acessibilidade
 options-category-notifications = Notificações
-options-category-game = Jogo
-
 music-volume-option = Volume da Música: { $value }%
 sound-volume-option = Volume dos Efeitos Sonoros: { $value }%
 ambience-volume-option = Volume do Ambiente: { $value }%
@@ -376,9 +363,6 @@ invert-multiline-enter-option = Inverter Comportamento da Tecla Enter: { $status
 menu-hints-option = Dicas de Menu: { $status }
 menu-hints-changed = As dicas de menu agora estão { $status }.
 play-typing-sounds-option = Tocar Sons de Digitação: { $status }
-enter-music-volume = Insira o volume da música (0-100)
-enter-ambience-volume = Insira o volume do ambiente (0-100)
-enter-voice-volume = Insira o volume do chat de voz (10-100)
 invalid-volume = Volume inválido.
 
 dice-not-rolled = Você ainda não rolou os dados.
@@ -654,7 +638,6 @@ waiting-for-approval = Sua conta está aguardando aprovação de um administrado
 account-approved-welcome = Sua conta foi aprovada! Bem-vindo ao PlayAural!
 account-declined-goodbye = Sua solicitação de conta foi recusada.
 
-account-request = solicitação de conta
 account-action = ação de conta realizada
 
 promote-admin = Promover a Administrador
@@ -836,7 +819,6 @@ logout-confirm-no = Não, ficar
 
 system-name = Sistema
 server-restarting = O servidor será reiniciado em { $seconds } segundos...
-server-restarting-now = O servidor está sendo reiniciado agora. Reconecte-se em breve.
 server-shutting-down = O servidor será desligado em { $seconds } segundos...
 server-shutting-down-now = O servidor está sendo desligado agora. Até logo!
 server-power-management = Gerenciamento de Energia do Servidor
@@ -903,7 +885,6 @@ speech-mode-option = Modo de Fala: { $status }
 speech-rate-option = Velocidade da Fala: { $value }%
 speech-voice-option = Voz: { $voice }
 select-voice = Selecionar Voz
-enter-speech-rate = Insira a velocidade da fala (50-300)
 invalid-rate = Velocidade da fala inválida. Use um valor entre 50 e 300.
 mode-aria = Aria-live
 mode-web-speech = API Web Speech
@@ -984,12 +965,8 @@ friends-blocked-users = { $count ->
 friends-blocked-empty = Você não bloqueou ninguém.
 friends-list-empty = Você ainda não tem amigos.
 friend-status-offline = Offline
-friend-status-playing = Jogando { $game }
-friend-status-spectating = Assistindo a { $game }
-friend-status-lobby = Menu principal
 friend-list-entry = { $username } ({ $status })
 
-friend-actions-title = Ações para { $username }
 view-profile = Ver Perfil
 block-user = Bloquear usuário
 unblock-user = Desbloquear usuário
@@ -1002,7 +979,6 @@ friend-removed-success = { $username } foi removido da sua lista de amigos.
 friend-removed-notify = { $username } removeu você da lista de amigos dele.
 
 no-pending-requests = Nenhuma solicitação pendente.
-friend-request-from = Solicitação de amizade de { $username }
 accept = Aceitar
 decline = Recusar
 friend-accepted-success = Agora você é amigo de { $username }.
@@ -1011,7 +987,6 @@ request-not-found = A solicitação de amizade não existe mais.
 friend-declined-success = Solicitação de amizade recusada.
 friend-declined-notify = { $username } recusou sua solicitação de amizade.
 
-public-profile-title = Perfil de { $username }
 enter-friend-username = Insira o nome de usuário da pessoa que deseja adicionar como amiga:
 friend-error-self = Você não pode enviar uma solicitação de amizade para si mesmo.
 friend-error-already-friends = Você já é amigo deste usuário.

@@ -258,11 +258,26 @@ class NetworkUser(User):
             coalesced.append(packet)
         return coalesced
 
-    def speak(self, text: str, buffer: str = "misc") -> None:
+    def speak(
+        self,
+        text: str,
+        buffer: str = "misc",
+        *,
+        history: bool = True,
+    ) -> None:
         packet = {"type": "speak", "text": text, "buffer": buffer}
+        if not history:
+            packet["history"] = False
         self._queue_packet(packet)
 
-    def speak_l(self, message_id: str, buffer: str = "misc", **kwargs) -> None:
+    def speak_l(
+        self,
+        message_id: str,
+        buffer: str = "misc",
+        *,
+        history: bool = True,
+        **kwargs,
+    ) -> None:
         """
         Send a localized message with params.
         Attempts server-side translation first, but sends raw key and params
@@ -278,6 +293,8 @@ class NetworkUser(User):
             "params": kwargs,    # The params for client-side functionality
             "buffer": buffer,
         }
+        if not history:
+            packet["history"] = False
 
         self._queue_packet(packet)
 

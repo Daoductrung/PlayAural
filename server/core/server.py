@@ -124,6 +124,7 @@ from ..menu_pagination import (
     DEFAULT_MENU_PAGE_SIZE,
     MENU_PAGE_IDS,
     PaginatedMenuPage,
+    announce_page_refresh,
     clamp_page,
     is_page_navigation,
     is_page_refresh,
@@ -5557,7 +5558,7 @@ PlayAural Server
 
     def _show_banned_menu(self, user: NetworkUser, active_ban) -> None:
         """Show banned screen with reason and expiration."""
-        user.speak_l("banned-menu-title", buffer="system")
+        user.speak_l("banned-menu-title", buffer="system", history=False)
 
         # Format reason
         loc_reason = localized_penalty_reason_for_locale(
@@ -6247,7 +6248,7 @@ PlayAural Server
             if next_page is None:
                 return
             if is_page_refresh(selection_id):
-                user.speak_l("menu-list-refreshed", buffer="system")
+                announce_page_refresh(user)
             self._nav_refresh(
                 user,
                 self._show_blocked_users_menu,
@@ -6581,7 +6582,7 @@ PlayAural Server
             if next_page is None:
                 return
             if is_page_refresh(selection_id):
-                user.speak_l("menu-list-refreshed", buffer="system")
+                announce_page_refresh(user)
             self._nav_refresh(
                 user,
                 self._show_friends_list_menu,
@@ -7822,7 +7823,7 @@ PlayAural Server
             if next_page is None:
                 return
             if is_page_refresh(selection_id):
-                user.speak_l("menu-list-refreshed", buffer="system")
+                announce_page_refresh(user)
             self._nav_refresh(
                 user,
                 self._show_friend_requests_menu,
@@ -8117,7 +8118,7 @@ PlayAural Server
             if next_page is None:
                 return
             if is_page_refresh(selection_id):
-                user.speak_l("menu-list-refreshed", buffer="system")
+                announce_page_refresh(user)
             self._nav_refresh(
                 user,
                 self._show_sent_friend_requests_menu,
@@ -9348,7 +9349,7 @@ PlayAural Server
             if next_page is None:
                 return
             if is_page_refresh(selection_id):
-                user.speak_l("menu-list-refreshed", buffer="system")
+                announce_page_refresh(user)
             self._nav_refresh(
                 user,
                 self._show_tables_menu,
@@ -9387,7 +9388,7 @@ PlayAural Server
             if next_page is None:
                 return
             if is_page_refresh(selection_id):
-                user.speak_l("menu-list-refreshed", buffer="system")
+                announce_page_refresh(user)
             self._nav_refresh(
                 user,
                 self._show_active_tables_menu,
@@ -12638,7 +12639,7 @@ PlayAural Server
             if next_page is None:
                 return
             if is_page_refresh(selection_id):
-                user.speak_l("menu-list-refreshed", buffer="system")
+                announce_page_refresh(user)
             self._nav_refresh(
                 user,
                 self._show_saved_tables_menu,
@@ -14954,7 +14955,7 @@ PlayAural Server
             if next_page is None:
                 return
             if is_page_refresh(selection_id):
-                user.speak_l("menu-list-refreshed", buffer="system")
+                announce_page_refresh(user)
             self._nav_refresh(
                 user,
                 self._show_online_users_menu,

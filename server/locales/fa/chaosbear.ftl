@@ -41,7 +41,6 @@ chaosbear-position-other-brief = { $player }: خانۀ { $position }، فاصل�
 
 chaosbear-draw-card-you = شما یک کارت آشوب می‌کشید.
 chaosbear-draw-card-other = { $player } یک کارت آشوب می‌کشد.
-chaosbear-draws-card = { $player } یک کارت می‌کشد.
 chaosbear-draw-card-you-brief = شما می‌کشید.
 chaosbear-draw-card-other-brief = { $player } می‌کشد.
 chaosbear-card-impulsion-you = فشار! شما به خانۀ { $position } جهش می‌کنید، { $gap } خانه از خرس جلوترید.

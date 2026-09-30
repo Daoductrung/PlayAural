@@ -21,8 +21,6 @@ crazyeights-game-blocked = ¡La partida está bloqueada! Nadie puede jugar.
 crazyeights-new-hand = Ronda { $round }.
 crazyeights-start-card-you = Volteas { $card }.
 crazyeights-start-card = { $player } voltea { $card }.
-crazyeights-wild-played = { $player } jugó un Ocho Comodín.
-
 crazyeights-no-players = No hay jugadores.
 crazyeights-no-top = No hay carta superior.
 
@@ -32,14 +30,12 @@ crazyeights-reverse = Reversa de { $suit }
 crazyeights-skip = Salto de { $suit }
 crazyeights-draw-two = Roba Dos de { $suit }
 
-crazyeights-suit-chosen = El palo ahora es { $suit }.
 crazyeights-you-choose-suit = Eliges { $suit }. El siguiente jugador debe seguir ese palo o jugar otro Ocho Comodín.
 crazyeights-player-chooses-suit = { $player } elige { $suit }. El siguiente jugador debe seguir ese palo o jugar otro Ocho Comodín.
 
 crazyeights-round-summary = { $player } gana la ronda. { $details }. { $player } gana { $total } puntos.
 crazyeights-round-summary-you = Ganas la ronda. { $details }. Ganas { $total } puntos.
 crazyeights-round-details-none = No se tomaron puntos de los oponentes.
-crazyeights-round-winner = { $player } gana { $points } puntos. { $detail }
 crazyeights-round-points-from = { $points } de { $player }
 crazyeights-dealt-cards = A todos se les reparten { $cards } cartas.
 

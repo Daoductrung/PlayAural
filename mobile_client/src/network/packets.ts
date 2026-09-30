@@ -40,6 +40,7 @@ export type SpeakPacket = {
   key?: string;
   params?: Record<string, unknown>;
   buffer?: SpeechBuffer;
+  history?: boolean;
   muted?: boolean;
 };
 

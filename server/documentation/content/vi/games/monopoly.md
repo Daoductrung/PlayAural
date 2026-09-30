@@ -114,7 +114,7 @@ Cấp phát triển được bán lại cho Ngân hàng với nửa giá mua và
 
 Khu vực quản lý có các tác vụ riêng để mua cấp phát triển, bán cấp phát triển, thế chấp và chuộc thế chấp. Mỗi tác vụ mở một danh sách đã lọc, chỉ chứa lựa chọn hợp lệ. \*\*Quản lý hoặc xem bất động sản bất kỳ\*\* mở toàn bộ giấy sở hữu của bạn. Trong phần chi tiết, dùng \*\*Quay lại danh sách bất động sản\*\* để chọn nơi khác hoặc \*\*Quản lý bất động sản xong\*\* để rời khu vực này.
 
-Các tác vụ chưa dùng được vẫn hiện. Gợi ý trong menu chỉ giải thích tác vụ làm gì; khi kích hoạt, bạn sẽ nghe đúng lý do tác vụ hiện chưa dùng được, chẳng hạn chưa sở hữu trọn nhóm màu, còn thế chấp, phát triển chưa đều, thiếu tiền, đã đạt cấp cao nhất hoặc Ngân hàng hết mô hình.
+Các tác vụ chưa dùng được vẫn hiện. Gợi ý trong trình đơn chỉ giải thích tác vụ làm gì; khi kích hoạt, bạn sẽ nghe đúng lý do tác vụ hiện chưa dùng được, chẳng hạn chưa sở hữu trọn nhóm màu, còn thế chấp, phát triển chưa đều, thiếu tiền, đã đạt cấp cao nhất hoặc Ngân hàng hết mô hình.
 
 \*\*Thế chấp\*\*
 
@@ -170,7 +170,7 @@ Các bảng thông tin trực tiếp tự cập nhật mà không làm mất v�
 
 Trong khi lần tung, bước di chuyển quân cờ hoặc hiệu ứng thẻ đang được xử lý, các nút có thể làm thay đổi ván sẽ bị vô hiệu hóa. Các bảng thông tin chỉ đọc vẫn dùng được và không bị đóng.
 
-Tùy chọn \*\*Gợi ý trong menu\*\* tại \*\*Tùy chỉnh chung > Hỗ trợ tiếp cận\*\* thêm lời giải thích dành cho người mới vào những hành động cần thiết. Gợi ý của nút bị vô hiệu hóa vẫn giải thích chức năng; hãy kích hoạt nút để nghe đúng lý do nó hiện chưa dùng được.
+Tùy chọn \*\*Gợi ý trong trình đơn\*\* tại \*\*Tùy chỉnh chung > Hỗ trợ tiếp cận\*\* thêm lời giải thích dành cho người mới vào những hành động cần thiết. Gợi ý của nút bị vô hiệu hóa vẫn giải thích chức năng; hãy kích hoạt nút để nghe đúng lý do nó hiện chưa dùng được.
 
 Tùy chọn \*\*Thông báo ngắn gọn\*\* tại \*\*Tùy chỉnh chung > Tùy chỉnh trò chơi > Hiển thị\*\* rút gọn lời đọc thường xuyên nhưng vẫn giữ quyết định bắt buộc và giá trị quan trọng.
 

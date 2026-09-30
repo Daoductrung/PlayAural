@@ -6,7 +6,7 @@ export default {
   "auth-controls-label": "Điều khiển ứng dụng",
   "account-actions-label": "Thao tác tài khoản",
   "game-client-label": "Ứng dụng chơi PlayAural",
-  "game-menu-label": "Menu trò chơi",
+  "game-menu-label": "Trình đơn trò chơi",
   "message-history-label": "Nhật ký thông báo",
   "message-history-log-label": "Nhật ký thông báo",
   "btn-install": "Cài đặt ứng dụng",
@@ -40,7 +40,7 @@ export default {
   "btn-submit-reset": "Đặt lại mật khẩu",
   "reset-password-success": "Mật khẩu của bạn đã được đặt lại. Bây giờ bạn có thể đăng nhập.",
 
-  "tab-menu": "Menu",
+  "tab-menu": "Trình đơn",
   "tab-chat": "Trò chuyện",
   "tab-history": "Nhật ký",
   "chat-heading": "Trò chuyện và Trò chuyện thoại",
@@ -150,7 +150,7 @@ export default {
   "network-error-outgoing-blocked": "Bản web đã chặn một thông điệp trước khi gửi vì thông điệp không khớp giao thức PlayAural. Chi tiết: {reason}",
   "network-error-auth-missing": "Bản web không thể bắt đầu đăng nhập vì thiếu thông điệp xác thực. Vui lòng tải lại trang rồi thử lại.",
   "network-error-incoming-blocked": "Bản web đã bỏ qua một thông điệp từ máy chủ vì thông điệp không khớp giao thức PlayAural. Chi tiết: {reason}",
-  "network-error-invalid-server-message": "Máy chủ PlayAural đã gửi một thông điệp mà trình duyệt này không đọc được. Nếu menu ngừng cập nhật, hãy tải lại trang. Chi tiết: {reason}",
+  "network-error-invalid-server-message": "Máy chủ PlayAural đã gửi một thông điệp mà trình duyệt này không đọc được. Nếu trình đơn ngừng cập nhật, hãy tải lại trang. Chi tiết: {reason}",
   "network-error-websocket": "Trình duyệt vừa báo sự cố kết nối tạm thời với máy chủ PlayAural. Nếu bạn đã đăng nhập, bản web sẽ tự thử kết nối lại.",
   "table-created-notify": "Một bàn chơi mới vừa được tạo.",
 

@@ -26,7 +26,7 @@ Trò chơi hỗ trợ từ 2 đến 4 người chơi. Khi ván bắt đầu, m�
 
 
 
-Phần điểm số trong game dùng để theo dõi xem mỗi người đã có bao nhiêu quân về đích, nhưng đây vẫn là một ván đua duy nhất chứ không phải dạng nhiều hiệp. Ngay khi một người đưa đủ bốn quân về đích, ván cờ kết thúc.
+Phần điểm số trong trò chơi dùng để theo dõi xem mỗi người đã có bao nhiêu quân về đích, nhưng đây vẫn là một ván đua duy nhất chứ không phải dạng nhiều hiệp. Ngay khi một người đưa đủ bốn quân về đích, ván cờ kết thúc.
 
 
 

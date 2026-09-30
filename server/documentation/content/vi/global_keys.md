@@ -2,11 +2,11 @@
 
 Tài liệu này giải thích các cách điều khiển dùng chung trong PlayAural. Người dùng trên máy tính chủ yếu dùng phím tắt. Người dùng trên thiết bị di động chủ yếu dùng cử chỉ có sẵn trong ứng dụng. Hai cách này đều giúp bạn đi tới cùng một nhóm tính năng.
 
-\*\*Gợi ý trong menu\*\*
+\*\*Gợi ý trong trình đơn\*\*
 
-Theo mặc định, mục menu nào có phần trợ giúp sẽ đọc luôn phần mô tả sau tên mục, nhờ vậy bạn vừa biết lựa chọn là gì vừa biết nó có tác dụng gì. Nếu muốn menu ngắn gọn hơn, hãy mở \*\*Cá nhân và Tùy chỉnh > Tùy chỉnh chung > Hỗ trợ tiếp cận > Gợi ý trong menu\*\* rồi tắt tùy chọn này. Thiết lập được áp dụng trên mọi thiết bị cho menu hệ thống, tùy chọn trước ván và các lựa chọn trong trò chơi có kèm mô tả.
+Theo mặc định, mục trình đơn nào có phần trợ giúp sẽ đọc luôn phần mô tả sau tên mục, nhờ vậy bạn vừa biết lựa chọn là gì vừa biết nó có tác dụng gì. Nếu muốn trình đơn ngắn gọn hơn, hãy mở \*\*Cá nhân và Tùy chỉnh > Tùy chỉnh chung > Hỗ trợ tiếp cận > Gợi ý trong trình đơn\*\* rồi tắt tùy chọn này. Thiết lập được áp dụng trên mọi thiết bị cho trình đơn hệ thống, tùy chọn trước ván và các lựa chọn trong trò chơi có kèm mô tả.
 
-Khi tắt Gợi ý trong menu, người dùng máy tính vẫn có thể nhấn \*\*Space\*\* tại một mục hệ thống hoặc tùy chọn trước ván có mô tả để nghe phần trợ giúp mà không kích hoạt mục đó. Trong lúc ván đang diễn ra, Space vẫn giữ chức năng phím tắt của trò chơi. Bạn có thể bật lại Gợi ý trong menu bất cứ lúc nào để phần mô tả tự xuất hiện.
+Khi tắt Gợi ý trong trình đơn, người dùng máy tính vẫn có thể nhấn \*\*Space\*\* tại một mục hệ thống hoặc tùy chọn trước ván có mô tả để nghe phần trợ giúp mà không kích hoạt mục đó. Trong lúc ván đang diễn ra, Space vẫn giữ chức năng phím tắt của trò chơi. Bạn có thể bật lại Gợi ý trong trình đơn bất cứ lúc nào để phần mô tả tự xuất hiện.
 
 \*\*Phím tắt trên máy tính\*\*
 
@@ -20,7 +20,7 @@ Khi tắt Gợi ý trong menu, người dùng máy tính vẫn có thể nhấn 
 \* \*\*F7 / F8:\*\* Giảm hoặc tăng âm lượng môi trường.
 \* \*\*F9 / F10:\*\* Giảm hoặc tăng âm lượng nhạc nền.
 \* \*\*Alt + P:\*\* Kiểm tra độ trễ kết nối.
-\* \*\*Alt + M:\*\* Đưa tiêu điểm về menu chính.
+\* \*\*Alt + M:\*\* Đưa tiêu điểm về trình đơn chính.
 \* \*\*Alt + F:\*\* Mở mục Bạn bè.
 \* \*\*Alt + O:\*\* Mở mục Tùy chỉnh.
 
@@ -41,11 +41,11 @@ PlayAural chia tin nhắn thành nhiều bộ đệm để bạn dễ xem riêng
 \* \*\*`,` / `.`:\*\* Đọc tin nhắn trước hoặc sau trong bộ đệm hiện tại.
 \* \*\*Shift + `,` / Shift + `.`:\*\* Nhảy tới tin nhắn cũ nhất hoặc mới nhất trong bộ đệm hiện tại.
 
-\*\*Di chuyển trong menu trên máy tính\*\*
+\*\*Di chuyển trong trình đơn trên máy tính\*\*
 
-\* \*\*Các phím mũi tên:\*\* Di chuyển trong menu, danh sách và vị trí trên bàn cờ.
+\* \*\*Các phím mũi tên:\*\* Di chuyển trong trình đơn, danh sách và vị trí trên bàn cờ.
 \* \*\*Enter:\*\* Kích hoạt mục đang được chọn.
-\* \*\*Escape:\*\* Quay lại hoặc mở menu hành động.
+\* \*\*Escape:\*\* Quay lại hoặc mở trình đơn hành động.
 \* \*\*Home / End:\*\* Nhảy tới mục đầu tiên hoặc cuối cùng trong danh sách hiện tại.
 \* \*\*Các chữ cái A-Z:\*\* Nhảy nhanh tới những mục bắt đầu bằng chữ tương ứng.
 
@@ -58,7 +58,7 @@ Nếu bạn đang dùng ứng dụng di động, tốt nhất hãy tắt trình 
 \* \*\*Vuốt một ngón:\*\* Di chuyển giữa các mục. Trong danh sách thông thường, mọi hướng vuốt đều dùng để đổi mục. Trong trò chơi dạng lưới, hướng vuốt trùng với hướng trên bàn cờ.
 \* \*\*Chạm hai lần bằng một ngón:\*\* Kích hoạt mục đang được chọn.
 \* \*\*Chạm hai lần rồi giữ:\*\* Thực hiện thao tác phụ mà một số trò chơi sử dụng.
-\* \*\*Vuốt lên bằng hai ngón:\*\* Quay lại, đóng menu hiện tại, hoặc mở và đóng menu hành động khi đang trong ván.
+\* \*\*Vuốt lên bằng hai ngón:\*\* Quay lại, đóng trình đơn hiện tại, hoặc mở và đóng trình đơn hành động khi đang trong ván.
 \* \*\*Vuốt sang phải bằng hai ngón:\*\* Mở hoặc đóng Trò chuyện.
 \* \*\*Vuốt sang trái bằng hai ngón:\*\* Mở hoặc đóng Nhật ký.
 \* \*\*Vuốt xuống bằng hai ngón:\*\* Mở hoặc đóng Phím tắt.

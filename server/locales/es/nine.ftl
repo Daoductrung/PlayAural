@@ -46,8 +46,6 @@ nine-reason-nine-already-started = { $card } no se puede jugar porque la secuenc
 nine-reason-cannot-extend = { $card } no puede extender la secuencia de { $suit }. Juega la siguiente carta menor o mayor en uno de los extremos de esa secuencia.
 nine-reason-unopened-suit = { $card } no se puede jugar porque la secuencia de { $suit } aún no se ha abierto. Primero inicia ese palo con su 9.
 nine-reason-must-skip = No tienes ninguna carta legal para jugar; tu turno se saltará automáticamente.
-nine-reason-generic = Esa carta no se puede jugar en este momento.
-
 # Winning
 nine-you-wins-game = ¡Te quedaste sin cartas y ganas la partida!
 nine-player-wins-game = ¡{ $player } se quedó sin cartas y gana la partida!

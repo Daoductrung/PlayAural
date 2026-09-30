@@ -74,7 +74,6 @@ ageofheroes-option-changed-max-hand = حداکثر تعداد کارت در دس
 
 # مرحله‌ی تنظیم
 ageofheroes-setup-start = شما رهبر قبیله‌ی { $tribe } هستید. منبع ویژه‌ی بنای تاریخی شما { $special } است. برای تعیین ترتیب نوبت‌ها، تاس بیندازید.
-ageofheroes-setup-viewer = بازیکنان در حال انداختن تاس برای تعیین ترتیب نوبت‌ها هستند.
 ageofheroes-roll-dice = تاس بیندازید
 ageofheroes-war-roll-dice = تاس بیندازید
 ageofheroes-dice-result = شما { $total } انداختید ({ $die1 } + { $die2 }).
@@ -100,8 +99,6 @@ ageofheroes-prepare-your-turn = شما { $count } { $count ->
     [one] کارت
     *[other] کارت
 } برای بازی یا دور انداختن دارید.
-ageofheroes-prepare-done = مرحله‌ی آماده‌سازی کامل شد.
-
 # رویدادهای بازی/دور انداخته شده
 ageofheroes-population-growth = { $player } رشد جمعیت را بازی می‌کند و یک شهر جدید می‌سازد.
 ageofheroes-population-growth-you = شما رشد جمعیت را بازی می‌کنید و یک شهر جدید می‌سازید.
@@ -115,7 +112,6 @@ ageofheroes-eruption-you = یک فوران آتشفشانی یکی از شهره
 # اثرات بلایا
 ageofheroes-hunger-strikes = قحطی رخ می‌دهد.
 ageofheroes-lose-card-hunger = شما { $card } را از دست می‌دهید.
-ageofheroes-barbarians-pillage = بربرها به منابع { $player } حمله می‌کنند.
 ageofheroes-barbarians-attack = بربرها به منابع { $player } حمله می‌کنند.
 ageofheroes-barbarians-attack-you = بربرها به منابع شما حمله می‌کنند.
 ageofheroes-lose-card-barbarians = شما { $card } را از دست می‌دهید.
@@ -152,7 +148,6 @@ ageofheroes-fair-draw-other = { $player } { $count } { $count ->
 
 # مبادله/حراج
 ageofheroes-auction-start = حراج آغاز می‌شود.
-ageofheroes-offer-trade = پیشنهاد مبادله
 ageofheroes-offer-made = { $player } { $card } را در ازای { $wanted } پیشنهاد می‌دهد.
 ageofheroes-offer-made-you = شما { $card } را در ازای { $wanted } پیشنهاد می‌دهید.
 ageofheroes-trade-accepted = { $player } پیشنهاد { $other } را می‌پذیرد و { $give } را با { $receive } مبادله می‌کند.
@@ -222,8 +217,6 @@ ageofheroes-road-built = { $tribe1 } و { $tribe2 } اکنون با جاده ب�
 ageofheroes-road-no-target = هیچ قبیله‌ی همسایه‌ای برای ساخت جاده در دسترس نیست.
 ageofheroes-approve = تأیید
 ageofheroes-deny = رد
-ageofheroes-supply-exhausted = دیگر { $building } برای ساخت موجود نیست.
-
 # هیچ کاری نکن
 ageofheroes-do-nothing = { $player } می‌گذرد.
 ageofheroes-do-nothing-you = شما می‌گذرید...
@@ -341,16 +334,7 @@ ageofheroes-you-win-battle-as-defender = شما با موفقیت در براب�
 ageofheroes-battle-victory-defender = { $defender } با موفقیت در برابر { $attacker } دفاع می‌کند.
 ageofheroes-you-draw-battle = شما و { $opponent } هر دو تمام نیروهای تعهدشده به نبرد را از دست می‌دهید.
 ageofheroes-battle-mutual-defeat = هم { $attacker } و هم { $defender } تمام نیروهای تعهدشده به نبرد را از دست می‌دهند.
-ageofheroes-general-bonus = +{ $count } از { $count ->
-    [one] ژنرال
-    *[other] ژنرال
-}
-ageofheroes-fortress-bonus = +{ $count } از دفاع دژ
-ageofheroes-battle-winner = { $winner } نبرد را می‌برد.
-ageofheroes-battle-draw = نبرد با تساوی به پایان می‌رسد...
 ageofheroes-battle-continue = ادامه‌ی نبرد.
-ageofheroes-battle-end = نبرد تمام شد.
-
 # نتایج جنگ
 ageofheroes-conquest-success = { $attacker } { $count } { $count ->
     [one] شهر
@@ -456,12 +440,6 @@ ageofheroes-status = { $player } ({ $tribe }): { $cities } { $cities ->
     *[other] ارتش
 }، بنای { $monument }/۵
 ageofheroes-status-detailed-header = { $player } ({ $tribe })
-ageofheroes-status-cities = شهرها: { $count }
-ageofheroes-status-armies = ارتش‌ها: { $count }
-ageofheroes-status-generals = ژنرال‌ها: { $count }
-ageofheroes-status-fortresses = دژها: { $count }
-ageofheroes-status-monument = بنا: { $count }/۵
-ageofheroes-status-roads = جاده‌ها: { $left }{ $right }
 ageofheroes-status-road-left = چپ
 ageofheroes-status-road-right = راست
 ageofheroes-status-none = هیچ
@@ -493,8 +471,6 @@ ageofheroes-status-detail-returning-generals = { $count } { $count ->
     *[other] ژنرال در حال بازگشت
 }
 # اطلاعات دسته
-ageofheroes-deck-empty = دیگر کارت { $card } در دسته وجود ندارد.
-ageofheroes-deck-count = کارت‌های باقی‌مانده: { $count }
 ageofheroes-deck-reshuffled = توده‌ی دورریخته دوباره به دسته برگردانده شد.
 
 # تسلیم
@@ -502,16 +478,9 @@ ageofheroes-give-up-confirm = آیا مطمئن هستید که می‌خواه�
 ageofheroes-gave-up = { $player } تسلیم شد!
 ageofheroes-gave-up-you = شما تسلیم شدید!
 
-# کارت قهرمان
-ageofheroes-hero-use = به عنوان ارتش یا ژنرال استفاده شود؟
-ageofheroes-hero-army = ارتش
-ageofheroes-hero-general = ژنرال
-
 # کارت بخت
 ageofheroes-you-use-fortune = شما از بخت برای انداختن مجدد تاس نبرد استفاده می‌کنید.
 ageofheroes-player-uses-fortune = { $player } از بخت برای انداختن مجدد تاس نبرد استفاده می‌کند.
-ageofheroes-fortune-prompt = شما در انداختن تاس باختید. از بخت برای انداختن مجدد استفاده می‌کنید؟
-
 # دلایل غیرفعال بودن اقدامات
 ageofheroes-not-your-turn = نوبت شما نیست.
 ageofheroes-game-not-started = بازی هنوز شروع نشده است.
@@ -531,10 +500,3 @@ ageofheroes-offered-card-unavailable = کارت پیشنهادشده دیگر د
 ageofheroes-trade-card-type-mismatch = کارت انتخاب‌شده‌ی شما با نوع کارت درخواستی مطابقت ندارد.
 ageofheroes-trade-card-subtype-mismatch = کارت انتخاب‌شده‌ی شما با کارت درخواستی مطابقت ندارد.
 ageofheroes-trade-offer-label = { $player }: { $offered } در ازای { $wanted }
-
-# هزینه‌های ساخت (برای نمایش)
-ageofheroes-cost-army = ۲ غلات، آهن
-ageofheroes-cost-fortress = آهن، چوب، سنگ
-ageofheroes-cost-general = آهن، طلا
-ageofheroes-cost-road = ۲ سنگ
-ageofheroes-cost-city = ۲ چوب، سنگ

@@ -2399,6 +2399,7 @@ class PlayAuralWebApp {
         this.speak(packet.text || "", {
           buffer: normalizeHistoryBuffer(packet.buffer || "misc"),
           assertive: packet.buffer === "system",
+          noHistory: packet.history === false,
           muted: packet.muted === true,
         });
         break;

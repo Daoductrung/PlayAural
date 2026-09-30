@@ -1,9 +1,5 @@
 game-name-ninetynine = Ninety Nine
-ninetynine-description = A card game where players try to avoid pushing the running total over 99. Last player standing wins!
-
 ninetynine-round = Round { $round }.
-
-ninetynine-player-turn = { $player }'s turn.
 
 ninetynine-you-play = You play { $card }. The count is now { $count }.
 ninetynine-player-plays = { $player } plays { $card }. The count is now { $count }.
@@ -38,9 +34,6 @@ ninetynine-end-score = { $rank }. { $player }: { $tokens } { $tokens ->
     [one] token
    *[other] tokens
 }
-
-ninetynine-you-deal = You deal out the cards.
-ninetynine-player-deals = { $player } deals out the cards.
 
 ninetynine-you-draw = You draw { $card }.
 ninetynine-player-draws = { $player } draws a card.
@@ -83,7 +76,6 @@ ninetynine-set-autodraw = Automatic drawing: { $enabled }
 ninetynine-option-changed-autodraw = Automatic drawing set to { $enabled }.
 ninetynine-desc-autodraw = When enabled, players automatically draw a replacement card after playing. When off, players must draw manually.
 
-ninetynine-rules-standard = Standard rules.
 ninetynine-rules-action-cards = Action cards rules.
 
 ninetynine-rules-variant-standard = Standard

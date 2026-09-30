@@ -51,8 +51,6 @@ smtp-enc-ssl = Use SSL
 smtp-enc-tls = Enable TLS encryption automatically (STARTTLS)
 smtp-current-enc = * { $value }
 
-main-menu-title = Main Menu
-
 play = Play
 view-active-tables = View active tables
 options = Options
@@ -62,7 +60,6 @@ go-back = Go back
 context-menu = Context menu.
 no-actions-available = No actions available.
 table-new-host-promoted = { $player } is now the table host.
-return-to-lobby = Return to lobby
 return-to-table = Return to table
 create-table = Create a new table
 leave-table = Leave table
@@ -128,9 +125,7 @@ friend-offline = Your friend { $player } went offline.
 permission-denied = You do not have permission to perform this action on a Developer.
 kick-user = Kick User
 kick-broadcast = { $target } was kicked by { $actor }.
-you-were-kicked = You have been kicked by { $actor }.
 user-not-online = User { $target } is not online.
-kick-immune = You cannot kick this user.
 kick-confirm = Are you sure you want to kick { $player }?
 no-users-to-kick = No users available to kick.
 usage-kick = Usage: /kick <username>
@@ -199,11 +194,7 @@ option-deselected-count = { $count } deselected
 option-min-selected = You must select at least { $count }.
 option-max-selected = You can select at most { $count }.
 
-turn-sound-option = Turn sound: { $status }
-
 custom-bot-names-option = Custom bot names: { $status }
-confirm-destructive-option = Confirm risky actions: { $status }
-clear-kept-option = Clear kept dice when rolling: { $status }
 option-notify-table-created = Notify when table created: { $status }
 option-notify-user-presence = User online/offline notifications: { $status }
 option-notify-friend-presence = Friend online/offline notifications: { $status }
@@ -349,13 +340,9 @@ action-role-change-rate-limited = You are switching between playing and spectati
     [one] 1 second
    *[other] { $seconds } seconds
 }.
-action-no-scores = No scores available yet.
-
 options-category-audio = Audio
 options-category-accessibility = Accessibility
 options-category-notifications = Notifications
-options-category-game = Game
-
 music-volume-option = Music Volume: { $value }%
 sound-volume-option = Sound Effects Volume: { $value }%
 ambience-volume-option = Ambience Volume: { $value }%
@@ -381,9 +368,6 @@ invert-multiline-enter-option = Invert Enter Key Behavior: { $status }
 menu-hints-option = Menu Hints: { $status }
 menu-hints-changed = Menu hints are now { $status }.
 play-typing-sounds-option = Play Typing Sounds: { $status }
-enter-music-volume = Enter music volume (0-100)
-enter-ambience-volume = Enter ambience volume (0-100)
-enter-voice-volume = Enter voice chat volume (10-100)
 invalid-volume = Invalid volume.
 
 dice-not-rolled = You haven't rolled yet.
@@ -668,7 +652,6 @@ waiting-for-approval = Your account is waiting for approval by an administrator.
 account-approved-welcome = Your account has been approved! Welcome to PlayAural!
 account-declined-goodbye = Your account request has been declined.
 
-account-request = account request
 account-action = account action taken
 
 promote-admin = Promote Admin
@@ -850,7 +833,6 @@ logout-confirm-no = No, stay
 
 system-name = System
 server-restarting = Server is restarting in { $seconds } seconds...
-server-restarting-now = Server is restarting now. Please reconnect shortly.
 server-shutting-down = Server is shutting down in { $seconds } seconds...
 server-shutting-down-now = Server is shutting down now. Goodbye!
 server-power-management = Server Power Management
@@ -917,7 +899,6 @@ speech-mode-option = Speech Mode: { $status }
 speech-rate-option = Speech Rate: { $value }%
 speech-voice-option = Voice: { $voice }
 select-voice = Select Voice
-enter-speech-rate = Enter speech rate (50-300)
 invalid-rate = Invalid speech rate. Use a value between 50 and 300.
 mode-aria = Aria-live
 mode-web-speech = Web Speech API
@@ -1072,12 +1053,8 @@ friends-blocked-empty = You have not blocked anyone.
 friends-list-empty = You have no friends yet.
 friend-status-offline = Offline
 friend-status-offline-last-online = Offline, last online { $relative_time }
-friend-status-playing = Playing { $game }
-friend-status-spectating = Spectating { $game }
-friend-status-lobby = Main menu
 friend-list-entry = { $username } ({ $status })
 
-friend-actions-title = Actions for { $username }
 view-profile = View Profile
 block-user = Block User
 unblock-user = Unblock User
@@ -1091,7 +1068,6 @@ friend-removed-notify = { $username } has removed you from { GENDER_TERM($userna
 
 no-pending-requests = No pending requests.
 no-sent-requests = You have no pending sent requests.
-friend-request-from = Friend request from { $username }
 friend-request-to = Friend request sent to { $username }
 accept = Accept
 decline = Decline
@@ -1133,7 +1109,6 @@ relative-time-years-ago = { $count ->
    *[other] { $count } years ago
 }
 
-public-profile-title = { $username }'s Profile
 enter-friend-username = Enter the username of the person you want to friend:
 friend-error-self = You cannot send a friend request to yourself.
 friend-error-already-friends = You are already friends with this user.

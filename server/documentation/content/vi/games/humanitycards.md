@@ -68,7 +68,7 @@ Khi đã đủ bài, Trung nghe các câu trả lời theo thứ tự ngẫu nhi
 
 \*\*Phím tắt\*\*
 
-\* \*\*1 đến 0:\*\* Chọn hoặc bỏ chọn các lá trắng từ 1 đến 10 trên tay. Nếu số bài trên tay lớn hơn 10, hãy dùng menu hành động để chọn các lá ở vị trí phía sau.
+\* \*\*1 đến 0:\*\* Chọn hoặc bỏ chọn các lá trắng từ 1 đến 10 trên tay. Nếu số bài trên tay lớn hơn 10, hãy dùng trình đơn hành động để chọn các lá ở vị trí phía sau.
 
 \* \*\*Dấu cách:\*\* Nộp các lá đã chọn.
 

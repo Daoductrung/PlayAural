@@ -1686,6 +1686,11 @@ class TestMileByMileUnplayableCardMenu:
         assert "You cannot play 100 miles because you need a Green Light" in reason_text
         assert "Do you want to discard it?" in reason_text
         assert alice_user.get_last_spoken() == reason_text
+        assert next(
+            message.data
+            for message in reversed(alice_user.messages)
+            if message.type == "speak"
+        )["history"] is False
 
         alice_user.clear_messages()
         game.refresh_menus(alice)

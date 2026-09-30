@@ -85,8 +85,17 @@ class MockUser(User):
     def approved(self) -> bool:
         return self._approved
 
-    def speak(self, text: str, buffer: str = "misc") -> None:
-        self.messages.append(Message("speak", {"text": text, "buffer": buffer}))
+    def speak(
+        self,
+        text: str,
+        buffer: str = "misc",
+        *,
+        history: bool = True,
+    ) -> None:
+        data = {"text": text, "buffer": buffer}
+        if not history:
+            data["history"] = False
+        self.messages.append(Message("speak", data))
 
     def send_audio_command(self, command: AudioCommand) -> None:
         """Capture commands while keeping legacy game assertions concise."""

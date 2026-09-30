@@ -47,10 +47,23 @@ class Bot(User):
 
     # All UI methods are no-ops for bots
 
-    def speak(self, text: str, buffer: str = "misc") -> None:
+    def speak(
+        self,
+        text: str,
+        buffer: str = "misc",
+        *,
+        history: bool = True,
+    ) -> None:
         pass
 
-    def speak_l(self, message_id: str, buffer: str = "misc", **kwargs) -> None:
+    def speak_l(
+        self,
+        message_id: str,
+        buffer: str = "misc",
+        *,
+        history: bool = True,
+        **kwargs,
+    ) -> None:
         # Bots discard all UI, so skip the Fluent render entirely rather than
         # formatting a localized string only for the no-op speak() to drop it.
         # Action resolution in a bot-heavy game calls this thousands of times

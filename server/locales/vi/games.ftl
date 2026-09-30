@@ -43,7 +43,6 @@ game-winner = { $player } thắng!
 game-winner-you = Bạn thắng!
 game-winner-score = { $player } thắng với { $score } điểm!
 game-tiebreaker = Hòa! Vào vòng phân định thắng thua!
-game-tiebreaker-players = Hòa giữa { $players }! Vào vòng phân định thắng thua!
 game-eliminated = { $player } đã bị loại với { $score } điểm.
 
 game-set-target-score = Điểm mục tiêu: { $score }
@@ -87,9 +86,6 @@ status-box-closed = Đã đóng thông tin trạng thái.
 game-leave = Rời trò chơi
 
 round-timer-paused = { $player } đã tạm dừng trò chơi (nhấn p để bắt đầu vòng tiếp theo).
-round-timer-resumed = Đồng hồ vòng chơi đã chạy lại.
-round-timer-countdown = Vòng tiếp theo trong { $seconds } giây...
-
 dice-keeping = Giữ lại { $value }.
 dice-rerolling = Gieo lại { $value }.
 dice-locked = Viên xúc xắc đó đã bị khóa và không thể thay đổi.
@@ -167,7 +163,7 @@ contact = Liên hệ
 document-not-found = Không tìm thấy tài liệu.
 help = Trợ giúp
 
-# Game Info (Ctrl+I)
+# Thông tin trò chơi (Ctrl+I)
 game-info = Thông tin trò chơi
 game-info-header = Thông tin trò chơi hiện tại
 game-info-name = Trò chơi: {$game}

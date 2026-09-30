@@ -128,7 +128,7 @@ Khi một người lần đầu bắt đầu ván mới trong tình trạng ch�
 \* \*\*Xem điểm:\*\* Đọc điểm trận hiện tại. Xem điểm chi tiết mở bảng điểm trực tiếp.
 \* \*\*Lượt của ai\*\* và \*\*Ai đang ở trong bàn:\*\* Đọc người đang đến lượt và danh sách người tại bàn.
 
-Các hành động đọc thông tin thường dùng xuất hiện trực tiếp trên thiết bị cảm ứng. Những hành động khác vẫn nằm trong \*\*Menu hành động\*\*.
+Các hành động đọc thông tin thường dùng xuất hiện trực tiếp trên thiết bị cảm ứng. Những hành động khác vẫn nằm trong \*\*Trình đơn hành động\*\*.
 
 \*\*Phím tắt bàn phím\*\*
 

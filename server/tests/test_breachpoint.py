@@ -398,6 +398,33 @@ def test_registration_metadata_and_defaults() -> None:
     assert STANDARD_RULES.weapon_pickup_cost == 1
 
 
+def test_lobby_menu_options_announce_their_prompts_without_history() -> None:
+    game = make_game()
+    host = tactical_player(game, 0)
+    user = game.get_user(host)
+    assert isinstance(user, MockUser)
+
+    for action_id, prompt_key in (
+        ("set_match_format", "breachpoint-select-match-format"),
+        ("set_overtime_mode", "breachpoint-select-overtime-mode"),
+    ):
+        user.clear_messages()
+        game.execute_action(host, action_id)
+
+        prompt = next(
+            message
+            for message in user.messages
+            if message.type == "speak"
+        )
+        assert prompt.data == {
+            "text": Localization.get("en", prompt_key),
+            "buffer": "system",
+            "history": False,
+        }
+        assert game._pending_actions[host.id] == action_id
+        game.handle_event(host, {"type": "menu_select", "id": "_cancel"})
+
+
 def test_tactical_clocks_scale_with_squad_size() -> None:
     expected_clocks = {
         4: (8, 4),

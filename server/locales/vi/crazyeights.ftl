@@ -21,8 +21,6 @@ crazyeights-game-blocked = Trò chơi bị chặn! Không ai có thể đánh ti
 crazyeights-new-hand = Vòng { $round }.
 crazyeights-start-card-you = Bạn lật lá { $card }.
 crazyeights-start-card = { $player } lật lá { $card }.
-crazyeights-wild-played = { $player } đánh lá 8 Đổi màu.
-
 crazyeights-no-players = Không có người chơi.
 crazyeights-no-top = Không có lá bài trên cùng.
 
@@ -32,14 +30,12 @@ crazyeights-reverse = Đảo chiều { $suit }
 crazyeights-skip = Mất lượt { $suit }
 crazyeights-draw-two = Rút Hai { $suit }
 
-crazyeights-suit-chosen = Chất bài bây giờ là { $suit }.
 crazyeights-you-choose-suit = Bạn chọn { $suit }. Người kế tiếp phải theo chất này hoặc đánh một lá 8 Đổi màu khác.
 crazyeights-player-chooses-suit = { $player } chọn { $suit }. Người kế tiếp phải theo chất này hoặc đánh một lá 8 Đổi màu khác.
 
 crazyeights-round-summary = { $player } thắng vòng này. { $details }. { $player } nhận được { $total } điểm.
 crazyeights-round-summary-you = Bạn thắng vòng này. { $details }. Bạn nhận được { $total } điểm.
 crazyeights-round-details-none = Không lấy được điểm nào từ đối thủ.
-crazyeights-round-winner = { $player } thắng { $points } điểm. { $detail }
 crazyeights-round-points-from = { $points } từ { $player }
 crazyeights-dealt-cards = Mỗi người được chia { $cards } lá bài.
 

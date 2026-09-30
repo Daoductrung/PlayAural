@@ -46,8 +46,6 @@ nine-reason-nine-already-started = { $card } não pode ser jogada porque a sequ�
 nine-reason-cannot-extend = { $card } não pode estender a sequência de { $suit }. Jogue a próxima carta inferior ou superior em uma das pontas dessa sequência.
 nine-reason-unopened-suit = { $card } não pode ser jogada porque a sequência de { $suit } ainda não foi aberta. Inicie esse naipe com o 9 dele primeiro.
 nine-reason-must-skip = Você não tem nenhuma carta legal para jogar; seu turno será pulado automaticamente.
-nine-reason-generic = Essa carta não pode ser jogada agora.
-
 # Winning
 nine-you-wins-game = Você não tem cartas restantes e vence o jogo!
 nine-player-wins-game = { $player } não tem cartas restantes e vence o jogo!

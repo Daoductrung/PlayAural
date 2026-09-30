@@ -8,7 +8,6 @@ poker-enter-raise = Nhập số tiền tố
 poker-check-pot = Kiểm tra hũ
 poker-check-bet = Số tiền cần theo
 poker-check-min-raise = Mức tố tối thiểu
-poker-check-log = Nhật ký hoạt động
 poker-check-hand-players = Người chơi trong ván
 poker-check-turn-timer = Thời gian lượt
 poker-check-blind-timer = Thời gian tăng mù
@@ -91,7 +90,6 @@ poker-your-uncalled-bet-returned = Phần cược chưa được theo của bạ
 poker-hand-no-cards = Bạn không có bài trên tay.
 poker-no-active-betting = Không có vòng cược nào đang diễn ra.
 
-poker-log-empty = Chưa có hành động nào.
 poker-log-fold = { $player } đã bỏ bài
 poker-log-check = { $player } đã xem
 poker-log-call = { $player } đã theo { $amount }

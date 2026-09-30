@@ -296,11 +296,14 @@ test("server speech is retained but never voiced through a muted or malformed bu
   handleSpeakPacket({ buffer: "chat", text: "quiet chat" });
   handleSpeakPacket({ buffer: "unknown", text: "fallback output" });
   handleSpeakPacket({ buffer: "system", muted: true, text: "server-muted" });
+  handleSpeakPacket({ buffer: "game", history: false, text: "transient prompt" });
+  handleSpeakPacket({ buffer: "chat", history: false, text: "muted transient prompt" });
 
-  assert.deepEqual(spoken, ["game update", "fallback output"]);
+  assert.deepEqual(spoken, ["game update", "fallback output", "transient prompt"]);
   assert.deepEqual(buffers.getMessages("chat").map((item) => item.text), ["quiet chat"]);
   assert.deepEqual(buffers.getMessages("misc").map((item) => item.text), ["fallback output"]);
   assert.equal(buffers.getMessages("all").some((item) => item.text === "quiet chat"), false);
+  assert.equal(buffers.getMessages("game").some((item) => item.text === "transient prompt"), false);
   assert.equal(revision, 4);
 });
 

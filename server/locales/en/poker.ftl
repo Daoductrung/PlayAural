@@ -8,7 +8,6 @@ poker-enter-raise = Enter raise amount
 poker-check-pot = Check pot
 poker-check-bet = Amount to call
 poker-check-min-raise = Minimum raise
-poker-check-log = Action log
 poker-check-hand-players = Players in hand
 poker-check-turn-timer = Turn timer
 poker-check-blind-timer = Blind timer
@@ -91,7 +90,6 @@ poker-your-uncalled-bet-returned = Your uncalled bet of { $amount } chips is ret
 poker-hand-no-cards = You have no cards in hand.
 poker-no-active-betting = No active betting round.
 
-poker-log-empty = No actions yet.
 poker-log-fold = { $player } folded
 poker-log-check = { $player } checked
 poker-log-call = { $player } called { $amount }

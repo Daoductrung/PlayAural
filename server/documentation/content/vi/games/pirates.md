@@ -136,7 +136,7 @@ Giá trị tùy chọn đã lưu không hợp lệ sẽ chặn bắt đầu ván
 
 \* \*\*Thông báo ngắn gọn:\*\* được hỗ trợ. Chế độ ngắn gọn rút gọn các thông báo thường xuyên về lượt, di chuyển, giao chiến, XP, kỹ năng và kết quả nhưng vẫn giữ các tổng số quan trọng.
 
-\* \*\*Xác nhận hành động rủi ro:\*\* không dùng trong trò này. Mục tiêu đại bác, đích Cổng Dịch Chuyển và hành động cướp đều đã yêu cầu lựa chọn rõ ràng trong menu.
+\* \*\*Xác nhận hành động rủi ro:\*\* không dùng trong trò này. Mục tiêu đại bác, đích Cổng Dịch Chuyển và hành động cướp đều đã yêu cầu lựa chọn rõ ràng trong trình đơn.
 
 \*\*Phím tắt\*\*
 

@@ -750,7 +750,7 @@ class MileByMileGame(Game):
             user.locale,
         )
         if reason_text is not None:
-            user.speak(reason_text, buffer="game")
+            user.speak(reason_text, buffer="game", history=False)
 
     def _unplayable_card_reason_text(
         self,

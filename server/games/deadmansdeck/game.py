@@ -1116,7 +1116,11 @@ class DeadMansDeckGame(Game):
         dmd_player: DeadMansDeckPlayer = player  # type: ignore[assignment]
         dmd_player.selected_card_ids.clear()
         if user:
-            user.speak_l("deadmansdeck-selection-cleared", buffer="game")
+            user.speak_l(
+                "deadmansdeck-selection-cleared",
+                buffer="game",
+                history=False,
+            )
         self.refresh_menus(player)
 
     def _action_play_selected(self, player: Player, action_id: str) -> None:

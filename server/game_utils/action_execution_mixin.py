@@ -5,11 +5,11 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .player import Player
 
-from .action_context import ActionContext
-from .actions import Action, MenuInput, EditboxInput
-from .options import get_option_meta, MenuOption
-from ..users.base import MenuItem, EscapeBehavior
 from ..messages.localization import Localization
+from ..users.base import EscapeBehavior, MenuItem
+from .action_context import ActionContext
+from .actions import Action, EditboxInput, MenuInput
+from .options import MenuOption, get_option_meta
 
 
 class ActionExecutionMixin:
@@ -285,12 +285,7 @@ class ActionExecutionMixin:
         if not isinstance(request, MenuInput):
             return []
 
-        menu_option_meta = None
-        if action.id.startswith("set_") and hasattr(self, "options"):
-            option_name = action.id[4:]
-            meta = get_option_meta(type(self.options), option_name)
-            if meta and isinstance(meta, MenuOption):
-                menu_option_meta = meta
+        menu_option_meta = self._menu_option_meta_for_action(action)
 
         option_label_method = (
             getattr(self, request.option_label, None)
@@ -332,12 +327,33 @@ class ActionExecutionMixin:
         )
         return items
 
+    def _menu_option_meta_for_action(self, action: Action) -> MenuOption | None:
+        """Return declarative menu metadata for an option action, if present."""
+        if not action.id.startswith("set_") or not hasattr(self, "options"):
+            return None
+        meta = get_option_meta(type(self.options), action.id[4:])
+        return meta if isinstance(meta, MenuOption) else None
+
     def _on_action_menu_input_opened(
         self,
         action: Action,
         player: "Player",
     ) -> None:
-        """Run one-time output after a menu input is opened successfully."""
+        """Announce a menu input once after it opens successfully."""
+        request = action.input_request
+        user = self.get_user(player)
+        if not user or not isinstance(request, MenuInput) or not request.prompt:
+            return
+
+        user.speak_l(
+            request.prompt,
+            buffer=(
+                "system"
+                if self._menu_option_meta_for_action(action) is not None
+                else "game"
+            ),
+            history=False,
+        )
 
     def _on_action_input_cancelled(
         self,

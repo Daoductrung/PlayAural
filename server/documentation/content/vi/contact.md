@@ -27,7 +27,7 @@ Hãy dùng trang này khi bạn cần liên hệ trực tiếp với người du
 
 \*\*Góp ý về khả năng tiếp cận\*\*
 
-Góp ý về khả năng tiếp cận luôn rất quan trọng. Nếu một âm thanh, lời đọc, thứ tự menu, phím tắt, cử chỉ, hoặc trang tài liệu nào đó chưa rõ ràng, hãy mô tả vị trí bạn gặp vấn đề và điều gì sẽ giúp nó dễ hiểu hơn.
+Góp ý về khả năng tiếp cận luôn rất quan trọng. Nếu một âm thanh, lời đọc, thứ tự trình đơn, phím tắt, cử chỉ, hoặc trang tài liệu nào đó chưa rõ ràng, hãy mô tả vị trí bạn gặp vấn đề và điều gì sẽ giúp nó dễ hiểu hơn.
 
 \*\*Vấn đề cộng đồng và an toàn\*\*
 

@@ -759,7 +759,7 @@ class LudoGame(Game):
             idx: self._describe_token(token, locale, ludo_player) for idx, token in moveable
         }
         if user:
-            user.speak_l("ludo-select-token", buffer="game")
+            user.speak_l("ludo-select-token", buffer="game", history=False)
         if player.is_bot:
             BotHelper.jolt_bot(player, ticks=random.randint(20, 40))  # nosec B311
         first_move_action = f"move_token_{min(ludo_player.move_options) + 1}"

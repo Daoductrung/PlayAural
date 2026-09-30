@@ -228,7 +228,7 @@ class EventHandlingMixin:
             user = self.get_user(player)
             if user:
                 user.remove_menu("status_box", send_packet=False)
-                user.speak_l("status-box-closed", buffer="game")
+                user.speak_l("status-box-closed", buffer="game", history=False)
                 self._status_box_open.discard(player.id)
                 self._live_status_boxes.pop(player.id, None)
                 focus = self._status_box_return_focus.pop(player.id, None)

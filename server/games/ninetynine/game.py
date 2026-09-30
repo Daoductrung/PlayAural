@@ -1420,7 +1420,11 @@ class NinetyNineGame(Game):
                 player.draw_timeout_ticks = DRAW_TIMEOUT_TICKS
                 user = self.get_user(player)
                 if user:
-                    user.speak_l("ninetynine-draw-prompt", buffer="game")
+                    user.speak_l(
+                        "ninetynine-draw-prompt",
+                        buffer="game",
+                        history=False,
+                    )
             self._update_all_turn_actions()
             self._advance_turn()
 

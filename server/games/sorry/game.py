@@ -1129,7 +1129,7 @@ class SorryGame(Game):
             return
         user = self.get_user(player)
         if user:
-            user.speak_l("sorry-choose-split", buffer="game")
+            user.speak_l("sorry-choose-split", buffer="game", history=False)
         self.request_menu_focus(player, "move_slot_1")
         self.refresh_menus()
         self._queue_current_bot()
@@ -1151,7 +1151,7 @@ class SorryGame(Game):
         self.game_state.turn_phase = "choose_move"
         user = self.get_user(player)
         if user:
-            user.speak_l("sorry-choose-move", buffer="game")
+            user.speak_l("sorry-choose-move", buffer="game", history=False)
         if defer_menu_rebuild:
             self.request_menu_focus(player, "move_slot_1")
         else:

@@ -1833,8 +1833,10 @@ export function PlayAuralApp() {
       return;
     }
     const buffer = normalizeBufferName(packet.buffer);
-    buffers.add(buffer, text);
-    setHistoryRevision((value) => value + 1);
+    if (packet.history !== false) {
+      buffers.add(buffer, text);
+      setHistoryRevision((value) => value + 1);
+    }
     if (!packet.muted && !buffers.isMuted(buffer)) {
       speakServerAnnouncement(text);
     }

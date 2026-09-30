@@ -907,6 +907,11 @@ Every `user.speak_l()` and `broadcast_l()` call must include an explicit `buffer
 - `private` — private messages
 - `misc` — minor non-chat, non-game informational output
 
+Use `history=False` only for transient UI chrome such as menu-open/close
+feedback and one-time selection prompts already represented by the current
+interface. Clients must still speak it subject to the selected buffer's mute
+state. Errors, gameplay results, and durable information stay in history.
+
 Desktop, Web, and mobile clients share one buffer-mute contract. Muting `all`
 makes every buffer effectively muted and prevents individual mute changes until
 `all` is unmuted. A directly muted source retains its own bounded runtime

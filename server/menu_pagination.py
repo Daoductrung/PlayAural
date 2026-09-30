@@ -84,6 +84,11 @@ def is_page_refresh(selection_id: str) -> bool:
     return selection_id == MENU_PAGE_REFRESH
 
 
+def announce_page_refresh(user: Any) -> None:
+    """Speak transient refresh feedback without polluting message history."""
+    user.speak_l("menu-list-refreshed", buffer="system", history=False)
+
+
 def is_page_navigation(selection_id: str) -> bool:
     """Return True when the pagination action moves to a different page area."""
     return selection_id in {

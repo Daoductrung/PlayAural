@@ -719,3 +719,18 @@ def test_all_clients_clear_old_runtime_ui_before_restored_session_packets():
     )[1].split('        if (packet.type === "chat") {', 1)[0]
     assert "if (authPacket.reset_ui === true)" in mobile_handler
     assert "resetRuntimeUiForSession(false);" in mobile_handler
+
+
+def test_desktop_server_speech_can_bypass_history_without_bypassing_mutes():
+    source = (CLIENT_DIR / "ui" / "main_window.py").read_text(encoding="utf-8")
+    handler = source.split("    def on_server_speak(self, packet):", 1)[1].split(
+        "    def on_receive_chat", 1
+    )[0]
+
+    assert 'packet.get("history", True) is not False' in handler
+    assert "store_in_history=store_in_history" in handler
+    add_history = source.split("    def add_history(", 1)[1].split(
+        "    # List/Edit mode switching methods", 1
+    )[0]
+    assert "if store_in_history:" in add_history
+    assert "if speak_aloud and not self._is_message_muted_for_history" in add_history

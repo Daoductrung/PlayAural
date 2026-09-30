@@ -49,8 +49,6 @@ smtp-enc-ssl = استفاده از SSL
 smtp-enc-tls = فعال‌سازی خودکار رمزنگاری TLS (STARTTLS)
 smtp-current-enc = * { $value }
 
-main-menu-title = منوی اصلی
-
 play = بازی
 view-active-tables = مشاهده‌ی میزهای فعال
 options = تنظیمات
@@ -60,7 +58,6 @@ go-back = بازگشت
 context-menu = منوی زمینه.
 no-actions-available = هیچ عملی در دسترس نیست.
 table-new-host-promoted = { $player } اکنون میزبان میز است.
-return-to-lobby = بازگشت به لابی
 return-to-table = بازگشت به میز
 create-table = ایجاد میز جدید
 leave-table = ترک میز
@@ -107,9 +104,7 @@ friend-offline = دوست شما { $player } آفلاین شد.
 permission-denied = شما مجوز انجام این عمل روی یک توسعه‌دهنده را ندارید.
 kick-user = اخراج کاربر
 kick-broadcast = { $target } توسط { $actor } اخراج شد.
-you-were-kicked = شما توسط { $actor } اخراج شدید.
 user-not-online = کاربر { $target } آنلاین نیست.
-kick-immune = شما نمی‌توانید این کاربر را اخراج کنید.
 kick-confirm = آیا مطمئن هستید که می‌خواهید { $player } را اخراج کنید؟
 no-users-to-kick = هیچ کاربری برای اخراج در دسترس نیست.
 usage-kick = طرز استفاده: /kick <نام‌کاربری>
@@ -156,11 +151,7 @@ option-deselected-count = { $count } انتخاب نشده
 option-min-selected = حداقل باید { $count } گزینه را انتخاب کنید.
 option-max-selected = حداکثر می‌توانید { $count } گزینه را انتخاب کنید.
 
-turn-sound-option = صدای نوبت: { $status }
-
 custom-bot-names-option = نام‌های سفارشی ربات: { $status }
-confirm-destructive-option = تأیید اقدامات پرریسک: { $status }
-clear-kept-option = پاک کردن تاس‌های نگهداشته‌شده هنگام پرتاب: { $status }
 option-notify-table-created = اعلان هنگام ایجاد میز: { $status }
 option-notify-user-presence = اعلان آنلاین/آفلاین شدن کاربران: { $status }
 option-notify-friend-presence = اعلان آنلاین/آفلاین شدن دوستان: { $status }
@@ -296,13 +287,9 @@ action-start-has-too-many-players = قابل شروع نیست. بازیکنان
 action-start-requires-exact-players = قابل شروع نیست. بازیکنان فعال: { $current }. نیاز: دقیقاً { $required }.
 action-no-bots = هیچ رباتی برای حذف وجود ندارد.
 action-bots-cannot = ربات‌ها نمی‌توانند این کار را انجام دهند.
-action-no-scores = هنوز هیچ امتیازی در دسترس نیست.
-
 options-category-audio = صدا
 options-category-accessibility = دسترسی‌پذیری
 options-category-notifications = اعلان‌ها
-options-category-game = بازی
-
 music-volume-option = بلندی موسیقی: { $value }%
 sound-volume-option = بلندی افکت‌های صوتی: { $value }%
 ambience-volume-option = بلندی صدای محیط: { $value }%
@@ -319,9 +306,6 @@ invert-multiline-enter-option = معکوس کردن رفتار دکمه‌ی Ent
 menu-hints-option = راهنمای منو: { $status }
 menu-hints-changed = راهنمای منو اکنون { $status } است.
 play-typing-sounds-option = پخش صدای تایپ: { $status }
-enter-music-volume = بلندی موسیقی را وارد کنید (۰-۱۰۰)
-enter-ambience-volume = بلندی صدای محیط را وارد کنید (۰-۱۰۰)
-enter-voice-volume = بلندی مکالمه‌ی صوتی را وارد کنید (۱۰-۱۰۰)
 invalid-volume = بلندی نامعتبر است.
 
 dice-not-rolled = هنوز تاس نینداخته‌اید.
@@ -427,7 +411,6 @@ waiting-for-approval = حساب کاربری شما در انتظار تأیید
 account-approved-welcome = حساب شما تأیید شد! به PlayAural خوش آمدید!
 account-declined-goodbye = درخواست حساب شما رد شد.
 
-account-request = درخواست حساب
 account-action = اقدام روی حساب انجام شد
 
 promote-admin = ارتقا به مدیر
@@ -559,7 +542,6 @@ logout-confirm-no = نه، بمان
 
 system-name = سیستم
 server-restarting = سرور در { $seconds } ثانیه دیگر راه‌اندازی مجدد می‌شود...
-server-restarting-now = سرور در حال راه‌اندازی مجدد است. لطفاً به‌زودی دوباره وصل شوید.
 server-shutting-down = سرور در { $seconds } ثانیه دیگر خاموش می‌شود...
 server-shutting-down-now = سرور در حال خاموش شدن است. خداحافظ!
 server-power-management = مدیریت برق سرور
@@ -625,7 +607,6 @@ speech-mode-option = حالت گفتار: { $status }
 speech-rate-option = سرعت گفتار: { $value }%
 speech-voice-option = صدا: { $voice }
 select-voice = انتخاب صدا
-enter-speech-rate = سرعت گفتار را وارد کنید (۵۰-۳۰۰)
 invalid-rate = سرعت گفتار نامعتبر است. مقداری بین ۵۰ و ۳۰۰ استفاده کنید.
 mode-aria = Aria-live
 mode-web-speech = Web Speech API
@@ -698,12 +679,8 @@ friends-no-pending-requests = درخواست‌های در انتظار
 friends-send-request = ارسال درخواست دوستی
 friends-list-empty = شما هنوز دوستی ندارید.
 friend-status-offline = آفلاین
-friend-status-playing = در حال بازی { $game }
-friend-status-spectating = در حال تماشای { $game }
-friend-status-lobby = منوی اصلی
 friend-list-entry = { $username } ({ $status })
 
-friend-actions-title = عملیات برای { $username }
 view-profile = مشاهده‌ی پروفایل
 join-table = پیوستن به میز
 remove-friend = حذف دوست
@@ -714,7 +691,6 @@ friend-removed-success = { $username } از لیست دوستان شما حذف 
 friend-removed-notify = { $username } شما را از لیست دوستان خود حذف کرد.
 
 no-pending-requests = هیچ درخواستی در انتظار نیست.
-friend-request-from = درخواست دوستی از { $username }
 accept = پذیرش
 decline = رد
 friend-accepted-success = شما اکنون با { $username } دوست هستید.
@@ -723,7 +699,6 @@ request-not-found = درخواست دوستی دیگر وجود ندارد.
 friend-declined-success = درخواست دوستی رد شد.
 friend-declined-notify = { $username } درخواست دوستی شما را رد کرد.
 
-public-profile-title = پروفایل { $username }
 enter-friend-username = نام کاربری شخصی که می‌خواهید با او دوست شوید را وارد کنید:
 friend-error-self = نمی‌توانید برای خودتان درخواست دوستی بفرستید.
 friend-error-already-friends = شما قبلاً با این کاربر دوست هستید.

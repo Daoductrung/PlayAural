@@ -32,7 +32,7 @@ Khi Thách thức Đổi màu Rút Bốn được bật, người phải rút 4 
 
 \*\*Hô UNO\*\*
 
-Khi bạn chỉ còn đúng 1 lá trên tay, hãy hô UNO trước khi người khác bắt lỗi bạn. Trên máy tính, nhấn \*\*U\*\*. Trên thiết bị cảm ứng, dùng nút \*\*UNO\*\* được ghim ở đầu menu lượt.
+Khi bạn chỉ còn đúng 1 lá trên tay, hãy hô UNO trước khi người khác bắt lỗi bạn. Trên máy tính, nhấn \*\*U\*\*. Trên thiết bị cảm ứng, dùng nút \*\*UNO\*\* được ghim ở đầu trình đơn lượt.
 
 Cùng một hành động UNO được dùng để tự hô UNO và để bắt lỗi người khác quên hô UNO. Một lượt quên hô UNO có thể bị bắt lỗi sau khi lá bài đã được đánh và trước khi người kế tiếp đánh hoặc rút bài. Người bị bắt lỗi phải rút 2 lá.
 
@@ -84,7 +84,7 @@ Trò chơi sẽ chặn các tùy chọn phụ thuộc không thể hoạt độn
 
 \*\*Ghi chú cho cảm ứng và trình đọc màn hình\*\*
 
-Các lá trên tay luôn hiển thị như từng hành động riêng để tiêu điểm của trình đọc màn hình ổn định. Trên thiết bị cảm ứng, nút UNO luôn được ghim ở đầu menu lượt để bấm nhanh; trên máy tính, nút này không hiện trong menu lượt và dùng phím tắt \*\*U\*\*. Khi bạn đánh Đổi màu hoặc Đổi màu Rút Bốn, các lựa chọn màu xuất hiện ngay sau bài trên tay và tiêu điểm chuyển tới Đỏ, lựa chọn màu đầu tiên. Trên thiết bị cảm ứng, các hành động thông tin như đọc lá trên cùng, đọc màu hiện tại, đọc số lượng bài, và đọc giá trị bài trên tay vẫn có sẵn trong lúc chơi.
+Các lá trên tay luôn hiển thị như từng hành động riêng để tiêu điểm của trình đọc màn hình ổn định. Trên thiết bị cảm ứng, nút UNO luôn được ghim ở đầu trình đơn lượt để bấm nhanh; trên máy tính, nút này không hiện trong trình đơn lượt và dùng phím tắt \*\*U\*\*. Khi bạn đánh Đổi màu hoặc Đổi màu Rút Bốn, các lựa chọn màu xuất hiện ngay sau bài trên tay và tiêu điểm chuyển tới Đỏ, lựa chọn màu đầu tiên. Trên thiết bị cảm ứng, các hành động thông tin như đọc lá trên cùng, đọc màu hiện tại, đọc số lượng bài, và đọc giá trị bài trên tay vẫn có sẵn trong lúc chơi.
 
 \*\*Phím tắt bàn phím\*\*
 

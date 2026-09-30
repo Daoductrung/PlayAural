@@ -287,6 +287,7 @@ test("locale metadata identifies Persian as right-to-left", async () => {
 
 test("the offline shell precaches the updated UI modules", async () => {
   const serviceWorker = await readFile(new URL("../sw.js", import.meta.url), "utf8");
+  assert.match(serviceWorker, /playaural-web-v1\.0\.5\.1-shell-16/u);
   for (const asset of [
     "store.js",
     "spatial_audio.js",

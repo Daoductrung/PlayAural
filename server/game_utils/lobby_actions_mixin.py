@@ -824,9 +824,9 @@ class LobbyActionsMixin:
 
         self._actions_menu_open.add(player.id)
         if announce:
-            user.speak_l("context-menu", buffer="game")
+            user.speak_l("context-menu", buffer="game", history=False)
             if len(items) == 1:
-                user.speak_l("no-actions-available", buffer="game")
+                user.speak_l("no-actions-available", buffer="game", history=False)
 
         user.show_menu(
             "actions_menu",

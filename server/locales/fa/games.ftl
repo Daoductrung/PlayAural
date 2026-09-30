@@ -43,7 +43,6 @@ game-winner = { $player } برنده شد!
 game-winner-you = شما برنده شدید!
 game-winner-score = { $player } با { $score } امتیاز برنده شد!
 game-tiebreaker = تساوی! دور تساوی‌شکن!
-game-tiebreaker-players = تساوی بین { $players }! دور تساوی‌شکن!
 game-eliminated = { $player } با { $score } امتیاز حذف شد.
 
 game-set-target-score = امتیاز هدف: { $score }
@@ -87,9 +86,6 @@ status-box-closed = اطلاعات وضعیت بسته شد.
 game-leave = ترک بازی
 
 round-timer-paused = { $player } بازی را متوقف کرد (برای شروع دور بعدی p را فشار دهید).
-round-timer-resumed = زمان‌سنج دور از سر گرفته شد.
-round-timer-countdown = دور بعدی در { $seconds }...
-
 dice-keeping = نگهداشتن { $value }.
 dice-rerolling = پرتاب مجدد { $value }.
 dice-locked = آن تاس قفل است و قابل تغییر نیست.

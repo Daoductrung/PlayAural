@@ -1096,7 +1096,7 @@ class ChessGame(GridGameMixin, Game):
             self.selected_square.pop(player.id, None)
             self.bot_move_targets.pop(player.id, None)
             user.play_sound(SOUND_SETDOWN)
-            user.speak_l("chess-selection-cleared", buffer="game")
+            user.speak_l("chess-selection-cleared", buffer="game", history=False)
             self.refresh_menus(player)
             return
 
@@ -1814,7 +1814,11 @@ class ChessGame(GridGameMixin, Game):
             self.pending_promotion_special = outcome.get("special", "")
             user = self.get_user(player)
             if user:
-                user.speak_l("chess-choose-promotion", buffer="game")
+                user.speak_l(
+                    "chess-choose-promotion",
+                    buffer="game",
+                    history=False,
+                )
             self.refresh_menus()
             if player.is_bot:
                 BotHelper.jolt_bot(player, ticks=random.randint(6, 12))

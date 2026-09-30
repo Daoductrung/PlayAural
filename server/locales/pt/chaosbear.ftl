@@ -41,7 +41,6 @@ chaosbear-position-other-brief = { $player }: casa { $position }, distância { $
 
 chaosbear-draw-card-you = Você compra uma carta do caos.
 chaosbear-draw-card-other = { $player } compra uma carta do caos.
-chaosbear-draws-card = { $player } compra uma carta.
 chaosbear-draw-card-you-brief = Você compra.
 chaosbear-draw-card-other-brief = { $player } compra.
 chaosbear-card-impulsion-you = Impulsão! Você dispara para a frente até a casa { $position }, { $gap } casas à frente do urso.

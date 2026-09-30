@@ -82,10 +82,5 @@ threes-error-toggle-last-die = Bạn không thể đổi viên chưa khóa cuố
 threes-error-rounds-out-of-range = Ba điểm không thể bắt đầu với { $rounds } vòng. Hãy chọn từ { $min } đến { $max }.
 threes-invalid-die-index = Viên xúc xắc đó không khả dụng trong lượt Ba điểm này.
 
-threes-must-keep = Bạn phải giữ ít nhất một viên trước khi gieo lại.
-threes-must-bank = Bạn phải chốt điểm ngay.
-threes-roll-first = Bạn cần gieo xúc xắc trước.
 threes-keep-all-first = Hãy giữ tất cả xúc xắc trước khi chốt điểm.
-threes-last-die = Đây là viên xúc xắc cuối cùng của bạn.
-
 threes-line-format = { $rank }. { $player }: { $points }

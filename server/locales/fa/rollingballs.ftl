@@ -154,7 +154,6 @@ rb-error-invalid-ball-packs = انتخاب شامل { $count } { $count ->
 } است. قبل از شروع، مجموعه‌های غیرقابل‌دسترس را حذف کنید.
 
 # مجموعه‌های توپ
-rb-pack-all = همه‌ی مجموعه‌های توپ مخلوط
 rb-pack-international = دور دنیا
 rb-pack-vietnam = سفر در ویتنام
 

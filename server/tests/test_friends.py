@@ -681,6 +681,7 @@ class TestFriendsSystem:
         refresh_messages = alice_user.get_queued_messages()
         assert any(
             message.get("key") == "menu-list-refreshed"
+            and message.get("history") is False
             for message in refresh_messages
         )
         refreshed_menu = next(

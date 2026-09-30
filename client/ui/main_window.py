@@ -1969,7 +1969,13 @@ class MainWindow(wx.Frame):
     # Legacy language methods removed
     # get_language_name, get_language_code, send_table_chat, send_global_chat removed/replaced
 
-    def add_history(self, text, buffer_name="misc", speak_aloud=True):
+    def add_history(
+        self,
+        text,
+        buffer_name="misc",
+        speak_aloud=True,
+        store_in_history=True,
+    ):
         """
         Add text to the history window and optionally speak it.
 
@@ -1977,43 +1983,45 @@ class MainWindow(wx.Frame):
             text: The message to add
             buffer_name: Which buffer to add to (default: "misc")
             speak_aloud: Whether to speak the text aloud (default: True)
+            store_in_history: Whether to retain and display the text in history.
         """
-        current_buffer_name = self.buffer_system.get_current_buffer_name()
-        current_buffer_was_full = (
-            len(self.buffer_system.buffers.get(current_buffer_name, []))
-            >= self.buffer_system.max_items_per_buffer
-        )
+        if store_in_history:
+            current_buffer_name = self.buffer_system.get_current_buffer_name()
+            current_buffer_was_full = (
+                len(self.buffer_system.buffers.get(current_buffer_name, []))
+                >= self.buffer_system.max_items_per_buffer
+            )
 
-        # Add to buffer system (automatically adds to "all" as well)
-        self.buffer_system.add_item(buffer_name, text)
+            # Add to buffer system (automatically adds to "all" as well)
+            self.buffer_system.add_item(buffer_name, text)
 
-        should_show_in_history = (
-            not self._is_message_muted_for_history(buffer_name)
-            and not self.buffer_system.is_effectively_muted(current_buffer_name)
-            and self.buffer_system.should_show_message(current_buffer_name, buffer_name)
-        )
+            should_show_in_history = (
+                not self._is_message_muted_for_history(buffer_name)
+                and not self.buffer_system.is_effectively_muted(current_buffer_name)
+                and self.buffer_system.should_show_message(current_buffer_name, buffer_name)
+            )
 
-        if should_show_in_history:
-            if current_buffer_was_full:
-                caret_distance_from_end = (
-                    self.history_text.GetLastPosition()
-                    - self.history_text.GetInsertionPoint()
-                )
-                self._refresh_history_text_from_current_buffer(
-                    caret_distance_from_end=caret_distance_from_end
-                )
-            else:
-                current = self.history_text.GetValue()
-                history_text = text
-                if current and not current.endswith("\n"):
-                    history_text = "\n" + text
+            if should_show_in_history:
+                if current_buffer_was_full:
+                    caret_distance_from_end = (
+                        self.history_text.GetLastPosition()
+                        - self.history_text.GetInsertionPoint()
+                    )
+                    self._refresh_history_text_from_current_buffer(
+                        caret_distance_from_end=caret_distance_from_end
+                    )
+                else:
+                    current = self.history_text.GetValue()
+                    history_text = text
+                    if current and not current.endswith("\n"):
+                        history_text = "\n" + text
 
-                # Preserve the reader's caret while keeping the newest line visible.
-                old_insertion_point = self.history_text.GetInsertionPoint()
+                    # Preserve the reader's caret while keeping the newest line visible.
+                    old_insertion_point = self.history_text.GetInsertionPoint()
 
-                self.history_text.AppendText(history_text + "\n")
-                self.history_text.SetInsertionPoint(old_insertion_point)
-                self._scroll_history_to_latest()
+                    self.history_text.AppendText(history_text + "\n")
+                    self.history_text.SetInsertionPoint(old_insertion_point)
+                    self._scroll_history_to_latest()
 
         if speak_aloud and not self._is_message_muted_for_history(buffer_name):
             try:
@@ -3082,10 +3090,15 @@ class MainWindow(wx.Frame):
         is_muted = packet.get(
             "muted", False
         )  # Check if message should be muted (no TTS)
+        store_in_history = packet.get("history", True) is not False
 
         if text:
-            # Add to history regardless of mute status
-            self.add_history(text, buffer_name, speak_aloud=(not is_muted))
+            self.add_history(
+                text,
+                buffer_name,
+                speak_aloud=(not is_muted),
+                store_in_history=store_in_history,
+            )
 
     def on_receive_chat(self, packet):
         """Handle chat packet from server."""

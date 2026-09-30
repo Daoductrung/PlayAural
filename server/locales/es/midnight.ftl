@@ -1,7 +1,6 @@
 game-name-midnight = 1-4-24
 
 midnight-roll = Lanzar los dados
-midnight-keep-die = Guardar { $value }
 midnight-bank = Guardar puntuación
 midnight-check-dice = Leer dados actuales
 midnight-check-round-status = Ver estado de la ronda

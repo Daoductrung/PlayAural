@@ -200,7 +200,6 @@ twentyone-you-avoid-damage-with-effect = Você usa { $effect } e evita o dano.
 twentyone-player-avoids-damage-with-effect = { $player } usa { $effect } e evita o dano.
 twentyone-you-take-damage = Você sofre { $damage } de dano e agora tem { $hp } HP.
 twentyone-player-takes-damage = { $player } sofre { $damage } de dano e agora tem { $hp } HP.
-twentyone-game-win = { $player } vence o jogo. HP restante: { $hp }.
 twentyone-you-win-game = Você vence o jogo. HP restante: { $hp }.
 twentyone-player-wins-game = { $player } vence o jogo. HP restante: { $hp }.
 twentyone-final-hp-line = { $rank }. { $player }: { $hp } HP

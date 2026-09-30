@@ -299,6 +299,10 @@ Audio-first is mandatory. Every important state change needs TTS and/or sound.
 - Buffers: `chat` for shared chat, `private` for private messages, `game` for
   gameplay, `system` for settings/connection/moderation, and `misc` for minor
   non-game informational output.
+- Use `history=False` only for transient UI chrome such as menu-open/close
+  feedback and one-time selection prompts already represented by the current
+  interface. Clients must still speak it subject to the selected buffer's mute
+  state. Errors, gameplay results, and durable information stay in history.
 - Desktop, Web, and mobile share one buffer-mute contract. Muting `all` makes
   every buffer effectively muted and blocks individual mute changes until it is
   unmuted. A directly muted source retains its bounded runtime backlog but

@@ -163,7 +163,7 @@ uno-deck-count = bộ bài { $count }
 uno-sorting-color = Sắp xếp theo màu.
 uno-sorting-number = Sắp xếp theo số.
 
-# Round / game end
+# Kết thúc vòng / ván
 uno-round-winner = { $player } thắng vòng này!
 uno-you-win-round = Bạn thắng vòng này!
 uno-round-points-from = { $points } từ { $player }

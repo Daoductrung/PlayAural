@@ -1,9 +1,5 @@
 game-name-ninetynine = Noventa e Nove
-ninetynine-description = Um jogo de cartas onde os jogadores tentam evitar empurrar o total acumulado acima de 99. O último jogador de pé vence!
-
 ninetynine-round = Rodada { $round }.
-
-ninetynine-player-turn = Turno de { $player }.
 
 ninetynine-you-play = Você joga { $card }. A contagem agora é { $count }.
 ninetynine-player-plays = { $player } joga { $card }. A contagem agora é { $count }.
@@ -38,9 +34,6 @@ ninetynine-end-score = { $rank }. { $player }: { $tokens } { $tokens ->
     [one] ficha
    *[other] fichas
 }
-
-ninetynine-you-deal = Você distribui as cartas.
-ninetynine-player-deals = { $player } distribui as cartas.
 
 ninetynine-you-draw = Você compra { $card }.
 ninetynine-player-draws = { $player } compra uma carta.
@@ -83,7 +76,6 @@ ninetynine-set-autodraw = Compra automática: { $enabled }
 ninetynine-option-changed-autodraw = Compra automática definida para { $enabled }.
 ninetynine-desc-autodraw = Quando ativado, os jogadores compram automaticamente uma carta de reposição após jogar. Quando desativado, os jogadores devem comprar manualmente.
 
-ninetynine-rules-standard = Regras padrão.
 ninetynine-rules-action-cards = Regras de cartas de ação.
 
 ninetynine-rules-variant-standard = Padrão

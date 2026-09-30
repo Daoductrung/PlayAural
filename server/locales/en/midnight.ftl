@@ -1,7 +1,6 @@
 game-name-midnight = 1-4-24
 
 midnight-roll = Roll the dice
-midnight-keep-die = Keep { $value }
 midnight-bank = Bank
 midnight-check-dice = Read current dice
 midnight-check-round-status = View round status

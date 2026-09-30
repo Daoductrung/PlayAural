@@ -154,7 +154,6 @@ rb-error-invalid-ball-packs = Lựa chọn hiện có { $count } { $count ->
 }. Hãy bỏ các bộ này trước khi bắt đầu.
 
 # Bộ bóng
-rb-pack-all = Trộn tất cả bộ bóng
 rb-pack-international = Vòng quanh thế giới
 rb-pack-vietnam = Hành trình Việt Nam
 

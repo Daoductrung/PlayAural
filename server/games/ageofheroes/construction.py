@@ -466,5 +466,9 @@ def start_construction(game: AgeOfHeroesGame, player: AgeOfHeroesPlayer) -> None
         game.sub_phase = PlaySubPhase.CONSTRUCTION
         user = game.get_user(player)
         if user:
-            user.speak_l("ageofheroes-construction-menu", buffer="game")
+            user.speak_l(
+                "ageofheroes-construction-menu",
+                buffer="game",
+                history=False,
+            )
         game.refresh_menus()

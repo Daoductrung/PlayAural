@@ -41,7 +41,6 @@ chaosbear-position-other-brief = { $player }: casilla { $position }, distancia {
 
 chaosbear-draw-card-you = Robas una carta de caos.
 chaosbear-draw-card-other = { $player } roba una carta de caos.
-chaosbear-draws-card = { $player } roba una carta.
 chaosbear-draw-card-you-brief = Robas.
 chaosbear-draw-card-other-brief = { $player } roba.
 chaosbear-card-impulsion-you = ¡Impulso! Avanzas de golpe hasta la casilla { $position }, { $gap } casillas por delante del oso.

@@ -656,7 +656,11 @@ class BackgammonGame(Game):
         user = self.get_user(player)
         if self._clear_selection(player):
             if user:
-                user.speak_l("backgammon-selection-cleared", buffer="game")
+                user.speak_l(
+                    "backgammon-selection-cleared",
+                    buffer="game",
+                    history=False,
+                )
         elif user:
             user.speak_l("backgammon-no-selection", buffer="game")
 
@@ -1176,7 +1180,11 @@ class BackgammonGame(Game):
             return
         user = self.get_user(player)
         if user:
-            user.speak_l("backgammon-selection-cleared", buffer="game")
+            user.speak_l(
+                "backgammon-selection-cleared",
+                buffer="game",
+                history=False,
+            )
 
     def _legal_turn_moves(self) -> list[BackgammonMove]:
         """Return rule-compliant next moves for the entire remaining roll."""

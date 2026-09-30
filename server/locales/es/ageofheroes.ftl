@@ -74,7 +74,6 @@ ageofheroes-option-changed-max-hand = Tamaño máximo de mano establecido en { $
 
 # Fase de preparación inicial
 ageofheroes-setup-start = Eres el líder de la tribu { $tribe }. Tu recurso especial de monumento es { $special }. Lanza los dados para determinar el orden de turnos.
-ageofheroes-setup-viewer = Los jugadores están lanzando los dados para determinar el orden de turnos.
 ageofheroes-roll-dice = Lanzar los dados
 ageofheroes-war-roll-dice = Lanzar los dados
 ageofheroes-dice-result = Sacaste { $total } ({ $die1 } + { $die2 }).
@@ -100,8 +99,6 @@ ageofheroes-prepare-your-turn = Tienes { $count } { $count ->
     [one] carta
     *[other] cartas
 } para jugar o descartar.
-ageofheroes-prepare-done = Fase de preparación completa.
-
 # Eventos jugados/descartados
 ageofheroes-population-growth = { $player } juega Crecimiento Poblacional y construye una nueva ciudad.
 ageofheroes-population-growth-you = Juegas Crecimiento Poblacional y construyes una nueva ciudad.
@@ -115,7 +112,6 @@ ageofheroes-eruption-you = Una erupción destruye una de tus ciudades.
 # Efectos de desastre
 ageofheroes-hunger-strikes = Golpea la hambruna.
 ageofheroes-lose-card-hunger = Pierdes { $card }.
-ageofheroes-barbarians-pillage = Los bárbaros atacan los recursos de { $player }.
 ageofheroes-barbarians-attack = Los bárbaros atacan los recursos de { $player }.
 ageofheroes-barbarians-attack-you = Los bárbaros atacan tus recursos.
 ageofheroes-lose-card-barbarians = Pierdes { $card }.
@@ -152,7 +148,6 @@ ageofheroes-fair-draw-other = { $player } roba { $count } { $count ->
 
 # Intercambio/Subasta
 ageofheroes-auction-start = Comienza la subasta.
-ageofheroes-offer-trade = Ofrecer intercambio
 ageofheroes-offer-made = { $player } ofrece { $card } por { $wanted }.
 ageofheroes-offer-made-you = Ofreces { $card } por { $wanted }.
 ageofheroes-trade-accepted = { $player } acepta la oferta de { $other } e intercambia { $give } por { $receive }.
@@ -222,8 +217,6 @@ ageofheroes-road-built = { $tribe1 } y { $tribe2 } ahora están conectados por c
 ageofheroes-road-no-target = No hay tribus vecinas disponibles para construir un camino.
 ageofheroes-approve = Aprobar
 ageofheroes-deny = Rechazar
-ageofheroes-supply-exhausted = No hay más { $building } disponibles para construir.
-
 # No hacer nada
 ageofheroes-do-nothing = { $player } pasa.
 ageofheroes-do-nothing-you = Pasas...
@@ -341,16 +334,7 @@ ageofheroes-you-win-battle-as-defender = Te defiendes con éxito contra { $attac
 ageofheroes-battle-victory-defender = { $defender } se defiende con éxito contra { $attacker }.
 ageofheroes-you-draw-battle = Tú y { $opponent } pierden todas las fuerzas comprometidas en la batalla.
 ageofheroes-battle-mutual-defeat = Tanto { $attacker } como { $defender } pierden todas las fuerzas comprometidas en la batalla.
-ageofheroes-general-bonus = +{ $count } por { $count ->
-    [one] general
-    *[other] generales
-}
-ageofheroes-fortress-bonus = +{ $count } por defensa de fortaleza
-ageofheroes-battle-winner = { $winner } gana la batalla.
-ageofheroes-battle-draw = La batalla termina en empate...
 ageofheroes-battle-continue = Continuar la batalla.
-ageofheroes-battle-end = La batalla ha terminado.
-
 # Resultados de guerra
 ageofheroes-conquest-success = { $attacker } conquista { $count } { $count ->
     [one] ciudad
@@ -456,12 +440,6 @@ ageofheroes-status = { $player } ({ $tribe }): { $cities } { $cities ->
     *[other] ejércitos
 }, monumento { $monument }/5
 ageofheroes-status-detailed-header = { $player } ({ $tribe })
-ageofheroes-status-cities = Ciudades: { $count }
-ageofheroes-status-armies = Ejércitos: { $count }
-ageofheroes-status-generals = Generales: { $count }
-ageofheroes-status-fortresses = Fortalezas: { $count }
-ageofheroes-status-monument = Monumento: { $count }/5
-ageofheroes-status-roads = Caminos: { $left }{ $right }
 ageofheroes-status-road-left = izquierda
 ageofheroes-status-road-right = derecha
 ageofheroes-status-none = ninguno
@@ -495,8 +473,6 @@ ageofheroes-status-detail-returning-generals = { $count } { $count ->
 }
 
 # Información del mazo
-ageofheroes-deck-empty = No quedan más cartas de { $card } en el mazo.
-ageofheroes-deck-count = Cartas restantes: { $count }
 ageofheroes-deck-reshuffled = El descarte se volvió a barajar en el mazo.
 
 # Rendirse
@@ -504,16 +480,9 @@ ageofheroes-give-up-confirm = ¿Seguro que quieres rendirte?
 ageofheroes-gave-up = ¡{ $player } se rindió!
 ageofheroes-gave-up-you = ¡Te rendiste!
 
-# Carta de héroe
-ageofheroes-hero-use = ¿Usar como ejército o general?
-ageofheroes-hero-army = Ejército
-ageofheroes-hero-general = General
-
 # Carta de fortuna
 ageofheroes-you-use-fortune = Usas Fortuna para volver a lanzar el dado de batalla.
 ageofheroes-player-uses-fortune = { $player } usa Fortuna para volver a lanzar el dado de batalla.
-ageofheroes-fortune-prompt = Perdiste la tirada. ¿Usar Fortuna para volver a lanzar?
-
 # Motivos de acción deshabilitada
 ageofheroes-not-your-turn = No es tu turno.
 ageofheroes-game-not-started = La partida aún no ha comenzado.
@@ -533,10 +502,3 @@ ageofheroes-offered-card-unavailable = La carta ofrecida ya no está disponible.
 ageofheroes-trade-card-type-mismatch = Tu carta seleccionada no coincide con el tipo de carta solicitado.
 ageofheroes-trade-card-subtype-mismatch = Tu carta seleccionada no coincide con la carta solicitada.
 ageofheroes-trade-offer-label = { $player }: { $offered } por { $wanted }
-
-# Costos de construcción (para mostrar)
-ageofheroes-cost-army = 2 Grano, Hierro
-ageofheroes-cost-fortress = Hierro, Madera, Piedra
-ageofheroes-cost-general = Hierro, Oro
-ageofheroes-cost-road = 2 Piedra
-ageofheroes-cost-city = 2 Madera, Piedra

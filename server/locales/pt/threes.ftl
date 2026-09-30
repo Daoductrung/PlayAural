@@ -82,10 +82,5 @@ threes-error-toggle-last-die = Você não pode mudar o último dado livre; o tur
 threes-error-rounds-out-of-range = O Threes não pode começar com { $rounds } rodadas. Escolha um valor de { $min } a { $max }.
 threes-invalid-die-index = Esse dado não está disponível neste turno de Threes.
 
-threes-must-keep = Você deve manter pelo menos um dado antes de rolar novamente.
-threes-must-bank = Você deve guardar agora.
-threes-roll-first = Você precisa rolar primeiro.
 threes-keep-all-first = Mantenha todos os dados antes de guardar.
-threes-last-die = Este é seu último dado.
-
 threes-line-format = { $rank }. { $player }: { $points }

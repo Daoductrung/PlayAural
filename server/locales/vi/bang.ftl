@@ -328,7 +328,7 @@ bang-choice-draw-deck = Rút từ chồng rút
 bang-choice-draw-discard = Lấy lá trên cùng chồng bỏ
 bang-choice-red = Đoán đỏ
 bang-choice-black = Đoán đen
-bang-choice-finish-elimination-discard = Chốt các lá còn lại theo thứ tự menu
+bang-choice-finish-elimination-discard = Chốt các lá còn lại theo thứ tự trình đơn
 bang-elimination-discard-next = Lá bỏ tiếp theo: { $card}
 bang-elimination-discard-next-in-play = Lá đang bày bỏ tiếp theo: { $card}
 
@@ -487,8 +487,8 @@ bang-you-eliminate-player = Bạn hạ { $target}, thân phận { $role}.
 bang-player-is-eliminated = { $player } đã bị hạ; thân phận thật là { $role}.
 bang-you-order-elimination-card = Bạn xếp { $card } tiếp theo vào chồng bỏ.
 bang-player-orders-elimination-card = { $player } xếp { $card } tiếp theo vào chồng bỏ.
-bang-you-finish-elimination-discard = Bạn bỏ các lá còn lại theo thứ tự menu: { $cards}.
-bang-player-finishes-elimination-discard = { $player } bỏ các lá còn lại theo thứ tự menu: { $cards}.
+bang-you-finish-elimination-discard = Bạn bỏ các lá còn lại theo thứ tự trình đơn: { $cards}.
+bang-player-finishes-elimination-discard = { $player } bỏ các lá còn lại theo thứ tự trình đơn: { $cards}.
 bang-you-claim-outlaw-reward = Bạn hạ một Kẻ cướp và nhận thưởng 3 lá.
 bang-player-claims-outlaw-reward = { $player } hạ một Kẻ cướp và nhận thưởng 3 lá.
 bang-you-suffer-sheriff-penalty = Bạn hạ nhầm một Phó cảnh trưởng nên phải vứt sạch bài trên tay lẫn trước mặt.
@@ -628,8 +628,8 @@ bang-prompt-target-card = { $target}: chọn ngẫu nhiên một lá trên tay h
 bang-prompt-ricochet = { $source } đang đe dọa { $card}. Hãy dùng 1 lá Trượt!, hoặc để lá đó bị phá.
 bang-prompt-vulture = Chọn lá tiếp theo Vulture Sam lấy từ { $player}.
 bang-prompt-elimination-discard = { $remaining ->
-    [one] Còn 1 lá. Chọn lá đó cho chồng bỏ, hoặc chốt theo thứ tự menu.
-   *[other] Còn { $remaining } lá. Chọn lá tiếp theo cho chồng bỏ, hoặc chốt các lá còn lại theo thứ tự menu.
+    [one] Còn 1 lá. Chọn lá đó cho chồng bỏ, hoặc chốt theo thứ tự trình đơn.
+   *[other] Còn { $remaining } lá. Chọn lá tiếp theo cho chồng bỏ, hoặc chốt các lá còn lại theo thứ tự trình đơn.
 }
 bang-prompt-daltons = Băng Dalton vừa tới. Chọn 1 lá xanh lam trước mặt bạn để bỏ ngay.
 bang-you-discard-daltons = Bạn bỏ { $card } vì Băng Dalton.
@@ -659,7 +659,7 @@ bang-prompt-discard-excess = { $selected ->
 bang-error-base-player-count = Bàn 3 hoặc 8 người cần bật Bài và nhân vật mở rộng. Hãy bật tùy chọn này hoặc đổi sang 4–7 người.
 bang-error-event-mode = Kiểu biến cố này không dùng được. Hãy chọn lại trong phòng chờ.
 bang-error-not-player = Chỉ người đang tham chiến mới làm được việc này.
-bang-error-card-missing = Lá đó đã đổi chỗ. Hãy dùng menu hiện tại.
+bang-error-card-missing = Lá đó đã đổi chỗ. Hãy dùng trình đơn hiện tại.
 bang-error-card-not-response = Lá đó không chặn được mối nguy này. Hãy chọn phản ứng đang hiện.
 bang-error-card-is-main-cost = Không thể dùng chính lá đang đánh để trả thêm. Hãy chọn lá khác.
 bang-error-card-not-valid-cost = Lá đó không phải chi phí hợp lệ. Hãy chọn lá đang hiện.

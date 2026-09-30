@@ -1486,7 +1486,12 @@ class HumanityCardsGame(Game):
         for p in self._get_non_judges():
             user = self.get_user(p)
             if user:
-                user.speak_l("hc-select-cards", buffer="game", count=pick_count)
+                user.speak_l(
+                    "hc-select-cards",
+                    buffer="game",
+                    history=False,
+                    count=pick_count,
+                )
 
         # Jolt bots
         for p in active_players:

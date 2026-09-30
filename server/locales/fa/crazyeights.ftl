@@ -21,8 +21,6 @@ crazyeights-game-blocked = بازی مسدود شد! هیچ‌کس نمی‌تو
 crazyeights-new-hand = دور { $round }.
 crazyeights-start-card-you = شما { $card } را رو می‌کنید.
 crazyeights-start-card = { $player } { $card } را رو می‌کند.
-crazyeights-wild-played = { $player } یک هشت وحشی بازی کرد.
-
 crazyeights-no-players = هیچ بازیکنی وجود ندارد.
 crazyeights-no-top = هیچ کارت رویی وجود ندارد.
 
@@ -32,14 +30,12 @@ crazyeights-reverse = معکوس { $suit }
 crazyeights-skip = پرش { $suit }
 crazyeights-draw-two = کشیدن دو کارت از { $suit }
 
-crazyeights-suit-chosen = خال اکنون { $suit } است.
 crazyeights-you-choose-suit = شما { $suit } را انتخاب می‌کنید. بازیکن بعدی باید همان خال را بازی کند یا یک هشت وحشی دیگر بازی کند.
 crazyeights-player-chooses-suit = { $player } { $suit } را انتخاب می‌کند. بازیکن بعدی باید همان خال را بازی کند یا یک هشت وحشی دیگر بازی کند.
 
 crazyeights-round-summary = { $player } دور را می‌برد. { $details }. { $player } { $total } امتیاز کسب می‌کند.
 crazyeights-round-summary-you = شما دور را می‌برید. { $details }. شما { $total } امتیاز کسب می‌کنید.
 crazyeights-round-details-none = هیچ امتیازی از حریفان گرفته نشد.
-crazyeights-round-winner = { $player } { $points } امتیاز می‌برد. { $detail }
 crazyeights-round-points-from = { $points } از { $player }
 crazyeights-dealt-cards = به همه با { $cards } کارت کارت داده شد.
 

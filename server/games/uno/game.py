@@ -721,7 +721,11 @@ class UnoGame(Game):
                 if not user:
                     continue
                 if p.id == chooser.id:
-                    user.speak_l("uno-choose-opening-color-you", buffer="game")
+                    user.speak_l(
+                        "uno-choose-opening-color-you",
+                        buffer="game",
+                        history=False,
+                    )
                 else:
                     user.speak_l(
                         "uno-choose-opening-color-player",
@@ -1092,7 +1096,7 @@ class UnoGame(Game):
         self.swap_replay = replay
         user = self.get_user(player)
         if user and not player.is_bot:
-            user.speak_l("uno-choose-swap", buffer="game")
+            user.speak_l("uno-choose-swap", buffer="game", history=False)
         if player.is_bot:
             BotHelper.jolt_bot(player, ticks=random.randint(15, 25))
         self.refresh_menus()

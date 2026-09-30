@@ -64,6 +64,7 @@ from ..menu_pagination import (
     DEFAULT_MENU_PAGE_SIZE,
     MENU_PAGE_IDS,
     PaginatedMenuPage,
+    announce_page_refresh,
     clamp_page,
     is_page_navigation,
     is_page_refresh,
@@ -792,7 +793,7 @@ class AdministrationManager:
         if next_page is None:
             return False
         if is_page_refresh(selection_id):
-            user.speak_l("menu-list-refreshed", buffer="system")
+            announce_page_refresh(user)
         self._refresh_admin_target_menu(
             user,
             str(mode),
@@ -3514,7 +3515,7 @@ class AdministrationManager:
             if next_page is None:
                 return
             if is_page_refresh(selection_id):
-                user.speak_l("menu-list-refreshed", buffer="system")
+                announce_page_refresh(user)
             self.server._nav_refresh(
                 user,
                 self._show_moderation_reports_menu,
@@ -3625,7 +3626,7 @@ class AdministrationManager:
             if next_page is None:
                 return
             if is_page_refresh(selection_id):
-                user.speak_l("menu-list-refreshed", buffer="system")
+                announce_page_refresh(user)
             self.server._nav_refresh(
                 user,
                 self._show_moderation_sender_results_menu,
@@ -3667,7 +3668,7 @@ class AdministrationManager:
         if next_page is None:
             return
         if is_page_refresh(selection_id):
-            user.speak_l("menu-list-refreshed", buffer="system")
+            announce_page_refresh(user)
         self.server._nav_refresh(
             user,
             self._show_moderation_context_menu,
@@ -3696,7 +3697,7 @@ class AdministrationManager:
         if next_page is None:
             return
         if is_page_refresh(selection_id):
-            user.speak_l("menu-list-refreshed", buffer="system")
+            announce_page_refresh(user)
         self.server._nav_refresh(
             user,
             self._show_moderation_history_menu,
@@ -3762,7 +3763,7 @@ class AdministrationManager:
         if next_page is None:
             return
         if is_page_refresh(selection_id):
-            user.speak_l("menu-list-refreshed", buffer="system")
+            announce_page_refresh(user)
         self.server._nav_refresh(
             user,
             self._show_moderation_messages_menu,
@@ -3859,7 +3860,7 @@ class AdministrationManager:
             if next_page is None:
                 return
             if is_page_refresh(selection_id):
-                user.speak_l("menu-list-refreshed", buffer="system")
+                announce_page_refresh(user)
             self.server._nav_refresh(
                 user,
                 self._show_account_approval_menu,

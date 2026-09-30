@@ -3,7 +3,7 @@ common-error = Lỗi
 common-ok = OK
 common-save = &Lưu
 
-main-menu-label = Menu
+main-menu-label = Trình đơn
 main-edit-label = Chỉnh sửa
 main-chat-label = Trò chuyện
 main-history-label = Nhật ký

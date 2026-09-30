@@ -39,7 +39,15 @@ function refNameFromMapping(ref) {
   return ref.slice(marker.length);
 }
 
-function createPacketValidator(schema) {
+const OPTIONAL_PROTOCOL_FIELDS = {
+  server_to_client: {
+    speak: {
+      history: { type: "boolean" },
+    },
+  },
+};
+
+export function createPacketValidator(schema) {
   const defsByDir = {
     client_to_server: schema?.client_to_server?.$defs || {},
     server_to_client: schema?.server_to_client?.$defs || {},
@@ -68,7 +76,10 @@ function createPacketValidator(schema) {
       return { ok: false, error: `Missing schema for packet type: ${packet.type}` };
     }
 
-    const properties = def.properties || {};
+    const properties = {
+      ...(def.properties || {}),
+      ...(OPTIONAL_PROTOCOL_FIELDS[direction]?.[packet.type] || {}),
+    };
     const required = def.required || [];
 
     for (const field of required) {

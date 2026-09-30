@@ -80,7 +80,6 @@ hc-choose-best-card-for = بهترین کارت را انتخاب کنید که 
 hc-select-winner-prompt = ارسال برنده را انتخاب کنید
 hc-card-number = کارت { $number }
 hc-submission-number = ارسال { $number }
-hc-submission-option = { $text }
 hc-only-judges-pick = فقط کارت تزار می‌تواند ارسال برنده را انتخاب کند.
 hc-not-judging-phase = فقط در مرحله‌ی داوری می‌توانید ارسال برنده را انتخاب کنید.
 hc-submission-not-available = آن ارسال دیگر در دسترس نیست.
@@ -88,7 +87,6 @@ hc-submission-not-available = آن ارسال دیگر در دسترس نیست.
 # نتایج
 hc-you-win-round = شما دور را برنده شدید! امتیاز شما اکنون { $score } است.
 hc-player-wins-round = { $player } دور را برنده شد! امتیاز: { $score }.
-hc-round-scores = امتیازات پس از دور { $round }:
 hc-score-line = { $player }: { $score } { $score ->
     [one] امتیاز
    *[other] امتیاز
@@ -126,13 +124,8 @@ hc-error-not-enough-white-cards = { $players } بازیکن با اندازه‌
 hc-error-pick-exceeds-hand-size = بسته‌های انتخاب‌شده شامل سوالی است که به { $pick } پاسخ نیاز دارد، اما اندازه‌ی دست فقط { $hand_size } است. اندازه‌ی دست را افزایش دهید یا بسته‌های دیگری را انتخاب کنید.
 
 # مدیریت دست
-hc-view-hand = مشاهده‌ی دست
 hc-toggle-card-keybind = تغییر وضعیت کارت { $number }
 hc-submit-cards-keybind = ارسال کارت‌ها
-
-# امتیازات
-hc-view-scores = مشاهده‌ی امتیازات
-hc-no-scores = هنوز امتیازی وجود ندارد.
 
 # نوبت کیست / داور کیست
 hc-whose-judge = چه کسی داوری می‌کند

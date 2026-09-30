@@ -41,6 +41,7 @@ def test_confirmation_menu_announces_and_exposes_the_same_prompt() -> None:
     assert menu["multiletter"] is False
     assert user.get_last_spoken() == prompt.text
     assert user.messages[-2].data["buffer"] == "system"
+    assert user.messages[-2].data["history"] is False
 
 
 def test_confirmation_menu_orders_context_alternatives_and_cancel_safely() -> None:

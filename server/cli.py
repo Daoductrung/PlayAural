@@ -143,7 +143,13 @@ class SpectatorUser(User):
         if not self._quiet and not self._json_mode:
             print(f"  {text}")
 
-    def speak(self, text: str, buffer: str = "misc") -> None:
+    def speak(
+        self,
+        text: str,
+        buffer: str = "misc",
+        *,
+        history: bool = True,
+    ) -> None:
         self._log(text)
 
     def send_audio_command(self, command: AudioCommand) -> None:
@@ -191,7 +197,13 @@ class CapturingBot(Bot):
         self.captured_sounds: list[dict] = []  # {tick, sound, volume, pan, pitch}
         self._tick: int = 0
 
-    def speak(self, text: str, buffer: str = "misc") -> None:
+    def speak(
+        self,
+        text: str,
+        buffer: str = "misc",
+        *,
+        history: bool = True,
+    ) -> None:
         self.captured_speech.append(text)
 
     def send_audio_command(self, command: AudioCommand) -> None:

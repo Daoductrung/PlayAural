@@ -27,7 +27,7 @@ midnight-scored = { $player } califica con 1 y 4, anotando { $score } con { $sco
 midnight-you-scored-brief = Anotas { $score }.
 midnight-scored-brief = { $player }: { $score }.
 midnight-you-disqualified = No calificas porque te falta { $missing }.
-midnight-player-disqualified = { $player } no califica porque le falta { $missing }.
+midnight-player-disqualified = { $player } no califica porque a { GENDER_TERM($player_gender, "object") } le falta { $missing }.
 midnight-you-disqualified-brief = Te falta { $missing }.
 midnight-player-disqualified-brief = A { $player } le falta { $missing }.
 
@@ -82,7 +82,7 @@ midnight-your-dice-status =
 midnight-player-dice-status =
     { $qualified ->
         [yes] Dados de { $player }: { $dice }. Bloqueados: { $locked }; guardados para la siguiente tirada: { $kept }; dados aún en juego: { $remaining }. La puntuación calificada actual sería { $score } con { $scoring_dice }.
-       *[no] Dados de { $player }: { $dice }. Bloqueados: { $locked }; guardados para la siguiente tirada: { $kept }; dados aún en juego: { $remaining }. Todavía necesita { $missing } para calificar.
+       *[no] Dados de { $player }: { $dice }. Bloqueados: { $locked }; guardados para la siguiente tirada: { $kept }; dados aún en juego: { $remaining }. A { GENDER_TERM($player_gender, "object") } todavía le falta { $missing } para calificar.
     }
 
 midnight-status-round = Ronda { $round } de { $total }

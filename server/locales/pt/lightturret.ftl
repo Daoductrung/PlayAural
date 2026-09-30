@@ -16,27 +16,27 @@ lightturret-upgrade-label = Atualizar núcleo; custa { $cost } moedas, você tem
 lightturret-check-stats = Ver status da torre
 
 lightturret-you-shoot = Você dispara e ganha { $gain } de luz mais { $coins } moedas. Sua torre está em { $light } de { $power } de energia, com { $headroom } de capacidade segura e { $total_coins } moedas.
-lightturret-player-shoots = { $player } dispara e ganha { $gain } de luz mais { $coins } moedas. A torre dele está em { $light } de { $power } de energia, com { $headroom } de capacidade segura e { $total_coins } moedas.
+lightturret-player-shoots = { $player } dispara e ganha { $gain } de luz mais { $coins } moedas. A torre { GENDER_TERM($player_gender, "possessive-determiner") } está em { $light } de { $power } de energia, com { $headroom } de capacidade segura e { $total_coins } moedas.
 lightturret-you-shoot-brief = Você dispara: +{ $gain } luz, +{ $coins } moedas. Luz { $light }/{ $power}; moedas { $total_coins }.
 lightturret-player-shoots-brief = { $player } dispara: +{ $gain } luz, +{ $coins } moedas. Luz { $light }/{ $power}; moedas { $total_coins }.
 
 lightturret-you-shoot-overload = Você dispara e ganha { $gain } de luz mais { $coins } moedas, atingindo { $light } de luz contra { $power } de energia. Você excede a capacidade em { $overload } e é eliminado com { $total_coins } moedas restantes.
-lightturret-player-shoots-overload = { $player } dispara e ganha { $gain } de luz mais { $coins } moedas, atingindo { $light } de luz contra { $power } de energia. Ele excede a capacidade em { $overload } e é eliminado com { $total_coins } moedas restantes.
+lightturret-player-shoots-overload = { $player } dispara e ganha { $gain } de luz mais { $coins } moedas, atingindo { $light } de luz contra { $power } de energia. A sobrecarga deixa { GENDER_TERM($player_gender, "object") } { $overload } acima da capacidade e elimina { GENDER_TERM($player_gender, "object") } com { $total_coins } moedas restantes.
 lightturret-you-shoot-overload-brief = Você sofre sobrecarga: +{ $gain } luz, { $light }/{ $power}, excedido em { $overload}. Eliminado.
 lightturret-player-shoots-overload-brief = { $player } sofre sobrecarga: +{ $gain } luz, { $light }/{ $power}, excedido em { $overload}. Eliminado.
 
 lightturret-you-upgrade = Você gasta { $cost } moedas e atualiza o núcleo em { $gain } de energia. Sua torre agora está em { $light } de luz, { $power } de energia, { $headroom } de capacidade segura e { $coins } moedas.
-lightturret-player-upgrades = { $player } gasta { $cost } moedas e atualiza o núcleo em { $gain } de energia. A torre dele agora está em { $light } de luz, { $power } de energia, { $headroom } de capacidade segura e { $coins } moedas.
+lightturret-player-upgrades = { $player } gasta { $cost } moedas e atualiza o núcleo em { $gain } de energia. A torre { GENDER_TERM($player_gender, "possessive-determiner") } agora está em { $light } de luz, { $power } de energia, { $headroom } de capacidade segura e { $coins } moedas.
 lightturret-you-upgrade-brief = Você atualiza: +{ $gain } energia. Luz { $light }/{ $power}; moedas { $coins }.
 lightturret-player-upgrades-brief = { $player } atualiza: +{ $gain } energia. Luz { $light }/{ $power}; moedas { $coins }.
 
 lightturret-you-upgrade-accident = Você gasta { $cost } moedas, mas o núcleo falha e adiciona { $gain } de luz. Sua torre está em { $light } de { $power } de energia, com { $headroom } de capacidade segura e { $coins } moedas.
-lightturret-player-upgrades-accident = { $player } gasta { $cost } moedas, mas o núcleo falha e adiciona { $gain } de luz. A torre dele está em { $light } de { $power } de energia, com { $headroom } de capacidade segura e { $coins } moedas.
+lightturret-player-upgrades-accident = { $player } gasta { $cost } moedas, mas o núcleo falha e adiciona { $gain } de luz. A torre { GENDER_TERM($player_gender, "possessive-determiner") } está em { $light } de { $power } de energia, com { $headroom } de capacidade segura e { $coins } moedas.
 lightturret-you-upgrade-accident-brief = Sua atualização falha: +{ $gain } luz. Luz { $light }/{ $power}; moedas { $coins }.
 lightturret-player-upgrades-accident-brief = A atualização de { $player } falha: +{ $gain } luz. Luz { $light }/{ $power}; moedas { $coins }.
 
 lightturret-you-upgrade-overload = Você gasta { $cost } moedas, mas o núcleo falha e adiciona { $gain } de luz. Você atinge { $light } de luz contra { $power } de energia, excede a capacidade em { $overload } e é eliminado com { $coins } moedas restantes.
-lightturret-player-upgrades-overload = { $player } gasta { $cost } moedas, mas o núcleo falha e adiciona { $gain } de luz. Ele atinge { $light } de luz contra { $power } de energia, excede a capacidade em { $overload } e é eliminado com { $coins } moedas restantes.
+lightturret-player-upgrades-overload = { $player } gasta { $cost } moedas, mas o núcleo falha e adiciona { $gain } de luz. O defeito deixa { GENDER_TERM($player_gender, "object") } com { $light } de luz contra { $power } de energia, { $overload } acima da capacidade, e elimina { GENDER_TERM($player_gender, "object") } com { $coins } moedas restantes.
 lightturret-you-upgrade-overload-brief = Sobrecarga na atualização: +{ $gain } luz, { $light }/{ $power}, excedido em { $overload}. Eliminado.
 lightturret-player-upgrades-overload-brief = Sobrecarga na atualização de { $player }: +{ $gain } luz, { $light }/{ $power}, excedido em { $overload}. Eliminado.
 
@@ -59,8 +59,8 @@ lightturret-you-win = Você venceu com { $light } de luz e { $power } de energia
    *[false] Seu total final de luz lidera apesar da sobrecarga.
 }
 lightturret-player-wins = { $player } venceu com { $light } de luz e { $power } de energia. { $survived ->
-    [true] A torre dele sobreviveu.
-   *[false] O total final de luz dele lidera apesar da sobrecarga.
+    [true] A torre { GENDER_TERM($player_gender, "possessive-determiner") } sobreviveu.
+   *[false] O total final de luz { GENDER_TERM($player_gender, "possessive-determiner") } lidera apesar da sobrecarga.
 }
 lightturret-you-win-brief = Você vence: { $light } de luz.
 lightturret-player-wins-brief = { $player } vence: { $light } de luz.

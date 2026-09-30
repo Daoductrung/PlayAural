@@ -26,7 +26,7 @@ Las cartas de cambio son el corazón táctico del juego. En tu turno, en lugar d
 
 En partidas de tres o cuatro jugadores, las Cartas de Cambio que afectan a un oponente te piden elegir un objetivo. El menú de objetivo lista solo objetivos legales, con los PV y el total visible de cada oponente. Una vez que se coloca un efecto de mesa, las lecturas de estado dicen contra quién está dirigido.
 
-Presiona \*\*C\*\* o selecciona \*\*Guía de cartas de cambio\*\* en el menú de acciones para abrir un panel de estado que lista todas las cartas de cambio y su descripción. La descripción también se lee en voz alta cada vez que se selecciona una carta de cambio en el menú de jugar.
+Presiona \*\*C\*\* o selecciona \*\*Guía de cartas de cambio\*\* en el menú de acciones para abrir un panel de estado que enumera todas las cartas de cambio y sus descripciones. Con las \*\*Indicaciones de menú\*\* activadas, cada opción del menú de juego también incluye su descripción y cualquier motivo por el que no esté disponible en ese momento. Con las Indicaciones de menú desactivadas, estas opciones muestran nombres breves y numerados de las cartas; si seleccionas una carta no disponible, se sigue explicando exactamente por qué no se puede jugar.
 
 \*\*Modificadores de apuesta (efectos de mesa):\*\*
 

@@ -26,6 +26,8 @@ Quando você entra em uma mesa, geralmente pode:
 * Verificar Quem está na mesa para ouvir quem está presente.
 * Conversar com outras pessoas na mesa ou enviar mensagens privadas.
 * Entrar no chat de voz da mesa nos clientes do PlayAural que suportam reprodução de voz e acesso ao microfone.
+* Se você for o host, abra Gerenciamento de Host e escolha Trocar de jogo para levar todos que ainda estiverem presentes a uma nova sala de espera de outro jogo. As funções de jogador e espectador, os bots, o dono da mesa, a privacidade, os banimentos e o chat de voz permanecem com a mesa; depois da confirmação, a partida anterior, as opções, as equipes, o estado de prontidão e os convites pendentes são descartados.
+* Se você for o host durante uma partida, abra Gerenciamento de Host para colocar um espectador em um assento de jogador ativo. Se houver uma pessoa nesse assento, ela precisa concordar primeiro. O substituto recebe o estado exato da partida naquele assento, o tempo restante do turno e a atribuição do resultado final. Se você ceder o próprio assento, passará a ser espectador, mas continuará como dono da mesa.
 
 # **Chat e Recursos Sociais**
 

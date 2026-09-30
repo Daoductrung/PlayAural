@@ -77,6 +77,7 @@ auth-error-username-ambiguous = Mais de uma conta antiga corresponde a esta graf
 auth-error-server-maintenance = A manutenção do banco de dados do servidor está em andamento. Login, cadastro e alterações de senha estão temporariamente indisponíveis. Tente novamente depois que a manutenção terminar.
 auth-registration-success = Cadastro realizado! Agora você pode fazer login com suas credenciais.
 auth-username-taken = Nome de usuário já em uso. Por favor, escolha um nome de usuário diferente.
+auth-username-reserved = Este nome é reservado pelo PlayAural. Escolha outro nome de usuário.
 
 login-welcome-title = Bem-vindo ao PlayAural
 login-welcome-info = Faça login ou cadastre-se para continuar.
@@ -148,6 +149,17 @@ options-reset-confirm-title = Confirmar redefinição
 options-reset-confirm-message = Redefinir as configurações de { $tab } para os valores salvos?
 
 slash-command-error = Erro ao processar o comando de barra { $command }.
+slash-command-state-required = O parâmetro de estado é obrigatório.
+slash-command-invalid-state = Valor de estado inválido. Valores que ativam: { $positive }. Valores que desativam: { $negative }.
+slash-command-not-found = O comando de barra { $command } não foi encontrado.
+slash-command-min-arguments = { $command } exige pelo menos { $count ->
+    [one] um argumento
+   *[other] { $count } argumentos
+    }.
+slash-command-max-arguments = { $command } aceita no máximo { $count ->
+    [one] um argumento
+   *[other] { $count } argumentos
+    }.
 reg-error-exception = Erro: { $error }
 main-connection-error-title = Erro de conexão
 main-options-error = Opções do cliente indisponíveis
@@ -178,6 +190,11 @@ main-reconnect-failed = Falha na reconexão. Reinicie o aplicativo.
 main-reconnecting-as-attempt = Reconectando como { $username }... tentativa { $attempt }.
 logged-out = Você encerrou a sessão.
 goodbye = Até logo!
+logout-confirm-title = Sair da conta e fechar o PlayAural?
+logout-confirm-message = Deseja sair da atividade atual, encerrar a sessão e fechar o PlayAural?
+logout-confirm-yes = Sim, sair
+logout-confirm-no = Não, ficar
+logout-in-progress = Saindo da atividade atual e encerrando a sessão.
 
 update-available-title = Atualização disponível
 update-available-message = Uma nova versão ({ $version }) está disponível. Deseja atualizar agora?

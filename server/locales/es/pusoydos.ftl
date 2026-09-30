@@ -147,8 +147,8 @@ pusoydos-no-instant-wins = No hay victorias instantáneas esta ronda.
 # Paso de cartas
 pusoydos-passing-phase = Fase de paso de cartas.
 pusoydos-loser-gives = { $loser } le da { $count ->
-    [one] su carta más alta
-   *[other] sus { $count } cartas más altas
+    [one] la carta más alta de { GENDER_TERM($loser_gender, "object") }
+   *[other] las { $count } cartas más altas de { GENDER_TERM($loser_gender, "object") }
 } a { $winner }.
 pusoydos-winner-gives-back = { $winner } le devuelve { $count ->
     [one] una carta

@@ -157,7 +157,7 @@ uno-swap-with = Intercambiar mano con { $player }
 uno-choose-swap = Elige un jugador para intercambiar manos, o declina.
 uno-swap-none = No intercambiar
 uno-you-swap-none = Conservas tu mano.
-uno-swap-none-other = { $player } conserva su mano.
+uno-swap-none-other = { $player } conserva { GENDER_TERM($player_gender, "possessive-determiner") } mano.
 
 # Intercepciones / secuencias
 uno-player-intercepts = ¡{ $player } intercepta con { $card }!
@@ -186,9 +186,9 @@ uno-round-details-none = No se tomaron puntos de los oponentes.
 uno-round-summary = { $details }. { $player } gana { $total }.
 uno-round-summary-you = { $details }. Ganas { $total }.
 uno-you-add-penalty-points = Sumas { $points } puntos de penalización a tu total de esta ronda.
-uno-player-adds-penalty-points = { $player } suma { $points } puntos de penalización a su total de esta ronda.
+uno-player-adds-penalty-points = { $player } suma { $points } puntos de penalización a { GENDER_TERM($player_gender, "possessive-determiner") } total de esta ronda.
 uno-you-add-penalty-points-with-interception = Sumas { $points } puntos de penalización a tu total de esta ronda ({ $hand_points } de tu mano más { $penalty } de penalización por intercepción).
-uno-player-adds-penalty-points-with-interception = { $player } suma { $points } puntos de penalización a su total de esta ronda ({ $hand_points } de su mano más { $penalty } de penalización por intercepción).
+uno-player-adds-penalty-points-with-interception = { $player } suma { $points } puntos de penalización a { GENDER_TERM($player_gender, "possessive-determiner") } total de esta ronda ({ $hand_points } de { GENDER_TERM($player_gender, "possessive-determiner") } mano más { $penalty } de penalización por intercepción).
 uno-you-are-eliminated = Llegaste al límite de eliminación de { $limit } puntos y quedas fuera de la partida.
 uno-player-is-eliminated = { $player } llegó al límite de eliminación de { $limit } puntos y queda fuera de la partida.
 uno-you-win-game =

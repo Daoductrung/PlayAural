@@ -5,9 +5,9 @@ snakes-roll = Rolar dado
 snakes-check-positions = Ver posições
 
 snakes-turn-start-you = Seu turno. Sua peça está na área inicial, antes da casa 1.
-snakes-turn-start-other = Turno de { $player }. A peça está na área inicial, antes da casa 1.
+snakes-turn-start-other = Turno de { $player }. A peça { GENDER_TERM($player_gender, "possessive-determiner") } está na área inicial, antes da casa 1.
 snakes-turn-you = Seu turno. Você está na casa { $position }.
-snakes-turn-other = Turno de { $player }. Está na casa { $position }.
+snakes-turn-other = Turno de { $player }. { GENDER_TERM($player_gender, "subject-be-capitalized") } na casa { $position }.
 
 snakes-roll-you = Você tira { $roll }.
 snakes-roll-other = { $player } tira { $roll }.
@@ -24,9 +24,9 @@ snakes-bounce-other = Da casa { $start }, { $player } tira { $roll }, passa da c
 snakes-bounce-you-brief = Você volta para a casa { $position }.
 snakes-bounce-other-brief = { $player } volta para a casa { $position }.
 snakes-restored-bounce-you = Sua tirada salva termina e sua peça volta para a casa { $position }.
-snakes-restored-bounce-other = A tirada salva de { $player } termina e a peça volta para a casa { $position }.
+snakes-restored-bounce-other = A tirada salva de { $player } termina fazendo { GENDER_TERM($player_gender, "object") } voltar para a casa { $position }.
 snakes-exact-miss-you = Você precisa de { $needed } para chegar à casa { $target }, mas tirou { $roll } e permanece na casa { $position }.
-snakes-exact-miss-other = { $player } precisa de { $needed } para chegar à casa { $target }, mas tira { $roll } e permanece na casa { $position }.
+snakes-exact-miss-other = { $player } precisa de { $needed } para chegar à casa { $target }, mas tira { $roll }, deixando { GENDER_TERM($player_gender, "object") } na casa { $position }.
 snakes-exact-miss-you-brief = Você precisa de { $needed }, tirou { $roll } e fica na casa { $position }.
 snakes-exact-miss-other-brief = { $player } precisa de { $needed }, tira { $roll } e fica na casa { $position }.
 snakes-ladder-you = Você cai no pé de uma escada na casa { $start } e sobe para a casa { $end }, ganhando { $distance } casas.
@@ -38,7 +38,7 @@ snakes-snake-other = { $player } cai na cabeça de uma cobra na casa { $start } 
 snakes-snake-you-brief = Você desliza da casa { $start } para a { $end }.
 snakes-snake-other-brief = { $player } desliza da casa { $start } para a { $end }.
 snakes-extra-turn-you = Você tirou 6 e joga novamente a partir da casa { $position }.
-snakes-extra-turn-other = { $player } tirou 6 e joga novamente a partir da casa { $position }.
+snakes-extra-turn-other = { $player } tirou 6, garantindo a { GENDER_TERM($player_gender, "object") } outro turno a partir da casa { $position }.
 snakes-win-you = Você chega à casa { $position } e vence o jogo!
 snakes-win-other = { $player } chega à casa { $position } e vence o jogo!
 

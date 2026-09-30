@@ -1,5 +1,69 @@
 # Changelog
 
+Quinta-feira, 1 de outubro de 2026
+
+Novidades:
+
+* O Bingo de 75 bolas foi adicionado para 2 a 12 jogadores. Todos jogam ao mesmo tempo em uma cartela acessível de 5 por 5, com ritmo de sorteio ajustável, bots, espectadores, controles de teclado e de toque, e quatro padrões para vencer: Qualquer linha, Quatro cantos, Letra X e Cartela cheia.
+* O Gerenciamento de Host agora inclui a Substituição de jogador. Com o consentimento de todos os envolvidos, um espectador pode assumir durante a partida o assento de uma pessoa, de um bot ou de um jogador com assento reservado, herdando exatamente sua posição atual, informações privadas, tempo e resultado.
+* Os hosts agora podem escolher Gerenciamento de Host > Trocar de jogo sem reconstruir a mesa. O dono da mesa, a privacidade, os banimentos, os jogadores presentes, os espectadores, os bots e a sala de voz permanecem juntos enquanto o novo jogo é aberto em uma sala de espera nova.
+* O perfil agora inclui as opções de gênero Masculino, Feminino, Não-binário e Não definido. Os anúncios usam essa escolha opcional para se referir a usuários e jogadores de forma mais natural.
+
+Melhorias:
+
+* Amigos agora inclui Solicitações enviadas, onde as solicitações feitas podem ser revisadas ou canceladas. Os amigos offline também mostram quando estiveram online pela última vez.
+* Denunciar um usuário agora está disponível em Quem está na mesa, inclusive para espectadores e assentos de pessoas desconectadas; bots não podem ser denunciados.
+* Opções gerais e Opções de jogo agora estão separadas em menus mais claros, e o foco retorna ao item que abriu cada submenu.
+* Pressione F1 no cliente Desktop ou Web para ouvir a descrição do item de menu em foco. No modo de auto-vocalização do cliente móvel, toque uma vez com três dedos. Os pedidos de confirmação agora são visíveis e falados, enquanto o feedback breve dos menus não ocupa mais o histórico de mensagens.
+* Entrar em outro cliente Desktop, Web ou Móvel agora transfere a sessão ativa corretamente, preservando a mesa, o assento de jogador, o turno e a conexão de voz atuais. Fechar o aplicativo ou sair da conta também deixa as mesas e as sessões de voz de forma mais confiável.
+* Hosts que estejam como espectadores agora podem manter uma mesa ativa em andamento e gerenciar sua sala de espera. Convites e mudanças de função também se recuperam de modo mais confiável quando alguém se desconecta, muda de função ou responde tarde.
+* Os nomes dos bots agora acompanham o idioma selecionado, continuam fáceis de distinguir e permanecem consistentes durante a reconexão, a substituição de jogadores e a restauração de mesas salvas.
+* O Breach Point agora usa uma fase de compra simultânea, um número de rodadas táticas que se adapta ao tamanho das equipes, explosões de bomba que causam dano, recuperação gratuita de uma bomba caída quando T chega até ela e proteção mais rigorosa para ações e sons de compra que os inimigos não podem perceber.
+* Os bots do Breach Point agora escutam a atividade inimiga, coordenam o controle do mapa e os objetivos, adaptam-se às rodadas anteriores, usam equipamentos e dinheiro com mais inteligência e avaliam armas e itens coletados de forma mais realista. Os jogadores também recebem chamadas de rádio variadas e exclusivas para a equipe, reproduzidas a partir da posição de cada agente masculino ou feminino.
+
+Correções de bugs:
+
+* O cliente Desktop agora inicia corretamente em computadores Windows antigos nos quais antes ele fechava antes de chegar à tela de login.
+* O login e as ações sociais agora tratam de forma consistente os nomes de usuário com caracteres internacionais ou diferenças entre letras maiúsculas e minúsculas, além de impedir contas duplicadas com nomes visualmente idênticos.
+* Alterar o idioma durante a conexão agora atualiza os menus e o texto do cliente imediatamente, sem misturar por alguns instantes o idioma anterior com o novo.
+
+Sábado, 26 de setembro de 2026
+
+Novidades:
+
+* O chat global agora está organizado em canais de idioma. Nenhum canal é selecionado por padrão; escolha Pessoal e Opções > Opções gerais > Idioma do chat global antes de enviar ou receber mensagens globais. Fora de uma mesa, as mensagens normais vão para o canal selecionado; em uma mesa, elas permanecem no chat da mesa e `/g` as envia ao canal global.
+* Denunciar um usuário agora está disponível em casos de abuso grave ou recorrente. As denúncias registram o motivo, o canal de idioma e o horário exato do envio para análise manual, sem avisar nem punir automaticamente o usuário denunciado. As mensagens do chat global são mantidas com o remetente e o horário até que um desenvolvedor apague o histórico, permitindo que as denúncias sejam analisadas no contexto; você pode bloquear o usuário imediatamente enquanto aguarda a análise.
+* O Breach Point agora está totalmente disponível em espanhol e português, incluindo todos os textos do jogo e os guias para iniciantes.
+
+Melhorias:
+
+* As linhas informativas de todos os menus agora são sempre somente leitura. Selecionar uma delas não executa mais uma ação nem retorna inesperadamente ao menu anterior.
+* A proteção contra spam agora trata o chat global com mais rigor que o chat da mesa. Ela rejeita apenas a mensagem que parece spam, em vez de silenciar a conta automaticamente, e ocorrências repetidas podem ser encaminhadas para análise manual.
+* A manutenção do servidor agora apresenta avisos claros de início e conclusão quando as partidas e as alterações de conta precisam ser pausadas temporariamente. Os menus atuais permanecem visíveis até que o serviço normal seja retomado.
+
+Correções de bugs:
+
+* Os sons, a música e a ambiência dos jogos na Web agora funcionam de forma confiável nos navegadores da Apple e se recuperam corretamente depois que o navegador volta do segundo plano.
+* No celular, um som que demora a carregar ou falha não bloqueia mais passos, tiros nem outros sons posteriores, e as partidas longas não perdem gradualmente os sons espaciais.
+* O Breach Point agora preserva corretamente as equipes, os lados, a posse da bomba e as pontuações durante a troca de lados, a prorrogação, a substituição de assentos desconectados, a recuperação de assentos e a restauração de mesas salvas. Ações bloqueadas não revelam mais movimentos inimigos ocultos nem detalhes dos equipamentos, os espectadores recebem um estado neutro da bomba antes de ela ser armada e os tiros no celular estão mais baixos para reduzir a saturação.
+* O ritmo da partida não acelera mais para compensar o tempo depois de uma lentidão temporária do servidor.
+
+Quarta-feira, 23 de setembro de 2026
+
+Novidades:
+
+* O Breach Point foi adicionado para duas equipes iguais, de 2 contra 2 até 5 contra 5. Neste jogo tático por turnos no mapa Dust, T precisa armar e defender a bomba, enquanto CT deve impedir que ela seja armada ou desarmá-la. O jogo inclui neblina de guerra, linhas de visão e ângulos vigiados, armas, coletes e granadas, uma economia entre rodadas com reembolsos e compras para aliados, armas derrubadas, formatos MR7, MR12 e MR15, prorrogação MR3 repetível e opcional, bots atentos aos objetivos, menus acessíveis de compra e combate, uma paisagem sonora totalmente espacial e guias para iniciantes em inglês e vietnamita.
+* Os clientes Desktop, Web e Móvel agora podem reproduzir sons compatíveis em um espaço tridimensional. Os sinais podem vir de cima, de baixo, ao redor, à distância ou em movimento, enquanto efeitos conectados e sobrepostos permanecem sincronizados. O estéreo direcional mantém esses sinais úteis quando a reprodução espacial completa não está disponível.
+
+Melhorias:
+
+* O Histórico no Desktop e na Web agora mantém selecionada exatamente a mensagem que você está revisando quando novas mensagens chegam ou quando um acúmulo silenciado retorna. As teclas de colchete esquerdo e direito alternam entre os buffers, enquanto vírgula e ponto alternam entre as mensagens; cada sinal de navegação percorre da esquerda para a direita para indicar sua posição da mensagem mais antiga à mais recente.
+* No celular, desativar a auto-vocalização agora permite que o TalkBack enfileire e fale os anúncios do servidor e da interface em ordem, sem interromper a fala atual. Navegar ou realizar outra ação limpa os anúncios pendentes para dar prioridade ao feedback atual. Com a auto-vocalização ativada, o Android agora tenta novamente com a voz padrão e com outros mecanismos de texto para fala instalados quando a voz ou o mecanismo selecionado não consegue falar, em vez de permanecer em silêncio.
+
+Correções de bugs:
+
+* Salvar e restaurar uma mesa agora preserva seu estado privado e a lista de banimentos da mesa, inclusive durante reinicializações planejadas do servidor. Uma mesa privada continua privada, e quem for removido por Expulsar e Banir um Jogador não poderá entrar novamente depois da restauração. As mesas salvas em versões anteriores continuam sendo carregadas normalmente.
+
 Sexta-feira, 11 de setembro de 2026
 
 Novidades:

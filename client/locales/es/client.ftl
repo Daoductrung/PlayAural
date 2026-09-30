@@ -74,8 +74,10 @@ login-error-server-url = No se pudo determinar la URL del servidor
 auth-error-wrong-password = Contraseña incorrecta.
 auth-error-user-not-found = El usuario no existe.
 auth-error-username-ambiguous = Hay más de una cuenta antigua que coincide con esta escritura. Ingresa el nombre de usuario exactamente como está registrado.
+auth-error-server-maintenance = El mantenimiento de la base de datos del servidor está en curso. El inicio de sesión, el registro y los cambios de contraseña no están disponibles temporalmente. Inténtalo de nuevo cuando termine el mantenimiento.
 auth-registration-success = ¡Registro exitoso! Ya puedes iniciar sesión con tus credenciales.
 auth-username-taken = Ese nombre de usuario ya está en uso. Elige otro.
+auth-username-reserved = Este nombre está reservado por PlayAural. Elige otro nombre de usuario.
 
 login-welcome-title = Bienvenido a PlayAural
 login-welcome-info = Inicia sesión o regístrate para continuar.
@@ -147,6 +149,17 @@ options-reset-confirm-title = Confirmar restablecimiento
 options-reset-confirm-message = ¿Restablecer las opciones de { $tab } a los valores guardados?
 
 slash-command-error = Error al procesar el comando { $command }.
+slash-command-state-required = El parámetro de estado es obligatorio.
+slash-command-invalid-state = Valor de estado no válido. Valores que lo activan: { $positive }. Valores que lo desactivan: { $negative }.
+slash-command-not-found = No se encontró el comando { $command }.
+slash-command-min-arguments = { $command } requiere como mínimo { $count ->
+    [one] un argumento
+   *[other] { $count } argumentos
+    }.
+slash-command-max-arguments = { $command } admite como máximo { $count ->
+    [one] un argumento
+   *[other] { $count } argumentos
+    }.
 reg-error-exception = Error: { $error }
 main-connection-error-title = Error de conexión
 main-options-error = Las opciones del cliente no están disponibles
@@ -177,6 +190,11 @@ main-reconnect-failed = No se pudo reconectar. Reinicia la aplicación.
 main-reconnecting-as-attempt = Reconectando como { $username }... intento { $attempt }.
 logged-out = Cerraste sesión.
 goodbye = ¡Hasta luego!
+logout-confirm-title = ¿Cerrar sesión y salir de PlayAural?
+logout-confirm-message = ¿Quieres abandonar tu actividad actual, cerrar sesión y salir de PlayAural?
+logout-confirm-yes = Sí, cerrar sesión
+logout-confirm-no = No, quedarme
+logout-in-progress = Abandonando tu actividad actual y cerrando la sesión.
 
 update-available-title = Actualización disponible
 update-available-message = Hay una nueva versión ({ $version }) disponible. ¿Quieres actualizar ahora?

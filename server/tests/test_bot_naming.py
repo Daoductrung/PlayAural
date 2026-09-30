@@ -123,7 +123,7 @@ def test_vietnamese_pool_falls_back_to_english_only_after_exhaustion(
 
 
 def test_untranslated_locale_falls_back_to_complete_english_pool() -> None:
-    assert get_localized_bot_name_pool("es") == get_localized_bot_name_pool("en")
+    assert get_localized_bot_name_pool("fa") == get_localized_bot_name_pool("en")
 
 
 @pytest.mark.parametrize(

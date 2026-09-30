@@ -22,12 +22,12 @@ pig-round-start = A rodada { $round } começa. Cada jogador ativo fará um turno
 pig-round-start-brief = Rodada { $round }.
 
 pig-you-roll-result = Você rolou { $roll }. O total do seu turno agora é { $total } pontos.
-pig-player-roll-result = { $player } rolou { $roll }. O total do turno dele agora é { $total } pontos.
+pig-player-roll-result = { $player } rolou { $roll }. O total do turno { GENDER_TERM($player_gender, "possessive-determiner") } agora é { $total } pontos.
 pig-you-roll-result-brief = Você: { $roll }; total do turno { $total }.
 pig-player-roll-result-brief = { $player }: { $roll }; total do turno { $total }.
 
 pig-you-bust = Você rolou um 1 e perde todos os { $points } pontos não guardados. Seu turno termina sem pontuação.
-pig-player-busts = { $player } rolou um 1 e perde todos os { $points } pontos não guardados. O turno dele termina sem pontuação.
+pig-player-busts = { $player } rolou um 1 e perde todos os { $points } pontos não guardados. O turno { GENDER_TERM($player_gender, "possessive-determiner") } termina sem pontuação.
 pig-you-bust-brief = Você rolou 1 e perde { $points } pontos de turno.
 pig-player-busts-brief = { $player } rolou 1 e perde { $points } pontos de turno.
 
@@ -39,7 +39,7 @@ pig-you-hold =
 pig-player-holds =
     { $player } guarda { $points } pontos. { $team ->
         [yes] { $team_name } agora tem { $total } pontos.
-       *[no] A pontuação total dele agora é { $total } pontos.
+       *[no] A pontuação total { GENDER_TERM($player_gender, "possessive-determiner") } agora é { $total } pontos.
     }
 pig-you-hold-brief =
     Você guarda { $points };{ $team ->

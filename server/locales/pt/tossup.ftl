@@ -86,7 +86,7 @@ tossup-you-bust-brief = Você: { $results }; estourou; perde { $points }.
 tossup-player-busts-brief = { $player }: { $results }; estourou; perde { $points }.
 
 tossup-you-bank = Você guarda { $points } pontos, chegando a um total de { $total }.
-tossup-player-banks = { $player } guarda { $points } pontos, chegando a um total de { $total }.
+tossup-player-banks = { $player } guarda { $points } pontos, levando a pontuação total { GENDER_TERM($player_gender, "possessive-determiner") } a { $total }.
 tossup-you-bank-brief = Você guarda { $points }; total { $total }.
 tossup-player-banks-brief = { $player } guarda { $points }; total { $total }.
 
@@ -128,7 +128,7 @@ tossup-your-turn-awaiting-roll =
        *[other] dados prontos
     }.
 tossup-player-turn-awaiting-roll =
-    { $player } ainda não rolou. Tem { $score } pontos guardados e { $dice_count } { $dice_count ->
+    { $player } ainda não rolou. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $score } pontos guardados e { $dice_count } { $dice_count ->
         [one] dado pronto
        *[other] dados prontos
     }.
@@ -138,7 +138,7 @@ tossup-your-turn-status =
        *[other] dados
     } prontos para rolar.
 tossup-player-turn-status =
-    Última tirada de { $player }: { $results }. Tem { $turn_points } pontos de turno não guardados, { $score } pontos guardados e { $dice_count } { $dice_count ->
+    Última tirada de { $player }: { $results }. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $turn_points } pontos da rodada ainda não guardados, { $score } pontos guardados e { $dice_count } { $dice_count ->
         [one] dado
        *[other] dados
     } prontos para rolar.

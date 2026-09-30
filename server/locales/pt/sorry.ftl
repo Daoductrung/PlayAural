@@ -133,8 +133,8 @@ sorry-you-bumped-own-pawn =
     }
 sorry-player-bumped-own-pawn =
     { $brief ->
-        [yes] { $player }: próprio peão { $pawn } para o início.
-       *[no] { $player } envia o próprio peão { $pawn } de volta ao início.
+        [yes] { $player }: o próprio peão { GENDER_TERM($player_gender, "possessive-determiner") }, { $pawn }, volta ao início.
+       *[no] { $player } envia o próprio peão { GENDER_TERM($player_gender, "possessive-determiner") }, { $pawn }, de volta ao início.
     }
 
 sorry-current-card = Carta atual: { $card }.

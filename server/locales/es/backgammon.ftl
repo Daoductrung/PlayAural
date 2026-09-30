@@ -22,7 +22,7 @@ backgammon-roll-player = { $player } saca { $die1 } y { $die2 }.
 
 # Sin movimientos
 backgammon-no-moves-you = No tienes movimientos legales, así que tu turno termina.
-backgammon-no-moves-player = { $player } no tiene movimientos legales, así que su turno termina.
+backgammon-no-moves-player = { $player } no tiene movimientos legales, así que termina { GENDER_TERM($player_gender, "possessive-determiner") } turno.
 
 # Comentario breve de movimiento
 backgammon-brief-move-normal = { $is_self ->
@@ -129,12 +129,12 @@ backgammon-bearoff-no-die = No puedes sacar del punto { $point } con los dados q
 backgammon-nothing-to-undo = No hay nada que deshacer.
 backgammon-undo-move = { $listener ->
     [actor] Deshaces tu movimiento de { $source } a { $destination }.
-   *[observer] { $player } deshace su movimiento de { $source } a { $destination }.
+   *[observer] { $player } deshace { GENDER_TERM($player_gender, "possessive-determiner") } movimiento de { $source } a { $destination }.
 }
 backgammon-undo-hit = { $listener ->
     [actor] Deshaces tu movimiento de { $source } a { $destination } y restauras la ficha de { $opponent }.
-    [target] { $player } deshace su movimiento de { $source } a { $destination } y restaura tu ficha.
-   *[observer] { $player } deshace su movimiento de { $source } a { $destination } y restaura la ficha de { $opponent }.
+    [target] { $player } deshace { GENDER_TERM($player_gender, "possessive-determiner") } movimiento de { $source } a { $destination } y restaura tu ficha.
+   *[observer] { $player } deshace { GENDER_TERM($player_gender, "possessive-determiner") } movimiento de { $source } a { $destination } y restaura la ficha de { $opponent }.
 }
 backgammon-selection-cleared = Se canceló la selección de ficha.
 backgammon-no-selection = No hay ninguna ficha seleccionada.
@@ -142,7 +142,8 @@ backgammon-cannot-double = No puedes doblar en este momento.
 backgammon-double-single-game = El cubo de doblaje no se usa en una partida individual.
 backgammon-double-crawford = Esta es la partida Crawford, así que el cubo de doblaje no está disponible.
 backgammon-double-dead-cube = Ya ganarías el enfrentamiento si ganas con el valor actual del cubo, así que el cubo está muerto para ti y no se puede doblar.
-backgammon-double-cube-owned = El cubo es propiedad de tu oponente, así que solo esa persona puede ofrecer el próximo doblaje.
+backgammon-double-cube-owned = El cubo pertenece a { $opponent }, así que solo { GENDER_TERM($opponent_gender, "subject") } puede ofrecer el próximo doblaje.
+backgammon-double-cube-owned-unknown = Tu oponente tiene el cubo, así que no puedes ofrecer el próximo doblaje.
 backgammon-double-before-roll-only = Solo puedes ofrecer un doblaje al inicio de tu turno, antes de lanzar los dados.
 backgammon-cannot-undo = No hay nada que deshacer.
 backgammon-not-doubling-phase = No hay ningún doblaje que responder.

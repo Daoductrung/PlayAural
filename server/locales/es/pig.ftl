@@ -22,12 +22,12 @@ pig-round-start = Comienza la ronda { $round }. Cada jugador activo tomará un t
 pig-round-start-brief = Ronda { $round }.
 
 pig-you-roll-result = Sacaste { $roll }. Tu total del turno ahora es { $total } puntos.
-pig-player-roll-result = { $player } sacó { $roll }. Su total del turno ahora es { $total } puntos.
+pig-player-roll-result = { $player } sacó { $roll }. { GENDER_TERM($player_gender, "possessive-determiner-capitalized") } total del turno ahora es { $total } puntos.
 pig-you-roll-result-brief = Tú: { $roll }; total del turno { $total }.
 pig-player-roll-result-brief = { $player }: { $roll }; total del turno { $total }.
 
 pig-you-bust = Sacaste un 1 y pierdes todos los { $points } puntos sin guardar. Tu turno termina sin puntuación.
-pig-player-busts = { $player } sacó un 1 y pierde todos los { $points } puntos sin guardar. Su turno termina sin puntuación.
+pig-player-busts = { $player } sacó un 1 y pierde todos los { $points } puntos sin guardar. { GENDER_TERM($player_gender, "possessive-determiner-capitalized") } turno termina sin puntuación.
 pig-you-bust-brief = Sacaste 1 y pierdes { $points } puntos del turno.
 pig-player-busts-brief = { $player } sacó 1 y pierde { $points } puntos del turno.
 
@@ -39,7 +39,7 @@ pig-you-hold =
 pig-player-holds =
     { $player } se planta con { $points } puntos. { $team ->
         [yes] { $team_name } ahora tiene { $total } puntos.
-       *[no] Su puntuación total ahora es de { $total } puntos.
+       *[no] { GENDER_TERM($player_gender, "possessive-determiner-capitalized") } puntuación total ahora es de { $total } puntos.
     }
 pig-you-hold-brief =
     Te plantas con { $points };{ $team ->

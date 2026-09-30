@@ -27,7 +27,7 @@ tradeoff-player-scored = { $player } marcou { $points } pontos com { $sets }.
 tradeoff-you-scored-brief = Você marcou { $points } pontos nesta rodada.
 tradeoff-player-scored-brief = { $player } marcou { $points } pontos nesta rodada.
 tradeoff-you-no-sets = Você marcou 0 pontos porque seus 15 dados não formaram nenhuma combinação pontuável.
-tradeoff-no-sets = { $player } marcou 0 pontos porque os 15 dados dele não formaram nenhuma combinação pontuável.
+tradeoff-no-sets = { $player } marcou 0 pontos porque os 15 dados { GENDER_TERM($player_gender, "possessive-determiner") } não formaram nenhuma combinação pontuável.
 
 tradeoff-set-triple = trinca de { $value }
 tradeoff-set-group = grupo de { $value }

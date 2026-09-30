@@ -5,9 +5,9 @@ snakes-roll = Lanzar dado
 snakes-check-positions = Ver posiciones
 
 snakes-turn-start-you = Tu turno. Tu ficha está en el área de salida, antes de la casilla 1.
-snakes-turn-start-other = Turno de { $player }. Su ficha está en el área de salida, antes de la casilla 1.
+snakes-turn-start-other = Turno de { $player }. { GENDER_TERM($player_gender, "possessive-determiner-capitalized") } ficha está en el área de salida, antes de la casilla 1.
 snakes-turn-you = Tu turno. Estás en la casilla { $position }.
-snakes-turn-other = Turno de { $player }. Está en la casilla { $position }.
+snakes-turn-other = Turno de { $player }. { GENDER_TERM($player_gender, "subject-be-capitalized") } en la casilla { $position }.
 
 snakes-roll-you = Sacas { $roll }.
 snakes-roll-other = { $player } saca { $roll }.
@@ -24,9 +24,9 @@ snakes-bounce-other = Desde la casilla { $start }, { $player } saca { $roll }, p
 snakes-bounce-you-brief = Rebotas hasta la casilla { $position }.
 snakes-bounce-other-brief = { $player } rebota hasta la casilla { $position }.
 snakes-restored-bounce-you = Tu tirada guardada termina haciéndote rebotar hasta la casilla { $position }.
-snakes-restored-bounce-other = La tirada guardada de { $player } termina haciéndolo rebotar hasta la casilla { $position }.
+snakes-restored-bounce-other = La tirada guardada de { $player } termina haciendo rebotar a { GENDER_TERM($player_gender, "object") } hasta la casilla { $position }.
 snakes-exact-miss-you = Necesitas { $needed } para llegar a la casilla { $target }, pero sacaste { $roll }, así que te quedas en la casilla { $position }.
-snakes-exact-miss-other = { $player } necesita { $needed } para llegar a la casilla { $target }, pero saca { $roll }, así que se queda en la casilla { $position }.
+snakes-exact-miss-other = { $player } necesita { $needed } para llegar a la casilla { $target }, pero saca { $roll }, dejando a { GENDER_TERM($player_gender, "object") } en la casilla { $position }.
 snakes-exact-miss-you-brief = Necesitas { $needed }, sacaste { $roll } y te quedas en la casilla { $position }.
 snakes-exact-miss-other-brief = { $player } necesita { $needed }, saca { $roll } y se queda en la casilla { $position }.
 snakes-ladder-you = Caes al pie de una escalera en la casilla { $start } y subes hasta la casilla { $end }, avanzando { $distance } casillas.
@@ -38,7 +38,7 @@ snakes-snake-other = { $player } cae en la cabeza de una serpiente en la casilla
 snakes-snake-you-brief = Resbalas de la casilla { $start } a la { $end }.
 snakes-snake-other-brief = { $player } resbala de la casilla { $start } a la { $end }.
 snakes-extra-turn-you = Sacaste 6, así que tomas otro turno desde la casilla { $position }.
-snakes-extra-turn-other = { $player } sacó 6, así que toma otro turno desde la casilla { $position }.
+snakes-extra-turn-other = { $player } sacó 6, lo que concede a { GENDER_TERM($player_gender, "object") } otro turno desde la casilla { $position }.
 snakes-win-you = ¡Llegas a la casilla { $position } y ganas la partida!
 snakes-win-other = ¡{ $player } llega a la casilla { $position } y gana la partida!
 

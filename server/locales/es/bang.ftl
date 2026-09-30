@@ -428,13 +428,13 @@ bang-your-ricochet-discards-card = Tu Rebote descarta { $card } de { $target}.
 bang-ricochet-discards-your-card = El Rebote de { $attacker } descarta tu { $card}.
 bang-player-ricochet-discards-card = El Rebote de { $attacker } descarta { $card } de { $target}.
 bang-you-lose-life = Pierdes { $amount } vidas por { $source } y ahora tienes { $life}.
-bang-your-attack-costs-life = Tu { $source } le cuesta a { $target } { $amount } vidas; ahora tiene { $life}.
+bang-your-attack-costs-life = Tu { $source } le cuesta a { $target } { $amount } vidas; ahora { GENDER_TERM($target_gender, "subject-have") } { $life}.
 bang-player-loses-life = { $player } pierde { $amount } vidas por { $source } y ahora tiene { $life}.
 bang-you-heal = Recuperas { $amount } vidas y ahora tienes { $life}.
 bang-player-heals = { $player } recupera { $amount } vidas y ahora tiene { $life}.
 bang-your-target-heals = { $target } recupera { $amount } vidas gracias a tu ayuda y ahora tiene { $life}.
 bang-player-heals-you = { $actor } te ayuda a recuperar { $amount } vidas; ahora tienes { $life}.
-bang-player-heals-target = { $actor } ayuda a { $target } a recuperar { $amount } vidas; ahora tiene { $life}.
+bang-player-heals-target = { $actor } ayuda a { $target } a recuperar { $amount } vidas; ahora { GENDER_TERM($target_gender, "subject-have") } { $life}.
 bang-your-beer-no-effect-full-life = Descartas Cerveza; tu vida ya está al máximo.
 bang-player-beer-no-effect-full-life = { $player } descarta Cerveza con la vida al máximo.
 bang-your-beer-no-effect-two-players = Descartas Cerveza; no puede curar cuando quedan dos jugadores.
@@ -462,8 +462,8 @@ bang-player-draws-public-cards = { $count ->
 }
 bang-you-discard-excess = Descartas { $cards } y terminas tu turno.
 bang-player-discards-excess = { $count ->
-    [one] { $player } descarta 1 carta sobrante y termina su turno.
-   *[other] { $player } descarta { $count } cartas sobrantes y termina su turno.
+    [one] { $player } descarta 1 carta sobrante y termina { GENDER_TERM($player_gender, "possessive-determiner") } turno.
+   *[other] { $player } descarta { $count } cartas sobrantes y termina { GENDER_TERM($player_gender, "possessive-determiner") } turno.
 }
 bang-your-play-phase = Tu fase de juego: elige una carta, una habilidad, o Terminar turno.
 bang-player-play-phase = { $player } comienza la fase de juego.
@@ -527,7 +527,7 @@ bang-handcuffs-declared = { $player } declara { $suit } para las Esposas.
 bang-you-change-identity = Tomas una Nueva Identidad como { $character}, comenzando con dos vidas.
 bang-new-identity-changed = { $player } toma una Nueva Identidad como { $character}, comenzando con dos vidas.
 bang-you-give-blood-brother-life = Pierdes una vida, le das una vida a { $target}, y ahora tienes { $life } vidas.
-bang-player-gives-you-blood-brother-life = { $player } pierde una vida y te da una vida; ahora tiene { $life } vidas.
+bang-player-gives-you-blood-brother-life = { $player } pierde una vida y te da una vida; ahora { GENDER_TERM($player_gender, "subject-have") } { $life } vidas.
 bang-blood-brothers-gift = { $player } pierde una vida, le da una vida a { $target}, y ahora tiene { $life } vidas.
 bang-your-dynamite-passes = Tu Dinamita pasa en sentido horario a { $target}.
 bang-dynamite-passes-to-you = La Dinamita de { $actor } pasa en sentido horario hacia ti.

@@ -64,7 +64,7 @@ coup-claims-exchange = { $player } declara al Embajador para intercambiar cartas
 coup-you-exchange = Robas cartas para intercambiar con el mazo de la Corte.
 coup-exchanges = { $player } roba 2 cartas para intercambiar.
 coup-you-exchange-complete = Completaste tu intercambio.
-coup-exchange-complete = { $player } completó su intercambio.
+coup-exchange-complete = { $player } completó { GENDER_TERM($player_gender, "possessive-determiner") } intercambio.
 
 coup-drew-replacement-card = Robaste un { $character } como reemplazo.
 coup-action-pass-confirmed = Pasaste.
@@ -72,7 +72,7 @@ coup-player-passes-reaction = { $player } pasa en esta ventana de reacción.
 
 coup-waiting-for-reactions = Esperando a que los jugadores desafíen o bloqueen...
 coup-you-eliminated = Perdiste toda tu influencia y quedas eliminado de la partida. Tus monedas regresan a la tesorería.
-coup-player-eliminated = { $player } perdió toda su influencia y queda eliminado de la partida.
+coup-player-eliminated = { $player } perdió toda { GENDER_TERM($player_gender, "possessive-determiner") } influencia y queda fuera de la partida.
 coup-you-win-game = ¡Eres el último superviviente y ganas la partida!
 coup-cannot-afford-assassinate = Necesitas al menos 3 monedas para asesinar.
 coup-cannot-afford-coup = Necesitas al menos 7 monedas para lanzar un Golpe de Estado.
@@ -101,7 +101,7 @@ coup-your-steal-blocked = { $player } declara al Capitán o al Embajador para bl
 coup-blocks-steal = { $blocker } declara al Capitán o al Embajador para bloquear el robo de { $target }.
 
 coup-you-lose-influence = ¡Pierdes tu { $character }!
-coup-loses-influence = ¡{ $player } pierde su { $character }!
+coup-loses-influence = ¡{ $player } pierde { GENDER_TERM($player_gender, "possessive-determiner") } { $character }!
 coup-must-lose-influence = Debes elegir una influencia para perder.
 coup-must-return-card = Selecciona una carta para devolver al mazo.
 coup-returned-card = Devolviste un { $character } al mazo.

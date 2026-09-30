@@ -152,6 +152,8 @@ En un punto seguro de la partida, cualquier jugador activo puede proponer un int
 
 Nada cambia de dueño mientras se prepara la oferta. El destinatario revisa la oferta completa y luego la acepta o la rechaza. Quien recibe una propiedad hipotecada debe poder pagar el interés de hipoteca inmediato. Las ofertas en borrador son privadas para quien las propone; las ofertas enviadas son públicas.
 
+Un intercambio puede dejar a un jugador sin efectivo ni propiedades. Eso por sí solo no constituye una bancarrota: esta solo ocurre cuando más adelante el jugador debe una cantidad superior a la suma de su efectivo y todo lo que puede vender o hipotecar legalmente.
+
 \*\*Cárcel\*\*
 
 Vas directo a la cárcel al caer en Ir a la Cárcel, al sacar una carta que te envía ahí, o al sacar dobles tres veces en un turno. El movimiento directo a la cárcel no paga el salario de la casilla de salida.
@@ -198,7 +200,7 @@ Mientras se resuelve una tirada, el movimiento de una ficha o el efecto de una c
 
 La opción \*\*Indicaciones de menú\*\* en \*\*Opciones generales > Accesibilidad\*\* agrega explicaciones para principiantes a las acciones que las necesitan. La indicación de una acción deshabilitada sigue explicando su propósito; actívala para escuchar el motivo exacto por el que no está disponible en ese momento.
 
-La opción \*\*Anuncios breves\*\* en \*\*Opciones de partida > Pantalla\*\* acorta el habla rutinaria mientras conserva las decisiones requeridas y los valores importantes.
+La opción \*\*Anuncios breves\*\* en \*\*Opciones generales > Opciones de partida > Pantalla\*\* acorta el habla rutinaria mientras conserva las decisiones requeridas y los valores importantes.
 
 Los espectadores reciben información pública del tablero, la propiedad, el efectivo, la posición, las subastas, los intercambios enviados y el estado del juego. No pueden ver el borrador privado ni el estado de interacción de un jugador, y no pueden usar acciones que cambien el juego.
 

@@ -147,8 +147,8 @@ pusoydos-no-instant-wins = Sem vitórias instantâneas nesta rodada.
 # Card passing
 pusoydos-passing-phase = Fase de troca de cartas.
 pusoydos-loser-gives = { $loser } dá { $count ->
-    [one] sua carta mais alta
-   *[other] suas { $count } cartas mais altas
+    [one] a carta mais alta { GENDER_TERM($loser_gender, "possessive-determiner") }
+   *[other] as { $count } cartas mais altas { GENDER_TERM($loser_gender, "possessive-determiner") }
 } para { $winner }.
 pusoydos-winner-gives-back = { $winner } devolve { $count ->
     [one] uma carta

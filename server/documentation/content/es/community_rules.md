@@ -10,8 +10,9 @@ PlayAural busca ser amigable, justo y acogedor. Estas normas explican cómo se e
 
 \*\*2. Mantén el chat razonable\*\*
 
-\* Puedes hablar en tu propio idioma en el chat global.
-\* Si el chat global te distrae, desactívalo en Opciones en lugar de discutir con otros sobre el idioma que usan.
+\* Usa el idioma del canal de chat global que hayas seleccionado. Elige otro canal en Opciones cuando quieras conversar en un idioma diferente.
+\* Si el chat global te distrae, desactívalo en Opciones. Si otro usuario se comporta de forma abusiva, bloquéalo en lugar de discutir con él.
+\* Los mensajes del chat global se guardan con el identificador de la cuenta del remitente y la hora exacta para su revisión manual. Permanecen guardados hasta que un desarrollador borra el historial.
 \* No inundes el chat con mensajes repetidos, publicidad no deseada ni spam disruptivo.
 \* Los mensajes privados deben seguir los mismos estándares que el chat público.
 

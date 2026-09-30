@@ -126,6 +126,7 @@ from ..games.breachpoint.audio import (
 )
 from ..games.breachpoint.bot import (
     ACOUSTIC_CUE_FOOTSTEPS,
+    ACOUSTIC_CUE_OBJECTIVE,
     ACOUSTIC_CUE_UTILITY,
     ATTACK_STRATEGY_DIRECT,
     ATTACK_STRATEGY_FAKE,
@@ -505,6 +506,7 @@ def test_arsenal_and_economy_profiles_are_side_specific_and_data_driven() -> Non
     assert DESERT_EAGLE.followup_damage_percent == 70
     assert DESERT_EAGLE.damage_by_range == (72, 58, 44)
     assert DESERT_EAGLE.armor_reduction_percent == 7
+    assert DESERT_EAGLE.preferred_over_weapon_ids == (GLOCK.id, USP_S.id)
     assert MAC10.allowed_sides == (TEAM_TERRORISTS,)
     assert MAC10.cost == 1050
     assert MAC10.max_range == 1
@@ -568,6 +570,8 @@ def test_arsenal_and_economy_profiles_are_side_specific_and_data_driven() -> Non
     assert AK47.followup_damage_percent == 65
     assert AK47.reaction_damage_percent == 75
     assert AK47.purchase_role == PURCHASE_ROLE_STANDARD
+    assert AK47.recovery_priority > M4.recovery_priority
+    assert AK47.preferred_over_weapon_ids == (M4.id,)
     assert M4.damage_by_range == tuple(sorted(M4.damage_by_range, reverse=True))
     assert M4.followup_damage_percent == 65
     assert M4.hold_action_point_cost == 1
@@ -2172,6 +2176,31 @@ def test_bot_accepts_a_donation_upgrade_but_declines_a_duplicate() -> None:
         buyer,
         game._donate_weapon_action_id(AK47, recipient),
     )
+    assert game._bot_coordinator.choose_action(game, recipient) == (
+        "decline_weapon_donation"
+    )
+
+
+def test_bot_declines_a_second_precision_weapon_for_the_squad() -> None:
+    game = make_game(
+        start=True,
+        player_count=6,
+        bot_indexes={5},
+        finish_buy_phase=False,
+    )
+    first_defender, buyer, recipient = game._turn_order_players_on_team(
+        TEAM_COUNTER_TERRORISTS
+    )
+    first_defender.primary_weapon_id = SSG08.id
+    first_defender.equipped_weapon_id = SSG08.id
+    buyer.cash = AWP.cost
+
+    game.execute_action(
+        buyer,
+        game._donate_weapon_action_id(AWP, recipient),
+    )
+
+    assert game._bot_coordinator._is_designated_precision_user(game, recipient)
     assert game._bot_coordinator.choose_action(game, recipient) == (
         "decline_weapon_donation"
     )
@@ -6032,6 +6061,81 @@ def test_hidden_plant_warns_ct_without_revealing_planter_or_site() -> None:
     assert any("Bombsite B" in text for text in spoken_text(game, 2))
 
 
+def test_hidden_audible_plant_can_be_denied_with_legal_utility() -> None:
+    game = make_game(start=True, bot_indexes={1})
+    carrier = tactical_player(game, 0)
+    responder = tactical_player(game, 1)
+    carrier.position_id = "b_site"
+    responder.position_id = "b_doors"
+    responder.utility_counts[HE_GRENADE.id] = 1
+    set_area_effect(
+        game,
+        SMOKE_GRENADE,
+        "b_site",
+        known_team_indexes=[TEAM_COUNTER_TERRORISTS, TEAM_TERRORISTS],
+    )
+
+    game.execute_action(carrier, "plant")
+
+    plan = game._bot_coordinator.team_plans[TEAM_COUNTER_TERRORISTS]
+    assert any(
+        cue.cue_kind == ACOUSTIC_CUE_OBJECTIVE and cue.node_id == "b_site"
+        for cue in plan.acoustic_cues.values()
+    )
+    assert game.current_player is responder
+    assert game.bot_think(responder) == "throw_he_grenade_b_site"
+
+
+def test_hidden_audible_plant_prompts_an_immediate_rotation() -> None:
+    game = make_game(start=True, bot_indexes={1})
+    carrier = tactical_player(game, 0)
+    responder = tactical_player(game, 1)
+    carrier.position_id = "b_site"
+    responder.position_id = "ct_spawn"
+    set_area_effect(
+        game,
+        SMOKE_GRENADE,
+        "b_site",
+        known_team_indexes=[TEAM_COUNTER_TERRORISTS, TEAM_TERRORISTS],
+    )
+
+    game.execute_action(carrier, "plant")
+
+    assert game.current_player is responder
+    assert game.bot_think(responder) == "move_b_doors"
+
+
+def test_hidden_inaudible_plant_does_not_reveal_its_site(monkeypatch) -> None:
+    game = make_game(start=True, bot_indexes={1})
+    carrier = tactical_player(game, 0)
+    responder = tactical_player(game, 1)
+    carrier.position_id = "b_site"
+    responder.position_id = "b_doors"
+    set_area_effect(
+        game,
+        SMOKE_GRENADE,
+        "b_site",
+        known_team_indexes=[TEAM_COUNTER_TERRORISTS, TEAM_TERRORISTS],
+    )
+    monkeypatch.setattr(
+        game,
+        "_bot_team_indexes_hearing_point",
+        lambda *_args, **_kwargs: set(),
+    )
+
+    game.execute_action(carrier, "plant")
+
+    plan = game._bot_coordinator.team_plans[TEAM_COUNTER_TERRORISTS]
+    assert not any(
+        cue.cue_kind == ACOUSTIC_CUE_OBJECTIVE
+        for cue in plan.acoustic_cues.values()
+    )
+    assert plan.known_bomb_node_id == ""
+    assert (
+        game._bot_coordinator._objective_response_action(game, responder, []) is None
+    )
+
+
 def test_planting_round_does_not_consume_fuse_but_later_rounds_do() -> None:
     game = make_game(start=True)
     carrier = tactical_player(game, 0)
@@ -9004,6 +9108,129 @@ def test_bot_prefers_a_loaded_recovery_to_reloading_a_more_expensive_gun() -> No
     assert game.bot_think(defender) == game._dropped_weapon_action_id(dropped_galil)
 
 
+def test_terrorist_bot_keeps_an_ak_instead_of_swapping_to_an_m4() -> None:
+    game = make_game(start=True, bot_indexes={0})
+    terrorist = tactical_player(game, 0)
+    game.bomb_carrier_id = tactical_player(game, 2).id
+    terrorist.primary_weapon_id = AK47.id
+    terrorist.equipped_weapon_id = AK47.id
+    terrorist.weapon_magazine_ammo[AK47.id] = 0
+    terrorist.weapon_reserve_units[AK47.id] = 1
+    start_activation(game, terrorist)
+    dropped_m4 = game._create_dropped_weapon(
+        M4,
+        terrorist.position_id,
+        game._player_grid_point(terrorist),
+        magazine_ammo=M4.magazine_capacity,
+        reserve_units=M4.reserve_units,
+    )
+
+    assert game._bot_coordinator.pickup_weapon_action(game, terrorist) is None
+    assert dropped_m4 in game.dropped_weapons
+
+
+def test_counter_terrorist_bot_prioritizes_an_ak_over_an_m4() -> None:
+    game = make_game(start=True, bot_indexes={1})
+    defender = tactical_player(game, 1)
+    defender.primary_weapon_id = M4.id
+    defender.equipped_weapon_id = M4.id
+    game._set_full_weapon_ammunition(defender, M4)
+    start_activation(game, defender)
+    dropped_ak = game._create_dropped_weapon(
+        AK47,
+        defender.position_id,
+        game._player_grid_point(defender),
+        magazine_ammo=0,
+        reserve_units=1,
+    )
+    action_id = game._dropped_weapon_action_id(dropped_ak)
+    game.refresh_menus(defender)
+    game.flush_menus()
+
+    assert game._bot_coordinator.pickup_weapon_action(game, defender) == action_id
+    game.execute_action(defender, action_id)
+    assert defender.primary_weapon_id == AK47.id
+    assert defender.equipped_weapon_id == AK47.id
+    assert game.bot_think(defender) == "reload"
+    assert any(
+        dropped.weapon_id == M4.id for dropped in game.dropped_weapons
+    )
+
+
+def test_counter_terrorist_bot_prefers_a_usable_ak_among_ground_weapons() -> None:
+    game = make_game(start=True, bot_indexes={1})
+    defender = tactical_player(game, 1)
+    defender.primary_weapon_id = ""
+    defender.equipped_weapon_id = USP_S.id
+    start_activation(game, defender)
+    dropped_ak = game._create_dropped_weapon(
+        AK47,
+        defender.position_id,
+        game._player_grid_point(defender),
+        magazine_ammo=0,
+        reserve_units=1,
+    )
+    game._create_dropped_weapon(
+        M4,
+        defender.position_id,
+        game._player_grid_point(defender),
+        magazine_ammo=M4.magazine_capacity,
+        reserve_units=M4.reserve_units,
+    )
+    game.refresh_menus(defender)
+    game.flush_menus()
+
+    assert game._bot_coordinator.pickup_weapon_action(game, defender) == (
+        game._dropped_weapon_action_id(dropped_ak)
+    )
+
+
+def test_designated_bot_does_not_recover_a_second_team_precision_weapon() -> None:
+    game = make_game(start=True, player_count=6, bot_indexes={5})
+    first_defender, _second_defender, rotator = (
+        game._turn_order_players_on_team(TEAM_COUNTER_TERRORISTS)
+    )
+    first_defender.primary_weapon_id = SSG08.id
+    first_defender.equipped_weapon_id = SSG08.id
+    start_activation(game, rotator)
+    dropped_awp = game._create_dropped_weapon(
+        AWP,
+        rotator.position_id,
+        game._player_grid_point(rotator),
+        magazine_ammo=AWP.magazine_capacity,
+        reserve_units=AWP.reserve_units,
+    )
+
+    assert game._bot_coordinator._is_designated_precision_user(game, rotator)
+    assert game._bot_coordinator.pickup_weapon_action(game, rotator) is None
+    assert dropped_awp in game.dropped_weapons
+
+
+def test_living_bot_inherits_precision_recovery_after_the_specialist_dies() -> None:
+    game = make_game(start=True, player_count=6, bot_indexes={1, 3, 5})
+    first_defender, _second_defender, rotator = (
+        game._turn_order_players_on_team(TEAM_COUNTER_TERRORISTS)
+    )
+    rotator.eliminated = True
+    rotator.health = 0
+    start_activation(game, first_defender)
+    dropped_awp = game._create_dropped_weapon(
+        AWP,
+        first_defender.position_id,
+        game._player_grid_point(first_defender),
+        magazine_ammo=AWP.magazine_capacity,
+        reserve_units=AWP.reserve_units,
+    )
+
+    assert game._bot_coordinator._is_designated_precision_user(
+        game,
+        first_defender,
+    )
+    assert game._bot_coordinator.pickup_weapon_action(game, first_defender) == (
+        game._dropped_weapon_action_id(dropped_awp)
+    )
+
+
 def test_bot_resolves_final_elimination_recovery_without_stalling() -> None:
     game = make_game(start=True, bot_indexes={0})
     bot = tactical_player(game, 0)
@@ -9456,7 +9683,7 @@ def test_one_designated_rotator_buys_the_squads_precision_weapon() -> None:
     game = make_game(
         start=True,
         player_count=6,
-        bot_indexes=set(range(6)),
+        bot_indexes={5},
         finish_buy_phase=False,
     )
     first_defender, _second_defender, rotator = game._turn_order_players_on_team(
@@ -9467,9 +9694,29 @@ def test_one_designated_rotator_buys_the_squads_precision_weapon() -> None:
 
     assert game.bot_think(rotator) == "buy_weapon_awp"
 
-    first_defender.primary_weapon_id = AWP.id
-    first_defender.equipped_weapon_id = AWP.id
-    assert game.bot_think(rotator) == "buy_weapon_m4"
+    for teammate_weapon in (SSG08, AWP):
+        first_defender.primary_weapon_id = teammate_weapon.id
+        first_defender.equipped_weapon_id = teammate_weapon.id
+        assert game.bot_think(rotator) == "buy_weapon_m4"
+
+    rotator.cash = SSG08.cost + game.economy.armor_cost
+    assert game._bot_coordinator._preferred_primary_weapon(game, rotator) is None
+
+
+def test_counter_terrorist_bot_keeps_a_recovered_ak_during_buy() -> None:
+    game = make_game(
+        start=True,
+        player_count=6,
+        bot_indexes={5},
+        finish_buy_phase=False,
+    )
+    rotator = game._turn_order_players_on_team(TEAM_COUNTER_TERRORISTS)[-1]
+    rotator.primary_weapon_id = AK47.id
+    rotator.equipped_weapon_id = AK47.id
+    rotator.cash = M4.cost
+
+    assert game._bot_coordinator._preferred_primary_weapon(game, rotator) is None
+    assert game.bot_think(rotator) != "buy_weapon_m4"
 
 
 def test_designated_precision_bot_protects_an_ssg08_force_buy_with_armor() -> None:
@@ -11093,7 +11340,7 @@ def test_large_terrorist_squad_spreads_specialists_after_planting() -> None:
     assert bot_target_nodes(game, lurker) == ("a_short",)
 
 
-def test_postplant_site_support_holds_the_bomb_while_specialists_spread() -> None:
+def test_postplant_site_support_holds_the_defender_ingress() -> None:
     game = make_game(
         start=True,
         player_count=10,
@@ -11114,14 +11361,87 @@ def test_postplant_site_support_holds_the_bomb_while_specialists_spread() -> Non
     game.bomb_carrier_id = ""
     game.bomb_location_id = "a_site"
     support.position_id = entry.position_id = "a_site"
+    support.primary_weapon_id = AK47.id
+    support.equipped_weapon_id = GLOCK.id
+    game._set_full_weapon_ammunition(support, AK47)
+    game._set_full_weapon_ammunition(support, GLOCK)
     start_activation(game, support)
 
-    assert (
-        game._bot_coordinator._proactive_angle_action(game, support)
-        == "hold_angle_a_site"
-    )
+    assert game._bot_coordinator._terrorist_objective_cover_action(
+        game,
+        support,
+    ) == "equip_primary"
+    game.execute_action(support, "equip_primary")
+    assert game._bot_coordinator._terrorist_objective_cover_action(
+        game,
+        support,
+    ) == "hold_angle_ct_spawn"
     start_activation(game, entry)
-    assert game._bot_coordinator._proactive_angle_action(game, entry) is None
+    assert (
+        game._bot_coordinator._terrorist_objective_cover_action(game, entry) is None
+    )
+
+
+def test_small_squad_support_keeps_a_valid_trade_position() -> None:
+    game = make_game(start=True, bot_indexes={2})
+    carrier = tactical_player(game, 0)
+    bot = tactical_player(game, 2)
+    carrier.position_id = "upper_tunnels"
+    bot.position_id = "b_tunnels"
+    game.bomb_state = BOMB_CARRIED
+    game.bomb_carrier_id = carrier.id
+    plan = game._bot_coordinator.team_plans[TEAM_TERRORISTS]
+    plan.attack_site_id = "b_site"
+    plan.attack_strategy_id = ATTACK_STRATEGY_DIRECT
+    plan.strategy_committed = True
+
+    assert game._bot_coordinator._small_squad_cohesion_target(
+        game,
+        bot,
+        "b_site",
+    ) == "b_tunnels"
+    assert bot_target_nodes(game, bot) == ("b_tunnels",)
+
+
+def test_small_squad_support_covers_b_doors_after_the_carrier_falls_back() -> None:
+    game = make_game(start=True, bot_indexes={2})
+    carrier = tactical_player(game, 0)
+    bot = tactical_player(game, 2)
+    carrier.position_id = "upper_tunnels"
+    bot.position_id = "b_tunnels"
+    bot.sidearm_weapon_id = DESERT_EAGLE.id
+    bot.equipped_weapon_id = DESERT_EAGLE.id
+    game._set_full_weapon_ammunition(bot, DESERT_EAGLE)
+    game.bomb_state = BOMB_CARRIED
+    game.bomb_carrier_id = carrier.id
+    plan = game._bot_coordinator.team_plans[TEAM_TERRORISTS]
+    plan.attack_site_id = "b_site"
+    plan.attack_strategy_id = ATTACK_STRATEGY_DIRECT
+    plan.strategy_committed = True
+    start_activation(game, bot)
+
+    assert game.bot_think(bot) == "hold_angle_b_doors"
+    game.execute_action(bot, "hold_angle_b_doors")
+    assert bot.position_id == "b_tunnels"
+    assert bot.held_angle_node_id == "b_doors"
+
+
+def test_bot_covers_b_doors_while_a_teammate_plants_on_b() -> None:
+    game = make_game(start=True, bot_indexes={2})
+    planter = tactical_player(game, 0)
+    bot = tactical_player(game, 2)
+    planter.position_id = "b_site"
+    bot.position_id = "b_tunnels"
+    bot.sidearm_weapon_id = DESERT_EAGLE.id
+    bot.equipped_weapon_id = DESERT_EAGLE.id
+    game._set_full_weapon_ammunition(bot, DESERT_EAGLE)
+    game.bomb_state = BOMB_PLANTING
+    game.bomb_carrier_id = planter.id
+    game.planting_player_id = planter.id
+    game.planting_location_id = planter.position_id
+    start_activation(game, bot)
+
+    assert game.bot_think(bot) == "hold_angle_b_doors"
 
 
 def test_bot_memory_records_only_team_visible_contacts_and_expires() -> None:

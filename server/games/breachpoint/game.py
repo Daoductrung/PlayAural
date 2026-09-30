@@ -95,6 +95,7 @@ from .audio import (
 )
 from .bot import (
     ACOUSTIC_CUE_FOOTSTEPS,
+    ACOUSTIC_CUE_OBJECTIVE,
     ACOUSTIC_CUE_UTILITY,
     ACOUSTIC_CUE_WEAPON_DROP,
     ACOUSTIC_CUE_WEAPON_FIRE,
@@ -9361,6 +9362,14 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         self.planting_player_id = terrorist.id
         self.planting_location_id = terrorist.position_id
         self._play_bomb_plant_audio(terrorist)
+        self._record_bot_acoustic_point(
+            terrorist,
+            terrorist.position_id,
+            ACOUSTIC_CUE_OBJECTIVE,
+            self._player_grid_point(terrorist),
+            source_height_meters=UTILITY_SOURCE_HEIGHT_METERS,
+            attenuation=POSITIONAL_ATTENUATION,
+        )
         self._announce_plant_started(terrorist)
         terrorist.action_points = 0
         self._end_activation(terrorist)

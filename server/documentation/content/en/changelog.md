@@ -1,5 +1,32 @@
 Changelog
 
+Thursday 1 October 2026
+
+New Additions:
+
+* 75-ball Bingo has been added for 2 to 12 players. Everyone plays at the same time on an accessible 5-by-5 card, with adjustable calling pace, bots, spectators, keyboard and touch controls, and four winning patterns: Any Line, Four Corners, Letter X, and Blackout.
+* Host Management now includes Player Substitution. With everyone’s consent, a spectator can take over a human, bot, or reserved player seat during a game and inherit its exact current position, private information, time, and result.
+* Hosts can now choose Host Management > Switch to Another Game without rebuilding the table. The host, privacy, bans, present players, spectators, bots, and voice room stay together while the new game opens in a fresh waiting lobby.
+* Profile now includes the optional Gender choices Male, Female, Non-binary, and Not set. Announcements use this choice to refer to users and players more naturally.
+
+Improvements:
+
+* Friends now includes Sent Requests, where outgoing requests can be reviewed or cancelled. Offline friends also show when they were last online.
+* Report a user is now available from Who's at the table, including for spectators and disconnected human seats; bots cannot be reported.
+* General options and Game options are now separated into clearer menus, with focus returning to the item that opened each submenu.
+* Press F1 on Desktop or Web to hear a description of the focused menu item. In Mobile self-voicing mode, use a three-finger single tap. Confirmation prompts are now both visible and spoken, while brief menu feedback no longer fills message history.
+* Signing in from another Desktop, Web, or Mobile client now transfers the live session cleanly while preserving the current table, player seat, turn, and voice connection. Closing or signing out of an app also leaves tables and voice sessions more reliably.
+* Spectating hosts can now keep an active table running and manage its waiting lobby. Invitations and role changes also recover more reliably if someone disconnects, changes role, or responds late.
+* Bot names now follow your selected language, remain easy to distinguish, and stay consistent through reconnection, player replacement, and saved-table restoration.
+* Breach Point now uses a simultaneous buy phase, a number of tactical rounds that adapts to squad size, damaging bomb blasts, free recovery of a dropped bomb after T reaches it, and stricter protection for actions and purchase sounds that enemies cannot observe.
+* Breach Point bots now listen for enemy activity, coordinate map control and objectives, adapt to previous rounds, use equipment and money more intelligently, and value weapons and pickups more realistically. Players also receive varied team-only radio calls that sound from each distinct male or female agent’s position.
+
+Bug Fixes:
+
+* The Desktop client now starts correctly on older Windows computers that previously closed before reaching sign-in.
+* Signing in and social actions now handle usernames with international characters or different letter casing consistently, while preventing duplicate accounts that look like the same name.
+* Changing language while connected now updates menus and client text immediately without briefly mixing the old and new languages.
+
 Saturday 26 September 2026
 
 New Additions:

@@ -381,7 +381,7 @@ test("locale bundle changes preserve packet order and authentication chrome", as
 
 test("the offline shell precaches the updated UI modules", async () => {
   const serviceWorker = await readFile(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(serviceWorker, /playaural-web-v1\.0\.5\.1-shell-18/u);
+  assert.match(serviceWorker, /playaural-web-v1\.0\.5\.2-shell-18/u);
   for (const asset of [
     "store.js",
     "spatial_audio.js",

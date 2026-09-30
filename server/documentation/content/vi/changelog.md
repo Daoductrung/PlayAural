@@ -1,5 +1,32 @@
 Nhật ký thay đổi
 
+Thứ Năm 1 Tháng Mười 2026
+
+Tính năng mới:
+
+* Đã thêm Bingo, trò chơi nghe và đánh dấu số dành cho 2 đến 12 người. Mọi người cùng chơi trên thẻ năm hàng, năm cột dễ sử dụng với công cụ hỗ trợ tiếp cận. Trò chơi có bot, khán giả, thao tác bằng bàn phím và cảm ứng, Nhịp xướng số tùy chọn cùng bốn Mẫu thắng: Một đường bất kỳ, Bốn góc, Hình chữ X và Phủ kín thẻ.
+* Quản lý bàn giờ có mục Thay người chơi. Khi những người liên quan đều đồng ý, một khán giả có thể tiếp quản chỗ của người chơi, bot hoặc chỗ dành riêng ngay giữa ván, đồng thời nhận nguyên trạng thái, thông tin riêng, thời gian và kết quả của chỗ đó.
+* Chủ bàn giờ có thể chọn Quản lý bàn > Chuyển sang trò chơi khác mà không phải tạo lại bàn. Chủ bàn, chế độ riêng tư, danh sách cấm, người chơi, khán giả, bot và phòng trò chuyện thoại vẫn được giữ nguyên; trò chơi mới sẽ mở tại một phòng chờ hoàn toàn mới.
+* Hồ sơ giờ có mục Giới tính với các lựa chọn Nam, Nữ, Phi nhị giới và Chưa đặt. Thông báo sẽ dựa vào lựa chọn này để nhắc đến người dùng và người chơi tự nhiên hơn.
+
+Cải thiện:
+
+* Bạn bè giờ có mục Lời mời đã gửi để bạn xem lại hoặc hủy lời mời đang chờ. Với bạn bè đang Ngoại tuyến, danh sách cũng cho biết lần cuối họ trực tuyến.
+* Báo cáo người dùng giờ có ngay trong mục Ai đang ở trong bàn, áp dụng cả với khán giả và chỗ của người chơi bị mất kết nối; không thể báo cáo bot.
+* Tùy chỉnh chung và Tùy chỉnh trò chơi giờ được tách thành các menu rõ ràng hơn. Khi quay lại, con trỏ sẽ trở về đúng mục đã dùng để mở menu con.
+* Nhấn F1 trên máy tính hoặc Web để nghe mô tả của mục menu đang được chọn. Trong chế độ tự đọc trên điện thoại, hãy chạm một lần bằng ba ngón. Câu hỏi xác nhận giờ vừa hiển thị vừa được đọc, còn phản hồi ngắn khi dùng menu không còn làm đầy lịch sử tin nhắn.
+* Khi đăng nhập từ một máy tính, trình duyệt Web hoặc điện thoại khác, phiên đang hoạt động giờ được chuyển giao gọn gàng mà vẫn giữ nguyên bàn, chỗ ngồi, lượt và kết nối trò chuyện thoại. Việc đóng hoặc đăng xuất khỏi ứng dụng cũng rời bàn và phòng thoại ổn định hơn.
+* Chủ bàn đang làm khán giả giờ có thể giữ cho bàn đang chơi tiếp tục hoạt động và quản lý phòng chờ. Lời mời và thay đổi vai trò cũng được xử lý ổn định hơn khi một người mất kết nối, đổi vai trò hoặc trả lời muộn.
+* Tên bot giờ thay đổi theo ngôn ngữ bạn chọn, luôn dễ phân biệt và được giữ nhất quán khi kết nối lại, thay người hoặc khôi phục bàn đã lưu.
+* Điểm Đột Phá giờ có giai đoạn mua diễn ra đồng thời, số vòng chiến thuật thay đổi theo quân số, sát thương từ vụ nổ bom, quyền nhặt bom miễn phí sau khi T đến đúng khu vực và khả năng che giấu chặt chẽ hơn đối với hành động hoặc âm thanh mua đồ mà đối thủ không thể quan sát.
+* Bot trong Điểm Đột Phá giờ biết lắng nghe hoạt động của đối thủ, phối hợp kiểm soát bản đồ và thực hiện mục tiêu, thích nghi qua từng vòng, sử dụng trang bị và tiền hợp lý hơn, đồng thời đánh giá súng cùng vật phẩm nhặt được thực tế hơn. Người chơi cũng được nghe nhiều câu liên lạc chỉ dành cho đồng đội, phát ra từ đúng vị trí của từng đặc vụ nam hoặc nữ riêng biệt.
+
+Sửa lỗi:
+
+* Ứng dụng máy tính giờ khởi động bình thường trên những máy Windows cũ từng tự đóng trước khi tới màn hình đăng nhập.
+* Đăng nhập và các thao tác giao lưu giờ xử lý nhất quán tên đăng nhập có ký tự quốc tế hoặc khác nhau về chữ hoa, chữ thường, đồng thời ngăn tạo nhiều tài khoản có tên trông giống hệt nhau.
+* Khi đổi ngôn ngữ trong lúc đang kết nối, menu và nội dung của ứng dụng giờ cập nhật ngay mà không còn xen lẫn ngôn ngữ cũ trong chốc lát.
+
 Thứ Bảy 26 Tháng Chín 2026
 
 Tính năng mới:

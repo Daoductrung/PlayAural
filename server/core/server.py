@@ -254,6 +254,9 @@ PRESENCE_EVENT_SPECS = {
     },
 }
 HOST_RESTART_CONFIRM_MENU = "host_restart_confirm_menu"
+HOST_GAME_SWITCH_MENU = "host_game_switch_menu"
+HOST_GAME_SWITCH_CONFIRM_MENU = "host_game_switch_confirm_menu"
+HOST_GAME_SWITCH_ACTION_PREFIX = "switch_game_"
 HOST_SUBSTITUTION_SEAT_MENU = "host_substitution_seat_menu"
 HOST_SUBSTITUTION_SPECTATOR_MENU = "host_substitution_spectator_menu"
 PLAYER_SUBSTITUTION_PROMPT_MENU = "player_substitution_prompt_menu"
@@ -303,6 +306,7 @@ NON_RESUMABLE_ACTION_MENUS = frozenset(
         USER_REPORT_CONFIRM_MENU,
         ADMIN_MODERATION_CLEAR_CONFIRM_MENU,
         HOST_RESTART_CONFIRM_MENU,
+        HOST_GAME_SWITCH_CONFIRM_MENU,
         PLAYER_SUBSTITUTION_PROMPT_MENU,
         "kick_confirm_menu",
         "logout_confirm_menu",
@@ -437,6 +441,7 @@ class Server:
         "speech_rate_input", "mobile_tts_rate_input", "waiting_for_approval",
         "host_management_menu", "host_invite_menu", "host_pass_menu",
         "host_kick_menu", "host_kick_ban_menu", HOST_RESTART_CONFIRM_MENU,
+        HOST_GAME_SWITCH_MENU, HOST_GAME_SWITCH_CONFIRM_MENU,
         HOST_SUBSTITUTION_SEAT_MENU, HOST_SUBSTITUTION_SPECTATOR_MENU,
         PLAYER_SUBSTITUTION_PROMPT_MENU,
         TABLE_MEMBERS_MENU, TABLE_MEMBER_ACTIONS_MENU,
@@ -452,6 +457,7 @@ class Server:
     IN_GAME_OVERLAY_MENUS = {
         "host_management_menu", "host_invite_menu", "host_pass_menu",
         "host_kick_menu", "host_kick_ban_menu", HOST_RESTART_CONFIRM_MENU,
+        HOST_GAME_SWITCH_MENU, HOST_GAME_SWITCH_CONFIRM_MENU,
         HOST_SUBSTITUTION_SEAT_MENU, HOST_SUBSTITUTION_SPECTATOR_MENU,
         TABLE_MEMBERS_MENU, TABLE_MEMBER_ACTIONS_MENU,
     }
@@ -3406,6 +3412,7 @@ PlayAural Server
             "host_pass_menu",
             "host_kick_menu",
             "host_kick_ban_menu",
+            HOST_GAME_SWITCH_MENU,
             HOST_SUBSTITUTION_SEAT_MENU,
             HOST_SUBSTITUTION_SPECTATOR_MENU,
             TABLE_MEMBERS_MENU,
@@ -3433,6 +3440,13 @@ PlayAural Server
             user.update_menu(
                 current_menu,
                 self._get_host_kick_menu_items(user, table),
+            )
+        elif current_menu == HOST_GAME_SWITCH_MENU:
+            self._nav_refresh(
+                user,
+                self._show_host_game_switch_menu,
+                table,
+                state.get("game_switch_page", 1),
             )
         elif current_menu == HOST_SUBSTITUTION_SEAT_MENU:
             user.update_menu(
@@ -5932,6 +5946,18 @@ PlayAural Server
             await self._handle_host_kick_selection(user, selection_id, state)
         elif current_menu == HOST_RESTART_CONFIRM_MENU:
             await self._handle_host_restart_confirm_selection(user, selection_id, state)
+        elif current_menu == HOST_GAME_SWITCH_MENU:
+            await self._handle_host_game_switch_selection(
+                user,
+                selection_id,
+                state,
+            )
+        elif current_menu == HOST_GAME_SWITCH_CONFIRM_MENU:
+            await self._handle_host_game_switch_confirm_selection(
+                user,
+                selection_id,
+                state,
+            )
         elif current_menu == HOST_SUBSTITUTION_SEAT_MENU:
             await self._handle_host_substitution_seat_selection(
                 user, selection_id, state
@@ -9191,30 +9217,58 @@ PlayAural Server
     ) -> None:
         """Handle language selection."""
         if selection_id.startswith("lang_"):
+            lang_code = Localization.normalize_locale_code(selection_id[5:])
+            if lang_code not in Localization.available_locale_codes():
+                user.speak_l("server-error-changing-language", buffer="system")
+                self._nav_back(user)
+                return
             try:
-                # Change language
-                lang_code = selection_id[5:]
-                user.set_locale(lang_code)
                 self._db.update_user_locale(user.username, lang_code)
-                language_name = Localization.get_available_languages(
-                    lang_code,
-                    fallback=lang_code,
-                ).get(lang_code, lang_code)
-                user.speak_l(
-                    "language-changed",
-                    buffer="system",
-                    language=language_name,
-                )
-                
-                # Send packet to update client config immediately
+            except Exception:
+                logging.getLogger("playaural").exception("Error persisting language")
+                user.speak_l("server-error-changing-language", buffer="system")
+                self._nav_back(user)
+                return
+
+            user.set_locale(lang_code)
+
+            # Update client-owned chrome before any newly localized speech or
+            # menu packet is flushed. Server-rendered menus are rebuilt below
+            # from semantic state, never translated in place.
+            try:
                 await user.connection.send({
                     "type": "update_locale",
-                    "locale": lang_code
+                    "locale": user.locale,
                 })
-            except Exception as e:
-                logging.getLogger("playaural").exception("Error changing language")
-                user.speak_l("server-error-changing-language", buffer="system", error=str(e))
-            
+            except Exception:
+                logging.getLogger("playaural").exception(
+                    "Failed to send locale update to %s",
+                    user.username,
+                )
+
+            table = self._tables.find_user_table(user.username)
+            game = table.game if table else None
+            player = game.get_player_by_id(user.uuid) if game else None
+            if game and player:
+                try:
+                    game.on_player_locale_changed(player)
+                    self._flush_game_menus_now(game)
+                except Exception:
+                    logging.getLogger("playaural").exception(
+                        "Failed to rebuild localized game UI for %s",
+                        user.username,
+                    )
+
+            language_name = Localization.get_available_languages(
+                user.locale,
+                fallback=user.locale,
+            ).get(user.locale, user.locale)
+            user.speak_l(
+                "language-changed",
+                buffer="system",
+                language=language_name,
+            )
+
             self._nav_back(user)
             return
         # Back or invalid
@@ -9822,6 +9876,10 @@ PlayAural Server
         items = [
             MenuItem(text=Localization.get(locale, privacy_key), id="toggle_privacy"),
             MenuItem(text=Localization.get(locale, "host-management-invite"), id="invite_friend"),
+            MenuItem(
+                text=Localization.get(locale, "host-management-switch-game"),
+                id="switch_game",
+            ),
             MenuItem(text=Localization.get(locale, "host-management-pass-host"), id="pass_host"),
             MenuItem(text=Localization.get(locale, "host-management-kick"), id="kick_player"),
             MenuItem(text=Localization.get(locale, "host-management-kick-ban"), id="kick_ban_player"),
@@ -9903,6 +9961,9 @@ PlayAural Server
         elif selection_id == "invite_friend":
             self._nav_push(user, self._show_host_invite_menu, table)
 
+        elif selection_id == "switch_game":
+            self._nav_push(user, self._show_host_game_switch_menu, table)
+
         elif selection_id == "pass_host":
             self._nav_push(user, self._show_host_pass_menu, table)
 
@@ -9924,6 +9985,344 @@ PlayAural Server
 
         elif selection_id == "back":
             self._nav_back(user)
+
+    # --- Switch Game ---
+
+    def _get_host_game_switch_menu_items(
+        self,
+        user: NetworkUser,
+        table: "Table",
+        page: int = 1,
+    ) -> tuple[list[MenuItem], PaginatedMenuPage[tuple[type, str]]]:
+        """Build compatible target games for one atomic table transition."""
+        try:
+            active_seats = table.game_transition_active_seat_count()
+        except ValueError:
+            page_data = paginate_sequence(
+                [],
+                1,
+                page_size=DEFAULT_MENU_PAGE_SIZE,
+            )
+            return [
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "host-game-switch-roster-invalid",
+                    ),
+                    id="game_switch_roster_invalid",
+                    read_only=True,
+                ),
+                MenuItem(text=Localization.get(user.locale, "back"), id="back"),
+            ], page_data
+        targets = [
+            (game_class, name)
+            for game_class, name in self._get_localized_game_list(user)
+            if game_class.get_type() != table.game_type
+            and game_class.get_max_players() >= active_seats
+        ]
+        page_data = paginate_sequence(
+            targets,
+            page,
+            page_size=DEFAULT_MENU_PAGE_SIZE,
+        )
+        current_class = get_game_class(table.game_type)
+        current_name = (
+            Localization.get(user.locale, current_class.get_name_key())
+            if current_class
+            else table.game_type
+        )
+        items = [
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "host-game-switch-current",
+                    game=current_name,
+                    seats=active_seats,
+                ),
+                id="game_switch_context",
+                read_only=True,
+            )
+        ]
+        if not page_data.items:
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "host-game-switch-no-compatible-games",
+                        seats=active_seats,
+                    ),
+                    id="game_switch_empty",
+                    read_only=True,
+                )
+            )
+        else:
+            items.extend(
+                MenuItem(
+                    text=name,
+                    id=f"{HOST_GAME_SWITCH_ACTION_PREFIX}{game_class.get_type()}",
+                )
+                for game_class, name in page_data.items
+            )
+        if page_data.total_pages > 1:
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "menu-page-summary",
+                        start=page_data.start_index,
+                        end=page_data.end_index,
+                        total=page_data.total,
+                        page=page_data.page,
+                        pages=page_data.total_pages,
+                    ),
+                    id="page_summary",
+                    read_only=True,
+                )
+            )
+        items.extend(pagination_menu_items(user.locale, page_data))
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        return items, page_data
+
+    def _show_host_game_switch_menu(
+        self,
+        user: NetworkUser,
+        table: "Table",
+        page: int = 1,
+        *,
+        focus_page_start: bool = False,
+    ) -> None:
+        """Show game targets without leaving the current table context."""
+        if (
+            self._tables.get_table(table.table_id) is not table
+            or not table.game
+            or table.host != user.username
+        ):
+            self._return_to_game(user, table)
+            return
+        items, page_data = self._get_host_game_switch_menu_items(user, table, page)
+        user.show_menu(
+            HOST_GAME_SWITCH_MENU,
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+            position=(
+                self._first_menu_item_position(
+                    items,
+                    lambda item_id: item_id.startswith(
+                        HOST_GAME_SWITCH_ACTION_PREFIX
+                    ),
+                )
+                if focus_page_start
+                else None
+            ),
+        )
+        self._user_states[user.username] = {
+            "menu": HOST_GAME_SWITCH_MENU,
+            "table_id": table.table_id,
+            "game_switch_page": page_data.page,
+            "game_switch_page_count": page_data.total_pages,
+        }
+
+    def _game_switch_capacity_error(
+        self,
+        table: "Table",
+        game_class: type,
+    ) -> tuple[int, int] | None:
+        """Return current/maximum seats when a target became incompatible."""
+        active_seats = table.game_transition_active_seat_count()
+        maximum = game_class.get_max_players()
+        if active_seats > maximum:
+            return active_seats, maximum
+        return None
+
+    async def _handle_host_game_switch_selection(
+        self,
+        user: NetworkUser,
+        selection_id: str,
+        state: dict,
+    ) -> None:
+        table = self._tables.get_table(str(state.get("table_id") or ""))
+        if not table or not table.game or table.host != user.username:
+            self._return_to_game(user, table)
+            return
+
+        if selection_id == "back":
+            self._nav_back(user)
+            return
+        if selection_id in MENU_PAGE_IDS:
+            current_page = int(state.get("game_switch_page", 1) or 1)
+            page_count = max(
+                1,
+                int(state.get("game_switch_page_count", 1) or 1),
+            )
+            next_page = page_for_selection(selection_id, current_page, page_count)
+            if next_page is None:
+                return
+            if is_page_refresh(selection_id):
+                announce_page_refresh(user)
+            self._nav_refresh(
+                user,
+                self._show_host_game_switch_menu,
+                table,
+                next_page,
+                focus_page_start=is_page_navigation(selection_id),
+            )
+            return
+        if not selection_id.startswith(HOST_GAME_SWITCH_ACTION_PREFIX):
+            return
+
+        target_game_type = selection_id.removeprefix(
+            HOST_GAME_SWITCH_ACTION_PREFIX
+        )
+        target_class = get_game_class(target_game_type)
+        if not target_class or target_game_type == table.game_type:
+            user.speak_l("host-game-switch-target-unavailable", buffer="system")
+            self._nav_refresh(user, self._show_host_game_switch_menu, table)
+            return
+        try:
+            capacity_error = self._game_switch_capacity_error(table, target_class)
+        except ValueError:
+            user.speak_l("host-game-switch-roster-invalid", buffer="system")
+            self._nav_refresh(user, self._show_host_game_switch_menu, table)
+            return
+        if capacity_error:
+            active_seats, maximum = capacity_error
+            user.speak_l(
+                "host-game-switch-too-many-seats",
+                buffer="system",
+                game=Localization.get(user.locale, target_class.get_name_key()),
+                seats=active_seats,
+                max=maximum,
+            )
+            self._nav_refresh(user, self._show_host_game_switch_menu, table)
+            return
+        self._nav_push(
+            user,
+            self._show_host_game_switch_confirm_menu,
+            table,
+            target_game_type,
+        )
+
+    def _show_host_game_switch_confirm_menu(
+        self,
+        user: NetworkUser,
+        table: "Table",
+        target_game_type: str,
+    ) -> None:
+        """Confirm the destructive match boundary before replacing a game."""
+        target_class = get_game_class(target_game_type)
+        current_class = get_game_class(table.game_type)
+        if (
+            self._tables.get_table(table.table_id) is not table
+            or not table.game
+            or table.host != user.username
+            or not target_class
+            or target_game_type == table.game_type
+        ):
+            self._return_to_game(user, table)
+            return
+        show_confirmation_menu(
+            user,
+            HOST_GAME_SWITCH_CONFIRM_MENU,
+            prompt_key="host-game-switch-confirm",
+            prompt_kwargs={
+                "old_game": (
+                    Localization.get(user.locale, current_class.get_name_key())
+                    if current_class
+                    else table.game_type
+                ),
+                "new_game": Localization.get(
+                    user.locale,
+                    target_class.get_name_key(),
+                ),
+            },
+            buffer="system",
+        )
+        self._user_states[user.username] = {
+            "menu": HOST_GAME_SWITCH_CONFIRM_MENU,
+            "table_id": table.table_id,
+            "target_game_type": target_game_type,
+        }
+
+    async def _handle_host_game_switch_confirm_selection(
+        self,
+        user: NetworkUser,
+        selection_id: str,
+        state: dict,
+    ) -> None:
+        table = self._tables.get_table(str(state.get("table_id") or ""))
+        if not table or not table.game or table.host != user.username:
+            self._return_to_game(user, table)
+            return
+        if selection_id == "no":
+            self._nav_back(user)
+            return
+        if selection_id != "yes":
+            return
+
+        target_game_type = str(state.get("target_game_type") or "")
+        target_class = get_game_class(target_game_type)
+        if not target_class or target_game_type == table.game_type:
+            user.speak_l("host-game-switch-target-unavailable", buffer="system")
+            self._nav_back(user)
+            return
+        try:
+            capacity_error = self._game_switch_capacity_error(table, target_class)
+        except ValueError:
+            user.speak_l("host-game-switch-roster-invalid", buffer="system")
+            self._nav_back(user)
+            return
+        if capacity_error:
+            active_seats, maximum = capacity_error
+            user.speak_l(
+                "host-game-switch-too-many-seats",
+                buffer="system",
+                game=Localization.get(user.locale, target_class.get_name_key()),
+                seats=active_seats,
+                max=maximum,
+            )
+            self._nav_back(user)
+            return
+
+        old_game_type = table.game_type
+        old_class = get_game_class(old_game_type)
+        if not table.transition_to_game(target_game_type):
+            user.speak_l("host-game-switch-failed", buffer="system")
+            self._nav_back(user)
+            return
+
+        game = table.game
+        if not game:
+            user.speak_l("host-game-switch-failed", buffer="system")
+            self._show_main_menu(user)
+            return
+
+        for member in table.members:
+            member_user = table.get_user(member.username)
+            if member_user is None:
+                continue
+            member_user.clear_ui()
+            self._set_in_game_state(member_user, table.table_id)
+
+        host_player = game.get_player_by_id(user.uuid)
+        if host_player:
+            game.broadcast_personal_l(
+                host_player,
+                "host-game-switch-you",
+                "host-game-switch-player",
+                buffer="system",
+                old_game=lambda locale: (
+                    Localization.get(locale, old_class.get_name_key())
+                    if old_class
+                    else old_game_type
+                ),
+                new_game=lambda locale: Localization.get(
+                    locale,
+                    target_class.get_name_key(),
+                ),
+            )
+        game.refresh_menus()
+        self._flush_game_menus_now(game)
 
     def _show_host_restart_confirm_menu(self, user: NetworkUser, table: "Table") -> None:
         """Confirm a host-requested table restart."""
@@ -11143,6 +11542,7 @@ PlayAural Server
             not host_user
             or host_user.uuid != invite.get("host_uuid")
             or table.host != host_name
+            or table.game_type != invite.get("game_type")
             or self._table_invite_eligibility_error(
                 host_user,
                 table,
@@ -11314,6 +11714,7 @@ PlayAural Server
             "host_username": host_user.username,
             "host_uuid": host_user.uuid,
             "invitee_uuid": invitee_user.uuid,
+            "game_type": table.game_type,
             "game_name": game_name,
             "task": asyncio.create_task(
                 self._expire_invite(invitee_name, invite_id)
@@ -13809,6 +14210,16 @@ PlayAural Server
             message_key="player-substitution-no-longer-available",
         )
 
+    def on_table_game_transition(self, table: "Table") -> None:
+        """Retire consent bound to the activity that just left this table."""
+        self.on_table_game_reset(table)
+        # An invitation names a specific game. Silently carrying it into a
+        # different one would change the invitee's consent after the fact.
+        self._cancel_matching_social_invites(
+            lambda _name, invite: invite.get("table_id") == table.table_id,
+            message_key="table-invite-no-longer-available",
+        )
+
     def on_game_result(self, result) -> None:
         """Handle game result persistence. Called by Table when a game finishes."""
         if not isinstance(result, GameResult):
@@ -15345,6 +15756,18 @@ PlayAural Server
                 self._show_host_kick_menu(user, table, ban=frame.get("ban", False))
             elif menu == HOST_RESTART_CONFIRM_MENU:
                 self._show_host_restart_confirm_menu(user, table)
+            elif menu == HOST_GAME_SWITCH_MENU:
+                self._show_host_game_switch_menu(
+                    user,
+                    table,
+                    int(frame.get("game_switch_page", 1) or 1),
+                )
+            elif menu == HOST_GAME_SWITCH_CONFIRM_MENU:
+                self._show_host_game_switch_confirm_menu(
+                    user,
+                    table,
+                    str(frame.get("target_game_type") or ""),
+                )
             elif menu == HOST_SUBSTITUTION_SEAT_MENU:
                 self._show_host_substitution_seat_menu(user, table)
             elif menu == HOST_SUBSTITUTION_SPECTATOR_MENU:

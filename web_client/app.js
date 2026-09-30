@@ -258,14 +258,18 @@ const Localization = {
     return MESSAGE_ALIASES[key] || key;
   },
 
-  async load(locale) {
+  async load(locale, { shouldApply = null } = {}) {
     const bundle = await loadLocaleBundle(locale);
+    if (shouldApply && !shouldApply()) {
+      return false;
+    }
     this.locale = bundle.locale;
     this.strings = bundle.messages;
     this.fallback = bundle.fallback;
     document.documentElement.lang = bundle.locale;
     document.documentElement.dir = LOCALE_METADATA[bundle.locale]?.direction || "ltr";
     storageSet(LANG_KEY, bundle.locale);
+    return true;
   },
 
   has(key) {
@@ -1151,6 +1155,8 @@ class PlayAuralWebApp {
     this.webActionsMenuId = "";
     this.focusMenuOnNextPacket = false;
     this.pendingInput = null;
+    this.localeUpdateBarrier = null;
+    this.localeUpdateGeneration = 0;
     this.pingStart = null;
     this.connectionStatusMessage = "status-disconnected";
     this.connectionStatusParams = {};
@@ -2309,6 +2315,8 @@ class PlayAuralWebApp {
   }
 
   cleanupRuntime(full = false) {
+    this.localeUpdateGeneration += 1;
+    this.localeUpdateBarrier = null;
     this.voice.cleanup(false, false);
     this.connectionAudioActive = false;
     this.audio.stopAll(800);
@@ -2387,6 +2395,19 @@ class PlayAuralWebApp {
   }
 
   handlePacket(packet) {
+    // Locale bundles are loaded asynchronously in the browser. Preserve
+    // WebSocket order across that one boundary so translated server menus and
+    // speech cannot overtake the document language/voice update.
+    if (this.localeUpdateBarrier && packet.type !== "update_locale") {
+      const barrier = this.localeUpdateBarrier;
+      const generation = this.localeUpdateGeneration;
+      void barrier.then(() => {
+        if (this.localeUpdateGeneration === generation) {
+          this.handlePacket(packet);
+        }
+      });
+      return;
+    }
     switch (packet.type) {
       case "login_failed":
         this.handleLoginFailed(packet);
@@ -2464,7 +2485,7 @@ class PlayAuralWebApp {
         break;
       case "update_locale":
         if (packet.locale) {
-          Localization.load(packet.locale).then(() => this.applyLocalization());
+          this.beginLocaleUpdate(packet.locale);
         }
         break;
       case "update_preference":
@@ -2483,6 +2504,35 @@ class PlayAuralWebApp {
         console.warn("Unhandled packet:", packet);
         break;
     }
+  }
+
+  beginLocaleUpdate(locale) {
+    // Chain rapid updates instead of letting independently loaded bundles race
+    // and leave the document language, client chrome, and speech voice out of
+    // sync with the server-rendered menu that follows them.
+    const generation = this.localeUpdateGeneration;
+    const previous = this.localeUpdateBarrier || Promise.resolve();
+    const update = previous
+      .then(() => Localization.load(locale, {
+        shouldApply: () => this.localeUpdateGeneration === generation,
+      }))
+      .then((applied) => {
+        if (applied) {
+          this.applyLocalization();
+        }
+        return applied;
+      })
+      .catch((error) => {
+        console.error("Unable to apply locale update", error);
+        return false;
+      });
+    this.localeUpdateBarrier = update;
+    void update.finally(() => {
+      if (this.localeUpdateBarrier === update) {
+        this.localeUpdateBarrier = null;
+      }
+    });
+    return update;
   }
 
   handleLoginFailed(packet) {
@@ -2538,21 +2588,29 @@ class PlayAuralWebApp {
     if (packet.sounds_info?.version) {
       this.audio.setSoundVersion(packet.sounds_info.version);
     }
+    const finishAuthorization = () => {
+      if (packet.preferences) {
+        this.handlePreferenceUpdate(packet);
+      } else {
+        this.applyPreferences();
+      }
+      this.saveLocalConfig();
+      this.updateConnectionStatus("status-connected");
+      this.showGame();
+      this.speak("welcome", {
+        params: { username: this.lastUser },
+        buffer: "system",
+      });
+    };
     if (packet.locale && packet.locale !== Localization.locale) {
-      Localization.load(packet.locale).then(() => this.applyLocalization());
-    }
-    if (packet.preferences) {
-      this.handlePreferenceUpdate(packet);
+      void this.beginLocaleUpdate(packet.locale).then((applied) => {
+        if (applied) {
+          finishAuthorization();
+        }
+      });
     } else {
-      this.applyPreferences();
+      finishAuthorization();
     }
-    this.saveLocalConfig();
-    this.updateConnectionStatus("status-connected");
-    this.showGame();
-    this.speak("welcome", {
-      params: { username: this.lastUser },
-      buffer: "system",
-    });
   }
 
   retireLocalSession(reason, { announce = true, error = true } = {}) {

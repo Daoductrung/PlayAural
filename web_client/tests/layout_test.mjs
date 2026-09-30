@@ -337,9 +337,51 @@ test("locale metadata identifies Persian as right-to-left", async () => {
   );
 });
 
+test("locale bundle changes preserve packet order and authentication chrome", async () => {
+  const source = await readFile(new URL("../app.js", import.meta.url), "utf8");
+  const packetHandler = source.split("  handlePacket(packet) {", 2)[1].split(
+    "\n  beginLocaleUpdate(locale)",
+    1,
+  )[0];
+  assert.match(
+    packetHandler,
+    /this\.localeUpdateBarrier && packet\.type !== "update_locale"/u,
+  );
+  assert.match(packetHandler, /this\.localeUpdateGeneration === generation/u);
+  assert.match(packetHandler, /this\.handlePacket\(packet\)/u);
+  assert.match(packetHandler, /this\.beginLocaleUpdate\(packet\.locale\)/u);
+
+  const updater = source.split("  beginLocaleUpdate(locale) {", 2)[1].split(
+    "\n  handleLoginFailed(packet)",
+    1,
+  )[0];
+  assert.match(updater, /const previous = this\.localeUpdateBarrier \|\| Promise\.resolve\(\)/u);
+  assert.match(updater, /Localization\.load\(locale/u);
+  assert.match(updater, /shouldApply:/u);
+  assert.match(updater, /this\.localeUpdateGeneration === generation/u);
+  assert.match(updater, /this\.applyLocalization\(\)/u);
+
+  const authorization = source.split("  handleAuthorizeSuccess(packet) {", 2)[1].split(
+    "\n  retireLocalSession(",
+    1,
+  )[0];
+  assert.match(
+    authorization,
+    /this\.beginLocaleUpdate\(packet\.locale\)\.then\(\(applied\)/u,
+  );
+  assert.match(authorization, /if \(applied\)/u);
+
+  const cleanup = source.split("  cleanupRuntime(full = false) {", 2)[1].split(
+    "\n  clearSessionHistory()",
+    1,
+  )[0];
+  assert.match(cleanup, /this\.localeUpdateGeneration \+= 1/u);
+  assert.match(cleanup, /this\.localeUpdateBarrier = null/u);
+});
+
 test("the offline shell precaches the updated UI modules", async () => {
   const serviceWorker = await readFile(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(serviceWorker, /playaural-web-v1\.0\.5\.1-shell-17/u);
+  assert.match(serviceWorker, /playaural-web-v1\.0\.5\.1-shell-18/u);
   for (const asset of [
     "store.js",
     "spatial_audio.js",

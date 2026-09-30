@@ -1,6 +1,8 @@
 """Tests for Chess."""
 
+from concurrent.futures import Future
 from pathlib import Path
+from threading import Event
 
 from ..game_utils.actions import Visibility
 from ..game_utils.grid_mixin import GridCursor
@@ -15,7 +17,7 @@ from ..games.chess.game import (
     index_to_notation,
     notation_to_index,
 )
-from ..games.chess.bot import find_best_move
+from ..games.chess.bot import BotSearchJob, find_best_move
 from ..games.registry import GameRegistry
 from ..messages.localization import Localization
 from ..users.bot import Bot
@@ -1017,7 +1019,13 @@ def test_undo_and_pending_input_state_clear_when_game_finishes() -> None:
     game.pending_undo_snapshot = game._make_undo_snapshot()
     game._pending_actions[white.id] = "type_move"
     game._pending_action_return_focus[white.id] = "type_move"
-    game._chess_bot_jobs[white.id] = object()
+    future = Future()
+    cancel_event = Event()
+    game._chess_bot_jobs[white.id] = BotSearchJob(
+        signature="finishing-game",
+        future=future,
+        cancel_event=cancel_event,
+    )
 
     game.finish_game(show_end_screen=False)
 
@@ -1029,6 +1037,8 @@ def test_undo_and_pending_input_state_clear_when_game_finishes() -> None:
     assert game._pending_actions == {}
     assert game._pending_action_return_focus == {}
     assert game._chess_bot_jobs == {}
+    assert cancel_event.is_set()
+    assert future.cancelled()
 
 
 def test_undo_accept_shortcut_does_not_accept_draw() -> None:

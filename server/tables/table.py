@@ -1,6 +1,7 @@
 """Table management for games."""
 
 import json
+import logging
 import math
 import time
 import types
@@ -147,6 +148,18 @@ class TableMember:
 
     username: str
     is_spectator: bool = False
+
+
+@dataclass(frozen=True)
+class _GameTransitionSeat:
+    """One participant reconstructed in a fresh game activity."""
+
+    player_id: str
+    name: str
+    user: "User"
+    is_bot: bool
+    is_spectator: bool
+    bot_name_base: str = ""
 
 
 @dataclass
@@ -1045,22 +1058,6 @@ class Table(DataClassJSONMixin):
             if should_destroy:
                 self.destroy()
 
-    def handle_event(self, username: str, event: dict) -> None:
-        """Handle an event from a member."""
-        if self._game:
-            user = self._users.get(username)
-            if user:
-                player = self._game.get_player_by_id(user.uuid)
-                if player:
-                    self._game.handle_event(player, event)
-                    return
-
-            # Fall back to display-name lookup for legacy callers.
-            for player in self._game.players:
-                if player.name == username:
-                    self._game.handle_event(player, event)
-                    break
-
     def save_game_state(self) -> None:
         """Save the current game state to game_json."""
         if self._game:
@@ -1079,6 +1076,368 @@ class Table(DataClassJSONMixin):
 
         if self._manager:
             self._manager.on_table_destroy(self)
+
+    def _live_members_for_game_transition(
+        self,
+    ) -> tuple[list[TableMember], dict[str, "User"]]:
+        """Return current human members backed by the authoritative session.
+
+        A game change is a live table operation, not saved-table restoration.
+        Disconnected reservations therefore end with the old match. Replacement
+        bots are retained separately as ordinary bots, matching normal reset
+        behavior without carrying another account's reclaim rights into a new
+        game.
+        """
+        live_members: list[TableMember] = []
+        live_users: dict[str, User] = {}
+        server_users = getattr(self._server, "_users", None)
+
+        for member in self.members:
+            attached_user = self._users.get(member.username)
+            expected_uuid = str(getattr(attached_user, "uuid", ""))
+            if not expected_uuid and self._db:
+                account = self._db.get_user(member.username)
+                expected_uuid = str(getattr(account, "uuid", ""))
+            if server_users is None:
+                current_user = attached_user
+            else:
+                current_user = server_users.get(member.username)
+            if current_user is None or getattr(current_user, "is_bot", False):
+                continue
+            if (
+                not expected_uuid
+                or str(getattr(current_user, "uuid", "")) != expected_uuid
+            ):
+                continue
+            live_members.append(member)
+            live_users[member.username] = current_user
+
+        return live_members, live_users
+
+    def _game_transition_seats(
+        self,
+    ) -> tuple[list[TableMember], dict[str, "User"], list[_GameTransitionSeat]]:
+        """Snapshot the ordered roster that can enter a fresh game lobby."""
+        if not self._game:
+            return [], {}, []
+
+        live_members, live_users = self._live_members_for_game_transition()
+        member_by_uuid: dict[str, TableMember] = {}
+        for member in live_members:
+            user = live_users[member.username]
+            user_uuid = str(getattr(user, "uuid", ""))
+            if not user_uuid or user_uuid in member_by_uuid:
+                raise ValueError("Table members must have unique account identifiers")
+            member_by_uuid[user_uuid] = member
+
+        seats: list[_GameTransitionSeat] = []
+        seat_ids: set[str] = set()
+        included_humans: set[str] = set()
+
+        def add_seat(seat: _GameTransitionSeat) -> None:
+            if not seat.player_id or seat.player_id in seat_ids:
+                raise ValueError("Game transition seats must have unique identifiers")
+            seat_ids.add(seat.player_id)
+            seats.append(seat)
+
+        for old_player in self._game.players:
+            player_id = str(getattr(old_player, "id", ""))
+            live_member = member_by_uuid.get(player_id)
+
+            # A replacement seat belongs to its returning live account if the
+            # authoritative session has already reappeared. This prevents a
+            # narrow reconnect/switch race from duplicating that account and
+            # its temporary bot in the new lobby.
+            if old_player.is_bot and old_player.replaced_human and live_member:
+                user = live_users[live_member.username]
+                add_seat(
+                    _GameTransitionSeat(
+                        player_id=str(user.uuid),
+                        name=live_member.username,
+                        user=user,
+                        is_bot=False,
+                        is_spectator=live_member.is_spectator,
+                    )
+                )
+                included_humans.add(live_member.username)
+                continue
+
+            if old_player.is_bot:
+                base_name = normalize_bot_name(
+                    old_player.bot_name_base or old_player.name
+                )
+                old_bot_user = self._game._users.get(player_id)
+                if old_player.replaced_human:
+                    bot_user = Bot(old_player.name)
+                elif isinstance(old_bot_user, Bot):
+                    # Clone the runtime facade so target-name reconciliation
+                    # cannot mutate the current game before the atomic commit.
+                    bot_user = Bot(
+                        old_player.name,
+                        locale=old_bot_user.locale,
+                        uuid=player_id,
+                        gender=old_bot_user.gender,
+                    )
+                else:
+                    bot_user = Bot(old_player.name, uuid=player_id)
+                add_seat(
+                    _GameTransitionSeat(
+                        player_id=str(bot_user.uuid),
+                        name=old_player.name,
+                        user=bot_user,
+                        is_bot=True,
+                        is_spectator=old_player.is_spectator,
+                        bot_name_base=base_name,
+                    )
+                )
+                continue
+
+            if live_member and live_member.username not in included_humans:
+                user = live_users[live_member.username]
+                add_seat(
+                    _GameTransitionSeat(
+                        player_id=str(user.uuid),
+                        name=live_member.username,
+                        user=user,
+                        is_bot=False,
+                        is_spectator=live_member.is_spectator,
+                    )
+                )
+                included_humans.add(live_member.username)
+
+        missing_members = [
+            member.username
+            for member in live_members
+            if member.username not in included_humans
+        ]
+        if missing_members:
+            raise ValueError(
+                "Every live table member must have a matching game participant"
+            )
+
+        return live_members, live_users, seats
+
+    def game_transition_active_seat_count(self) -> int:
+        """Return the seats a target game's maximum must accommodate."""
+        _members, _users, seats = self._game_transition_seats()
+        return sum(1 for seat in seats if not seat.is_spectator)
+
+    @staticmethod
+    def _retire_game_runtime(
+        game: "Game",
+        *,
+        stop_audio: bool = False,
+        audio_audience: Any = None,
+    ) -> None:
+        """Detach every runtime-only path from a replaced game instance."""
+        game._destroyed = True
+        logger = logging.getLogger("playaural")
+        game_type = type(game).__name__
+        try:
+            game_type = game.get_type()
+        except Exception:
+            logger.exception("Could not identify a game while retiring it")
+        if stop_audio:
+            # A hard activity change suppresses callbacks queued earlier in
+            # this event-loop turn. Letting one dispatch during on_discard()
+            # would briefly resurrect an old one-shot immediately before the
+            # stop command intended to fence off that activity.
+            table_audio_batcher = getattr(
+                game,
+                "_table_presence_audio_batcher",
+                None,
+            )
+            if table_audio_batcher is not None:
+                try:
+                    table_audio_batcher.cancel()
+                except Exception:
+                    logger.exception(
+                        "Pending audio cleanup failed while replacing %s",
+                        game_type,
+                    )
+        try:
+            game.on_discard()
+        except Exception:
+            logger.exception(
+                "Game cleanup failed while replacing %s",
+                game_type,
+            )
+        if stop_audio:
+            try:
+                # Stop every source, including already-started one-shots, so
+                # nothing owned by the retired activity reaches the new lobby.
+                game.stop_all_audio(fade_ms=0, audience=audio_audience)
+            except Exception:
+                logger.exception(
+                    "Audio cleanup failed while replacing %s",
+                    game_type,
+                )
+        # Keep retirement fail-closed even when delivery to one broken client
+        # raises: no reconnectable audio ownership from this activity may
+        # survive in server memory.
+        game.active_audio.clear()
+        game.current_music = ""
+        game.current_ambience = ""
+        game.current_ambience_outro = ""
+        try:
+            game.clear_scheduled_sounds()
+        except Exception:
+            logger.exception(
+                "Scheduled audio cleanup failed while replacing %s",
+                game_type,
+            )
+        try:
+            game.cancel_all_sequences()
+        except Exception:
+            logger.exception(
+                "Sequence cleanup failed while replacing %s",
+                game_type,
+            )
+        for container_name in (
+            "_keybinds",
+            "_pending_actions",
+            "_action_context",
+            "_actions_menu_open",
+            "_actions_menu_return_focus",
+            "_pending_action_return_focus",
+            "_status_box_open",
+            "_live_status_boxes",
+            "_status_box_return_focus",
+            "_menu_dirty",
+            "_pending_menu_focus",
+            "_options_path",
+            "_end_screen_open_player_ids",
+            "_transcripts",
+            "player_action_sets",
+        ):
+            container = getattr(game, container_name, None)
+            if container is not None:
+                container.clear()
+        game._menu_dirty_all = False
+        game._last_game_result = None
+        game._users.clear()
+        game._table = None
+
+    def transition_to_game(self, game_type: str) -> bool:
+        """Atomically replace the current match with a fresh game lobby.
+
+        The table is the durable social/voice session. Its identity, owner,
+        privacy, bans, and live human roles remain intact while match-owned
+        state is replaced. Nothing is mutated until the complete target roster
+        and its serialized state have been validated.
+        """
+        old_game = self._game
+        if not old_game or not isinstance(game_type, str):
+            return False
+        target_class = get_game_class(game_type)
+        if not target_class or game_type == self.game_type:
+            return False
+
+        new_game = None
+        try:
+            live_members, live_users, seats = self._game_transition_seats()
+            if not any(member.username == self.host for member in live_members):
+                return False
+            active_seats = sum(1 for seat in seats if not seat.is_spectator)
+            if active_seats > target_class.get_max_players():
+                return False
+
+            new_game = target_class()
+            new_game.host = self.host
+            new_game.status = "waiting"
+            new_game.game_active = False
+            new_game._table = self
+            new_game.setup_keybinds()
+
+            for seat in seats:
+                player = new_game.create_player(
+                    seat.player_id,
+                    seat.name,
+                    is_bot=seat.is_bot,
+                )
+                player.is_spectator = seat.is_spectator
+                if seat.is_bot:
+                    player.bot_name_base = seat.bot_name_base
+                new_game.players.append(player)
+                new_game.attach_user(player.id, seat.user)
+                new_game.setup_player_actions(player)
+
+            host_user = live_users[self.host]
+            new_game.ensure_bot_display_names(host_user.locale)
+            serialized_game = new_game.to_json()
+        except Exception:
+            logging.getLogger("playaural").exception(
+                "Failed to prepare table %s transition from %s to %s",
+                self.table_id,
+                self.game_type,
+                game_type,
+            )
+            if new_game is not None:
+                self._retire_game_runtime(new_game)
+            return False
+
+        old_member_names = {member.username for member in self.members}
+        live_member_names = {member.username for member in live_members}
+        removed_member_names = old_member_names - live_member_names
+
+        self.members = live_members
+        self._users = live_users
+        for username in removed_member_names:
+            if (
+                self._manager
+                and hasattr(self._manager, "_username_to_table")
+                and self._manager._username_to_table.get(username) == self.table_id
+            ):
+                self._manager._username_to_table.pop(username, None)
+            if self._server and hasattr(self._server, "_clear_voice_join_authorization"):
+                self._server._clear_voice_join_authorization(username)
+            if self._server and hasattr(self._server, "_voice_presence_by_user"):
+                self._server._voice_presence_by_user.pop(username, None)
+        if self._manager and hasattr(self._manager, "_username_to_table"):
+            for member in live_members:
+                self._manager._username_to_table[member.username] = self.table_id
+
+        self.game_type = game_type
+        self._game = new_game
+        self.game_json = serialized_game
+        self.status = "waiting"
+        self._last_menu_state_hash = None
+        self._member_offline_since.clear()
+        self._offline_since = None
+        self.clear_power_restore_grace()
+
+        # A game change is a hard activity boundary. Retirement flushes any
+        # final batched table cue, then stops every source (including one-shots)
+        # so nothing from the old activity overlaps the fresh waiting lobby.
+        # Table voice remains a separate, unchanged LiveKit context.
+        # Put authoritative sessions first: audio recipient deduplication by
+        # account UUID must favor a replacement device over its stale facade.
+        retirement_audio_audience = (
+            *live_users.values(),
+            *old_game._users.values(),
+        )
+        self._retire_game_runtime(
+            old_game,
+            stop_audio=True,
+            audio_audience=retirement_audio_audience,
+        )
+        if self._server and hasattr(self._server, "on_table_game_transition"):
+            try:
+                self._server.on_table_game_transition(self)
+            except Exception:
+                logging.getLogger("playaural").exception(
+                    "Post-transition consent cleanup failed for table %s",
+                    self.table_id,
+                )
+        if self._server and hasattr(self._server, "on_tables_changed"):
+            try:
+                self._server.on_tables_changed()
+            except Exception:
+                logging.getLogger("playaural").exception(
+                    "Post-transition table notification failed for table %s",
+                    self.table_id,
+                )
+        return True
 
     def reset_game(self, *, preserve_scheduled_sounds: bool = True) -> bool:
         """Reset the table to the lobby state with a completely fresh Game instance."""
@@ -1246,21 +1605,7 @@ class Table(DataClassJSONMixin):
             new_game._import_end_screen_state(end_screen_state)
 
         # 13. Mark and detach old runtime state so ticks or stale callbacks cannot affect the table.
-        old_game._destroyed = True
-        old_game.on_discard()
-        if hasattr(old_game, "clear_scheduled_sounds"):
-            old_game.clear_scheduled_sounds()
-        if hasattr(old_game, "cancel_all_sequences"):
-            old_game.cancel_all_sequences()
-        if hasattr(old_game, "_pending_actions"):
-            old_game._pending_actions.clear()
-        if hasattr(old_game, "_actions_menu_open"):
-            old_game._actions_menu_open.clear()
-        if hasattr(old_game, "_status_box_open"):
-            old_game._status_box_open.clear()
-        if hasattr(old_game, "_users"):
-            old_game._users.clear()
-        old_game._table = None
+        self._retire_game_runtime(old_game)
 
         # 14. Sync status
         self.status = "waiting"

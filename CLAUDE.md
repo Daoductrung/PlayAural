@@ -701,6 +701,19 @@ alive. This does not weaken the active-human start requirement. If an active
 table reaches zero gameplay seats, preserve it for the present spectator host
 but keep gameplay ticks paused until restart or explicit teardown.
 
+Treat the `Table` as the durable party, admission, and LiveKit context and its
+`Game` as a replaceable activity. Host-requested game switching validates the
+entire live roster and the target game's active-seat capacity before any table
+mutation. A successful switch retains the table id, host, privacy, bans, live
+human playing/spectating roles, dedicated bots, table chat, and voice context,
+but constructs a fresh target lobby with default options. Match state, teams,
+readiness, turn timers, scheduled/managed audio, disconnected-seat reclaim
+rights, pending substitutions, and invitations that named the old game do not
+cross that boundary. Retire the old activity completely, suppress the normal
+public table-created notification, rebuild every present member's UI from the
+new game, and fail without changing the current table when preparation or
+capacity validation fails.
+
 #### Server-Side Navigation Stack
 Server menus use the breadcrumb stack in `_user_states[username]["_stack"]`.
 
@@ -964,8 +977,12 @@ Any new persistent feature must define:
 
 `Game.on_discard()` is the idempotent lifecycle hook for match-scoped caches,
 bot observations, and similar memory that must not outlive its game instance.
-The framework calls it on both table destruction and game restart; it does not
-replace the retention and cleanup rules required for genuinely persistent data.
+The framework calls it whenever an instance is abandoned, including table
+destruction, restart, game switching, and failed replacement preparation.
+Games that launch asynchronous work must cancel it cooperatively here, discard
+all job references, run that work only against isolated snapshots, and never
+let it call back into a discarded game. This hook does not replace the retention
+and cleanup rules required for genuinely persistent data.
 
 #### Chat Anti-Spam and Moderation Reports
 - Throttle by immutable account UUID and independent chat scope. Global chat is
@@ -1032,6 +1049,14 @@ replace the retention and cleanup rules required for genuinely persistent data.
   through locale files and the appropriate metadata/registry layer. Missing
   translated strings and missing translated documentation must fall back to
   English, never to raw keys or empty manuals.
+- A live language change sends the client locale update before newly localized
+  speech or menus, rebuilds only that player's locale-bound game action sets,
+  and restores the semantic parent menu and focus rather than translating a
+  rendered surface in place. Desktop and Mobile apply bundled catalogs
+  synchronously. Web must place its asynchronous catalog load behind an
+  ordered barrier so later WebSocket packets cannot render or speak in front
+  of the locale and document-direction update; rapid locale packets must chain
+  rather than race.
 - Validate server Fluent changes with `server/tools/compare_locales.py`. The
   tool reports missing and obsolete files/keys, plus variable, select/plural
   arm, and attribute mismatches. Obsolete target keys are cleanup work, not

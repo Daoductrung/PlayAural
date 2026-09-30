@@ -34,7 +34,6 @@ from ..game_utils.menu_management_mixin import MenuManagementMixin
 from ..game_utils.action_visibility_mixin import ActionVisibilityMixin
 from ..game_utils.lobby_actions_mixin import LobbyActionsMixin
 from ..game_utils.bot_names import (
-    allocate_bot_display_name,
     bot_name_key,
     normalize_bot_name,
     plan_bot_display_names,
@@ -295,10 +294,11 @@ class Game(
     def on_discard(self) -> None:
         """Release game-specific memory before this instance is abandoned.
 
-        Table closure and table restart both call this idempotent lifecycle hook.
-        Persistent fields that exist only to inform the current match may be
-        cleared here so stale references cannot retain them while the discarded
-        game instance awaits garbage collection.
+        The framework calls this idempotent lifecycle hook whenever an instance
+        is abandoned, including table closure, restart, game switching, and
+        failed replacement preparation. Persistent fields that exist only to
+        inform the current match may be cleared here so stale references cannot
+        retain them while the discarded game instance awaits garbage collection.
         """
         table_audio_batcher = getattr(self, "_table_presence_audio_batcher", None)
         if table_audio_batcher is not None:
@@ -306,7 +306,13 @@ class Game(
             # that queued a legitimate final departure cue. Flush it before
             # detaching the game's users so the event is not lost or replayed
             # later in an unrelated menu.
-            table_audio_batcher.flush()
+            try:
+                table_audio_batcher.flush()
+            finally:
+                # ``flush`` consumes callbacks but deliberately retains its
+                # event-loop affinity for ordinary reuse. A discarded game
+                # will never reuse it, so release that final runtime reference.
+                table_audio_batcher.cancel()
 
     def _reset_transcripts(self) -> None:
         """Initialize transcript storage for seated players."""
@@ -1086,6 +1092,21 @@ class Game(
                 # Mark the player's menu for repaint so they have UI state
                 # at the next flush (within the current tick).
                 self.refresh_menus(player)
+
+    def on_player_locale_changed(self, player: Player) -> None:
+        """Rebuild locale-bound actions and repaint one player's live UI.
+
+        Action ids and runtime input intent are semantic and remain stable;
+        labels are presentation data captured when action sets are created.
+        Replacing only this player's declarative sets updates turn menus,
+        actions menus, and live selectors without disturbing game state or
+        another participant's focus.
+        """
+        if player.is_bot or not self.get_user(player):
+            return
+        self.player_action_sets.pop(player.id, None)
+        self.setup_player_actions(player)
+        self.refresh_menus(player)
 
     def get_user(self, player: Player) -> User | None:
         """Get the user for a player."""

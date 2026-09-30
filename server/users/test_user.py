@@ -81,6 +81,12 @@ class MockUser(User):
     def locale(self) -> str:
         return self._locale
 
+    def set_locale(self, locale: str) -> None:
+        """Mirror the production user's validated locale mutation."""
+        from ..messages.localization import Localization
+
+        self._locale = Localization.resolve_locale(locale, fallback=self._locale)
+
     @property
     def approved(self) -> bool:
         return self._approved

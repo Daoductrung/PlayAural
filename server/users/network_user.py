@@ -95,7 +95,7 @@ class NetworkUser(User):
 
     def set_locale(self, locale: str) -> None:
         """Set the user's locale."""
-        self._locale = locale
+        self._locale = Localization.resolve_locale(locale, fallback=self._locale)
 
     @property
     def trust_level(self) -> int:

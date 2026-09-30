@@ -887,7 +887,7 @@ duration-hours = { $count ->
 }
 duration-minutes-seconds = { $minutes } minutes and { $seconds } seconds
 duration-hours-minutes = { $hours } hours and { $minutes } minutes
-server-error-changing-language = Error changing language: { $error }
+server-error-changing-language = The language could not be changed. Your previous interface remains active.
 default-save-name = { $game } - { $date }
 
 speech-settings = Speech Settings
@@ -1145,6 +1145,7 @@ table-spectator-suffix = (Spectator)
 host-management-set-private = Set Table to Private
 host-management-set-public = Set Table to Public
 host-management-invite = Invite a Friend
+host-management-switch-game = Switch to Another Game
 host-management-pass-host = Pass Host to Another Player
 host-management-kick = Kick a Player
 host-management-kick-ban = Kick and Ban a Player
@@ -1152,6 +1153,24 @@ host-management-player-substitution = Player Substitution
 host-management-restart-game = Restart Game
 host-management-table-now-private = This table is now private. Only invited users can join.
 host-management-table-now-public = This table is now public.
+host-game-switch-current = Current game: { $game }. This table has { $seats } active { $seats ->
+    [one] seat
+   *[other] seats
+}. Only games that can hold every active seat are listed.
+host-game-switch-no-compatible-games = No other game can currently hold all { $seats } active { $seats ->
+    [one] seat
+   *[other] seats
+}.
+host-game-switch-confirm = Switch this table from { $old_game } to { $new_game }? Everyone who is still present will move into the new waiting lobby with the same playing or spectating role, and bots will remain. The current match or lobby setup, options, teams, and ready state will be discarded. Table ownership, privacy, bans, and voice chat will stay connected. Pending invitations for the old game will be cancelled.
+host-game-switch-target-unavailable = That game is no longer available as a switch target. No table state was changed.
+host-game-switch-roster-invalid = This table's live membership no longer matches its game roster, so switching games was blocked to prevent anyone from being dropped. Return to the table and try again after the roster has refreshed.
+host-game-switch-too-many-seats = Cannot switch to { $game }: it supports at most { $max } active { $max ->
+    [one] seat
+   *[other] seats
+}, but this table currently needs { $seats }.
+host-game-switch-failed = The game could not be switched safely. The current table and game were left unchanged.
+host-game-switch-you = You switched this table from { $old_game } to { $new_game }. Everyone is now in the new waiting lobby; table voice chat remains connected.
+host-game-switch-player = { $player } switched this table from { $old_game } to { $new_game }. Everyone is now in the new waiting lobby; table voice chat remains connected.
 host-restart-confirm = Restart the current game and return this table to the waiting room? Current players and voice chat will stay connected, but the current match will be cancelled.
 host-restart-broadcast = { $player } restarted the game. The table is back in the waiting room.
 host-restart-not-playing = There is no active game to restart.

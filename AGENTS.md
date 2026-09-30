@@ -309,6 +309,14 @@ Use declarative `GameOptions` with `option_field()`.
   keeps the table alive; an ordinary spectator never does. This exception does
   not permit a bot-only start. If no active seat remains, retain the table but
   keep gameplay paused until the host restarts or closes it.
+- Treat a table as the durable social and voice session and its `Game` as a
+  replaceable activity. A host game switch must validate the complete live
+  roster and target capacity before mutation, then keep the table id, host,
+  privacy, bans, live human roles, dedicated bots, and voice context while
+  creating a fresh target lobby. Do not carry match options, teams, readiness,
+  timers, reclaim rights for disconnected seats, or activity-bound consent;
+  stop and detach all old-game runtime state, cancel old-game invitations, and
+  suppress the ordinary new-public-table notification.
 - `prestart_validate()` must block impossible deals, unsupported option
   combinations, and team-mode conflicts with clear localized errors.
 
@@ -479,6 +487,10 @@ participants; do not reuse game-player error strings for account lookups.
   branches in feature code; new languages should be added through locale files
   and metadata/registry layers. Missing translated strings or documentation
   must fall back to English rather than exposing raw keys to players.
+- A live language change updates client-owned chrome before later localized
+  packets, rebuilds that player's locale-bound action sets, and restores the
+  semantic parent menu/focus. Browser clients must serialize their asynchronous
+  locale-bundle load with later WebSocket packets so no stale language flashes.
 - Validate server Fluent changes with `server/tools/compare_locales.py`; it
   reports missing keys, obsolete keys, variables, select/plural arms, and
   attributes. Do not leave obsolete target keys behind after refactors.
@@ -556,8 +568,12 @@ Any persistent feature must define and test:
 
 `Game.on_discard()` is the idempotent lifecycle hook for match-scoped caches,
 bot observations, and similar memory that must not outlive its game instance.
-The framework calls it on both table destruction and game restart; it does not
-replace the retention and cleanup rules required for genuinely persistent data.
+The framework calls it whenever an instance is abandoned, including table
+destruction, restart, game switching, and failed replacement preparation.
+Games that launch asynchronous work must cancel it cooperatively here and drop
+every job reference; background work must operate on an isolated snapshot and
+must never call back into a discarded game. This hook does not replace the
+retention and cleanup rules required for genuinely persistent data.
 
 Do not add database rows, tables, saved runtime state, notifications, chat logs,
 tokens, invites, moderation records, or similar data without this lifecycle.

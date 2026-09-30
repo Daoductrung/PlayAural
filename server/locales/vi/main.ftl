@@ -878,7 +878,7 @@ duration-minutes = { $count } phút
 duration-hours = { $count } giờ
 duration-minutes-seconds = { $minutes } phút và { $seconds } giây
 duration-hours-minutes = { $hours } giờ và { $minutes } phút
-server-error-changing-language = Lỗi khi thay đổi ngôn ngữ: { $error }
+server-error-changing-language = Không thể thay đổi ngôn ngữ. Giao diện bằng ngôn ngữ trước đó vẫn được giữ nguyên.
 default-save-name = { $game } - { $date }
 
 speech-settings = Cài đặt giọng đọc
@@ -1134,6 +1134,7 @@ table-spectator-suffix = (Khán giả)
 host-management-set-private = Đặt bàn thành riêng tư
 host-management-set-public = Đặt bàn thành công khai
 host-management-invite = Mời bạn bè
+host-management-switch-game = Chuyển sang trò chơi khác
 host-management-pass-host = Chuyển quyền chủ bàn
 host-management-kick = Đuổi người chơi
 host-management-kick-ban = Đuổi và cấm người chơi
@@ -1141,6 +1142,24 @@ host-management-player-substitution = Thay người chơi
 host-management-restart-game = Khởi động lại ván chơi
 host-management-table-now-private = Bàn này hiện là riêng tư. Chỉ người được mời mới có thể tham gia.
 host-management-table-now-public = Bàn này hiện là công khai.
+host-game-switch-current = Trò chơi hiện tại: { $game }. { $seats ->
+    [one] Bàn đang có 1 chỗ chơi.
+   *[other] Bàn đang có { $seats } chỗ chơi.
+} Danh sách chỉ hiển thị những trò chơi đủ chỗ cho tất cả người đang chơi.
+host-game-switch-no-compatible-games = { $seats ->
+    [one] Hiện không có trò chơi nào khác đủ chỗ cho 1 người đang chơi.
+   *[other] Hiện không có trò chơi nào khác đủ chỗ cho cả { $seats } người đang chơi.
+}
+host-game-switch-confirm = Chuyển bàn này từ { $old_game } sang { $new_game }? Mọi người vẫn còn ở bàn sẽ được đưa vào phòng chờ mới và giữ nguyên vai trò người chơi hoặc khán giả; các bot cũng được giữ lại. Ván hoặc thiết lập phòng chờ hiện tại, tùy chọn, đội và trạng thái sẵn sàng sẽ bị hủy. Quyền chủ bàn, chế độ riêng tư, danh sách cấm và trò chuyện thoại vẫn được giữ nguyên. Những lời mời đang chờ của trò chơi cũ sẽ bị hủy.
+host-game-switch-target-unavailable = Trò chơi đó không còn khả dụng để chuyển sang. Không có trạng thái nào của bàn bị thay đổi.
+host-game-switch-roster-invalid = Danh sách thành viên đang kết nối của bàn không còn khớp với danh sách người tham gia ván, nên thao tác chuyển trò chơi đã bị chặn để không ai bị bỏ lại. Hãy trở về bàn và thử lại sau khi danh sách được cập nhật.
+host-game-switch-too-many-seats = Không thể chuyển sang { $game}: trò chơi này { $max ->
+    [one] chỉ hỗ trợ tối đa 1 chỗ chơi,
+   *[other] chỉ hỗ trợ tối đa { $max } chỗ chơi,
+} trong khi bàn hiện cần { $seats } chỗ.
+host-game-switch-failed = Không thể chuyển trò chơi một cách an toàn. Bàn và ván hiện tại vẫn được giữ nguyên.
+host-game-switch-you = Bạn đã chuyển bàn từ { $old_game } sang { $new_game }. Mọi người hiện ở phòng chờ mới; trò chuyện thoại của bàn vẫn được kết nối.
+host-game-switch-player = { $player } đã chuyển bàn từ { $old_game } sang { $new_game }. Mọi người hiện ở phòng chờ mới; trò chuyện thoại của bàn vẫn được kết nối.
 host-restart-confirm = Khởi động lại ván hiện tại và đưa bàn về phòng chờ? Người chơi hiện tại và trò chuyện thoại vẫn được giữ nguyên, nhưng ván đang chơi sẽ bị hủy.
 host-restart-broadcast = { $player } đã khởi động lại ván chơi. Bàn đã trở về phòng chờ.
 host-restart-not-playing = Hiện không có ván nào đang chơi để khởi động lại.

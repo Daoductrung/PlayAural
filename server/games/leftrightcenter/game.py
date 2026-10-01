@@ -10,6 +10,10 @@ from ...game_utils.actions import Action, ActionSet, Visibility
 from ...game_utils.bot_helper import BotHelper
 from ...game_utils.dice import random_dice_throw_sound
 from ...game_utils.game_result import GameResult, PlayerResult
+from ...game_utils.stats_helpers import (
+    RATING_COMPETITORS_KEY,
+    rating_competitors_from_scores,
+)
 from ...game_utils.options import IntOption, option_field
 from ...game_utils.sequence_runner_mixin import SequenceBeat, SequenceOperation
 from ...messages.localization import Localization
@@ -646,11 +650,7 @@ class LeftRightCenterGame(Game):
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=player.id,
-                    player_name=player.name,
-                    is_bot=player.is_bot and not player.replaced_human,
-                )
+                PlayerResult.from_player(player)
                 for player in ranked_players
             ],
             custom_data={
@@ -662,6 +662,9 @@ class LeftRightCenterGame(Game):
                 },
                 "rankings": rankings,
                 "team_rankings": rankings,
+                RATING_COMPETITORS_KEY: rating_competitors_from_scores(
+                    ([player.id], player.chips) for player in ranked_players
+                ),
             },
         )
 

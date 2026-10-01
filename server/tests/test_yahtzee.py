@@ -414,7 +414,7 @@ class TestYahtzeeGameUnit:
                 self.saved: list = []
                 self._db = None
 
-            def save_game_result(self, saved_result) -> None:
+            def save_game_result(self, saved_result, *, rating_updates=None) -> None:
                 self.saved.append(saved_result)
 
         table = FakeTable()

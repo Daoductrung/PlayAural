@@ -305,6 +305,24 @@ async def test_startup_preserves_durable_rows_and_consumes_checkpoints_only_on_s
     )
     database._conn.execute(
         """
+        INSERT INTO game_results (game_type, timestamp, duration_ticks, custom_data)
+        VALUES ('lastcard', '2020-01-01T00:00:00', 10, '{}')
+        """
+    )
+    database._conn.execute(
+        """
+        INSERT INTO player_game_stats (player_id, game_type, stat_key, stat_value)
+        VALUES ('stale-player', 'pig', 'obsolete_stat', 99)
+        """
+    )
+    database._conn.execute(
+        """
+        INSERT INTO player_ratings (player_id, game_type, mu, sigma)
+        VALUES ('stale-player', 'pig', 25, 0)
+        """
+    )
+    database._conn.execute(
+        """
         INSERT INTO password_reset_tokens
             (user_uuid, token_hash, created_at, expires_at)
         VALUES ('missing-user', 'expired', '2020-01-01T00:00:00',
@@ -327,6 +345,12 @@ async def test_startup_preserves_durable_rows_and_consumes_checkpoints_only_on_s
         assert server.db._conn.execute(
             "SELECT COUNT(*) FROM game_results"
         ).fetchone()[0] == 1
+        assert server.db._conn.execute(
+            "SELECT COUNT(*) FROM player_game_stats"
+        ).fetchone()[0] == 0
+        assert server.db._conn.execute(
+            "SELECT COUNT(*) FROM player_ratings"
+        ).fetchone()[0] == 0
         assert server.db._conn.execute(
             "SELECT COUNT(*) FROM password_reset_tokens"
         ).fetchone()[0] == 1

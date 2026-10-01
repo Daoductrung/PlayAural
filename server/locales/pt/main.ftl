@@ -431,7 +431,7 @@ leaderboard-avg-entry = { $rank }. { $player }: { $value }
 leaderboard-no-player-stats = Você ainda não jogou este jogo.
 
 leaderboard-no-ratings = Ainda não há dados de classificação para este jogo.
-leaderboard-rating-entry = { $rank }. { $player }: classificação { $rating } ({ $mu } ± { $sigma })
+leaderboard-rating-entry = { $rank }. { $player }: classificação { $rating }
 leaderboard-no-player-rating = Você ainda não tem uma classificação para este jogo.
 
 my-stats = Minhas Estatísticas
@@ -445,7 +445,7 @@ my-stats-winrate = Taxa de vitórias: { $value }%
 my-stats-games-played = Jogos disputados: { $value }
 my-stats-total-score = Pontuação total: { $value }
 my-stats-high-score = Pontuação máxima: { $value }
-my-stats-rating = Classificação de habilidade: { $value } ({ $mu } ± { $sigma })
+my-stats-rating = Classificação de habilidade: { $value }
 my-stats-no-rating = Sem classificação de habilidade ainda
 my-stats-avg-per-turn = Média de pontos por turno: { $value }
 my-stats-best-turn = Melhor turno único: { $value }
@@ -453,14 +453,6 @@ my-stats-score-per-round = Pontuação por rodada: { $value }
 my-stats-most-enemies-defeated = Mais Inimigos Derrotados: { $value }
 my-stats-deepest-wave-reached = Onda Mais Profunda Alcançada: { $value }
 
-predict-outcomes = Prever resultados
-predict-header = Resultados Previstos (por classificação de habilidade)
-predict-note-multiplayer = Percentuais de vitória são exibidos apenas para partidas de 2 jogadores. Com 3 ou mais jogadores humanos, apenas as classificações de habilidade são mostradas.
-predict-entry = { $rank }. { $player } (classificação: { $rating })
-predict-entry-2p = { $rank }. { $player } (classificação: { $rating }, { $probability }% de chance de vitória)
-predict-unavailable = Previsões de classificação não estão disponíveis.
-predict-need-players = São necessários pelo menos 2 jogadores humanos para previsões.
-action-need-more-humans = São necessários mais jogadores humanos.
 confirm-leave-game = Tem certeza de que deseja sair da mesa?
 confirm-yes = Sim
 confirm-no = Não

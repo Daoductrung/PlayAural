@@ -369,7 +369,6 @@ Key built-in mixins include:
 - `GameCommunicationMixin`
 - `GameResultMixin`
 - `GameScoresMixin`
-- `GamePredictionMixin`
 - `TurnManagementMixin`
 - `MenuManagementMixin`
 - `ActionVisibilityMixin`
@@ -480,7 +479,7 @@ conflicting, as UNO does. Likewise, `enter` can start the game while idle and
 select a grid cell while active.
 
 Base/client bindings to respect include `enter`, `escape`, `b`, `shift+b`,
-`f3`, `t`, `s`, `shift+s`, `ctrl+m`, `ctrl+q`, `ctrl+u`, `ctrl+s`, `ctrl+r`,
+`f3`, `t`, `s`, `shift+s`, `ctrl+m`, `ctrl+q`, `ctrl+u`, `ctrl+s`,
 `ctrl+i`, `f1`, and `ctrl+f1`. Plain `F1` is the client-owned
 focused-menu-description command and sends `menu_description`, never a game
 keybind; `Ctrl+F1` remains How to Play. Do not reuse `ALWAYS` bindings or
@@ -681,6 +680,12 @@ Rules:
 - brief score checks speak one TTS message per player/team in the `game` buffer instead of one combined sentence
 - detailed score checks use a live status box with one line per player/team unless the game has a stronger custom detail view
 - score units are display text only; leaderboards, ratings, personal statistics, and `GameResult.custom_data` continue to store numeric values in their established schema
+- every result for a wins or rating leaderboard declares `winner_ids` using immutable player/account ids; an empty list is a draw and creates neither wins nor losses, and competitive outcomes are never inferred from names
+- real teams and games with richer placement data store `RATING_COMPETITORS_KEY` data produced by `rating_competitors_from_scores(...)`; each result participant appears exactly once, equal ranks are ties, and multiple ids in one competitor are actual teammates
+- rating calculation is side-effect free; the result, aggregate stats, and validated rating updates commit in one database transaction
+- OpenSkill `mu` and `sigma` remain internal model state; player-facing views expose the conservative skill score, leaving visible per-game tiers or placement policy as a separate future presentation layer
+- every `PlayerResult` is built through `PlayerResult.from_player(...)`; a disconnected replacement bot remains owned by the reserved account, so its result, stats, win/loss, and rating count for that account and disconnecting cannot dodge a loss; completed substitution transfers ownership to the incoming account; a reversible host kick removes current membership but preserves that UUID-owned seat, private-table reclaim admission, and human-owned roster identity, while kick-and-ban, account deletion, and every other permanent removal immediately rekey an active retained seat to a fresh dedicated-bot UUID; dedicated bots never receive durable player stats or ratings
+- startup garbage collection derives valid game types and persisted stat keys from the live game registry, then removes unregistered-game data, unsupported derived leaderboard aggregates, and invalid rating rows; never maintain a parallel hardcoded cleanup schema
 
 #### Team Management and Arrangement
 Team-based games use `TeamManager` and the shared lobby team arrangement flow.

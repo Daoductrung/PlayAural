@@ -1953,7 +1953,12 @@ class Table(DataClassJSONMixin):
         if self._server:
             self._server.on_table_save(self, username)
 
-    def save_game_result(self, result: Any) -> None:
+    def save_game_result(
+        self,
+        result: Any,
+        *,
+        rating_updates: dict[str, tuple[float, float]] | None = None,
+    ) -> None:
         """Save a game result to the database. Called by game when it finishes."""
         if self._server:
-            self._server.on_game_result(result)
+            self._server.on_game_result(result, rating_updates=rating_updates)

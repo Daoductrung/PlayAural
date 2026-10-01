@@ -432,11 +432,10 @@ leaderboard-wins-entry = { $rank }: { $player }, { $wins } { $wins ->
 leaderboard-score-entry = { $rank }. { $player }: { $value }
 leaderboard-games-entry = { $rank }. { $player }: { $value } ván
 leaderboard-avg-entry = { $rank }. { $player }: { $value }
-
 leaderboard-no-player-stats = Bạn chưa chơi trò chơi này.
 
 leaderboard-no-ratings = Chưa có dữ liệu xếp hạng cho trò chơi này.
-leaderboard-rating-entry = { $rank }. { $player }: xếp hạng { $rating } ({ $mu } ± { $sigma })
+leaderboard-rating-entry = { $rank }. { $player }: xếp hạng { $rating }
 leaderboard-no-player-rating = Bạn chưa có xếp hạng cho trò chơi này.
 
 my-stats = Thống kê của tôi
@@ -450,22 +449,15 @@ my-stats-winrate = Tỷ lệ thắng: { $value }%
 my-stats-games-played = Số ván đã chơi: { $value }
 my-stats-total-score = Tổng điểm: { $value }
 my-stats-high-score = Điểm cao nhất: { $value }
-my-stats-rating = Xếp hạng kỹ năng: { $value } ({ $mu } ± { $sigma })
+my-stats-rating = Xếp hạng kỹ năng: { $value }
 my-stats-no-rating = Chưa có xếp hạng kỹ năng
+my-stats-custom = { $name }: { $value }
 my-stats-avg-per-turn = Điểm trung bình mỗi lượt: { $value }
 my-stats-best-turn = Lượt đi điểm cao nhất: { $value }
 my-stats-score-per-round = Điểm trung bình mỗi vòng: { $value }
 my-stats-most-enemies-defeated = Số địch hạ gục cao nhất: { $value }
 my-stats-deepest-wave-reached = Đợt vượt sâu nhất: { $value }
 
-predict-outcomes = Dự đoán kết quả
-predict-header = Kết quả dự đoán (theo xếp hạng kỹ năng)
-predict-note-multiplayer = Phần trăm thắng chỉ hiển thị khi đấu 2 người. Nếu có từ 3 người chơi thật trở lên, hệ thống chỉ hiển thị xếp hạng kỹ năng.
-predict-entry = { $rank }. { $player } (xếp hạng: { $rating })
-predict-entry-2p = { $rank }. { $player } (xếp hạng: { $rating }, tỷ lệ thắng { $probability }%)
-predict-unavailable = Dự đoán xếp hạng không khả dụng.
-predict-need-players = Cần ít nhất 2 người chơi thật để dự đoán.
-action-need-more-humans = Cần thêm người chơi thật.
 confirm-leave-game = Bạn có chắc chắn muốn rời bàn không?
 confirm-yes = Có
 confirm-no = Không

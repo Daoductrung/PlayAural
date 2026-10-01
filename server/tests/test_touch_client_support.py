@@ -50,7 +50,6 @@ _BASE_TOUCH_WAITING_STANDARD_ACTIONS = {
     "whos_at_table",
     "check_scores",
     "check_scores_detailed",
-    "predict_outcomes",
     "game_info",
     "game_rules",
 }

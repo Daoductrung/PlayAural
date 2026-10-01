@@ -499,7 +499,6 @@ def test_keybinds_use_active_state_and_do_not_collide_with_reserved_keys() -> No
         "ctrl+q",
         "ctrl+u",
         "ctrl+s",
-        "ctrl+r",
         "ctrl+i",
         "ctrl+f1",
     }

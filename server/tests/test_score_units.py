@@ -183,10 +183,11 @@ def test_custom_score_unit_end_screens_use_game_terms(
     game_cls, custom_data, expected_en, expected_vi
 ) -> None:
     game = game_cls()
-    result = GameResult.create(
+    result = GameResult(
         game_type=game.get_type(),
+        timestamp="2026-10-01T00:00:00",
         duration_ticks=0,
-        players=[],
+        player_results=[],
         custom_data=custom_data,
     )
 

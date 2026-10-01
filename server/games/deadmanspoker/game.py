@@ -13,6 +13,10 @@ from ...game_utils.actions import Action, ActionSet, MenuInput, Visibility
 from ...game_utils.bot_helper import BotHelper
 from ...game_utils.cards import Card, Deck, DeckFactory, card_name, read_cards
 from ...game_utils.game_result import GameResult, PlayerResult
+from ...game_utils.stats_helpers import (
+    RATING_COMPETITORS_KEY,
+    rating_competitors_from_scores,
+)
 from ...game_utils.poker_evaluator import best_hand, describe_hand, describe_partial_hand
 from ...game_utils.sequence_runner_mixin import SequenceBeat, SequenceOperation
 from ...messages.localization import Localization
@@ -2275,11 +2279,7 @@ class DeadMansPokerGame(Game):
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=player.id,
-                    player_name=player.name,
-                    is_bot=player.is_bot and not player.replaced_human,
-                )
+                PlayerResult.from_player(player)
                 for player in active_players
             ],
             custom_data={
@@ -2287,6 +2287,12 @@ class DeadMansPokerGame(Game):
                 "winner_ids": winner_ids,
                 "hands_played": self.hand_number,
                 "team_rankings": team_rankings,
+                RATING_COMPETITORS_KEY: rating_competitors_from_scores(
+                    (
+                        ([player.id], 1 if player.id == self.winner_id else 0)
+                        for player in rankings
+                    )
+                ),
                 "player_stats": {
                     player.name: {
                         "hands_won": player.hands_won,

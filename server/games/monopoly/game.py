@@ -11,6 +11,10 @@ from typing import Any, ClassVar
 from ...game_utils.actions import Action, ActionSet, EditboxInput, MenuInput, Visibility
 from ...game_utils.bot_helper import BotHelper
 from ...game_utils.game_result import GameResult, PlayerResult
+from ...game_utils.stats_helpers import (
+    RATING_COMPETITORS_KEY,
+    rating_competitors_from_scores,
+)
 from ...game_utils.menu_management_mixin import StatusBoxBuild
 from ...game_utils.options import BoolOption, GameOptions, MenuOption, option_field
 from ...game_utils.sequence_runner_mixin import SequenceBeat, SequenceOperation
@@ -7078,11 +7082,7 @@ class MonopolyGame(Game):
             timestamp=datetime.now(timezone.utc).isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=player.id,
-                    player_name=player.name,
-                    is_bot=player.is_bot and not player.replaced_human,
-                )
+                PlayerResult.from_player(player)
                 for player in participants
             ],
             custom_data={
@@ -7100,6 +7100,12 @@ class MonopolyGame(Game):
                     }
                     for index, player in enumerate(rankings)
                 ],
+                RATING_COMPETITORS_KEY: rating_competitors_from_scores(
+                    (
+                        ([player.id], len(rankings) - index)
+                        for index, player in enumerate(rankings)
+                    )
+                ),
             },
         )
 

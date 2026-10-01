@@ -1962,16 +1962,12 @@ class CoupGame(Game):
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=p.id,
-                    player_name=p.name,
-                    is_bot=p.is_bot and not p.replaced_human,
-                )
+                PlayerResult.from_player(p)
                 for p in active_players
             ],
             custom_data={
                 "winner_name": winner.name if winner else None,
-                "winner_ids": [winner.id] if winner else None,
+                "winner_ids": [winner.id] if winner else [],
                 "winner_score": 1,
                 "rankings": rankings,
             },

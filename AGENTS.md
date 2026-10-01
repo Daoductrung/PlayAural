@@ -298,7 +298,7 @@ base `b` Add bot binding is `IDLE`, so a game may safely bind `b` to an
 while idle and select a grid cell while active.
 
 Base/client bindings to respect: `enter`, `escape`, `b`, `shift+b`, `f3`, `t`,
-`s`, `shift+s`, `ctrl+m`, `ctrl+q`, `ctrl+u`, `ctrl+s`, `ctrl+r`, `ctrl+i`,
+`s`, `shift+s`, `ctrl+m`, `ctrl+q`, `ctrl+u`, `ctrl+s`, `ctrl+i`,
 `f1`, `ctrl+f1`. Plain `F1` is the client-owned focused-menu-description
 command and must send the semantic `menu_description` request, never a game
 keybind; `Ctrl+F1` remains How to Play. Do not reuse `ALWAYS` bindings or
@@ -564,6 +564,35 @@ player-facing tone.
 
 - Only games with real leaderboard support should expose
   `get_supported_leaderboards()` entries.
+- Every result for a wins or rating leaderboard must declare `winner_ids` by
+  immutable player/account id. An empty list means a draw and must not create
+  wins or losses. Never infer a competitive result from a name.
+- A real team or a game that supplies more than winner/loser placement must
+  store canonical `RATING_COMPETITORS_KEY` data built with
+  `rating_competitors_from_scores(...)`. Each participant appears exactly once;
+  equal ranks are ties, while ids grouped in one competitor are teammates.
+- Rating calculation is side-effect free. Persist the completed result,
+  aggregate stats, and validated rating updates in one database transaction.
+  Raw model parameters are internal; player-facing views use the conservative
+  skill score so a future tier policy can be layered on without changing the
+  rating model or durable identities.
+- Build every `PlayerResult` through `PlayerResult.from_player(...)`. A
+  disconnected replacement bot remains owned by the reserved account, so its
+  final result, stats, win/loss, and rating count for that account and a
+  disconnect cannot dodge a loss. A completed seat substitution transfers
+  ownership to the incoming account. A reversible host kick removes current
+  table membership but retains the account-owned replacement seat so the same
+  UUID can reclaim its complete context and result attribution; private-table
+  admission must recognize that reservation. A kick-and-ban, account deletion,
+  or other permanent removal rekeys the retained active seat to a fresh
+  dedicated-bot UUID immediately, so no later result is attributed to the
+  departed account; dedicated bots never receive durable player stats or
+  ratings. Keep an unclaimed reversible reservation visible as a human-owned
+  roster row so it cannot be mistaken for or removed as an ordinary bot.
+- Startup garbage collection derives valid game types and persisted stat keys
+  from the live registry. It removes unregistered-game data, unsupported
+  derived leaderboard aggregates, and invalid rating rows; do not maintain a
+  second hardcoded cleanup schema.
 - Scoreless games should not claim score support; score buttons are hidden and
   `s` / `shift+s` are ignored silently.
 - Games using default score actions must keep `TeamManager` synchronized.

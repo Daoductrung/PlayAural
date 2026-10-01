@@ -432,11 +432,10 @@ leaderboard-wins-entry = { $rank }: { $player }, { $wins } { $wins ->
 leaderboard-score-entry = { $rank }. { $player }: { $value }
 leaderboard-games-entry = { $rank }. { $player }: { $value } games
 leaderboard-avg-entry = { $rank }. { $player }: { $value }
-
 leaderboard-no-player-stats = You haven't played this game yet.
 
 leaderboard-no-ratings = No rating data yet for this game.
-leaderboard-rating-entry = { $rank }. { $player }: { $rating } rating ({ $mu } ± { $sigma })
+leaderboard-rating-entry = { $rank }. { $player }: { $rating } rating
 leaderboard-no-player-rating = You don't have a rating for this game yet.
 
 my-stats = My Stats
@@ -450,22 +449,15 @@ my-stats-winrate = Win rate: { $value }%
 my-stats-games-played = Games played: { $value }
 my-stats-total-score = Total score: { $value }
 my-stats-high-score = High score: { $value }
-my-stats-rating = Skill rating: { $value } ({ $mu } ± { $sigma })
+my-stats-rating = Skill rating: { $value }
 my-stats-no-rating = No skill rating yet
+my-stats-custom = { $name }: { $value }
 my-stats-avg-per-turn = Avg points per turn: { $value }
 my-stats-best-turn = Best single turn: { $value }
 my-stats-score-per-round = Score per round: { $value }
 my-stats-most-enemies-defeated = Most Enemies Defeated: { $value }
 my-stats-deepest-wave-reached = Deepest Wave Reached: { $value }
 
-predict-outcomes = Predict outcomes
-predict-header = Predicted Outcomes (by skill rating)
-predict-note-multiplayer = Win percentages are shown only for 2-player matches. With 3 or more human players, only skill ratings are shown.
-predict-entry = { $rank }. { $player } (rating: { $rating })
-predict-entry-2p = { $rank }. { $player } (rating: { $rating }, { $probability }% win chance)
-predict-unavailable = Rating predictions are not available.
-predict-need-players = Need at least 2 human players for predictions.
-action-need-more-humans = Need more human players.
 confirm-leave-game = Are you sure you want to leave the table?
 confirm-yes = Yes
 confirm-no = No

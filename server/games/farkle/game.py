@@ -1581,21 +1581,23 @@ class FarkleGame(Game):
 
         winner = sorted_players[0] if sorted_players else None
         winner_farkle: FarklePlayer = winner  # type: ignore
+        winner_ids = [
+            player.id
+            for player in sorted_players
+            if winner_farkle and player.score == winner_farkle.score  # type: ignore
+        ]
 
         return GameResult(
             game_type=self.get_type(),
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=p.id,
-                    player_name=p.name,
-                    is_bot=p.is_bot and not p.replaced_human,
-                )
+                PlayerResult.from_player(p)
                 for p in self.get_active_players()
             ],
             custom_data={
                 "winner_name": winner.name if winner else None,
+                "winner_ids": winner_ids,
                 "winner_score": winner_farkle.score if winner_farkle else 0,
                 "final_scores": final_scores,
                 "player_stats": player_stats,

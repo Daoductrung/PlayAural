@@ -1326,22 +1326,25 @@ class TradeoffGame(Game):
         )
         final_scores = {p.name: self._get_player_score(p.name) for p in sorted_players}
         winner = sorted_players[0] if sorted_players else None
+        winner_score = self._get_player_score(winner.name) if winner else 0
+        winner_ids = [
+            player.id
+            for player in sorted_players
+            if winner and self._get_player_score(player.name) == winner_score
+        ]
 
         return GameResult(
             game_type=self.get_type(),
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=p.id,
-                    player_name=p.name,
-                    is_bot=p.is_bot and not p.replaced_human,
-                )
+                PlayerResult.from_player(p)
                 for p in active_players
             ],
             custom_data={
                 "winner_name": winner.name if winner else None,
-                "winner_score": self._get_player_score(winner.name) if winner else 0,
+                "winner_ids": winner_ids,
+                "winner_score": winner_score,
                 "final_scores": final_scores,
                 "rounds_played": self.round,
                 "target_score": self.options.target_score,
@@ -1354,7 +1357,15 @@ class TradeoffGame(Game):
         final_scores = result.custom_data.get("final_scores", {})
         for i, (name, score) in enumerate(final_scores.items(), 1):
             points_str = Localization.get(locale, "game-points", count=score)
-            lines.append(f"{i}. {name}: {points_str}")
+            lines.append(
+                Localization.get(
+                    locale,
+                    "leaderboard-score-entry",
+                    rank=i,
+                    player=name,
+                    value=points_str,
+                )
+            )
         return lines
 
     # ==========================================================================

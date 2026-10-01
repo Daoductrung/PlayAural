@@ -58,20 +58,6 @@ def test_whos_at_table_marks_members_in_same_voice_context() -> None:
     assert all(message["buffer"] == "game" for message in spoken)
 
 
-def test_predict_outcomes_unavailable_uses_game_buffer() -> None:
-    game = PigGame()
-    host_user = MockUser("Host")
-    guest_user = MockUser("Guest")
-    host_player = game.add_player("Host", host_user)
-    game.add_player("Guest", guest_user)
-
-    before = len(host_user.messages)
-    game._action_predict_outcomes(host_player, "predict_outcomes")
-
-    spoken = _spoken_since(host_user, before)
-    assert spoken[-1]["buffer"] == "game"
-
-
 def test_farkle_check_turn_score_uses_game_buffer() -> None:
     game = FarkleGame()
     host_user = MockUser("Host")

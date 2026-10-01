@@ -1452,20 +1452,22 @@ class SorryGame(Game):
         final_scores = {player.name: player.pawns_in_home for player in self.get_active_players()}
         winner = max(self.get_active_players(), key=lambda player: player.pawns_in_home, default=None)
         winner_name = None if self.ended_due_to_empty_deck else (self.winner_name or (winner.name if winner else None))
+        winner_ids = [
+            player.id
+            for player in self.get_active_players()
+            if winner_name and player.name == winner_name
+        ]
         return GameResult(
             game_type=self.get_type(),
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=player.id,
-                    player_name=player.name,
-                    is_bot=player.is_bot and not player.replaced_human,
-                )
+                PlayerResult.from_player(player)
                 for player in self.get_active_players()
             ],
             custom_data={
                 "winner_name": winner_name,
+                "winner_ids": winner_ids,
                 "final_scores": final_scores,
                 "ended_due_to_empty_deck": self.ended_due_to_empty_deck,
             },

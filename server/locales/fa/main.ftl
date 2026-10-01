@@ -360,7 +360,7 @@ leaderboard-avg-entry = { $rank }. { $player }: { $value }
 leaderboard-no-player-stats = شما هنوز این بازی را انجام نداده‌اید.
 
 leaderboard-no-ratings = هنوز داده‌ی امتیازی برای این بازی وجود ندارد.
-leaderboard-rating-entry = { $rank }. { $player }: { $rating } امتیاز ({ $mu } ± { $sigma })
+leaderboard-rating-entry = { $rank }. { $player }: { $rating } امتیاز
 leaderboard-no-player-rating = شما هنوز برای این بازی امتیازی ندارید.
 
 my-stats = آمار من
@@ -374,7 +374,7 @@ my-stats-winrate = درصد برد: { $value }%
 my-stats-games-played = بازی‌های انجام‌شده: { $value }
 my-stats-total-score = امتیاز کل: { $value }
 my-stats-high-score = بیشترین امتیاز: { $value }
-my-stats-rating = امتیاز مهارت: { $value } ({ $mu } ± { $sigma })
+my-stats-rating = امتیاز مهارت: { $value }
 my-stats-no-rating = هنوز امتیاز مهارتی ندارید
 my-stats-avg-per-turn = میانگین امتیاز در هر نوبت: { $value }
 my-stats-best-turn = بهترین نوبت تکی: { $value }
@@ -382,14 +382,6 @@ my-stats-score-per-round = امتیاز در هر دور: { $value }
 my-stats-most-enemies-defeated = بیشترین دشمن شکست‌خورده: { $value }
 my-stats-deepest-wave-reached = عمیق‌ترین موج رسیده: { $value }
 
-predict-outcomes = پیش‌بینی نتایج
-predict-header = نتایج پیش‌بینی‌شده (بر اساس امتیاز مهارت)
-predict-note-multiplayer = درصد برد فقط برای مسابقات ۲ نفره نشان داده می‌شود. با ۳ بازیکن واقعی یا بیشتر، فقط امتیازات مهارت نشان داده می‌شوند.
-predict-entry = { $rank }. { $player } (امتیاز: { $rating })
-predict-entry-2p = { $rank }. { $player } (امتیاز: { $rating }، { $probability }% شانس برد)
-predict-unavailable = پیش‌بینی امتیازی در دسترس نیست.
-predict-need-players = برای پیش‌بینی به حداقل ۲ بازیکن واقعی نیاز است.
-action-need-more-humans = به بازیکنان واقعی بیشتری نیاز است.
 confirm-leave-game = آیا مطمئن هستید که می‌خواهید میز را ترک کنید؟
 confirm-yes = بله
 confirm-no = خیر

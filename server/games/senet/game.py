@@ -67,6 +67,7 @@ class SenetGame(Game):
     options: SenetOptions = field(default_factory=SenetOptions)
     game_state: SenetGameState = field(default_factory=SenetGameState)
 
+    winner_id: str | None = None
     winner_name: str | None = None
     _nav_cursor: int | None = None
 
@@ -350,6 +351,8 @@ class SenetGame(Game):
         self.status = "playing"
         self.game_active = True
         self.round = 1
+        self.winner_id = None
+        self.winner_name = None
 
         self.set_turn_players(active_players, reset_index=True)
 
@@ -653,6 +656,7 @@ class SenetGame(Game):
             buffer="game",
         )
         self.broadcast_sound("game_pig/win.ogg")
+        self.winner_id = winner.id
         self.winner_name = winner.name
         self.finish_game()
 
@@ -668,15 +672,12 @@ class SenetGame(Game):
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=p.id,
-                    player_name=p.name,
-                    is_bot=p.is_bot and not p.replaced_human,
-                )
+                PlayerResult.from_player(p)
                 for p in self.get_active_players()
             ],
             custom_data={
                 "winner_name": self.winner_name,
+                "winner_ids": [self.winner_id] if self.winner_id else [],
                 "p1_name": p1.name if p1 else "?",
                 "p2_name": p2.name if p2 else "?",
                 "p1_off": gs.off[1],

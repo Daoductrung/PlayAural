@@ -17,6 +17,10 @@ from ..registry import register_game
 from ...game_utils.actions import Action, ActionSet, Visibility
 from ...game_utils.bot_helper import BotHelper
 from ...game_utils.game_result import GameResult, PlayerResult
+from ...game_utils.stats_helpers import (
+    RATING_COMPETITORS_KEY,
+    rating_competitors_from_scores,
+)
 from ...game_utils.options import (
     IntOption,
     MultiSelectOption,
@@ -1494,17 +1498,25 @@ class RollingBallsGame(Game):
             for player in self._active_rolling_players()
             if player.name in winning_names
         ]
+        active_by_name = {
+            player.name: player.id for player in self._active_rolling_players()
+        }
+        rating_competitors = rating_competitors_from_scores(
+            (
+                (
+                    [active_by_name[name] for name in team.members if name in active_by_name],
+                    team.total_score,
+                )
+                for team in sorted_teams
+            )
+        )
 
         return GameResult(
             game_type=self.get_type(),
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=p.id,
-                    player_name=p.name,
-                    is_bot=p.is_bot and not p.replaced_human,
-                )
+                PlayerResult.from_player(p)
                 for p in self.get_active_players()
             ],
             custom_data={
@@ -1517,6 +1529,7 @@ class RollingBallsGame(Game):
                 "winner_score": high_score,
                 "final_scores": final_scores,
                 "team_rankings": team_rankings,
+                RATING_COMPETITORS_KEY: rating_competitors,
                 "rounds_played": self.round,
                 "team_mode": "individual",
             },

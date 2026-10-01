@@ -433,31 +433,35 @@ class NineGame(Game):
     def build_game_result(self) -> GameResult:
         """Build the game result with Nine-specific data."""
         # Sort players by cards remaining (ascending)
-        player_results = []
-        for p in self.get_active_players():
-            player_results.append((p.id, p.name, len(p.hand), p.is_bot))
-        sorted_player_results = sorted(player_results, key=lambda x: x[2])  # Sort by cards left
+        players_with_cards = [
+            (player, len(player.hand))
+            for player in self.get_active_players()
+        ]
+        sorted_players = sorted(players_with_cards, key=lambda entry: entry[1])
 
         final_scores = {}
-        for p_id, p_name, cards_left, _ in sorted_player_results:
-            final_scores[p_name] = cards_left
+        for player, cards_left in sorted_players:
+            final_scores[player.name] = cards_left
 
-        winner_name = sorted_player_results[0][1] if sorted_player_results else "N/A"
+        winner_name = sorted_players[0][0].name if sorted_players else "N/A"
+        winning_count = sorted_players[0][1] if sorted_players else None
+        winner_ids = [
+            player.id
+            for player, cards_left in sorted_players
+            if winning_count is not None and cards_left == winning_count
+        ]
 
         return GameResult(
             game_type=self.get_type(),
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=p_id,
-                    player_name=p_name,
-                    is_bot=is_bot,
-                )
-                for p_id, p_name, _, is_bot in player_results
+                PlayerResult.from_player(player)
+                for player, _cards_left in players_with_cards
             ],
             custom_data={
                 "winner_name": winner_name,
+                "winner_ids": winner_ids,
                 "final_scores": final_scores,
                 "rounds_played": 1,  # Nine is usually one round
             },

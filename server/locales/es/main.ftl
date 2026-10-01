@@ -422,7 +422,7 @@ leaderboard-avg-entry = { $rank }. { $player }: { $value }
 leaderboard-no-player-stats = Aún no has jugado este juego.
 
 leaderboard-no-ratings = Aún no hay datos de puntuación para este juego.
-leaderboard-rating-entry = { $rank }. { $player }: puntuación { $rating } ({ $mu } ± { $sigma })
+leaderboard-rating-entry = { $rank }. { $player }: puntuación { $rating }
 leaderboard-no-player-rating = Aún no tienes una puntuación para este juego.
 
 my-stats = Mis estadísticas
@@ -436,7 +436,7 @@ my-stats-winrate = Porcentaje de victorias: { $value }%
 my-stats-games-played = Partidas jugadas: { $value }
 my-stats-total-score = Puntuación total: { $value }
 my-stats-high-score = Puntuación máxima: { $value }
-my-stats-rating = Puntuación de habilidad: { $value } ({ $mu } ± { $sigma })
+my-stats-rating = Puntuación de habilidad: { $value }
 my-stats-no-rating = Aún no hay puntuación de habilidad
 my-stats-avg-per-turn = Promedio de puntos por turno: { $value }
 my-stats-best-turn = Mejor turno individual: { $value }
@@ -444,14 +444,6 @@ my-stats-score-per-round = Puntuación por ronda: { $value }
 my-stats-most-enemies-defeated = Más enemigos derrotados: { $value }
 my-stats-deepest-wave-reached = Oleada más profunda alcanzada: { $value }
 
-predict-outcomes = Predecir resultados
-predict-header = Resultados predichos (según puntuación de habilidad)
-predict-note-multiplayer = Los porcentajes de victoria solo se muestran en partidas de 2 jugadores. Con 3 o más jugadores humanos, solo se muestran las puntuaciones de habilidad.
-predict-entry = { $rank }. { $player } (puntuación: { $rating })
-predict-entry-2p = { $rank }. { $player } (puntuación: { $rating }, { $probability }% de probabilidad de ganar)
-predict-unavailable = Las predicciones de puntuación no están disponibles.
-predict-need-players = Se necesitan al menos 2 jugadores humanos para las predicciones.
-action-need-more-humans = Se necesitan más jugadores humanos.
 confirm-leave-game = ¿Seguro que quieres salir de la mesa?
 confirm-yes = Sí
 confirm-no = No

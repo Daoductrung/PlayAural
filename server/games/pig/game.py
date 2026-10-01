@@ -10,6 +10,10 @@ from ...game_utils.actions import Action, ActionSet, Visibility
 from ...game_utils.bot_helper import BotHelper
 from ...game_utils.dice import random_dice_throw_sound
 from ...game_utils.game_result import GameResult, PlayerResult
+from ...game_utils.stats_helpers import (
+    RATING_COMPETITORS_KEY,
+    rating_competitors_from_scores,
+)
 from ...game_utils.options import IntOption, TeamModeOption, option_field
 from ...game_utils.sequence_runner_mixin import SequenceBeat, SequenceOperation
 from ...game_utils.teams import Team, TeamManager
@@ -902,17 +906,22 @@ class PigGame(Game):
             for name in (winner.members if winner else [])
             if name in name_to_id
         ]
+        rating_competitors = rating_competitors_from_scores(
+            (
+                (
+                    [name_to_id[name] for name in team.members if name in name_to_id],
+                    team.total_score,
+                )
+                for team in sorted_teams
+            )
+        )
 
         return GameResult(
             game_type=self.get_type(),
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=player.id,
-                    player_name=player.name,
-                    is_bot=player.is_bot and not player.replaced_human,
-                )
+                PlayerResult.from_player(player)
                 for player in active_players
             ],
             custom_data={
@@ -923,6 +932,7 @@ class PigGame(Game):
                 "winner_score": winner.total_score if winner else 0,
                 "final_scores": final_scores,
                 "team_rankings": team_rankings,
+                RATING_COMPETITORS_KEY: rating_competitors,
                 "rounds_played": self.round,
                 "target_score": self.options.target_score,
                 "team_mode": self.options.team_mode,

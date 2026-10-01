@@ -1177,7 +1177,6 @@ def test_custom_keybinds_do_not_use_reserved_keys() -> None:
         "ctrl+q",
         "ctrl+u",
         "ctrl+s",
-        "ctrl+r",
         "ctrl+i",
         "ctrl+f1",
     }

@@ -6,12 +6,17 @@ import math
 import random
 from collections import deque
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from ...audio import DistanceAttenuation
 from ...game_utils.actions import Action, ActionSet, Visibility
 from ...game_utils.bot_helper import BotHelper
-from ...game_utils.game_result import GameResult
+from ...game_utils.game_result import GameResult, PlayerResult
+from ...game_utils.stats_helpers import (
+    RATING_COMPETITORS_KEY,
+    rating_competitors_from_scores,
+)
 from ...game_utils.options import MenuOption, option_field
 from ...game_utils.reaction_window import ReactionWindow
 from ...game_utils.sequence_runner_mixin import SequenceBeat, SequenceOperation
@@ -11775,15 +11780,25 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                 }
             )
         team_rankings.sort(key=lambda entry: entry["score"], reverse=True)
-        return GameResult.create(
-            game_type=self.get_type(),
-            duration_ticks=self.sound_scheduler_tick,
-            players=[
+        rating_competitors = rating_competitors_from_scores(
+            (
                 (
-                    player.id,
-                    player.name,
-                    player.is_bot and not player.replaced_human,
+                    [
+                        player.id
+                        for player in active_players
+                        if player.squad_index == int(entry["team_index"])
+                    ],
+                    entry["score"],
                 )
+                for entry in team_rankings
+            )
+        )
+        return GameResult(
+            game_type=self.get_type(),
+            timestamp=datetime.now().isoformat(),
+            duration_ticks=self.sound_scheduler_tick,
+            player_results=[
+                PlayerResult.from_player(player)
                 for player in active_players
             ],
             custom_data={
@@ -11793,6 +11808,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                 "rounds_played": self.round,
                 "overtime_periods": self.overtime_period,
                 "team_rankings": team_rankings,
+                RATING_COMPETITORS_KEY: rating_competitors,
             },
         )
 

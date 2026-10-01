@@ -135,6 +135,7 @@ from ..menu_pagination import (
 from ..documentation.manager import DocumentationManager
 from .smtp_mailer import SmtpMailer
 from ..users.bot import Bot
+from ..game_utils.stats_extractor import StatsExtractor
 from ..game_utils.stats_helpers import RatingHelper
 from ..voice import (
     VOICE_PERSONAL_VOLUME_DEFAULT,
@@ -164,6 +165,7 @@ SOUNDS_VERSION = "12"
 SOUNDS_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/sounds.zip"
 SOUNDS_HASH = "" # Optional SHA256
 ANDROID_UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.apk"
+PUBLIC_LEADERBOARD_LIMIT = 10
 
 CLIENT_RELEASE_ARTIFACTS = freeze_release_registry(
     {
@@ -637,6 +639,27 @@ class Server:
         )
         self._global_chat_sending_enabled = enabled
 
+    def _prune_obsolete_game_data(self) -> None:
+        """Remove data outside the current registered game/stat schema."""
+        game_classes = GameRegistry.get_all()
+        valid_game_types = {game_class.get_type() for game_class in game_classes}
+        supported_stats = {
+            game_class.get_type(): StatsExtractor.supported_persisted_stat_keys(
+                game_class
+            )
+            for game_class in game_classes
+        }
+        rating_game_types = {
+            game_class.get_type()
+            for game_class in game_classes
+            if "rating" in game_class.get_supported_leaderboards()
+        }
+        self._db.prune_unregistered_game_data(valid_game_types)
+        self._db.prune_unsupported_leaderboard_data(
+            supported_stats,
+            rating_game_types,
+        )
+
     async def start(self) -> None:
         """
 PlayAural Server
@@ -652,6 +675,7 @@ PlayAural Server
             migration_backup_dir=self.maintenance_manager.backup_dir,
         )
         try:
+            self._prune_obsolete_game_data()
             self._load_persistent_server_settings()
             self._auth = AuthManager(self._db)
 
@@ -1240,7 +1264,10 @@ PlayAural Server
                 username,
                 record_last_seen=False,
             )
-            self._remove_deleted_account_from_table(username, user)
+            self._remove_deleted_account_from_tables(
+                canonical_username,
+                account.uuid,
+            )
             for table in self._tables.get_all_tables():
                 table.discard_voice_account_settings(account.uuid)
             self._chat_rate_limiter.remove_user(account.uuid)
@@ -1254,43 +1281,36 @@ PlayAural Server
             self.on_user_presence_changed()
         return True
 
-    def _remove_deleted_account_from_table(
+    def _remove_deleted_account_from_tables(
         self,
         username: str,
-        user: NetworkUser | None,
+        account_id: str,
     ) -> None:
-        """Release runtime table state that cannot outlive an account."""
-        table = self._tables.find_user_table(username)
-        if not table:
-            return
+        """Release every live seat and membership owned by a deleted account."""
+        if not account_id:
+            raise ValueError("Account deletion cleanup requires an immutable id")
 
-        game = table.game
-        if game:
-            table_user = table.get_user(username)
-            user_id = str(
-                getattr(user, "uuid", "")
-                or getattr(table_user, "uuid", "")
-            )
-            player = game.get_player_by_id(user_id) if user_id else None
-            if player is None:
-                player = next(
-                    (
-                        candidate
-                        for candidate in game.players
-                        if candidate.name == username
-                        or getattr(candidate, "replaced_human_name", "")
-                        == username
-                    ),
-                    None,
-                )
+        # A reversible kick can leave a UUID-owned reservation behind after the
+        # account is no longer a table member, and one account may therefore
+        # have reservations in more than one durable table. Scan the bounded
+        # live-table registry instead of trusting its one-current-membership
+        # index so deletion cannot leave an orphaned result owner.
+        for table in list(self._tables.get_all_tables()):
+            game = table.game
+            player = game.get_player_by_id(account_id) if game else None
             if player is not None:
-                # Account deletion must release the identity and reservation;
-                # unlike an ordinary leave, it can never create a reclaimable
-                # replacement bot for data that no longer exists.
-                game._perform_leave_game(player, allow_bot_takeover=False)
+                if game.status == "playing" and not player.is_spectator:
+                    game.permanently_release_player_seat(player)
+                    game.play_table_leave_sound(
+                        player,
+                        is_bot=False,
+                        is_spectator=False,
+                    )
+                else:
+                    game._perform_leave_game(player, allow_bot_takeover=False)
 
-        if not table._destroyed:
-            table.remove_member(username)
+            if not table._destroyed:
+                table.remove_member(username)
 
     async def _delayed_offline_broadcast(
         self,
@@ -3006,9 +3026,7 @@ PlayAural Server
             return False
         if status_filter not in {None, "all"} and status != status_filter:
             return False
-        if table.is_private and user.username not in {
-            member.username for member in table.members
-        }:
+        if table.is_private and not self._has_private_table_access(user, table):
             return False
         if self._is_new_table_admission_blocked(
             user,
@@ -3488,7 +3506,11 @@ PlayAural Server
         elif current_menu in ("host_kick_menu", "host_kick_ban_menu"):
             user.update_menu(
                 current_menu,
-                self._get_host_kick_menu_items(user, table),
+                self._get_host_kick_menu_items(
+                    user,
+                    table,
+                    ban=current_menu == "host_kick_ban_menu",
+                ),
             )
         elif current_menu == HOST_GAME_SWITCH_MENU:
             self._nav_refresh(
@@ -6008,7 +6030,10 @@ PlayAural Server
         *,
         voice_reason: str = "voice-status-left-table",
     ) -> None:
-        self._cancel_player_substitution_requests_for_user(username)
+        self._cancel_player_substitution_requests_for_table_user(
+            table.table_id,
+            username,
+        )
         self._schedule_voice_context_close(
             username,
             message_key=voice_reason,
@@ -7113,10 +7138,11 @@ PlayAural Server
             items.append(MenuItem(text=Localization.get(user.locale, "send-private-message"), id="send_pm"))
             table = self._tables.find_user_table(target_username)
             if table:
-                # Only show "Join Table" if the table is public OR the user is already a member
-                user_is_member = any(m.username == user.username for m in table.members)
                 if (
-                    (not table.is_private or user_is_member)
+                    (
+                        not table.is_private
+                        or self._has_private_table_access(user, table)
+                    )
                     and not self._is_new_table_admission_blocked(user, table)
                 ):
                     items.append(MenuItem(text=Localization.get(user.locale, "join-table"), id="join_table"))
@@ -7378,9 +7404,7 @@ PlayAural Server
                          )
                          return
 
-                # Block direct joins to private tables (must receive an explicit host invite)
-                user_is_member = any(m.username == user.username for m in table.members)
-                if table.is_private and not user_is_member:
+                if table.is_private and not self._has_private_table_access(user, table):
                     user.speak_l("table-private-invite-only", buffer="system")
                     self._nav_refresh(
                         user,
@@ -8157,6 +8181,26 @@ PlayAural Server
                 str(request.get("outgoing_username", "")),
                 str(request.get("replaced_human_name", "")),
             },
+            message_key="player-substitution-no-longer-available",
+        )
+
+    def _cancel_player_substitution_requests_for_table_user(
+        self,
+        table_id: str,
+        username: str,
+    ) -> None:
+        """Cancel one table's substitutions involving a removed member."""
+        self._cancel_player_substitution_requests_matching(
+            lambda incoming_name, request: (
+                request.get("table_id") == table_id
+                and username
+                in {
+                    incoming_name,
+                    str(request.get("host_username", "")),
+                    str(request.get("outgoing_username", "")),
+                    str(request.get("replaced_human_name", "")),
+                }
+            ),
             message_key="player-substitution-no-longer-available",
         )
 
@@ -9985,6 +10029,17 @@ PlayAural Server
             for player in getattr(game, "players", ())
         )
 
+    def _has_private_table_access(
+        self,
+        user: NetworkUser,
+        table: "Table",
+    ) -> bool:
+        """Return whether existing membership or a reclaimable seat grants reentry."""
+        if any(member.username == user.username for member in table.members):
+            return True
+        game = table.game
+        return bool(game and self._find_reclaimable_bot_player(game, user))
+
     def _is_new_table_admission_blocked(
         self,
         user: NetworkUser,
@@ -10051,9 +10106,15 @@ PlayAural Server
             refresh_current_table_list()
             return
 
-        user_is_member = any(member.username == user.username for member in table.members)
         reclaimed_player = self._find_reclaimable_bot_player(game, user)
-        if table.is_private and not user_is_member and not allow_private_join:
+        if (
+            table.is_private
+            and not reclaimed_player
+            and not any(
+                member.username == user.username for member in table.members
+            )
+            and not allow_private_join
+        ):
             user.speak_l("table-private-invite-only", buffer="system")
             refresh_current_table_list()
             return
@@ -10142,6 +10203,7 @@ PlayAural Server
         for player in game.players:
             if (
                 getattr(player, "is_bot", False)
+                and getattr(player, "replaced_human", False)
                 and getattr(player, "id", None) == user.uuid
             ):
                 return player
@@ -12066,7 +12128,11 @@ PlayAural Server
         ):
             return None
 
-        if seat.replaced_human_name in self._users:
+        replaced_owner_name = seat.replaced_human_name
+        if (
+            replaced_owner_name in self._users
+            and self._tables.find_user_table(replaced_owner_name) is table
+        ):
             # A returning reserved owner wins until substitution completes.
             return None
         return table, seat, spectator, outgoing_user
@@ -12902,8 +12968,14 @@ PlayAural Server
 
     # --- Kick / Kick-and-Ban ---
 
-    def _get_host_kick_menu_items(self, user: NetworkUser, table: "Table") -> list[MenuItem]:
-        """Build items for the kick menu (all human non-host players, including spectators)."""
+    def _get_host_kick_menu_items(
+        self,
+        user: NetworkUser,
+        table: "Table",
+        *,
+        ban: bool,
+    ) -> list[MenuItem]:
+        """Build reversible-kick or permanent kick-and-ban candidates."""
         locale = user.locale
         spectator_suffix = Localization.get(locale, "table-spectator-suffix")
         items: list[MenuItem] = []
@@ -12921,6 +12993,11 @@ PlayAural Server
                 if row["kind"] != "user" or row["name"] == user.username:
                     continue
                 if not row.get("player"):
+                    continue
+                if not ban and not row.get("is_table_member"):
+                    # The account was already reversibly kicked. Its temporary
+                    # seat remains visible so the host can escalate to a ban,
+                    # but repeating the same kick would only create spam.
                     continue
                 if row.get("is_replaced_by_bot") or not row.get("is_online"):
                     label = Localization.get(
@@ -12947,7 +13024,7 @@ PlayAural Server
         if table.host != user.username:
             self._return_to_game(user, table)
             return
-        items = self._get_host_kick_menu_items(user, table)
+        items = self._get_host_kick_menu_items(user, table, ban=ban)
         menu_id = "host_kick_ban_menu" if ban else "host_kick_menu"
         user.show_menu(
             menu_id,
@@ -12969,7 +13046,7 @@ PlayAural Server
         *,
         is_ban: bool = False,
     ) -> bool:
-        """Kick or kick-and-ban a validated human table member."""
+        """Remove a live member or permanently release a reserved seat."""
         if not table or not table.game or table.host != user.username:
             user.speak_l("action-not-host", buffer="system")
             return False
@@ -12986,12 +13063,30 @@ PlayAural Server
             user.speak_l("host-kick-invalid-target", buffer="system")
             return False
 
+        target_account_id = str(getattr(target_player, "id", ""))
+        target_is_member = any(
+            member.username == target_name for member in table.members
+        )
+        if not target_account_id or (
+            is_replacement_takeover and not target_is_member and not is_ban
+        ):
+            # Reserved seats remain eligible only for permanent escalation.
+            # Reject a stale or forged repeat-kick action server-side instead
+            # of relying on the current menu having hidden it.
+            user.speak_l("host-kick-invalid-target", buffer="system")
+            return False
         if is_ban:
-            target_record = self._db.get_user(target_name)
-            if target_record:
-                table.ban_user(target_record.uuid)
+            # Bind moderation to the seat's immutable owner. Resolving by name
+            # here could ban a newly-created account if a stale reservation
+            # outlived deletion and the username was later reused.
+            table.ban_user(target_account_id)
 
         target_online_user = self._users.get(target_name)
+        if (
+            target_online_user is not None
+            and str(getattr(target_online_user, "uuid", "")) != target_account_id
+        ):
+            target_online_user = None
 
         kick_key = "host-kick-ban-broadcast" if is_ban else "host-kick-broadcast"
         table.game.broadcast_l(kick_key, buffer="system", player=target_name)
@@ -13007,30 +13102,47 @@ PlayAural Server
                 is_bot=False,
                 is_spectator=True,
             )
-        elif is_replacement_takeover:
-            table.game.play_table_kick_sound(
-                target_player,
-                is_bot=False,
-                is_spectator=False,
-            )
-        elif table.game.status == "waiting":
+        elif table.game.status == "playing":
+            if is_ban:
+                table.game.permanently_release_player_seat(target_player)
+                table.game.play_table_kick_sound(
+                    target_player,
+                    is_bot=False,
+                    is_spectator=False,
+                )
+            elif is_replacement_takeover:
+                # A reversible kick removes table membership but retains the
+                # account-owned replacement and all seat context for reclaim.
+                table.game.play_table_kick_sound(
+                    target_player,
+                    is_bot=False,
+                    is_spectator=False,
+                )
+            elif table.game._replace_with_bot(target_player):
+                table.game.play_table_kick_sound(
+                    target_player,
+                    is_bot=False,
+                    is_spectator=False,
+                )
+        else:
             table.game.remove_player(target_player.id)
             table.game.play_table_kick_sound(
                 target_player,
                 is_bot=False,
                 is_spectator=False,
             )
-        else:
-            if table.game._replace_with_bot(target_player):
-                table.game.play_table_kick_sound(
-                    target_player,
-                    is_bot=False,
-                    is_spectator=False,
-                )
 
         table.remove_member(target_name)
+        if not target_is_member:
+            self._cancel_player_substitution_requests_for_table_user(
+                table.table_id,
+                target_name,
+            )
+        if is_ban and not table._destroyed:
+            # The departing account name no longer reserves a collision label.
+            table.game.ensure_bot_display_names()
 
-        if target_online_user:
+        if target_online_user and target_is_member:
             self._user_states.pop(target_name, None)
             self._show_main_menu(target_online_user)
 
@@ -13087,8 +13199,8 @@ PlayAural Server
                     if replaced_human_name
                     else None
                 )
-                if getattr(player, "is_bot", False) and replaced_member:
-                    human_name = replaced_member.username
+                if getattr(player, "is_bot", False) and replaced_human_name:
+                    human_name = replaced_human_name
                     seen_users.add(human_name)
                     rows.append(
                         {
@@ -13097,13 +13209,22 @@ PlayAural Server
                             "name": human_name,
                             "account_id": player.id,
                             "is_bot": False,
-                            "is_spectator": replaced_member.is_spectator,
-                            "is_host": human_name == table.host,
-                            "is_online": self._is_table_member_online(human_name),
-                            "in_voice_chat": self._is_table_member_in_voice_chat(
-                                table,
-                                human_name,
+                            "is_spectator": bool(
+                                replaced_member and replaced_member.is_spectator
                             ),
+                            "is_host": human_name == table.host,
+                            "is_online": bool(
+                                replaced_member
+                                and self._is_table_member_online(human_name)
+                            ),
+                            "in_voice_chat": bool(
+                                replaced_member
+                                and self._is_table_member_in_voice_chat(
+                                    table,
+                                    human_name,
+                                )
+                            ),
+                            "is_table_member": replaced_member is not None,
                             "is_replaced_by_bot": True,
                             "replacement_bot_name": player.name,
                             "player": player,
@@ -13123,6 +13244,7 @@ PlayAural Server
                             "is_host": False,
                             "is_online": True,
                             "in_voice_chat": False,
+                            "is_table_member": False,
                             "is_replaced_by_bot": False,
                             "replacement_bot_name": "",
                             "player": player,
@@ -13145,6 +13267,7 @@ PlayAural Server
                             table,
                             player.name,
                         ),
+                        "is_table_member": player.name in members_by_name,
                         "is_replaced_by_bot": False,
                         "replacement_bot_name": "",
                         "player": player,
@@ -13173,6 +13296,7 @@ PlayAural Server
                         table,
                         member.username,
                     ),
+                    "is_table_member": True,
                     "is_replaced_by_bot": False,
                     "replacement_bot_name": "",
                     "player": None,
@@ -13420,12 +13544,13 @@ PlayAural Server
                             id="table_pass_host",
                         )
                     )
-                items.append(
-                    MenuItem(
-                        text=Localization.get(locale, "host-management-kick"),
-                        id="table_kick",
+                if row.get("is_table_member"):
+                    items.append(
+                        MenuItem(
+                            text=Localization.get(locale, "host-management-kick"),
+                            id="table_kick",
+                        )
                     )
-                )
                 items.append(
                     MenuItem(
                         text=Localization.get(locale, "host-management-kick-ban"),
@@ -14004,6 +14129,11 @@ PlayAural Server
                     target_kind,
                     target_id,
                 )
+            elif (
+                self._user_states.get(user.username, {}).get("menu")
+                == TABLE_MEMBER_ACTIONS_MENU
+            ):
+                self._nav_back(user)
         elif selection_id == "table_kick_ban":
             changed = self._perform_host_kick(user, table, target_name, is_ban=True)
             if not changed:
@@ -14014,6 +14144,11 @@ PlayAural Server
                     target_kind,
                     target_id,
                 )
+            elif (
+                self._user_states.get(user.username, {}).get("menu")
+                == TABLE_MEMBER_ACTIONS_MENU
+            ):
+                self._nav_back(user)
         elif selection_id == "table_remove_bot":
             changed = self._perform_remove_table_bot(user, table, target_id)
             if not changed:
@@ -14148,8 +14283,10 @@ PlayAural Server
                     target_id,
                 )
                 return
-            user_is_member = any(m.username == user.username for m in target_table.members)
-            if target_table.is_private and not user_is_member:
+            if (
+                target_table.is_private
+                and not self._has_private_table_access(user, target_table)
+            ):
                 user.speak_l("table-private-invite-only", buffer="system")
                 self._nav_refresh(
                     user,
@@ -14700,7 +14837,10 @@ PlayAural Server
         """Show win leaders leaderboard."""
 
         # Fetch top wins from pre-calculated stats avoiding N+1 queries
-        top_wins = self._db.get_top_wins_with_losses(game_type, limit=10)
+        top_wins = self._db.get_top_wins_with_losses(
+            game_type,
+            limit=PUBLIC_LEADERBOARD_LIMIT,
+        )
 
         items = []
 
@@ -14753,7 +14893,7 @@ PlayAural Server
         """Show skill rating leaderboard."""
 
         rating_helper = RatingHelper(self._db, game_type)
-        ratings = rating_helper.get_leaderboard(limit=10)
+        ratings = rating_helper.get_leaderboard(limit=PUBLIC_LEADERBOARD_LIMIT)
 
         items = []
 
@@ -14774,9 +14914,7 @@ PlayAural Server
                             "leaderboard-rating-entry",
                             rank=rank,
                             player=player_name,
-                            rating=round(rating.ordinal),
-                            mu=round(rating.mu, 1),
-                            sigma=round(rating.sigma, 1),
+                            rating=round(rating.skill_score),
                         ),
                         id=f"entry_{rank}",
                         read_only=True,
@@ -14802,7 +14940,11 @@ PlayAural Server
         self, user: NetworkUser, game_type: str, game_name: str
     ) -> None:
         """Show total score leaderboard."""
-        top_scores = self._db.get_top_player_game_stats(game_type, "total_score", limit=10)
+        top_scores = self._db.get_top_player_game_stats(
+            game_type,
+            "total_score",
+            limit=PUBLIC_LEADERBOARD_LIMIT,
+        )
 
         items = []
 
@@ -14849,7 +14991,11 @@ PlayAural Server
         self, user: NetworkUser, game_type: str, game_name: str
     ) -> None:
         """Show high score leaderboard."""
-        top_scores = self._db.get_top_player_game_stats(game_type, "high_score", limit=10)
+        top_scores = self._db.get_top_player_game_stats(
+            game_type,
+            "high_score",
+            limit=PUBLIC_LEADERBOARD_LIMIT,
+        )
 
         items = []
 
@@ -14896,7 +15042,11 @@ PlayAural Server
         self, user: NetworkUser, game_type: str, game_name: str
     ) -> None:
         """Show games played leaderboard."""
-        top_games = self._db.get_top_player_game_stats(game_type, "games_played", limit=10)
+        top_games = self._db.get_top_player_game_stats(
+            game_type,
+            "games_played",
+            limit=PUBLIC_LEADERBOARD_LIMIT,
+        )
 
         items = []
 
@@ -14938,31 +15088,6 @@ PlayAural Server
             "game_name": game_name,
             "leaderboard_selection_id": "type_games_played",
         }
-
-    def _extract_value_from_path(
-        self, data: dict, path: str, player_id: str, player_name: str
-    ) -> float | None:
-        """Extract a value from custom_data using a dot-separated path.
-
-        Supports {player_id} and {player_name} placeholders in path.
-        """
-        # Replace placeholders
-        resolved_path = path.replace("{player_id}", player_id)
-        resolved_path = resolved_path.replace("{player_name}", player_name)
-
-        # Navigate the path
-        parts = resolved_path.split(".")
-        current = data
-        for part in parts:
-            if isinstance(current, dict) and part in current:
-                current = current[part]
-            else:
-                return None
-
-        # Convert to float if possible
-        if isinstance(current, (int, float)):
-            return float(current)
-        return None
 
     def _show_custom_leaderboard(
         self,
@@ -15009,14 +15134,18 @@ PlayAural Server
                     entry[0],
                 )
             )
-            player_scores = player_scores[:10]  # Apply limit for ratio stats
+            player_scores = player_scores[:PUBLIC_LEADERBOARD_LIMIT]
         else:
             # Simple stat
             if aggregate == "max":
                 stat_key = f"custom_{lb_id}_high"
             else:
                 stat_key = f"custom_{lb_id}"
-            player_scores = self._db.get_top_player_game_stats(game_type, stat_key, limit=10)
+            player_scores = self._db.get_top_player_game_stats(
+                game_type,
+                stat_key,
+                limit=PUBLIC_LEADERBOARD_LIMIT,
+            )
 
         # Build menu items
         items = []
@@ -15209,7 +15338,7 @@ PlayAural Server
                 )
 
             # Score stats (if applicable)
-            if total_score > 0 and "total_score" in supported_types:
+            if "total_score" in stats and "total_score" in supported_types:
                 items.append(
                     MenuItem(
                         text=Localization.get(
@@ -15221,7 +15350,7 @@ PlayAural Server
                         read_only=True,
                     )
                 )
-            if high_score > 0 and "high_score" in supported_types:
+            if "high_score" in stats and "high_score" in supported_types:
                 items.append(
                     MenuItem(
                         text=Localization.get(
@@ -15237,16 +15366,14 @@ PlayAural Server
             # Skill rating
             if "rating" in supported_types:
                 rating_helper = RatingHelper(self._db, game_type)
-                rating = rating_helper.get_rating(user.uuid)
-                if rating.mu != 25.0 or rating.sigma != 25.0 / 3:  # Non-default rating
+                rating = rating_helper.get_existing_rating(user.uuid)
+                if rating is not None:
                     items.append(
                         MenuItem(
                             text=Localization.get(
                                 user.locale,
                                 "my-stats-rating",
-                                value=round(rating.ordinal),
-                                mu=round(rating.mu, 1),
-                                sigma=round(rating.sigma, 1),
+                                value=round(rating.skill_score),
                             ),
                             id="rating",
                             read_only=True,
@@ -15329,10 +15456,14 @@ PlayAural Server
                 # Try game-specific key first, fall back to generic
                 text = Localization.get(user.locale, loc_key, value=formatted_value)
                 if text == loc_key:
-                    # Key not found, use leaderboard type name
                     type_key = f"leaderboard-type-{lb_id.replace('_', '-')}"
                     type_name = Localization.get(user.locale, type_key)
-                    text = f"{type_name}: {formatted_value}"
+                    text = Localization.get(
+                        user.locale,
+                        "my-stats-custom",
+                        name=type_name,
+                        value=formatted_value,
+                    )
 
                 items.append(
                     MenuItem(
@@ -15411,7 +15542,12 @@ PlayAural Server
             message_key="table-invite-no-longer-available",
         )
 
-    def on_game_result(self, result) -> None:
+    def on_game_result(
+        self,
+        result,
+        *,
+        rating_updates: dict[str, tuple[float, float]] | None = None,
+    ) -> None:
         """Handle game result persistence. Called by Table when a game finishes."""
         if not isinstance(result, GameResult):
             return
@@ -15426,6 +15562,7 @@ PlayAural Server
                 for p in result.player_results
             ],
             custom_data=result.custom_data,
+            rating_updates=rating_updates,
         )
 
     def on_table_save(self, table, username: str) -> None:

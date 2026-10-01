@@ -21,6 +21,10 @@ from ...game_utils.cards import (
     sort_cards,
 )
 from ...game_utils.game_result import GameResult, PlayerResult
+from ...game_utils.stats_helpers import (
+    RATING_COMPETITORS_KEY,
+    rating_competitors_from_scores,
+)
 from ...game_utils.options import (
     IntOption,
     MenuOption,
@@ -1153,17 +1157,25 @@ class ScopaGame(Game):
             for member_name in winner.members:
                 if member_name in name_to_id:
                     winner_ids.append(name_to_id[member_name])
+        else:
+            active_players = self.get_active_players()
+            name_to_id = {p.name: p.id for p in active_players}
+        rating_competitors = rating_competitors_from_scores(
+            (
+                (
+                    [name_to_id[name] for name in team.members if name in name_to_id],
+                    team.total_score,
+                )
+                for team in sorted_teams
+            )
+        )
 
         return GameResult(
             game_type=self.get_type(),
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=p.id,
-                    player_name=p.name,
-                    is_bot=p.is_bot and not p.replaced_human,
-                )
+                PlayerResult.from_player(p)
                 for p in self.get_active_players()
             ],
             custom_data={
@@ -1172,6 +1184,7 @@ class ScopaGame(Game):
                 "winner_score": winner.total_score if winner else 0,
                 "final_scores": final_scores,
                 "team_rankings": team_rankings,
+                RATING_COMPETITORS_KEY: rating_competitors,
                 "rounds_played": self.current_round,
                 "target_score": self.options.target_score,
                 "team_mode": self.options.team_mode,

@@ -14,6 +14,10 @@ from ..registry import register_game
 from ...game_utils.actions import Action, ActionSet, Visibility
 from ...game_utils.bot_helper import BotHelper
 from ...game_utils.game_result import GameResult, PlayerResult
+from ...game_utils.stats_helpers import (
+    RATING_COMPETITORS_KEY,
+    rating_competitors_from_scores,
+)
 from ...game_utils.sequence_runner_mixin import SequenceBeat, SequenceOperation
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
@@ -1845,11 +1849,7 @@ class DeadMansDeckGame(Game):
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=p.id,
-                    player_name=p.name,
-                    is_bot=p.is_bot and not p.replaced_human,
-                )
+                PlayerResult.from_player(p)
                 for p in active_players
             ],
             custom_data={
@@ -1857,6 +1857,12 @@ class DeadMansDeckGame(Game):
                 "winner_ids": winner_ids,
                 "rounds_played": self.round,
                 "team_rankings": team_rankings,
+                RATING_COMPETITORS_KEY: rating_competitors_from_scores(
+                    (
+                        ([player.id], 1 if player.id == self.winner_id else 0)
+                        for player in rankings
+                    )
+                ),
                 "player_stats": {
                     p.name: {
                         "correct_challenges": p.correct_challenges,

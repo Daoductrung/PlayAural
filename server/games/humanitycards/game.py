@@ -1641,21 +1641,23 @@ class HumanityCardsGame(Game):
             final_scores[p.name] = hp.score
 
         winner = sorted_players[0] if sorted_players else None
+        winner_ids = [
+            player.id
+            for player in sorted_players
+            if winner and player.score == winner.score  # type: ignore
+        ]
 
         return GameResult(
             game_type=self.get_type(),
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=p.id,
-                    player_name=p.name,
-                    is_bot=p.is_bot,
-                )
+                PlayerResult.from_player(p)
                 for p in active_players
             ],
             custom_data={
                 "winner_name": winner.name if winner else None,
+                "winner_ids": winner_ids,
                 "winner_score": winner.score if winner else 0,  # type: ignore
                 "final_scores": final_scores,
                 "rounds_played": self.round,

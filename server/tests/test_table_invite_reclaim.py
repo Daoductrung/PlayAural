@@ -2467,14 +2467,164 @@ class TestTableInviteReclaim:
         assert not any(member.username == guest.username for member in table.members)
         refreshed_items = host.get_current_menu_items(TABLE_MEMBERS_MENU) or []
         refreshed_texts = [item.text for item in refreshed_items]
-        assert not any(text.startswith(f"{guest.username}:") for text in refreshed_texts)
-        assert any(
-            text.startswith(f"{replacement_bot_name}:")
+        guest_row = next(
+            text
             for text in refreshed_texts
+            if text.startswith(f"{guest.username}:")
+        )
+        assert "Offline" in guest_row
+        assert f"bot playing on their behalf: {replacement_bot_name}" in guest_row
+        assert not any(
+            text.startswith(f"{replacement_bot_name}:") for text in refreshed_texts
+        )
+        assert guest_player.id == guest.uuid
+        assert guest_player.replaced_human is True
+        assert game.get_player_by_id(guest.uuid) is guest_player
+
+        host.clear_messages()
+        assert not self.server._perform_host_kick(
+            host,
+            table,
+            guest.username,
+            is_ban=False,
+        )
+        assert host.get_last_spoken() == Localization.get(
+            host.locale,
+            "host-kick-invalid-target",
+        )
+        assert guest_player.id == guest.uuid
+        assert guest_player.replaced_human is True
+
+        await self.server._handle_table_members_selection(
+            host,
+            f"table_member_user_{guest.username}",
+            self.server._user_states[host.username],
+        )
+        action_ids = self._get_menu_action_ids(host, TABLE_MEMBER_ACTIONS_MENU)
+        assert "table_kick" not in action_ids
+        assert "table_kick_ban" in action_ids
+
+        self.server._show_host_kick_menu(host, table, ban=False)
+        assert f"kick_{guest.username}" not in self._get_menu_action_ids(
+            host,
+            "host_kick_menu",
+        )
+        self.server._show_host_kick_menu(host, table, ban=True)
+        assert f"kick_{guest.username}" in self._get_menu_action_ids(
+            host,
+            "host_kick_ban_menu",
         )
 
+    def test_reversibly_kicked_player_reclaims_private_active_seat(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, game = self._create_started_table(host, guest)
+        table.is_private = True
+        seat = game.get_player_by_id(guest.uuid)
+        assert seat is not None
+
+        assert self.server._perform_host_kick(host, table, guest.username)
+        assert seat.id == guest.uuid
+        assert seat.is_bot is True
+        assert seat.replaced_human is True
+        assert self.server._tables.find_user_table(guest.username) is None
+
+        table_items, _ = self.server._get_tables_menu_items(guest, table.game_type)
+        assert f"table_{table.table_id}" in {
+            item.id for item in table_items if hasattr(item, "id")
+        }
+
+        self.server._auto_join_table(guest, table, table.game_type)
+
+        assert self.server._tables.find_user_table(guest.username) is table
+        assert game.get_player_by_id(guest.uuid) is seat
+        assert seat.is_bot is False
+        assert seat.replaced_human is False
+        assert table.get_user(guest.username) is guest
+
+    def test_active_kick_ban_immediately_releases_live_account_identity(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, game = self._create_started_table(host, guest)
+        seat = game.get_player_by_id(guest.uuid)
+        assert seat is not None
+
+        assert self.server._perform_host_kick(
+            host,
+            table,
+            guest.username,
+            is_ban=True,
+        )
+
+        assert table.is_banned(guest.uuid)
+        assert seat in game.players
+        assert seat.id != guest.uuid
+        assert seat.is_bot is True
+        assert seat.replaced_human is False
+        assert game.get_player_by_id(guest.uuid) is None
+        result_entry = next(
+            entry
+            for entry in game.build_game_result().player_results
+            if entry.player_id == seat.id
+        )
+        assert result_entry.is_bot is True
+
+        self.server._auto_join_table(guest, table, table.game_type)
+        assert self.server._tables.find_user_table(guest.username) is None
+        assert guest.get_last_spoken() == Localization.get(
+            guest.locale,
+            "table-you-are-banned",
+        )
+
+    def test_ban_escalation_does_not_disrupt_target_at_another_table(self):
+        first_host = self._create_online_user("FirstHost")
+        guest = self._create_online_user("Guest")
+        second_host = self._create_online_user("SecondHost")
+        first_table, first_game = self._create_started_table(first_host, guest)
+        reserved_seat = first_game.get_player_by_id(guest.uuid)
+        assert reserved_seat is not None
+
+        assert self.server._perform_host_kick(
+            first_host,
+            first_table,
+            guest.username,
+        )
+
+        second_table = self.server._tables.create_table(
+            "pig",
+            second_host.username,
+            second_host,
+        )
+        second_game = PigGame(options=PigOptions(target_score=25))
+        second_table.game = second_game
+        second_game._table = second_table
+        second_game.initialize_lobby(second_host.username, second_host)
+        self.server._auto_join_table(guest, second_table, second_table.game_type)
+        assert self.server._tables.find_user_table(guest.username) is second_table
+        assert self.server._user_states[guest.username] == {
+            "menu": "in_game",
+            "table_id": second_table.table_id,
+        }
+
+        assert self.server._perform_host_kick(
+            first_host,
+            first_table,
+            guest.username,
+            is_ban=True,
+        )
+
+        assert first_table.is_banned(guest.uuid)
+        assert reserved_seat.id != guest.uuid
+        assert reserved_seat.replaced_human is False
+        assert self.server._tables.find_user_table(guest.username) is second_table
+        assert second_game.get_player_by_id(guest.uuid) is not None
+        assert self.server._user_states[guest.username] == {
+            "menu": "in_game",
+            "table_id": second_table.table_id,
+        }
+
     @pytest.mark.asyncio
-    async def test_table_roster_back_stack_after_offline_kick_and_blocked_bot_remove(self):
+    async def test_table_roster_back_stack_after_reversible_kick_and_ban_escalation(self):
         host = self._create_online_user("Host")
         guest = self._create_online_user("Guest")
         table, game = self._create_started_table(host, guest)
@@ -2484,7 +2634,6 @@ class TestTableInviteReclaim:
         assert guest_player is not None
 
         assert game._replace_with_bot(guest_player) is True
-        replacement_bot_name = guest_player.name
         self.server._users.pop(guest.username, None)
         self.server._set_in_game_state(host, table.table_id)
 
@@ -2512,13 +2661,13 @@ class TestTableInviteReclaim:
 
         roster_items = host.get_current_menu_items(TABLE_MEMBERS_MENU) or []
         assert any(
-            item.text.startswith(f"{replacement_bot_name}:")
+            item.text.startswith(f"{guest.username}:")
             for item in roster_items
         )
 
         await self.server._handle_table_members_selection(
             host,
-            f"table_member_bot_{guest.uuid}",
+            f"table_member_user_{guest.username}",
             self.server._user_states[host.username],
         )
         assert (
@@ -2528,24 +2677,15 @@ class TestTableInviteReclaim:
 
         await self.server._handle_table_member_actions_selection(
             host,
-            "table_remove_bot",
-            self.server._user_states[host.username],
-        )
-        state = self.server._user_states[host.username]
-        assert state["menu"] == TABLE_MEMBER_ACTIONS_MENU
-        assert [frame.get("menu") for frame in state["_stack"]] == [
-            "in_game",
-            TABLE_MEMBERS_MENU,
-        ]
-
-        await self.server._handle_table_member_actions_selection(
-            host,
-            "back",
+            "table_kick_ban",
             self.server._user_states[host.username],
         )
         state = self.server._user_states[host.username]
         assert state["menu"] == TABLE_MEMBERS_MENU
         assert [frame.get("menu") for frame in state["_stack"]] == ["in_game"]
+        assert guest_player.id != guest.uuid
+        assert guest_player.replaced_human is False
+        assert table.is_banned(guest.uuid)
 
         await self.server._handle_table_members_selection(
             host,
@@ -2770,10 +2910,12 @@ class TestTableInviteReclaim:
         [PigGame, CrazyEightsGame, UnoGame],
         ids=["pig", "crazy-eights", "uno"],
     )
-    def test_spectator_host_keeps_kicked_disconnect_replacement_active(
+    @pytest.mark.parametrize("is_ban", [False, True], ids=["kick", "kick-ban"])
+    def test_spectator_host_keeps_moderated_replacement_seat_active(
         self,
         monkeypatch,
         game_class,
+        is_ban,
     ):
         host = self._create_online_user("Host")
         guest = self._create_online_user("Guest")
@@ -2804,10 +2946,48 @@ class TestTableInviteReclaim:
         replacement = game.get_player_by_id(guest.uuid)
         assert replacement is not None and replacement.is_bot
 
-        assert self.server._perform_host_kick(host, table, guest.username)
+        assert self.server._perform_host_kick(
+            host,
+            table,
+            guest.username,
+            is_ban=is_ban,
+        )
         assert all(member.username != guest.username for member in table.members)
         assert table.player_count == 0
-        assert game.get_player_by_id(guest.uuid) is replacement
+        assert replacement in game.players
+        assert replacement.is_bot is True
+        replacement_user = game.get_user(replacement)
+        assert isinstance(replacement_user, Bot)
+        assert replacement_user.uuid == replacement.id
+
+        result = game.build_game_result()
+        if is_ban:
+            assert replacement.id != guest.uuid
+            assert game.get_player_by_id(guest.uuid) is None
+            assert replacement.replaced_human is False
+            assert replacement.replaced_human_name == ""
+            assert replacement.replacement_bot_name == ""
+            assert not any(
+                entry.player_id == guest.uuid for entry in result.player_results
+            )
+            replacement_result = next(
+                entry
+                for entry in result.player_results
+                if entry.player_id == replacement.id
+            )
+            assert replacement_result.is_bot is True
+            assert table.is_banned(guest.uuid)
+        else:
+            assert replacement.id == guest.uuid
+            assert replacement.replaced_human is True
+            assert replacement.replaced_human_name == guest.username
+            replacement_result = next(
+                entry
+                for entry in result.player_results
+                if entry.player_id == guest.uuid
+            )
+            assert replacement_result.is_bot is False
+            assert not table.is_banned(guest.uuid)
 
         game_ticks: list[bool] = []
         monkeypatch.setattr(game, "on_tick", lambda: game_ticks.append(True))
@@ -3053,6 +3233,8 @@ class TestTableInviteReclaim:
         host = self._create_online_user("Host")
         guest = self._create_online_user("Guest")
         table, game = self._create_started_table(host, guest)
+        guest_seat = game.get_player_by_id(guest.uuid)
+        assert guest_seat is not None
 
         deleted = await self.server._delete_account_and_evict(
             guest.username,
@@ -3070,12 +3252,18 @@ class TestTableInviteReclaim:
         assert not any(
             member.username == guest.username for member in table.members
         )
-        assert not any(
-            player.id == guest.uuid
-            or player.name == guest.username
-            or player.replaced_human_name == guest.username
-            for player in game.players
+        assert guest_seat in game.players
+        assert guest_seat.id != guest.uuid
+        assert guest_seat.is_bot is True
+        assert guest_seat.replaced_human is False
+        assert guest_seat.replaced_human_name == ""
+        assert game.get_player_by_id(guest.uuid) is None
+        result_entry = next(
+            entry
+            for entry in game.build_game_result().player_results
+            if entry.player_id == guest_seat.id
         )
+        assert result_entry.is_bot is True
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -3108,6 +3296,8 @@ class TestTableInviteReclaim:
         game.execute_action(host_player, "start_game")
         game.flush_menus()
         assert game.status == "playing"
+        guest_seat = game.get_player_by_id(guest.uuid)
+        assert guest_seat is not None
 
         deleted = await self.server._delete_account_and_evict(
             guest.username,
@@ -3122,12 +3312,42 @@ class TestTableInviteReclaim:
         assert self.server._tables.get_table(table.table_id) is table
         assert table.has_online_spectator_host()
         assert self.server._tables.find_user_table(guest.username) is None
-        assert not any(
-            player.id == guest.uuid
-            or player.name == guest.username
-            or player.replaced_human_name == guest.username
-            for player in game.players
+        assert guest_seat in game.players
+        assert guest_seat.id != guest.uuid
+        assert guest_seat.is_bot is True
+        assert guest_seat.replaced_human is False
+        assert guest_seat.replaced_human_name == ""
+        assert game.get_player_by_id(guest.uuid) is None
+
+    @pytest.mark.asyncio
+    async def test_account_deletion_releases_reservation_after_reversible_kick(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, game = self._create_started_table(host, guest)
+        reserved_seat = game.get_player_by_id(guest.uuid)
+        assert reserved_seat is not None
+        assert self.server._perform_host_kick(host, table, guest.username)
+        assert self.server._tables.find_user_table(guest.username) is None
+        assert reserved_seat.id == guest.uuid
+        assert reserved_seat.replaced_human is True
+
+        deleted = await self.server._delete_account_and_evict(
+            guest.username,
+            {
+                "type": "disconnect",
+                "reason": "Account deleted",
+                "reconnect": False,
+            },
         )
+
+        assert deleted is True
+        assert self.db.get_user(guest.username) is None
+        assert self.server._tables.get_table(table.table_id) is table
+        assert reserved_seat in game.players
+        assert reserved_seat.id != guest.uuid
+        assert reserved_seat.is_bot is True
+        assert reserved_seat.replaced_human is False
+        assert game.get_player_by_id(guest.uuid) is None
 
     def test_lobby_disconnected_player_becomes_reclaimable_bot_on_start(
         self, monkeypatch

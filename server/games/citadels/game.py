@@ -14,6 +14,10 @@ from ..registry import register_game
 from ...game_utils.actions import Action, ActionSet, Visibility
 from ...game_utils.bot_helper import BotHelper
 from ...game_utils.game_result import GameResult, PlayerResult
+from ...game_utils.stats_helpers import (
+    RATING_COMPETITORS_KEY,
+    rating_competitors_from_scores,
+)
 from ...game_utils.sequence_runner_mixin import SequenceBeat, SequenceOperation
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
@@ -3279,7 +3283,7 @@ class CitadelsGame(Game):
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(player_id=player.id, player_name=player.name, is_bot=player.is_bot and not player.replaced_human)
+                PlayerResult.from_player(player)
                 for player in sorted_players
             ],
             custom_data={
@@ -3287,6 +3291,12 @@ class CitadelsGame(Game):
                 "winner_ids": [winner.id] if winner else [],
                 "final_scores": final_scores,
                 "team_rankings": team_rankings,
+                RATING_COMPETITORS_KEY: rating_competitors_from_scores(
+                    (
+                        ([player.id], self._final_ranking_key(player))
+                        for player in sorted_players
+                    )
+                ),
                 "final_gold": {player.name: player.gold for player in players},
                 "final_district_counts": {player.name: len(player.city) for player in players},
                 "final_rank_values": {player.name: player.revealed_character_rank if player.revealed_character_rank is not None else -1 for player in players},

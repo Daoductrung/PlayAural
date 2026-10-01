@@ -8,8 +8,10 @@ Provides a structured way to capture game results, enabling:
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .player import Player
 
 from mashumaro.mixins.json import DataClassJSONMixin
 
@@ -26,6 +28,20 @@ class PlayerResult(DataClassJSONMixin):
     player_id: str
     player_name: str
     is_bot: bool
+
+    @classmethod
+    def from_player(cls, player: "Player") -> "PlayerResult":
+        """Snapshot one seat with its canonical result ownership.
+
+        A disconnected human's replacement bot still owns that account's seat,
+        so the account remains eligible for the eventual result. Dedicated bots
+        have no account owner and are excluded from durable player statistics.
+        """
+        return cls(
+            player_id=player.id,
+            player_name=player.name,
+            is_bot=player.is_bot and not player.replaced_human,
+        )
 
 
 @dataclass
@@ -44,56 +60,6 @@ class GameResult(DataClassJSONMixin):
     duration_ticks: int
     player_results: list[PlayerResult] = field(default_factory=list)
     custom_data: dict[str, Any] = field(default_factory=dict)
-
-    @classmethod
-    def create(
-        cls,
-        game_type: str,
-        duration_ticks: int,
-        players: list[tuple[str, str, bool]],  # (id, name, is_bot)
-        custom_data: dict[str, Any] | None = None,
-    ) -> "GameResult":
-        """
-        Convenience factory for creating a GameResult.
-
-        Args:
-            game_type: The game type identifier (e.g., "pig", "farkle")
-            duration_ticks: Game duration in ticks
-            players: List of (player_id, player_name, is_bot) tuples
-            custom_data: Game-specific result data
-
-        Returns:
-            A new GameResult instance
-        """
-        return cls(
-            game_type=game_type,
-            timestamp=datetime.now().isoformat(),
-            duration_ticks=duration_ticks,
-            player_results=[
-                PlayerResult(player_id=pid, player_name=name, is_bot=is_bot)
-                for pid, name, is_bot in players
-            ],
-            custom_data=custom_data or {},
-        )
-
-    def get_duration_seconds(self) -> float:
-        """Get game duration in seconds (20 ticks = 1 second)."""
-        return self.duration_ticks / 20.0
-
-    def get_duration_formatted(self) -> str:
-        """Get game duration as a formatted string (e.g., '5:32')."""
-        total_seconds = int(self.get_duration_seconds())
-        minutes = total_seconds // 60
-        seconds = total_seconds % 60
-        return f"{minutes}:{seconds:02d}"
-
-    def get_player_ids(self) -> list[str]:
-        """Get list of all player IDs."""
-        return [p.player_id for p in self.player_results]
-
-    def get_human_player_ids(self) -> list[str]:
-        """Get list of human (non-bot) player IDs."""
-        return [p.player_id for p in self.player_results if not p.is_bot]
 
     def has_human_players(self) -> bool:
         """Check if any human players participated."""

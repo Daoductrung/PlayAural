@@ -27,7 +27,6 @@ from ..audio import AudioPlaybackState
 from ..game_utils.game_communication_mixin import GameCommunicationMixin
 from ..game_utils.game_result_mixin import GameResultMixin
 from ..game_utils.game_scores_mixin import GameScoresMixin
-from ..game_utils.game_prediction_mixin import GamePredictionMixin
 from ..game_utils.sequence_runner_mixin import SequenceRunnerMixin, SequenceState
 from ..game_utils.turn_management_mixin import TurnManagementMixin
 from ..game_utils.menu_management_mixin import MenuManagementMixin
@@ -48,7 +47,7 @@ from ..game_utils.client_types import (
     is_touch_client_type,
 )
 from ..game_utils.player import Player
-from ..messages.localization import Localization
+from ..messages.localization import DEFAULT_LOCALE, Localization
 from ..ui.keybinds import Keybind
 from ..users.bot import Bot
 from .categories import CATEGORY_MISC, normalize_category
@@ -157,7 +156,6 @@ class Game(
     GameCommunicationMixin,
     GameResultMixin,
     GameScoresMixin,
-    GamePredictionMixin,
     SequenceRunnerMixin,
     TurnManagementMixin,
     MenuManagementMixin,
@@ -721,6 +719,60 @@ class Game(
         asynchronous bot work may override this hook, cancel only work owned by
         ``player``, and then call ``super()``.
         """
+
+    def permanently_release_player_seat(self, player: "Player") -> str:
+        """Convert a human-owned active seat into a dedicated bot.
+
+        Ordinary disconnects retain the immutable account id so the player can
+        reclaim the seat and cannot evade the eventual result. A permanent
+        removal first creates a replacement when the human is still live, then
+        ends that reservation: the live game state stays in place, but every
+        identity reference moves to a fresh bot UUID so no later result,
+        statistic, or rating is attributed to the departed account.
+        """
+        if (
+            not any(current is player for current in self.players)
+            or self.status != "playing"
+            or player.is_spectator
+        ):
+            raise ValueError("The requested player does not own an active seat")
+        if not player.is_bot and not self._replace_with_bot(player):
+            raise RuntimeError("The active human seat could not be preserved")
+        if not player.replaced_human:
+            raise ValueError("The requested seat is not owned by a human account")
+
+        old_id = str(player.id)
+        old_user = self._users.get(old_id)
+        bot_user = Bot(
+            player.name,
+            locale=getattr(old_user, "locale", DEFAULT_LOCALE),
+            gender=getattr(old_user, "gender", Gender.UNSPECIFIED),
+        )
+        new_id = bot_user.uuid
+        if any(current.id == new_id for current in self.players):
+            raise RuntimeError("Generated bot identity collides with the roster")
+
+        self._prepare_seat_substitution(player)
+        self._clear_player_ui_runtime_state(old_id, player=player)
+        self._users.pop(old_id, None)
+        self.prune_audio_recipient(old_id)
+        self._transcripts.pop(old_id, None)
+        discard_end_screen = getattr(self, "_discard_end_screen_player_id", None)
+        if discard_end_screen:
+            discard_end_screen(old_id)
+
+        self._rekey_game_state_value(old_id, new_id)
+        self._reindex_active_audio()
+        player.replaced_human = False
+        player.replaced_human_name = ""
+        player.replacement_bot_name = ""
+        player.bot_pending_action = None
+        player.bot_think_ticks = 0
+        player.reconnect_grace_ticks = 0
+        self.attach_user(new_id, bot_user)
+        self.refresh_menus()
+        self._notify_table_presence_changed()
+        return new_id
 
     def _rekey_game_state_value(self, old_value: str, new_value: str) -> None:
         """Move one exact UUID or legacy display-name reference everywhere."""

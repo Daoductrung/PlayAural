@@ -1,5 +1,5 @@
 // Numbered entries are lookup candidates only; exact asset playback remains exact.
-export const bundledSoundVersion = "11";
+export const bundledSoundVersion = "12";
 
 export const soundManifest: Record<string, number> = {
   "accountactionnotify.ogg": require("../../sounds/accountactionnotify.ogg"),
@@ -1092,6 +1092,7 @@ export const soundManifest: Record<string, number> = {
   "game_flip7/double.ogg": require("../../sounds/game_flip7/double.ogg"),
   "game_flip7/flip_seven.ogg": require("../../sounds/game_flip7/flip_seven.ogg"),
   "game_flip7/flip_three.ogg": require("../../sounds/game_flip7/flip_three.ogg"),
+  "game_flip7/freeze.ogg": require("../../sounds/game_flip7/freeze.ogg"),
   "game_flip7/match_win.ogg": require("../../sounds/game_flip7/match_win.ogg"),
   "game_flip7/modifier_plus_10.ogg": require("../../sounds/game_flip7/modifier_plus_10.ogg"),
   "game_flip7/modifier_plus_2.ogg": require("../../sounds/game_flip7/modifier_plus_2.ogg"),
@@ -1105,7 +1106,6 @@ export const soundManifest: Record<string, number> = {
   "game_flip7/shuffle1.ogg": require("../../sounds/game_flip7/shuffle1.ogg"),
   "game_flip7/shuffle2.ogg": require("../../sounds/game_flip7/shuffle2.ogg"),
   "game_flip7/shuffle3.ogg": require("../../sounds/game_flip7/shuffle3.ogg"),
-  "game_flip7/stop.ogg": require("../../sounds/game_flip7/stop.ogg"),
   "game_humanitycards/cardselect.ogg": require("../../sounds/game_humanitycards/cardselect.ogg"),
   "game_humanitycards/cardunselect.ogg": require("../../sounds/game_humanitycards/cardunselect.ogg"),
   "game_humanitycards/judgechoice1.ogg": require("../../sounds/game_humanitycards/judgechoice1.ogg"),

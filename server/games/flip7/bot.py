@@ -1,6 +1,16 @@
+"""Bot strategy for Flip 7."""
+
 from __future__ import annotations
 
 import random
+
+from .constants import (
+    CHOICE_FLIP_THREE,
+    CHOICE_FREEZE,
+    CHOICE_SECOND_CHANCE,
+    PHASE_PLAYING,
+    STATUS_STAYED,
+)
 
 
 def _bust_risk(game, player) -> float:
@@ -53,8 +63,6 @@ def _should_hit(game, player) -> bool:
 
 
 def _pick_target(game, kind):
-    from .game import CHOICE_FLIP_THREE, CHOICE_SECOND_CHANCE, CHOICE_STOP
-
     targets = game._choice_targets()
     if not targets:
         return None
@@ -66,7 +74,7 @@ def _pick_target(game, kind):
     if kind == CHOICE_FLIP_THREE:
         # Hurt the strongest table presence.
         return max(targets, key=lambda p: (p.total_score, len(p.numbers)))
-    if kind == CHOICE_STOP:
+    if kind == CHOICE_FREEZE:
         leader = max(targets, key=lambda p: (p.total_score, len(p.numbers)))
         if actor is not None and leader is actor and len(targets) > 1:
             others = [p for p in targets if p is not actor]
@@ -82,9 +90,9 @@ def bot_think(game, player):
         target = _pick_target(game, game.pending_choice.kind)
         if target is None:
             return None
-        return f"choose_{game.pending_choice.kind}_{game._slot_of(target)}"
+        return f"choose_{game.pending_choice.kind}_{target.id}"
 
-    if game.phase != "playing" or game.flip_state is not None:
+    if game.phase != PHASE_PLAYING or game.flip_state is not None:
         return None
     if game.deal_index < len(game.deal_order):
         return None
@@ -96,5 +104,8 @@ def bot_think(game, player):
     if _should_hit(game, player):
         return "hit"
     if game._is_stay_enabled(player) is None:
-        return "stay"
+        # Staying requires something to bank; otherwise there is nothing to do.
+        flip_player = player
+        if flip_player.round_status != STATUS_STAYED:
+            return "stay"
     return None

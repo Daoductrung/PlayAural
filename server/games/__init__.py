@@ -104,6 +104,6 @@ __all__ = [
     "BangGame",
     "MonopolyGame",
     "BreachPointGame",
-"BingoGame",
+    "BingoGame",
     "Flip7Game",
 ]

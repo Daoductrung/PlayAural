@@ -1,5 +1,22 @@
 # Changelog
 
+Sexta-feira, 2 de outubro de 2026
+
+Novidades:
+
+* O Chat de Voz agora inclui controles de moderação e escuta específicos de cada mesa. Os hosts podem escolher Gerenciamento de Host > Gerenciar Chat de Voz para desativar o microfone de outro membro da mesa ou permitir que ele volte a usá-lo. Em Quem está na mesa, você pode abrir Configurações Pessoais de Voz para outro membro, silenciá-lo apenas para você, definir um volume de reprodução separado para essa pessoa ou redefinir essas opções. Essas configurações permanecem com a mesa durante trocas de jogo e reinicializações planejadas do servidor.
+
+Melhorias:
+
+* O Chat de Voz agora permanece conectado quando um host troca o jogo da mesa ou quando a sessão ativa é transferida para outro dispositivo. O novo dispositivo se reconecta apenas para ouvir, e seu microfone permanece desligado até que o jogador o ative explicitamente.
+* O Placar de Líderes e Minhas Estatísticas agora mostram a Classificação de Habilidade como um único número mais claro. Resultados de partidas, estatísticas, placares e classificações de habilidade agora são mais precisos em jogos por equipes e empates, bem como quando jogadores se desconectam, retornam aos seus assentos, são substituídos por bots ou são removidos permanentemente da partida.
+* A ação pouco confiável Prever resultados foi removida dos menus da mesa.
+
+Correções de bugs:
+
+* O Gerenciamento de Host não oferece mais a opção Passar Host para Outro Jogador quando o assento está desconectado ou sob controle de um bot. Se a pessoa selecionada sair, o menu de ações desse membro agora retorna com segurança para Quem está na mesa, em vez de ficar desatualizado.
+* No Android, o TalkBack agora lê normalmente o texto enquanto ele é digitado nos campos de login, chat e recuperação de senha, bem como nos campos de texto dos jogos, em vez de anunciar repetidamente todo o campo.
+
 Quinta-feira, 1 de outubro de 2026
 
 Novidades:
@@ -13,7 +30,7 @@ Melhorias:
 
 * Amigos agora inclui Solicitações enviadas, onde as solicitações feitas podem ser revisadas ou canceladas. Os amigos offline também mostram quando estiveram online pela última vez.
 * Denunciar um usuário agora está disponível em Quem está na mesa, inclusive para espectadores e assentos de pessoas desconectadas; bots não podem ser denunciados.
-* Opções gerais e Opções de jogo agora estão separadas em menus mais claros, e o foco retorna ao item que abriu cada submenu.
+* Opções gerais agora coloca Idioma do Chat Global logo abaixo de Idioma e contém Opções de jogo como submenu. O foco retorna ao item que abriu cada submenu.
 * Pressione F1 no cliente Desktop ou Web para ouvir a descrição do item de menu em foco. No modo de auto-vocalização do cliente móvel, toque uma vez com três dedos. Os pedidos de confirmação agora são visíveis e falados, enquanto o feedback breve dos menus não ocupa mais o histórico de mensagens.
 * Entrar em outro cliente Desktop, Web ou Móvel agora transfere a sessão ativa corretamente, preservando a mesa, o assento de jogador, o turno e a conexão de voz atuais. Fechar o aplicativo ou sair da conta também deixa as mesas e as sessões de voz de forma mais confiável.
 * Hosts que estejam como espectadores agora podem manter uma mesa ativa em andamento e gerenciar sua sala de espera. Convites e mudanças de função também se recuperam de modo mais confiável quando alguém se desconecta, muda de função ou responde tarde.

@@ -1,5 +1,22 @@
 Changelog
 
+Friday 2 October 2026
+
+New Additions:
+
+* Voice Chat now includes table-specific moderation and listening controls. Hosts can choose Host Management > Manage Voice Chat to disable or allow another table member's microphone. From Who's at the table, anyone can open Personal Voice Settings for another member to mute that member only for themselves, set a separate listening volume for that member, or reset those choices. These settings remain with the table through game switches and planned server restarts.
+
+Improvements:
+
+* Voice Chat now stays connected when a host switches the table to another game or a live session moves to another device. The replacement device reconnects listen-only, and its microphone remains off until the player explicitly turns it on.
+* Leaderboards and My Stats now show Skill Rating as one clearer number. Game results, statistics, leaderboards, and ratings are now more accurate for team games and ties, and when players disconnect, return to their seats, are replaced by bots, or are permanently removed.
+* The unreliable Predict outcomes action has been removed from table menus.
+
+Bug Fixes:
+
+* Host Management no longer offers Pass Host to Another Player for disconnected or bot-controlled seats. If the selected person leaves, the member action menu now returns safely to Who's at the table instead of becoming stale.
+* On Android, TalkBack now reads live typing normally in sign-in, chat, password recovery, and game text fields instead of repeatedly announcing the entire field.
+
 Thursday 1 October 2026
 
 New Additions:
@@ -13,7 +30,7 @@ Improvements:
 
 * Friends now includes Sent Requests, where outgoing requests can be reviewed or cancelled. Offline friends also show when they were last online.
 * Report a user is now available from Who's at the table, including for spectators and disconnected human seats; bots cannot be reported.
-* General options and Game options are now separated into clearer menus, with focus returning to the item that opened each submenu.
+* General options now places Global Chat Language directly below Language and contains Game options as a submenu. Focus returns to the item that opened each submenu.
 * Press F1 on Desktop or Web to hear a description of the focused menu item. In Mobile self-voicing mode, use a three-finger single tap. Confirmation prompts are now both visible and spoken, while brief menu feedback no longer fills message history.
 * Signing in from another Desktop, Web, or Mobile client now transfers the live session cleanly while preserving the current table, player seat, turn, and voice connection. Closing or signing out of an app also leaves tables and voice sessions more reliably.
 * Spectating hosts can now keep an active table running and manage its waiting lobby. Invitations and role changes also recover more reliably if someone disconnects, changes role, or responds late.

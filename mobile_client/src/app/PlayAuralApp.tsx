@@ -90,8 +90,8 @@ import { observeSpeechEnvironment } from "../tts/observeSpeechEnvironment";
 import { ENABLE_CLIENT_DEBUG_LOGS } from "../utils/debug";
 import { MobileVoiceManager, type MobileVoiceConnectionState } from "../voice/MobileVoiceManager";
 
-const MOBILE_CLIENT_VERSION = "1.0.5.2";
-const MOBILE_BUILD_STAMP = "2026-10-01 03:16:24 +07:00";
+const MOBILE_CLIENT_VERSION = "1.0.5.3";
+const MOBILE_BUILD_STAMP = "2026-10-02 02:37:27 +07:00";
 const DEFAULT_SERVER_URL = "wss://playaural.ddt.one:443";
 const CLIENT_CONFIG_STORAGE_KEY = "playaural.mobile.clientConfig";
 const CLIENT_PASSWORD_STORAGE_KEY = "playaural.mobile.password";

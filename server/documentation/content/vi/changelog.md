@@ -1,5 +1,22 @@
 Nhật ký thay đổi
 
+Thứ Sáu 2 Tháng Mười 2026
+
+Tính năng mới:
+
+* Trò chuyện thoại giờ có các quyền quản lý và nghe riêng cho từng bàn. Chủ bàn có thể chọn Quản lý bàn > Quản lý trò chuyện thoại để tắt mic hoặc cho phép một thành viên khác dùng lại mic. Từ Ai đang ở trong bàn, bạn có thể mở Cài đặt thoại cá nhân của một thành viên khác để riêng mình không nghe người đó, đặt âm lượng riêng cho người đó hoặc đặt lại các lựa chọn này. Các cài đặt vẫn được giữ trong bàn khi chuyển trò chơi hoặc khởi động lại máy chủ theo lịch.
+
+Cải thiện:
+
+* Trò chuyện thoại giờ giữ nguyên kết nối khi chủ bàn chuyển sang trò chơi khác hoặc khi phiên đang hoạt động được chuyển sang thiết bị khác. Thiết bị thay thế chỉ kết nối để nghe, còn mic luôn tắt cho đến khi người chơi chủ động bật lên.
+* Bảng xếp hạng và Thống kê của tôi giờ hiển thị Xếp hạng kỹ năng dưới dạng một con số rõ ràng hơn. Kết quả ván, thống kê, bảng xếp hạng và xếp hạng giờ chính xác hơn trong ván theo đội và ván hòa, cũng như khi người chơi mất kết nối, trở lại chỗ cũ, được bot thay thế hoặc bị đưa hẳn khỏi ván.
+* Hành động Dự đoán kết quả không đáng tin cậy đã được gỡ khỏi các trình đơn trong bàn.
+
+Sửa lỗi:
+
+* Quản lý bàn không còn đưa ra mục Chuyển quyền chủ bàn cho chỗ đã mất kết nối hoặc đang do bot điều khiển. Nếu người đang được chọn rời bàn, trình đơn hành động thành viên giờ trở về Ai đang ở trong bàn thay vì giữ nội dung cũ.
+* Trên Android, TalkBack giờ đọc nội dung đang nhập bình thường trong phần đăng nhập, trò chuyện, khôi phục mật khẩu và các ô nhập của trò chơi, thay vì liên tục đọc lại toàn bộ ô.
+
 Thứ Năm 1 Tháng Mười 2026
 
 Tính năng mới:
@@ -13,8 +30,8 @@ Cải thiện:
 
 * Bạn bè giờ có mục Lời mời đã gửi để bạn xem lại hoặc hủy lời mời đang chờ. Với bạn bè đang Ngoại tuyến, danh sách cũng cho biết lần cuối họ trực tuyến.
 * Báo cáo người dùng giờ có ngay trong mục Ai đang ở trong bàn, áp dụng cả với khán giả và chỗ của người chơi bị mất kết nối; không thể báo cáo bot.
-* Tùy chỉnh chung và Tùy chỉnh trò chơi giờ được tách thành các menu rõ ràng hơn. Khi quay lại, con trỏ sẽ trở về đúng mục đã dùng để mở menu con.
-* Nhấn F1 trên máy tính hoặc Web để nghe mô tả của mục menu đang được chọn. Trong chế độ tự đọc trên điện thoại, hãy chạm một lần bằng ba ngón. Câu hỏi xác nhận giờ vừa hiển thị vừa được đọc, còn phản hồi ngắn khi dùng menu không còn làm đầy lịch sử tin nhắn.
+* Tùy chỉnh chung giờ đặt Ngôn ngữ trò chuyện chung ngay dưới Ngôn ngữ và chứa Tùy chỉnh trò chơi dưới dạng trình đơn con. Con trỏ sẽ trở về đúng mục đã dùng để mở mỗi trình đơn con.
+* Nhấn F1 trên máy tính hoặc Web để nghe mô tả của mục trình đơn đang được chọn. Trong chế độ tự đọc trên điện thoại, hãy chạm một lần bằng ba ngón. Câu hỏi xác nhận giờ vừa hiển thị vừa được đọc, còn phản hồi ngắn khi dùng trình đơn không còn làm đầy lịch sử tin nhắn.
 * Khi đăng nhập từ một máy tính, trình duyệt Web hoặc điện thoại khác, phiên đang hoạt động giờ được chuyển giao gọn gàng mà vẫn giữ nguyên bàn, chỗ ngồi, lượt và kết nối trò chuyện thoại. Việc đóng hoặc đăng xuất khỏi ứng dụng cũng rời bàn và phòng thoại ổn định hơn.
 * Chủ bàn đang làm khán giả giờ có thể giữ cho bàn đang chơi tiếp tục hoạt động và quản lý phòng chờ. Lời mời và thay đổi vai trò cũng được xử lý ổn định hơn khi một người mất kết nối, đổi vai trò hoặc trả lời muộn.
 * Tên bot giờ thay đổi theo ngôn ngữ bạn chọn, luôn dễ phân biệt và được giữ nhất quán khi kết nối lại, thay người hoặc khôi phục bàn đã lưu.
@@ -25,7 +42,7 @@ Sửa lỗi:
 
 * Ứng dụng máy tính giờ khởi động bình thường trên những máy Windows cũ từng tự đóng trước khi tới màn hình đăng nhập.
 * Đăng nhập và các thao tác giao lưu giờ xử lý nhất quán tên đăng nhập có ký tự quốc tế hoặc khác nhau về chữ hoa, chữ thường, đồng thời ngăn tạo nhiều tài khoản có tên trông giống hệt nhau.
-* Khi đổi ngôn ngữ trong lúc đang kết nối, menu và nội dung của ứng dụng giờ cập nhật ngay mà không còn xen lẫn ngôn ngữ cũ trong chốc lát.
+* Khi đổi ngôn ngữ trong lúc đang kết nối, trình đơn và nội dung của ứng dụng giờ cập nhật ngay mà không còn xen lẫn ngôn ngữ cũ trong chốc lát.
 
 Thứ Bảy 26 Tháng Chín 2026
 

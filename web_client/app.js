@@ -849,6 +849,11 @@ class VoiceChatManager {
     }
     const LK = window.LivekitClient;
     if (!LK || !LK.Room) {
+      this.app.send({
+        type: "voice_leave",
+        scope: packet.scope || "table",
+        context_id: packet.context_id || "",
+      });
       this.pendingJoin = false;
       this.state = "disconnected";
       this.requestedContextId = "";
@@ -887,6 +892,8 @@ class VoiceChatManager {
         return;
       }
       const wasConnected = this.state === "connected";
+      const wasConnecting = this.state === "connecting" || this.pendingJoin;
+      const failedContext = { ...this.context };
       this.cleanupElements();
       this.room = null;
       this.pendingJoin = false;
@@ -897,10 +904,23 @@ class VoiceChatManager {
       if (wasConnected && !expected && this.presenceRegistered) {
         this.sendPresence("connection_lost");
         this.presenceRegistered = false;
+      } else if (
+        wasConnecting
+        && !expected
+        && failedContext.contextId
+        && this.app.isConnected()
+      ) {
+        this.app.send({
+          type: "voice_leave",
+          scope: failedContext.scope || "table",
+          context_id: failedContext.contextId,
+        });
       }
       this.updateUI();
       if (wasConnected) {
         this.setStatus("voice-chat-left", false);
+      } else if (wasConnecting && !expected) {
+        this.setStatus("voice-chat-connect-failed", true);
       }
     });
 
@@ -931,7 +951,15 @@ class VoiceChatManager {
         return;
       }
       console.warn("Voice Chat connection failed:", error);
+      const failedContext = { ...this.context };
       await this.cleanup(false, false);
+      if (failedContext.contextId && this.app.isConnected()) {
+        this.app.send({
+          type: "voice_leave",
+          scope: failedContext.scope || "table",
+          context_id: failedContext.contextId,
+        });
+      }
       this.setStatus("voice-chat-connect-failed", true);
       this.updateUI();
     }
@@ -2321,11 +2349,15 @@ class PlayAuralWebApp {
     this.connectionAudioActive = false;
     this.audio.stopAll(800);
     this.webSpeech.cancel();
+    this.currentTableContextId = "";
+    this.clearUi(full);
+  }
+
+  clearUi(clearRenderedUi = true) {
     this.hideInlineInput();
     this.webActionsItem = null;
     this.webActionsMenuId = "";
-    this.currentTableContextId = "";
-    if (full) {
+    if (clearRenderedUi) {
       this.menuFocusContexts?.clear();
       this.store.clearUi();
     }
@@ -2460,7 +2492,7 @@ class PlayAuralWebApp {
         }
         break;
       case "clear_ui":
-        this.cleanupRuntime(true);
+        this.clearUi();
         break;
       case "chat":
         this.handleChatPacket(packet);

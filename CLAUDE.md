@@ -332,6 +332,23 @@ loading an asset.
   `server_requested=true`. First-party clients may connect automatically but
   always enter listen-only; microphone publishing remains a separate explicit
   user action. `voice_context_closed` cancels both pending and active joins.
+- A live device handover preserves confirmed table-voice listening intent by
+  invalidating the old session's grant and issuing the replacement client a
+  fresh context-bound server request after its restored `table_context`.
+  Reconfirmation is silent to other table members, and an unexpired grant
+  explicitly marked as a continuation may carry through another rapid device
+  handover. Ordinary pending/manual grants may not. Microphone state and audio
+  input selection are device-local and never transfer; the replacement always
+  starts listen-only. Preserve the prior confirmed presence only for the
+  bounded continuation grant: successful reconfirmation is silent, while an
+  explicit client rejection, media connection failure, or grant expiry clears
+  it and broadcasts exactly one actual disconnect. Clients revoke grants when
+  media setup fails, and the server rejects late presence confirmations after
+  authorization expiry.
+- `clear_ui` is an interface-only command: it clears server-owned menus,
+  editboxes, and focus state without changing table, game-audio, or voice
+  ownership. Lifecycle exits must use `table_context`, unified `audio`
+  teardown, and `voice_context_closed`/membership teardown as appropriate.
 - Voice presence is runtime-only state. It is tied to the active table lifecycle and must not create long-lived database rows unless a future feature defines retention and cleanup rules explicitly.
 
 ### Game Implementation Pattern

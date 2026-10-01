@@ -1389,10 +1389,12 @@ class Table(DataClassJSONMixin):
                 and self._manager._username_to_table.get(username) == self.table_id
             ):
                 self._manager._username_to_table.pop(username, None)
-            if self._server and hasattr(self._server, "_clear_voice_join_authorization"):
-                self._server._clear_voice_join_authorization(username)
-            if self._server and hasattr(self._server, "_voice_presence_by_user"):
-                self._server._voice_presence_by_user.pop(username, None)
+            if self._server:
+                self._server.discard_voice_context_state(
+                    username,
+                    scope="table",
+                    context_id=self.table_id,
+                )
         if self._manager and hasattr(self._manager, "_username_to_table"):
             for member in live_members:
                 self._manager._username_to_table[member.username] = self.table_id
@@ -1487,10 +1489,12 @@ class Table(DataClassJSONMixin):
             self._users.pop(username, None)
             if self._manager and hasattr(self._manager, "_username_to_table"):
                 self._manager._username_to_table.pop(username, None)
-            if self._server and hasattr(self._server, "_clear_voice_join_authorization"):
-                self._server._clear_voice_join_authorization(username)
-            if self._server and hasattr(self._server, "_voice_presence_by_user"):
-                self._server._voice_presence_by_user.pop(username, None)
+            if self._server:
+                self._server.discard_voice_context_state(
+                    username,
+                    scope="table",
+                    context_id=self.table_id,
+                )
         self.members = valid_members
 
         # 3. Track humans, bots, and spectators

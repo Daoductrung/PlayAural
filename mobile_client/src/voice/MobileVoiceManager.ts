@@ -19,6 +19,7 @@ export type MobileVoiceConnectionState = "connected" | "connecting" | "disconnec
 type VoiceCallbacks = {
   onConnected?: () => void;
   onDisconnect?: (reason: "connection_lost") => void;
+  onJoinFailed?: () => void;
   onMicBusy?: (busy: boolean) => void;
   onMicState?: (enabled: boolean) => void;
   onState?: (state: MobileVoiceConnectionState) => void;
@@ -138,6 +139,7 @@ export class MobileVoiceManager {
     if (!this.supported) {
       this.callbacks.onStatus?.("voice-chat-sdk-missing", true);
       this.setState("disconnected");
+      this.callbacks.onJoinFailed?.();
       return;
     }
 
@@ -178,6 +180,7 @@ export class MobileVoiceManager {
       if (this.isCurrentIntent(intent)) {
         this.callbacks.onStatus?.("voice-chat-connect-failed", true);
         this.setState("disconnected");
+        this.callbacks.onJoinFailed?.();
       }
     }
   }

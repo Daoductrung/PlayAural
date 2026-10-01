@@ -538,7 +538,11 @@ class Server:
             "table": self._resolve_table_voice_context,
         }
         self._voice_presence_by_user: dict[str, dict[str, str]] = {}
-        self._voice_join_authorizations_by_user: dict[str, dict[str, str | float]] = {}
+        self._voice_join_authorizations_by_user: dict[
+            str,
+            dict[str, str | float | bool],
+        ] = {}
+        self._next_voice_join_authorization_expiry: float | None = None
         self._presence_audio_batcher = SameTurnAudioBatcher()
         self._pending_voice_context_closures: dict[
             tuple[str, str, str], asyncio.Task
@@ -898,6 +902,7 @@ PlayAural Server
         active_voice_sessions.update(self._voice_presence_by_user)
         self._voice_presence_by_user.clear()
         self._voice_join_authorizations_by_user.clear()
+        self._next_voice_join_authorization_expiry = None
         for task in list(
             getattr(self, "_pending_voice_context_closures", {}).values()
         ):
@@ -920,6 +925,7 @@ PlayAural Server
         """Called every tick (50ms)."""
         if self.maintenance_manager.is_active:
             return
+        self._expire_voice_join_authorizations()
         # Tick all tables
         self._tables.on_tick()
 
@@ -1826,6 +1832,11 @@ PlayAural Server
         if not old_client and old_user:
             old_client = old_user.connection
         session_handover = bool(old_client and old_client is not client)
+        handover_voice_presence = (
+            self._voice_intent_for_session_handover(canonical_username)
+            if session_handover
+            else {}
+        )
         old_disconnect_packet = None
 
         if old_client and old_client != client:
@@ -1839,15 +1850,11 @@ PlayAural Server
             if old_user and old_user.connection is old_client:
                 old_user.deactivate()
 
-            # Voice media is session-bound. The old client receives the normal
-            # non-reconnecting disconnect packet and the new device may obtain
-            # a fresh LiveKit authorization if the user chooses to rejoin.
-            table = self._tables.find_user_table(canonical_username)
-            await self._clear_voice_presence(
-                canonical_username,
-                "voice-status-connection-lost",
-                table=table,
-            )
+            # A pending grant belongs to the retired gameplay transport and
+            # must never be reusable by its replacement. Confirmed table voice
+            # intent is handled after the new device's table context has been
+            # restored, using a fresh listen-only authorization.
+            self._clear_voice_join_authorization(canonical_username)
             self._audio_input_devices_by_user.pop(canonical_username, None)
             old_disconnect_packet = {
                 "type": "disconnect",
@@ -1986,6 +1993,12 @@ PlayAural Server
                 self.on_user_presence_changed()
 
         await self._send_game_list(client)
+
+        if handover_voice_presence:
+            await self._continue_voice_after_session_handover(
+                user,
+                handover_voice_presence,
+            )
 
         client.session_ready = True
         return (
@@ -4775,11 +4788,144 @@ PlayAural Server
             return "voice-muted-minutes", {"minutes": str(int(remaining // 60) + 1)}
         return "voice-muted-permanent", {}
 
-    def _record_voice_join_authorization(self, username: str, *, scope: str, context_id: str) -> None:
+    def _record_voice_join_authorization(
+        self,
+        username: str,
+        *,
+        scope: str,
+        context_id: str,
+        announce_presence: bool = True,
+        continuation: bool = False,
+    ) -> None:
+        expires_at = (
+            asyncio.get_running_loop().time()
+            + VOICE_JOIN_AUTHORIZATION_WINDOW_SECONDS
+        )
         self._voice_join_authorizations_by_user[username] = {
             "scope": scope,
             "context_id": context_id,
-            "expires_at": asyncio.get_running_loop().time() + VOICE_JOIN_AUTHORIZATION_WINDOW_SECONDS,
+            "expires_at": expires_at,
+            "announce_presence": announce_presence,
+            "continuation": continuation,
+        }
+        next_expiry = getattr(
+            self,
+            "_next_voice_join_authorization_expiry",
+            None,
+        )
+        if next_expiry is None or expires_at < next_expiry:
+            self._next_voice_join_authorization_expiry = expires_at
+
+    def _recalculate_next_voice_join_authorization_expiry(self) -> None:
+        expirations = [
+            expires_at
+            for authorization in self._voice_join_authorizations_by_user.values()
+            if isinstance((expires_at := authorization.get("expires_at")), float)
+        ]
+        self._next_voice_join_authorization_expiry = (
+            min(expirations) if expirations else None
+        )
+
+    def _expire_voice_join_authorizations(self) -> None:
+        """Retire stale grants and any unconfirmed handoff presence.
+
+        Manual grants have no authoritative presence until the client confirms
+        its LiveKit connection. A handoff grant deliberately keeps the prior
+        presence continuous, so expiration must close that preserved presence
+        and announce the real connection loss exactly once.
+        """
+        if not self._voice_join_authorizations_by_user:
+            self._next_voice_join_authorization_expiry = None
+            return
+        now = asyncio.get_running_loop().time()
+        next_expiry = getattr(
+            self,
+            "_next_voice_join_authorization_expiry",
+            None,
+        )
+        if next_expiry is None:
+            self._recalculate_next_voice_join_authorization_expiry()
+            next_expiry = self._next_voice_join_authorization_expiry
+        if next_expiry is not None and now <= next_expiry:
+            return
+
+        expired: list[tuple[str, dict[str, str | float | bool]]] = []
+        for username, authorization in list(
+            self._voice_join_authorizations_by_user.items()
+        ):
+            expires_at = authorization.get("expires_at")
+            if not isinstance(expires_at, float) or now > expires_at:
+                if (
+                    self._voice_join_authorizations_by_user.get(username)
+                    is authorization
+                ):
+                    self._voice_join_authorizations_by_user.pop(username, None)
+                    expired.append((username, authorization))
+        self._recalculate_next_voice_join_authorization_expiry()
+
+        for username, authorization in expired:
+            if authorization.get("continuation") is not True:
+                continue
+            scope = str(authorization.get("scope") or "")
+            context_id = str(authorization.get("context_id") or "")
+            if not self._voice_presence_matches(
+                username,
+                scope=scope,
+                context_id=context_id,
+            ):
+                continue
+            self._cancel_scheduled_voice_context_close(
+                username,
+                scope=scope,
+                context_id=context_id,
+            )
+            self._voice_presence_by_user.pop(username, None)
+            table = (
+                self._tables.get_table(context_id)
+                if scope == "table"
+                else None
+            )
+            self._broadcast_voice_presence_event_now(
+                table,
+                username,
+                "voice-status-connection-lost",
+            )
+            user = self._users.get(username)
+            queue_packet = getattr(user, "queue_protocol_packet", None)
+            if callable(queue_packet):
+                queue_packet(
+                    {
+                        "type": "voice_context_closed",
+                        "scope": scope,
+                        "context_id": context_id,
+                    }
+                )
+
+    def _voice_intent_for_session_handover(
+        self,
+        username: str,
+    ) -> dict[str, str]:
+        """Return confirmed or in-flight continuation intent for one account."""
+        self._expire_voice_join_authorizations()
+        presence = self._voice_presence_by_user.get(username)
+        if presence:
+            return {
+                "scope": str(presence.get("scope") or ""),
+                "context_id": str(presence.get("context_id") or ""),
+            }
+
+        authorization = self._voice_join_authorizations_by_user.get(username)
+        if not authorization or authorization.get("continuation") is not True:
+            return {}
+        expires_at = authorization.get("expires_at")
+        if (
+            not isinstance(expires_at, float)
+            or asyncio.get_running_loop().time() > expires_at
+        ):
+            return {}
+        return {
+            "scope": str(authorization.get("scope") or ""),
+            "context_id": str(authorization.get("context_id") or ""),
         }
 
     def _clear_voice_join_authorization(
@@ -4798,20 +4944,31 @@ PlayAural Server
         if context_id and authorization.get("context_id") != context_id:
             return False
         self._voice_join_authorizations_by_user.pop(username, None)
+        self._recalculate_next_voice_join_authorization_expiry()
         return True
 
-    def _consume_voice_join_authorization(self, username: str, *, scope: str, context_id: str) -> bool:
+    def _consume_voice_join_authorization(
+        self,
+        username: str,
+        *,
+        scope: str,
+        context_id: str,
+    ) -> dict[str, str | float | bool] | None:
         authorization = self._voice_join_authorizations_by_user.get(username)
         if not authorization:
-            return False
+            return None
         expires_at = authorization.get("expires_at")
         if not isinstance(expires_at, float) or asyncio.get_running_loop().time() > expires_at:
             self._clear_voice_join_authorization(username)
-            return False
-        if authorization.get("scope") != scope or authorization.get("context_id") != context_id:
-            return False
-        self._clear_voice_join_authorization(username)
-        return True
+            return None
+        if (
+            authorization.get("scope") != scope
+            or authorization.get("context_id") != context_id
+        ):
+            return None
+        consumed = self._voice_join_authorizations_by_user.pop(username)
+        self._recalculate_next_voice_join_authorization_expiry()
+        return consumed
 
     async def _authorize_voice_join(
         self,
@@ -4821,6 +4978,8 @@ PlayAural Server
         context_id: str,
         enforce_rate_limit: bool,
         server_requested: bool = False,
+        announce_presence: bool = True,
+        continuation: bool = False,
     ) -> dict[str, Any] | None:
         """Build one context-bound grant for a manual or server request."""
         self._clear_voice_join_authorization(user.username)
@@ -4878,6 +5037,8 @@ PlayAural Server
             user.username,
             scope=context.scope,
             context_id=context.context_id,
+            announce_presence=announce_presence,
+            continuation=continuation,
         )
         self._cancel_scheduled_voice_context_close(
             user.username,
@@ -4890,6 +5051,93 @@ PlayAural Server
             # explicit client action.
             response["server_requested"] = True
         return response
+
+    async def _continue_voice_after_session_handover(
+        self,
+        user: NetworkUser,
+        previous_presence: dict[str, str],
+    ) -> bool:
+        """Move confirmed listening intent to a replacement client session.
+
+        LiveKit transports and microphone capture are device-local, so the old
+        media connection itself cannot move. The replacement receives a fresh
+        table-bound, listen-only grant after its restored ``table_context``
+        packet. Presence is re-confirmed without broadcasting a synthetic
+        leave/join pair to the rest of the table.
+        """
+        scope = str(previous_presence.get("scope") or "").strip().lower()
+        context_id = str(previous_presence.get("context_id") or "").strip()
+        table = self._tables.get_table(context_id) if scope == "table" else None
+        if (
+            scope != "table"
+            or not context_id
+            or table is None
+            or table.get_user(user.username) is not user
+        ):
+            await self.force_voice_context_leave(
+                user.username,
+                message_key="voice-status-connection-lost",
+                scope=scope,
+                context_id=context_id,
+                table=table,
+            )
+            return False
+
+        # Keep the confirmed presence continuous while the replacement device
+        # uses its short-lived grant. Confirmation consumes the grant silently;
+        # rejection or expiry clears this preserved presence exactly once.
+        response = await self._authorize_voice_join(
+            user,
+            scope=scope,
+            context_id=context_id,
+            enforce_rate_limit=False,
+            server_requested=True,
+            announce_presence=False,
+            continuation=True,
+        )
+        if response is None:
+            await self.force_voice_context_leave(
+                user.username,
+                message_key="voice-status-connection-lost",
+                scope=scope,
+                context_id=context_id,
+                table=table,
+            )
+            return False
+        user.queue_protocol_packet(response)
+        return True
+
+    def discard_voice_context_state(
+        self,
+        username: str,
+        *,
+        scope: str,
+        context_id: str,
+    ) -> None:
+        """Discard voice bookkeeping for an already-absent table member.
+
+        This synchronous path is reserved for table reconciliation where no
+        live user remains to notify. Interactive exits use
+        ``force_voice_context_leave`` so clients and listeners are informed.
+        """
+        normalized_scope = str(scope or "table").strip().lower()
+        normalized_context_id = str(context_id or "").strip()
+        self._clear_voice_join_authorization(
+            username,
+            scope=normalized_scope,
+            context_id=normalized_context_id,
+        )
+        self._cancel_scheduled_voice_context_close(
+            username,
+            scope=normalized_scope,
+            context_id=normalized_context_id,
+        )
+        if self._voice_presence_matches(
+            username,
+            scope=normalized_scope,
+            context_id=normalized_context_id,
+        ):
+            self._voice_presence_by_user.pop(username, None)
 
     async def force_voice_context_join(
         self,
@@ -5359,11 +5607,23 @@ PlayAural Server
                 context_id=context.context_id,
             )
             return
-        if not self._consume_voice_join_authorization(
+        authorization = self._consume_voice_join_authorization(
             user.username,
             scope=context.scope,
             context_id=context.context_id,
-        ):
+        )
+        if authorization is None:
+            if self._voice_presence_matches(
+                user.username,
+                scope=context.scope,
+                context_id=context.context_id,
+            ):
+                return
+            await self._send_voice_context_closed(
+                user,
+                scope=context.scope,
+                context_id=context.context_id,
+            )
             return
 
         existing = self._voice_presence_by_user.get(user.username)
@@ -5380,12 +5640,17 @@ PlayAural Server
             "scope": context.scope,
             "context_id": context.context_id,
         }
-        table = self._tables.get_table(context.context_id) if context.scope == "table" else None
-        await self._broadcast_voice_presence_event(
-            table,
-            user.username,
-            "voice-status-connected",
-        )
+        if authorization.get("announce_presence", True) is not False:
+            table = (
+                self._tables.get_table(context.context_id)
+                if context.scope == "table"
+                else None
+            )
+            await self._broadcast_voice_presence_event(
+                table,
+                user.username,
+                "voice-status-connected",
+            )
 
     async def _clear_voice_presence(
         self,
@@ -5504,7 +5769,7 @@ PlayAural Server
             source="voice",
         )
 
-    async def _broadcast_voice_presence_event(
+    def _broadcast_voice_presence_event_now(
         self,
         table,
         actor_username: str,
@@ -5521,6 +5786,21 @@ PlayAural Server
             if not user or not user.approved:
                 continue
             user.speak_l(message_key, buffer="system", player=actor_username)
+
+    async def _broadcast_voice_presence_event(
+        self,
+        table,
+        actor_username: str,
+        message_key: str,
+        *,
+        play_sound: bool = True,
+    ) -> None:
+        self._broadcast_voice_presence_event_now(
+            table,
+            actor_username,
+            message_key,
+            play_sound=play_sound,
+        )
 
     async def _send_voice_context_closed(
         self,

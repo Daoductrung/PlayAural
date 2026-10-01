@@ -30,6 +30,16 @@ Server-requested voice joins reuse `voice_join_info` with
 `server_requested=true`; clients connect listen-only and must never enable the
 microphone without a separate explicit user action. `voice_context_closed`
 cancels both pending and active joins.
+Live device handover carries confirmed table-voice listening intent through a
+fresh context-bound server request without broadcasting a false leave/join
+pair. Never transfer a microphone or device selection; the replacement client
+starts listen-only, and only an unexpired continuation grant may survive a
+rapid second handover. Keep confirmed presence during that bounded grant;
+successful reconfirmation is silent, while client rejection, media-connection
+failure, or grant expiry clears it and announces one real disconnect. Clients
+must revoke failed join grants, and the server must close late confirmations.
+`clear_ui` clears server-owned menus and inputs only; table context and unified
+audio/voice lifecycle packets own runtime teardown.
 
 User blocks are directional persistent records retained until explicit
 unblocking or either account is deleted. Any block between two accounts is a

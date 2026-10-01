@@ -1765,6 +1765,10 @@ export function PlayAuralApp() {
         audio.refreshPlaybackState();
         setVoiceStatusMessage("voice-chat-connection-lost", true);
       },
+      onJoinFailed: () => {
+        voiceJoinPendingRef.current = false;
+        sendVoiceLeave();
+      },
       onMicBusy: (busy) => {
         updateVoiceMicBusy(busy);
       },
@@ -1779,7 +1783,7 @@ export function PlayAuralApp() {
         setVoiceStatusMessage(messageKeyOrText, speak);
       },
     });
-  }, [audio, sendVoicePresence, setVoiceStatusMessage, updateVoiceMicBusy, voice]);
+  }, [audio, sendVoiceLeave, sendVoicePresence, setVoiceStatusMessage, updateVoiceMicBusy, voice]);
 
   const applyPreferenceUpdates = (updates: Record<string, unknown>) => {
     if (Object.keys(updates).length === 0) {
@@ -2106,15 +2110,7 @@ export function PlayAuralApp() {
     audio.stopAll(800);
   };
 
-  const resetRuntimeUiForSession = useCallback((sendVoiceLeave: boolean) => {
-    leaveVoiceChat({
-      announce: false,
-      clearContext: true,
-      sendLeave: sendVoiceLeave,
-      statusKey: "voice-chat-not-connected",
-    });
-    connectionAudioActiveRef.current = false;
-    audio.stopAll(800);
+  const clearRuntimeUi = useCallback(() => {
     Keyboard.dismiss();
     activeTextInputKeyRef.current = null;
     setActiveTextInputKey(null);
@@ -2128,7 +2124,19 @@ export function PlayAuralApp() {
     setInputState(null);
     inputStateRef.current = null;
     setInputValue("");
-  }, [audio, clearScheduledNativeFocus, leaveVoiceChat]);
+  }, [clearScheduledNativeFocus]);
+
+  const resetRuntimeUiForSession = useCallback((sendVoiceLeave: boolean) => {
+    leaveVoiceChat({
+      announce: false,
+      clearContext: true,
+      sendLeave: sendVoiceLeave,
+      statusKey: "voice-chat-not-connected",
+    });
+    connectionAudioActiveRef.current = false;
+    audio.stopAll(800);
+    clearRuntimeUi();
+  }, [audio, clearRuntimeUi, leaveVoiceChat]);
 
   const queueReconnectAttempt = useCallback((delayMs: number, statusMessage: string, speakMessage = false) => {
     const { password: reconnectPassword, serverUrl: reconnectServerUrl, username: reconnectUsername } = credentialsRef.current;
@@ -2591,7 +2599,7 @@ export function PlayAuralApp() {
         }
 
         if (packet.type === "clear_ui") {
-          resetRuntimeUiForSession(voicePresenceRegisteredRef.current);
+          clearRuntimeUi();
           return;
         }
 

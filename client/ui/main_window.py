@@ -186,6 +186,7 @@ class MainWindow(wx.Frame):
             on_state=lambda state: wx.CallAfter(self.on_voice_state_change, state),
             on_mic_state=lambda enabled: wx.CallAfter(self.on_voice_mic_state_change, enabled),
             on_disconnect=lambda reason: wx.CallAfter(self.on_voice_transport_disconnect, reason),
+            on_join_failed=lambda: wx.CallAfter(self.on_voice_join_failed),
         )
         self.available_audio_input_devices = []
 
@@ -1076,6 +1077,24 @@ class MainWindow(wx.Frame):
                 "context_id": self.voice_context.get("context_id", ""),
             }
         )
+
+    def on_voice_join_failed(self):
+        """Revoke a server grant when the media transport cannot connect."""
+        context_id = (
+            self.voice_context.get("context_id", "")
+            or self.voice_requested_context_id
+        )
+        scope = self.voice_context.get("scope", "table")
+        if self.connected and context_id:
+            self.network.send_packet(
+                {
+                    "type": "voice_leave",
+                    "scope": scope,
+                    "context_id": context_id,
+                }
+            )
+        self.voice_presence_registered = False
+        self.voice_context = {"scope": "table", "context_id": ""}
 
     def on_voice_status(self, message_key, speak_aloud=True):
         """Display and optionally speak a localized Voice Chat status message."""
@@ -2620,7 +2639,7 @@ class MainWindow(wx.Frame):
         if packet.get("reset_ui", False):
             # Reset stale menus, editboxes, voice, and managed game audio
             # before ordered session UI/audio packets are released by the server.
-            self.on_server_clear_ui({})
+            self.reset_runtime_for_session()
 
         # Reset reconnect flags on success instead of restarting
         if self.is_reconnecting or self.expecting_reconnect:
@@ -3572,9 +3591,7 @@ class MainWindow(wx.Frame):
         self.switch_to_list_mode()
 
     def on_server_clear_ui(self, packet):
-        """Handle clear_ui packet from server."""
-        self.cleanup_voice_chat(send_leave=False, announce=False)
-        self.current_table_context_id = ""
+        """Clear server-owned menus and inputs without leaving their context."""
         # Clear menu
         self.menu_list.Clear()
         self.current_menu_id = None
@@ -3587,7 +3604,13 @@ class MainWindow(wx.Frame):
         # Switch to list mode if in edit mode
         if self.current_mode == "edit":
             self.switch_to_list_mode()
+
+    def reset_runtime_for_session(self):
+        """Retire all device-local state before accepting a new session."""
+        self.cleanup_voice_chat(send_leave=False, announce=False)
+        self.current_table_context_id = ""
         self.sound_manager.stop_all(fade_ms=800)
+        self.on_server_clear_ui({})
 
     def on_server_game_list(self, packet):
         """Handle game_list packet from server."""

@@ -8,8 +8,8 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Callable, Coroutine
 import websockets
-from websockets.asyncio.server import ServerConnection
-from websockets.server import WebSocketServerProtocol, ServerProtocol
+from websockets.asyncio.server import Server, ServerConnection
+from websockets.server import ServerProtocol
 
 # Helper class to mimic websockets.Headers interface with case-insensitive dict backend
 class CaseInsensitiveHeaders(dict):
@@ -62,7 +62,7 @@ class CaseInsensitiveHeaders(dict):
 class ClientConnection:
     """Represents a connected client."""
 
-    websocket: WebSocketServerProtocol
+    websocket: ServerConnection
     address: str
     ip_address: str = ""
     username: str | None = None
@@ -185,7 +185,7 @@ class WebSocketServer:
         self._on_message = on_message
         self._clients: dict[str, ClientConnection] = {}
         self._username_to_client: dict[str, ClientConnection] = {}
-        self._server: websockets.WebSocketServer | None = None
+        self._server: Server | None = None
         self._running = False
         self._ssl_context = None
 
@@ -251,7 +251,7 @@ class WebSocketServer:
         self._clients.clear()
         self._username_to_client.clear()
 
-    async def _handle_client(self, websocket: WebSocketServerProtocol) -> None:
+    async def _handle_client(self, websocket: ServerConnection) -> None:
         """Handle a client connection."""
         address = f"{websocket.remote_address[0]}:{websocket.remote_address[1]}"
 

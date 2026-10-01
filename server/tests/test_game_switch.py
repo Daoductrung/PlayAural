@@ -173,6 +173,12 @@ async def test_host_switches_game_without_replacing_the_table_session() -> None:
             and message.data.get("command") == "stop_all"
             for message in participant.messages
         )
+        assert any(message.type == "clear_ui" for message in participant.messages)
+        assert any(
+            message.type == "table_context"
+            and message.data.get("table_id") == old_table_id
+            for message in participant.messages
+        )
         assert participant.get_current_menu_items("turn_menu")
 
 

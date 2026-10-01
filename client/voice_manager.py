@@ -30,6 +30,7 @@ StatusCallback = Callable[[str, bool], None]
 StateCallback = Callable[[str], None]
 MicCallback = Callable[[bool], None]
 DisconnectCallback = Callable[[str], None]
+JoinFailedCallback = Callable[[], None]
 VoiceOperation = Callable[[], Awaitable[None]]
 
 
@@ -776,11 +777,13 @@ class VoiceManager:
         on_state: StateCallback,
         on_mic_state: MicCallback,
         on_disconnect: DisconnectCallback,
+        on_join_failed: JoinFailedCallback,
     ) -> None:
         self.on_status = on_status
         self.on_state = on_state
         self.on_mic_state = on_mic_state
         self.on_disconnect = on_disconnect
+        self.on_join_failed = on_join_failed
         self.loop: asyncio.AbstractEventLoop | None = None
         self._lifecycle_lock: asyncio.Lock | None = None
         self.thread: threading.Thread | None = None
@@ -843,6 +846,10 @@ class VoiceManager:
             await operation()
 
     def join(self, packet: dict[str, Any]) -> None:
+        if not self.loop or not self.loop.is_running():
+            self.on_status("voice-chat-connect-failed", True)
+            self.on_join_failed()
+            return
         intent = self._next_intent()
         voice_packet = dict(packet)
         self._submit_operation(lambda: self._join(voice_packet, intent))
@@ -899,6 +906,7 @@ class VoiceManager:
         if rtc is None:
             self.on_status("voice-chat-sdk-missing", True)
             self.on_state("disconnected")
+            self.on_join_failed()
             return
         await self._leave(notify=False)
         if not self._is_current_intent(intent):
@@ -931,6 +939,7 @@ class VoiceManager:
             if self._is_current_intent(intent):
                 self.on_status("voice-chat-connect-failed", True)
                 self.on_state("disconnected")
+                self.on_join_failed()
 
     def _bind_room_events(self, room: Any) -> None:
         @room.on("track_subscribed")

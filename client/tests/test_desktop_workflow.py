@@ -781,7 +781,7 @@ def test_all_clients_clear_old_runtime_ui_before_restored_session_packets():
         "    def on_authorize_success(self, packet):", 1
     )[1].split("    def on_server_speak", 1)[0]
     assert 'if packet.get("reset_ui", False):' in desktop_handler
-    assert "self.on_server_clear_ui({})" in desktop_handler
+    assert "self.reset_runtime_for_session()" in desktop_handler
 
     web_handler = web_source.split("  handleAuthorizeSuccess(packet) {", 1)[1].split(
         "  retireLocalSession(reason", 1
@@ -794,6 +794,75 @@ def test_all_clients_clear_old_runtime_ui_before_restored_session_packets():
     )[1].split('        if (packet.type === "chat") {', 1)[0]
     assert "if (authPacket.reset_ui === true)" in mobile_handler
     assert "resetRuntimeUiForSession(false);" in mobile_handler
+
+
+def test_clear_ui_preserves_table_voice_and_audio_context_on_every_client():
+    repo_root = CLIENT_DIR.parent
+    desktop_source = (CLIENT_DIR / "ui" / "main_window.py").read_text(
+        encoding="utf-8"
+    )
+    web_source = (repo_root / "web_client" / "app.js").read_text(
+        encoding="utf-8"
+    )
+    mobile_source = (
+        repo_root / "mobile_client" / "src" / "app" / "PlayAuralApp.tsx"
+    ).read_text(encoding="utf-8")
+
+    desktop_clear = desktop_source.split(
+        "    def on_server_clear_ui(self, packet):", 1
+    )[1].split("    def reset_runtime_for_session(self):", 1)[0]
+    assert "cleanup_voice_chat" not in desktop_clear
+    assert "current_table_context_id" not in desktop_clear
+    assert "sound_manager.stop_all" not in desktop_clear
+
+    web_clear_case = web_source.split('      case "clear_ui":', 1)[1].split(
+        "        break;", 1
+    )[0]
+    assert "this.clearUi();" in web_clear_case
+    assert "cleanupRuntime" not in web_clear_case
+
+    mobile_clear_case = mobile_source.split(
+        '        if (packet.type === "clear_ui") {', 1
+    )[1].split("          return;", 1)[0]
+    assert "clearRuntimeUi();" in mobile_clear_case
+    assert "resetRuntimeUiForSession" not in mobile_clear_case
+
+
+def test_all_clients_revoke_voice_grants_when_media_connection_fails():
+    repo_root = CLIENT_DIR.parent
+    desktop_window = (CLIENT_DIR / "ui" / "main_window.py").read_text(
+        encoding="utf-8"
+    )
+    desktop_voice = (CLIENT_DIR / "voice_manager.py").read_text(encoding="utf-8")
+    web_source = (repo_root / "web_client" / "app.js").read_text(
+        encoding="utf-8"
+    )
+    mobile_app = (
+        repo_root / "mobile_client" / "src" / "app" / "PlayAuralApp.tsx"
+    ).read_text(encoding="utf-8")
+    mobile_voice = (
+        repo_root / "mobile_client" / "src" / "voice" / "MobileVoiceManager.ts"
+    ).read_text(encoding="utf-8")
+
+    desktop_failure = desktop_window.split(
+        "    def on_voice_join_failed(self):", 1
+    )[1].split("    def on_voice_status", 1)[0]
+    assert '"type": "voice_leave"' in desktop_failure
+    assert "self.on_join_failed()" in desktop_voice
+
+    web_connect = web_source.split(
+        "  async connect(packet, joinGeneration) {", 1
+    )[1].split("  attachExistingTracks(room) {", 1)[0]
+    assert "const failedContext = { ...this.context };" in web_connect
+    assert 'type: "voice_leave"' in web_connect
+
+    assert "onJoinFailed?: () => void;" in mobile_voice
+    assert "this.callbacks.onJoinFailed?.();" in mobile_voice
+    mobile_callbacks = mobile_app.split("    voice.setCallbacks({", 1)[1].split(
+        "    });", 1
+    )[0]
+    assert "onJoinFailed:" in mobile_callbacks
+    assert "sendVoiceLeave();" in mobile_callbacks
 
 
 def test_desktop_server_speech_can_bypass_history_without_bypassing_mutes():

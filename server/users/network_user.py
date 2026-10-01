@@ -165,6 +165,16 @@ class NetworkUser(User):
             return
         self._message_queue.append(packet)
 
+    def queue_protocol_packet(self, packet: dict[str, Any]) -> None:
+        """Queue an already-validated protocol packet in normal stream order.
+
+        Most packets are produced by higher-level ``User`` methods. Server
+        lifecycle services occasionally need to enqueue a protocol response
+        directly, and must not bypass table-context or UI packets that are
+        already waiting for the same client.
+        """
+        self._queue_packet(packet)
+
     def get_queued_messages(self) -> list[dict[str, Any]]:
         """Get and clear the message queue.
 

@@ -20,6 +20,7 @@ from server.games.pig.game import PigGame
 from server.persistence.database import Database
 from server.users.bot import Bot
 from server.users.network_user import NetworkUser
+from server.voice import VoiceService
 
 
 class MockClient:
@@ -1028,6 +1029,14 @@ class TestAuthSecurity:
             email="alice@example.com",
         )
         self.server._auth.verify_password = lambda password, password_hash: True
+        self.server._voice = VoiceService(
+            enabled=True,
+            public_url="wss://voice.example.com",
+            api_key="test-key",
+            api_secret="test-secret",
+            room_prefix="pa",
+            token_ttl_seconds=300,
+        )
 
         async def allow_captcha(client, packet):
             return True, ""
@@ -1111,9 +1120,51 @@ class TestAuthSecurity:
         assert player.is_bot is False
         assert player.reconnect_grace_ticks == 7
         assert game.turn_index == 1
-        assert record.username not in self.server._voice_presence_by_user
-        assert record.username not in self.server._voice_join_authorizations_by_user
+        assert self.server._voice_presence_by_user[record.username] == {
+            "scope": "table",
+            "context_id": table.table_id,
+        }
+        authorization = self.server._voice_join_authorizations_by_user[
+            record.username
+        ]
+        assert authorization["context_id"] == table.table_id
+        assert authorization["announce_presence"] is False
+        assert authorization["continuation"] is True
         assert record.username not in self.server._audio_input_devices_by_user
+
+        queued = replacement_user.get_queued_messages()
+        table_context_index = next(
+            index
+            for index, packet in enumerate(queued)
+            if packet.get("type") == "table_context"
+            and packet.get("table_id") == table.table_id
+        )
+        voice_join_index = next(
+            index
+            for index, packet in enumerate(queued)
+            if packet.get("type") == "voice_join_info"
+        )
+        voice_join_packet = queued[voice_join_index]
+        assert table_context_index < voice_join_index
+        assert voice_join_packet["context_id"] == table.table_id
+        assert voice_join_packet["server_requested"] is True
+
+        await self.server._register_voice_presence(
+            replacement_user,
+            {
+                "scope": "table",
+                "context_id": table.table_id,
+            },
+        )
+        assert self.server._voice_presence_by_user[record.username] == {
+            "scope": "table",
+            "context_id": table.table_id,
+        }
+        assert record.username not in self.server._voice_join_authorizations_by_user
+        assert not any(
+            packet.get("key") == "voice-status-connected"
+            for packet in replacement_user.get_queued_messages()
+        )
 
         rendered_items = replacement_user._current_menus.get("turn_menu", {}).get(
             "items",

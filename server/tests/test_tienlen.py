@@ -120,7 +120,12 @@ def test_tienlen_starts_first_hand_without_intro_delay_or_intro_sound() -> None:
     first_user = game.get_user(game.players[0])
     assert isinstance(first_user, MockUser)
 
-    game.on_start()
+    random_state = random.getstate()
+    random.seed(0)
+    try:
+        game.on_start()
+    finally:
+        random.setstate(random_state)
 
     assert game.round == 1
     assert game.intro_wait_ticks == 0

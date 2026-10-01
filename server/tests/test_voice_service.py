@@ -108,6 +108,7 @@ def _make_server() -> Server:
     server._voice_context_resolvers = {"table": server._resolve_table_voice_context}
     server._voice_presence_by_user = {}
     server._voice_join_authorizations_by_user = {}
+    server._next_voice_join_authorization_expiry = None
     server._voice_rate_limiter = VoiceRateLimiter()
     server.admin_manager = AdministrationManager(server)
     return server
@@ -430,6 +431,177 @@ async def test_server_can_request_listen_only_voice_join_and_cancel_it() -> None
         "scope": "table",
         "context_id": table.table_id,
     }
+
+
+@pytest.mark.asyncio
+async def test_continuation_authorization_restores_presence_without_join_event() -> None:
+    server = _make_server()
+    alice = MockUser("Alice", uuid="uuid-alice")
+    bob = MockUser("Bob", uuid="uuid-bob")
+    alice.connection = RecordingConnection()
+    bob.connection = RecordingConnection()
+    server._users[alice.username] = alice
+    server._users[bob.username] = bob
+    table = server._tables.create_table("testgame", alice.username, alice)
+    assert table.add_member(bob.username, bob)
+
+    server._record_voice_join_authorization(
+        alice.username,
+        scope="table",
+        context_id=table.table_id,
+        announce_presence=False,
+    )
+    await server._register_voice_presence(
+        alice,
+        {
+            "scope": "table",
+            "context_id": table.table_id,
+        },
+    )
+
+    assert server._voice_presence_by_user[alice.username] == {
+        "scope": "table",
+        "context_id": table.table_id,
+    }
+    assert not alice.get_spoken_messages()
+    assert not bob.get_spoken_messages()
+    assert not alice.get_sounds_played()
+    assert not bob.get_sounds_played()
+
+
+@pytest.mark.asyncio
+async def test_only_live_continuation_grants_carry_voice_intent_across_handoffs() -> None:
+    server = _make_server()
+
+    server._record_voice_join_authorization(
+        "Alice",
+        scope="table",
+        context_id="manual-table",
+    )
+    assert server._voice_intent_for_session_handover("Alice") == {}
+
+    server._record_voice_join_authorization(
+        "Alice",
+        scope="table",
+        context_id="continued-table",
+        announce_presence=False,
+        continuation=True,
+    )
+    assert server._voice_intent_for_session_handover("Alice") == {
+        "scope": "table",
+        "context_id": "continued-table",
+    }
+
+    server._voice_join_authorizations_by_user["Alice"]["expires_at"] = -1.0
+    server._next_voice_join_authorization_expiry = -1.0
+    assert server._voice_intent_for_session_handover("Alice") == {}
+
+
+@pytest.mark.asyncio
+async def test_expired_handoff_grant_clears_preserved_presence_once() -> None:
+    server = _make_server()
+    alice = MockUser("Alice", uuid="uuid-alice")
+    bob = MockUser("Bob", uuid="uuid-bob")
+    alice.connection = RecordingConnection()
+    bob.connection = RecordingConnection()
+    server._users = {alice.username: alice, bob.username: bob}
+    table = server._tables.create_table("testgame", alice.username, alice)
+    assert table.add_member(bob.username, bob)
+    server._voice_presence_by_user[alice.username] = {
+        "scope": "table",
+        "context_id": table.table_id,
+    }
+    server._record_voice_join_authorization(
+        alice.username,
+        scope="table",
+        context_id=table.table_id,
+        announce_presence=False,
+        continuation=True,
+    )
+    server._voice_join_authorizations_by_user[alice.username]["expires_at"] = -1.0
+    server._next_voice_join_authorization_expiry = -1.0
+
+    server._expire_voice_join_authorizations()
+    await asyncio.sleep(0)
+
+    assert alice.username not in server._voice_join_authorizations_by_user
+    assert alice.username not in server._voice_presence_by_user
+    assert "Alice lost connection" in bob.get_last_spoken()
+    assert bob.get_sounds_played() == ["voice_leave.ogg"]
+
+    server._expire_voice_join_authorizations()
+    await asyncio.sleep(0)
+    assert bob.get_sounds_played() == ["voice_leave.ogg"]
+
+
+@pytest.mark.asyncio
+async def test_expired_manual_grant_does_not_create_disconnect_event() -> None:
+    server = _make_server()
+    alice = MockUser("Alice", uuid="uuid-alice")
+    bob = MockUser("Bob", uuid="uuid-bob")
+    alice.connection = RecordingConnection()
+    bob.connection = RecordingConnection()
+    server._users = {alice.username: alice, bob.username: bob}
+    table = server._tables.create_table("testgame", alice.username, alice)
+    assert table.add_member(bob.username, bob)
+    server._record_voice_join_authorization(
+        alice.username,
+        scope="table",
+        context_id=table.table_id,
+    )
+    server._voice_join_authorizations_by_user[alice.username]["expires_at"] = -1.0
+    server._next_voice_join_authorization_expiry = -1.0
+
+    server._expire_voice_join_authorizations()
+    await asyncio.sleep(0)
+
+    assert alice.username not in server._voice_join_authorizations_by_user
+    assert bob.get_spoken_messages() == []
+    assert bob.get_sounds_played() == []
+
+    await server._register_voice_presence(
+        alice,
+        {
+            "scope": "table",
+            "context_id": table.table_id,
+        },
+    )
+    assert alice.connection.sent[-1] == {
+        "type": "voice_context_closed",
+        "scope": "table",
+        "context_id": table.table_id,
+    }
+
+
+@pytest.mark.asyncio
+async def test_discard_voice_context_state_is_scoped_and_cancels_stale_bookkeeping() -> None:
+    server = _make_server()
+    server._voice_presence_by_user["Alice"] = {
+        "scope": "table",
+        "context_id": "current-table",
+    }
+    server._record_voice_join_authorization(
+        "Alice",
+        scope="table",
+        context_id="current-table",
+    )
+
+    server.discard_voice_context_state(
+        "Alice",
+        scope="table",
+        context_id="stale-table",
+    )
+    assert "Alice" in server._voice_presence_by_user
+    assert "Alice" in server._voice_join_authorizations_by_user
+
+    server.discard_voice_context_state(
+        "Alice",
+        scope="table",
+        context_id="current-table",
+    )
+    assert "Alice" not in server._voice_presence_by_user
+    assert "Alice" not in server._voice_join_authorizations_by_user
+    assert server._next_voice_join_authorization_expiry is None
 
 
 @pytest.mark.asyncio

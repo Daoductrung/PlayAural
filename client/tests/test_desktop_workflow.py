@@ -815,6 +815,18 @@ def test_clear_ui_preserves_table_voice_and_audio_context_on_every_client():
     assert "current_table_context_id" not in desktop_clear
     assert "sound_manager.stop_all" not in desktop_clear
 
+    desktop_reset = desktop_source.split(
+        "    def reset_runtime_for_session(self):", 1
+    )[1].split("    def on_voice_settings(self, packet):", 1)[0]
+    assert 'self.current_table_context_id = ""' in desktop_reset
+    assert "self.voice_manager.clear_voice_settings()" in desktop_reset
+
+    desktop_settings = desktop_source.split(
+        "    def on_voice_settings(self, packet):", 1
+    )[1].split("    def on_server_game_list(self, packet):", 1)[0]
+    assert 'self.current_table_context_id = ""' not in desktop_settings
+    assert "self.on_server_clear_ui" not in desktop_settings
+
     web_clear_case = web_source.split('      case "clear_ui":', 1)[1].split(
         "        break;", 1
     )[0]

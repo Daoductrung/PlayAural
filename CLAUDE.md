@@ -345,6 +345,16 @@ loading an asset.
   it and broadcasts exactly one actual disconnect. Clients revoke grants when
   media setup fails, and the server rejects late presence confirmations after
   authorization expiry.
+- Table voice controls are keyed only by immutable account UUID. Host
+  microphone moderation is authoritative table policy backed by LiveKit
+  participant publish permission; client-side microphone locks are defense in
+  depth. Personal mute and volume are private per-listener mixer settings.
+  Both are checkpoint-only properties of the durable table: preserve them
+  across a game switch and server restore, retain controls *about* a departed
+  target for an eventual same-account rejoin, clear preferences owned by a
+  listener when that listener leaves, and clear all controls when the table is
+  destroyed. Manual saved games must omit them. Never key these controls by a
+  username, display name, participant label, or gameplay seat.
 - `clear_ui` is an interface-only command: it clears server-owned menus,
   editboxes, and focus state without changing table, game-audio, or voice
   ownership. Lifecycle exits must use `table_context`, unified `audio`

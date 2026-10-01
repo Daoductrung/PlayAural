@@ -178,6 +178,7 @@ class MainWindow(wx.Frame):
         self.voice_context = {"scope": "table", "context_id": ""}
         self.voice_state = "disconnected"
         self.voice_mic_enabled = False
+        self.voice_host_muted = False
         self.voice_mic_toggle_pending = None
         self.voice_presence_registered = False
         self._pending_voice_volume: float | None = None
@@ -873,7 +874,9 @@ class MainWindow(wx.Frame):
         self.voice_leave_button.Show(connected)
         self.voice_mic_checkbox.SetLabel(Localization.get("voice-chat-mic"))
         self.voice_mic_checkbox.SetValue(self.voice_mic_enabled)
-        self.voice_mic_checkbox.Enable(connected and not mic_busy)
+        self.voice_mic_checkbox.Enable(
+            connected and not mic_busy and not self.voice_host_muted
+        )
         self.voice_mic_checkbox.Show(connected)
         self._apply_accessibility_labels()
         self._layout_main_panel()
@@ -938,6 +941,10 @@ class MainWindow(wx.Frame):
             self.on_voice_status("voice-chat-not-connected", True)
             self.voice_mic_checkbox.SetValue(self.voice_mic_enabled)
             return
+        if target_state and self.voice_host_muted:
+            self.voice_mic_checkbox.SetValue(False)
+            self.on_voice_status("voice-chat-host-muted", True)
+            return
         if self.voice_mic_toggle_pending is not None:
             self.voice_mic_checkbox.SetValue(self.voice_mic_enabled)
             return
@@ -1000,6 +1007,9 @@ class MainWindow(wx.Frame):
             "scope": packet_scope,
             "context_id": packet_context_id,
         }
+        settings = packet.get("settings")
+        if isinstance(settings, dict):
+            self._apply_voice_settings(settings)
         self.voice_manager.join(packet)
         # Apply any pending voice volume that arrived before voice connected
         if self._pending_voice_volume is not None:
@@ -1053,6 +1063,9 @@ class MainWindow(wx.Frame):
         """Track the current table context for exact voice join requests."""
         previous_context_id = self.current_table_context_id
         self.current_table_context_id = packet.get("table_id", "") or ""
+        if previous_context_id != self.current_table_context_id:
+            self.voice_host_muted = False
+            self.voice_manager.clear_voice_settings()
         if (
             previous_context_id
             and self.current_table_context_id
@@ -3608,9 +3621,29 @@ class MainWindow(wx.Frame):
     def reset_runtime_for_session(self):
         """Retire all device-local state before accepting a new session."""
         self.cleanup_voice_chat(send_leave=False, announce=False)
+        self.voice_host_muted = False
+        self.voice_manager.clear_voice_settings()
         self.current_table_context_id = ""
         self.sound_manager.stop_all(fade_ms=800)
         self.on_server_clear_ui({})
+
+    def on_voice_settings(self, packet):
+        """Apply one full server-owned voice settings snapshot."""
+        if str(packet.get("context_id") or "") != self.current_table_context_id:
+            return
+        self._apply_voice_settings(packet)
+
+    def _apply_voice_settings(self, settings):
+        if str(settings.get("context_id") or "") != self.current_table_context_id:
+            return
+        host_muted = self.voice_manager.apply_voice_settings(settings)
+        if host_muted is None:
+            return
+        self.voice_host_muted = host_muted
+        if host_muted:
+            self.voice_mic_toggle_pending = None
+            self.voice_mic_enabled = False
+        self.update_voice_ui()
 
     def on_server_game_list(self, packet):
         """Handle game_list packet from server."""

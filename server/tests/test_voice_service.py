@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 from pathlib import Path
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -18,6 +19,7 @@ from ..persistence.database import MuteRecord
 from ..tables.manager import TableManager
 from ..users.test_user import MockUser
 from ..voice import VoiceContext, VoiceService
+from ..voice import validate_voice_settings_snapshot
 
 
 class RecordingConnection:
@@ -164,6 +166,73 @@ def test_livekit_join_packet_contains_room_limited_grant() -> None:
     assert claims["video"]["canSubscribe"] is True
 
 
+def test_livekit_join_packet_can_be_issued_listen_only() -> None:
+    service = VoiceService(
+        enabled=True,
+        public_url="wss://voice.example.com/livekit",
+        api_key="test-key",
+        api_secret="test-secret",
+    )
+    earliest_issue_time = int(time.time())
+    packet = service.create_join_packet(
+        context=VoiceContext(scope="table", context_id="table-one"),
+        identity="uuid-muted",
+        display_name="Muted",
+        can_publish=False,
+    )
+    latest_issue_time = int(time.time())
+
+    claims = _decode_jwt(packet["token"], "test-secret")
+    assert claims["video"]["canPublish"] is False
+    assert claims["video"]["canPublishSources"] == []
+    assert earliest_issue_time + 60 <= claims["exp"] <= latest_issue_time + 60
+
+
+@pytest.mark.asyncio
+async def test_livekit_admin_permission_uses_http_api_and_microphone_source(
+    monkeypatch,
+) -> None:
+    calls: list[object] = []
+
+    class FakeRoomService:
+        async def update_participant(self, request) -> None:
+            calls.append(request)
+
+    class FakeLiveKitAPI:
+        def __init__(self, url, *, api_key, api_secret):
+            calls.append((url, api_key, api_secret))
+            self.room = FakeRoomService()
+
+        async def aclose(self) -> None:
+            calls.append("closed")
+
+    monkeypatch.setattr(
+        "server.voice.service.api.LiveKitAPI",
+        FakeLiveKitAPI,
+    )
+    service = VoiceService(
+        enabled=True,
+        public_url="wss://voice.example.com/livekit/",
+        api_key="test-key",
+        api_secret="test-secret",
+        room_prefix="pa",
+    )
+
+    await service.set_participant_can_publish(
+        context=VoiceContext(scope="table", context_id="table-one"),
+        identity="uuid-bob",
+        can_publish=False,
+    )
+
+    assert calls[0] == ("https://voice.example.com/livekit", "test-key", "test-secret")
+    request = calls[1]
+    assert request.room == "pa:table:table-one"
+    assert request.identity == "uuid-bob"
+    assert request.permission.can_publish is False
+    assert list(request.permission.can_publish_sources) == []
+    assert calls[2] == "closed"
+
+
 @pytest.mark.asyncio
 async def test_server_authorizes_voice_for_current_table_member() -> None:
     server = _make_server()
@@ -180,6 +249,49 @@ async def test_server_authorizes_voice_for_current_table_member() -> None:
     assert client.sent[0]["room"] == f"pa:table:{table.table_id}"
     assert client.sent[0]["context_id"] == table.table_id
     assert client.sent[0]["participant"]["identity"] == "uuid-alice"
+
+
+@pytest.mark.asyncio
+async def test_server_voice_grant_contains_table_scoped_settings() -> None:
+    server = _make_server()
+    alice = MockUser("Alice", uuid="uuid-alice")
+    bob = MockUser("Bob", uuid="uuid-bob")
+    alice.connection = RecordingConnection()
+    bob.connection = RecordingConnection()
+    server._users.update({"Alice": alice, "Bob": bob})
+    table = server._tables.create_table("testgame", "Alice", alice)
+    assert table.add_member("Bob", bob)
+    assert table.set_voice_host_muted("uuid-alice", True)
+    assert table.set_personal_voice_volume("uuid-alice", "uuid-bob", 40)
+    assert table.set_personal_voice_muted("uuid-alice", "uuid-bob", True)
+    client = RecordingConnection()
+    client.username = "Alice"
+
+    await server._handle_voice_join(
+        client,
+        {"type": "voice_join", "scope": "table", "context_id": table.table_id},
+    )
+
+    packet = client.sent[0]
+    settings = validate_voice_settings_snapshot(packet["settings"])
+    assert settings == {
+        "type": "voice_settings",
+        "version": 1,
+        "context_id": table.table_id,
+        "host_muted": True,
+        "participants": [
+            {"participant_id": "uuid-bob", "volume": 40, "muted": True}
+        ],
+    }
+    assert validate_voice_settings_snapshot(
+        {
+            key: value
+            for key, value in packet["settings"].items()
+            if key != "type"
+        }
+    ) is None
+    claims = _decode_jwt(packet["token"], "test-secret")
+    assert claims["video"]["canPublish"] is False
 
 
 @pytest.mark.asyncio

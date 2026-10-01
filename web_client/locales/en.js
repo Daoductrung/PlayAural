@@ -92,6 +92,8 @@ export default {
   "voice-chat-left": "Left Voice Chat.",
   "voice-chat-mic-on": "Microphone is on.",
   "voice-chat-mic-off": "Microphone is off.",
+  "voice-chat-host-muted": "Your microphone is disabled by the table host. You can still listen.",
+  "voice-chat-host-unmuted": "The table host has allowed your microphone again. It remains off until you turn it on.",
   "voice-chat-unavailable": "Voice Chat is not available right now.",
   "voice-chat-sdk-missing": "Voice Chat support is not installed in this client.",
   "voice-chat-mic-unsupported": "This browser cannot access a microphone from this page.",

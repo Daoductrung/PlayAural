@@ -37,6 +37,17 @@ const { BUFFER_NAMES, BufferStore, normalizeBufferName } = compile(
   readFileSync(new URL("../src/state/BufferStore.ts", import.meta.url), "utf8"),
 );
 
+test("a server voice close preserves the table context needed to rejoin", () => {
+  const source = readFileSync(appUrl, "utf8");
+  const closedHandler = source.match(
+    /if \(packet\.type === "voice_context_closed"\) \{[\s\S]*?\n\s*return;\n\s*\}/u,
+  )?.[0] || "";
+
+  assert.match(closedHandler, /leaveVoiceChat\(\{[\s\S]*?clearContext: false,/u);
+  assert.match(closedHandler, /sendLeave: false,/u);
+  assert.match(closedHandler, /statusKey: "voice-chat-not-connected",/u);
+});
+
 function languageHarness(locale = "vi", overrides = {}) {
   const localization = new MobileLocalization();
   localization.setLocale(locale);

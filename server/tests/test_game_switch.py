@@ -70,6 +70,9 @@ async def test_host_switches_game_without_replacing_the_table_session() -> None:
     )
     table.is_private = True
     table.ban_user("banned-account")
+    assert table.set_voice_host_muted(player.uuid, True)
+    assert table.set_personal_voice_volume(host.uuid, player.uuid, 40)
+    assert table.set_personal_voice_muted(host.uuid, player.uuid, True)
     table.mark_power_restored(180)
     server._voice_presence_by_user[host.username] = {
         "scope": "table",
@@ -117,6 +120,8 @@ async def test_host_switches_game_without_replacing_the_table_session() -> None:
     assert table.host == host.username
     assert table.is_private is True
     assert table.is_banned("banned-account")
+    assert table.is_voice_host_muted(player.uuid)
+    assert table.get_personal_voice_settings(host.uuid, player.uuid) == (40, True)
     assert table.is_power_restore_grace_active() is False
     assert table._power_restore_started_at is None
     assert old_game._destroyed is True

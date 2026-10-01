@@ -22,6 +22,7 @@ def generate_livekit_token(
     name: str,
     room: str,
     ttl_seconds: int,
+    can_publish: bool = True,
     metadata: dict[str, Any] | None = None,
 ) -> tuple[str, int]:
     issued_at = int(time.time())
@@ -34,9 +35,9 @@ def generate_livekit_token(
         "nbf": issued_at - 5,
         "sub": identity,
         "video": {
-            "canPublish": True,
+            "canPublish": can_publish,
             "canPublishData": False,
-            "canPublishSources": ["microphone"],
+            "canPublishSources": ["microphone"] if can_publish else [],
             "canSubscribe": True,
             "room": room,
             "roomJoin": True,

@@ -13,6 +13,12 @@ from mashumaro.mixins.json import DataClassJSONMixin
 from ..game_utils.bot_names import bot_name_key, normalize_bot_name
 from ..games.registry import get_game_class
 from ..users.bot import Bot
+from ..voice.settings import (
+    MAX_VOICE_SETTINGS_IDENTITIES,
+    VOICE_PERSONAL_VOLUME_DEFAULT,
+    normalize_personal_voice_volume,
+    normalize_voice_identity,
+)
 
 if TYPE_CHECKING:
     from ..games.base import Game
@@ -23,6 +29,7 @@ ABANDONED_ACTIVE_TABLE_TIMEOUT_SECONDS = 15 * 60
 WAITING_MEMBER_DISCONNECT_TIMEOUT_SECONDS = 15
 TABLE_STATE_SCHEMA_VERSION = 1
 SAVED_TABLE_PROPERTY = "saved_table_property"
+CHECKPOINT_TABLE_PROPERTY = "checkpoint_table_property"
 
 
 def _encode_saved_table_value(value: Any) -> Any:
@@ -192,6 +199,28 @@ class Table(DataClassJSONMixin):
         metadata={SAVED_TABLE_PROPERTY: "banned_uuids"},
     )
 
+    # Voice preferences are part of one live table, not a manually saved game.
+    # They survive a game switch and durable server checkpoint, but are omitted
+    # from user-owned saves because saving destroys the current table.
+    _voice_host_muted_account_ids: set[str] = field(
+        default_factory=set,
+        init=False,
+        repr=False,
+        metadata={CHECKPOINT_TABLE_PROPERTY: "voice_host_muted_account_ids"},
+    )
+    _voice_personal_mutes: dict[str, set[str]] = field(
+        default_factory=dict,
+        init=False,
+        repr=False,
+        metadata={CHECKPOINT_TABLE_PROPERTY: "voice_personal_mutes"},
+    )
+    _voice_personal_volumes: dict[str, dict[str, int]] = field(
+        default_factory=dict,
+        init=False,
+        repr=False,
+        metadata={CHECKPOINT_TABLE_PROPERTY: "voice_personal_volumes"},
+    )
+
     # Not serialized
     _game: "Game | None" = field(default=None, repr=False)
     _users: dict[str, "User"] = field(default_factory=dict, repr=False)
@@ -218,11 +247,19 @@ class Table(DataClassJSONMixin):
         self._power_restore_processed: bool = False
 
     @classmethod
-    def _saved_property_fields(cls) -> dict[str, Any]:
+    def _saved_property_fields(
+        cls,
+        *,
+        include_checkpoint_state: bool = True,
+    ) -> dict[str, Any]:
         """Return the single declarative registry of persisted table fields."""
         registered: dict[str, Any] = {}
         for declared_field in fields(cls):
             property_name = declared_field.metadata.get(SAVED_TABLE_PROPERTY)
+            if property_name is None and include_checkpoint_state:
+                property_name = declared_field.metadata.get(
+                    CHECKPOINT_TABLE_PROPERTY
+                )
             if property_name is None:
                 continue
             if not isinstance(property_name, str) or not property_name:
@@ -236,10 +273,16 @@ class Table(DataClassJSONMixin):
             registered[property_name] = declared_field
         return registered
 
-    def serialize_saved_state(self) -> str:
+    def serialize_saved_state(
+        self,
+        *,
+        include_checkpoint_state: bool = False,
+    ) -> str:
         """Serialize every declaratively persisted table property."""
         properties: dict[str, Any] = {}
-        for property_name, declared_field in self._saved_property_fields().items():
+        for property_name, declared_field in self._saved_property_fields(
+            include_checkpoint_state=include_checkpoint_state,
+        ).items():
             encoded_value = _encode_saved_table_value(
                 getattr(self, declared_field.name)
             )
@@ -261,7 +304,12 @@ class Table(DataClassJSONMixin):
         )
 
     @classmethod
-    def deserialize_saved_state(cls, state_json: str | None) -> dict[str, Any]:
+    def deserialize_saved_state(
+        cls,
+        state_json: str | None,
+        *,
+        include_checkpoint_state: bool = False,
+    ) -> dict[str, Any]:
         """Validate persisted state without mutating or exposing a table.
 
         Empty objects are legacy records created before table properties were
@@ -287,7 +335,9 @@ class Table(DataClassJSONMixin):
         if not isinstance(properties, dict):
             raise ValueError("saved table properties must be an object")
 
-        registered = cls._saved_property_fields()
+        registered = cls._saved_property_fields(
+            include_checkpoint_state=include_checkpoint_state,
+        )
         unknown = set(properties) - set(registered)
         if unknown:
             raise ValueError(
@@ -295,7 +345,7 @@ class Table(DataClassJSONMixin):
                 + ", ".join(sorted(str(name) for name in unknown))
             )
 
-        return {
+        decoded = {
             declared_field.name: _decode_saved_table_value(
                 properties[property_name],
                 declared_field.type,
@@ -304,17 +354,258 @@ class Table(DataClassJSONMixin):
             for property_name, declared_field in registered.items()
             if property_name in properties
         }
+        cls._validate_voice_checkpoint_state(decoded)
+        return decoded
 
     def restore_saved_state(self, state: dict[str, Any]) -> None:
         """Apply state returned by :meth:`deserialize_saved_state`."""
         allowed_fields = {
             declared_field.name
-            for declared_field in self._saved_property_fields().values()
+            for declared_field in self._saved_property_fields(
+                include_checkpoint_state=True,
+            ).values()
         }
         if not isinstance(state, dict) or not set(state) <= allowed_fields:
             raise ValueError("saved table state was not validated")
         for field_name, value in state.items():
             setattr(self, field_name, value)
+
+    @classmethod
+    def _validate_voice_checkpoint_state(cls, state: dict[str, Any]) -> None:
+        """Reject unbounded or malformed voice state before table exposure."""
+        host_muted = state.get("_voice_host_muted_account_ids", set())
+        personal_mutes = state.get("_voice_personal_mutes", {})
+        personal_volumes = state.get("_voice_personal_volumes", {})
+
+        all_identities: set[str] = set()
+
+        def require_identity(value: str, path: str) -> None:
+            if normalize_voice_identity(value) != value:
+                raise ValueError(f"{path} contains an invalid identity")
+            all_identities.add(value)
+
+        for account_id in host_muted:
+            require_identity(account_id, "voice_host_muted_account_ids")
+        for listener_id, target_ids in personal_mutes.items():
+            require_identity(listener_id, "voice_personal_mutes")
+            if len(target_ids) > MAX_VOICE_SETTINGS_IDENTITIES:
+                raise ValueError("voice_personal_mutes contains too many targets")
+            for target_id in target_ids:
+                require_identity(target_id, "voice_personal_mutes")
+        for listener_id, target_volumes in personal_volumes.items():
+            require_identity(listener_id, "voice_personal_volumes")
+            if len(target_volumes) > MAX_VOICE_SETTINGS_IDENTITIES:
+                raise ValueError("voice_personal_volumes contains too many targets")
+            for target_id, volume in target_volumes.items():
+                require_identity(target_id, "voice_personal_volumes")
+                if (
+                    normalize_personal_voice_volume(volume) is None
+                    or volume == VOICE_PERSONAL_VOLUME_DEFAULT
+                ):
+                    raise ValueError("voice_personal_volumes contains an invalid value")
+        if len(all_identities) > MAX_VOICE_SETTINGS_IDENTITIES:
+            raise ValueError("table voice settings contain too many identities")
+
+    def _voice_setting_identity_count(self, *extra: str) -> int:
+        identities = set(self._voice_host_muted_account_ids)
+        for listener_id, target_ids in self._voice_personal_mutes.items():
+            identities.add(listener_id)
+            identities.update(target_ids)
+        for listener_id, target_volumes in self._voice_personal_volumes.items():
+            identities.add(listener_id)
+            identities.update(target_volumes)
+        identities.update(identity for identity in extra if identity)
+        return len(identities)
+
+    def _can_retain_voice_identities(self, *identities: str) -> bool:
+        normalized = [normalize_voice_identity(value) for value in identities]
+        return bool(normalized) and all(normalized) and (
+            self._voice_setting_identity_count(*normalized)
+            <= MAX_VOICE_SETTINGS_IDENTITIES
+        )
+
+    def is_voice_host_muted(self, account_id: str) -> bool:
+        return normalize_voice_identity(account_id) in self._voice_host_muted_account_ids
+
+    def can_set_voice_host_muted(self, account_id: str, muted: bool) -> bool:
+        """Return whether one host policy change fits the bounded table state."""
+        account_id = normalize_voice_identity(account_id)
+        if not account_id or type(muted) is not bool:
+            return False
+        return (
+            not muted
+            or account_id in self._voice_host_muted_account_ids
+            or self._can_retain_voice_identities(account_id)
+        )
+
+    def set_voice_host_muted(self, account_id: str, muted: bool) -> bool:
+        account_id = normalize_voice_identity(account_id)
+        if not self.can_set_voice_host_muted(account_id, muted):
+            return False
+        if muted:
+            self._voice_host_muted_account_ids.add(account_id)
+        else:
+            self._voice_host_muted_account_ids.discard(account_id)
+        return True
+
+    def get_personal_voice_settings(
+        self,
+        listener_id: str,
+        target_id: str,
+    ) -> tuple[int, bool]:
+        listener_id = normalize_voice_identity(listener_id)
+        target_id = normalize_voice_identity(target_id)
+        if not listener_id or not target_id:
+            return VOICE_PERSONAL_VOLUME_DEFAULT, False
+        volume = self._voice_personal_volumes.get(listener_id, {}).get(
+            target_id,
+            VOICE_PERSONAL_VOLUME_DEFAULT,
+        )
+        muted = target_id in self._voice_personal_mutes.get(listener_id, set())
+        return volume, muted
+
+    def set_personal_voice_muted(
+        self,
+        listener_id: str,
+        target_id: str,
+        muted: bool,
+    ) -> bool:
+        listener_id = normalize_voice_identity(listener_id)
+        target_id = normalize_voice_identity(target_id)
+        if (
+            not listener_id
+            or not target_id
+            or listener_id == target_id
+            or type(muted) is not bool
+        ):
+            return False
+        if muted:
+            if not self._can_retain_voice_identities(listener_id, target_id):
+                return False
+            self._voice_personal_mutes.setdefault(listener_id, set()).add(target_id)
+        else:
+            targets = self._voice_personal_mutes.get(listener_id)
+            if targets is not None:
+                targets.discard(target_id)
+                if not targets:
+                    self._voice_personal_mutes.pop(listener_id, None)
+        return True
+
+    def set_personal_voice_volume(
+        self,
+        listener_id: str,
+        target_id: str,
+        volume: int,
+    ) -> bool:
+        listener_id = normalize_voice_identity(listener_id)
+        target_id = normalize_voice_identity(target_id)
+        volume = normalize_personal_voice_volume(volume)
+        if (
+            not listener_id
+            or not target_id
+            or listener_id == target_id
+            or volume is None
+        ):
+            return False
+        if volume == VOICE_PERSONAL_VOLUME_DEFAULT:
+            target_volumes = self._voice_personal_volumes.get(listener_id)
+            if target_volumes is not None:
+                target_volumes.pop(target_id, None)
+                if not target_volumes:
+                    self._voice_personal_volumes.pop(listener_id, None)
+            return True
+        if not self._can_retain_voice_identities(listener_id, target_id):
+            return False
+        self._voice_personal_volumes.setdefault(listener_id, {})[target_id] = volume
+        return True
+
+    def reset_personal_voice_settings(
+        self,
+        listener_id: str,
+        target_id: str,
+    ) -> bool:
+        volume_changed = self.set_personal_voice_volume(
+            listener_id,
+            target_id,
+            VOICE_PERSONAL_VOLUME_DEFAULT,
+        )
+        mute_changed = self.set_personal_voice_muted(
+            listener_id,
+            target_id,
+            False,
+        )
+        return volume_changed and mute_changed
+
+    def personal_voice_settings_snapshot(
+        self,
+        listener_id: str,
+    ) -> list[dict[str, Any]]:
+        """Return only non-default per-participant settings for one listener."""
+        listener_id = normalize_voice_identity(listener_id)
+        if not listener_id:
+            return []
+        muted_targets = self._voice_personal_mutes.get(listener_id, set())
+        target_volumes = self._voice_personal_volumes.get(listener_id, {})
+        return [
+            {
+                "participant_id": target_id,
+                "volume": target_volumes.get(
+                    target_id,
+                    VOICE_PERSONAL_VOLUME_DEFAULT,
+                ),
+                "muted": target_id in muted_targets,
+            }
+            for target_id in sorted(set(muted_targets) | set(target_volumes))
+        ]
+
+    def clear_voice_listener_settings(self, listener_id: str) -> None:
+        """Forget private controls owned by a member who left this table."""
+        listener_id = normalize_voice_identity(listener_id)
+        if not listener_id:
+            return
+        self._voice_personal_mutes.pop(listener_id, None)
+        self._voice_personal_volumes.pop(listener_id, None)
+
+    def discard_voice_account_settings(self, account_id: str) -> None:
+        """Remove every retained reference when an account is deleted."""
+        account_id = normalize_voice_identity(account_id)
+        if not account_id:
+            return
+        self._voice_host_muted_account_ids.discard(account_id)
+        self.clear_voice_listener_settings(account_id)
+        for listener_id, target_ids in list(self._voice_personal_mutes.items()):
+            target_ids.discard(account_id)
+            if not target_ids:
+                self._voice_personal_mutes.pop(listener_id, None)
+        for listener_id, target_volumes in list(self._voice_personal_volumes.items()):
+            target_volumes.pop(account_id, None)
+            if not target_volumes:
+                self._voice_personal_volumes.pop(listener_id, None)
+
+    def clear_all_voice_settings(self) -> None:
+        self._voice_host_muted_account_ids.clear()
+        self._voice_personal_mutes.clear()
+        self._voice_personal_volumes.clear()
+
+    @classmethod
+    def discard_voice_account_from_checkpoint(
+        cls,
+        state_json: str | None,
+        account_id: str,
+    ) -> str:
+        """Remove one deleted identity from an otherwise valid checkpoint."""
+        state = cls.deserialize_saved_state(
+            state_json,
+            include_checkpoint_state=True,
+        )
+        holder = cls(table_id="checkpoint", game_type="checkpoint", host="")
+        holder.restore_saved_state(state)
+        before = holder.serialize_saved_state(include_checkpoint_state=True)
+        holder.discard_voice_account_settings(account_id)
+        after = holder.serialize_saved_state(include_checkpoint_state=True)
+        if before == after and isinstance(state_json, str):
+            return state_json
+        return after
 
     @property
     def game(self) -> "Game | None":
@@ -459,6 +750,8 @@ class Table(DataClassJSONMixin):
         if not any(member.username == username for member in self.members):
             return False
 
+        removed_account_id = self._member_account_id(username)
+
         if self._game and hasattr(self._game, "_discard_end_screen_player_id"):
             for player in list(self._game.players):
                 replaced_name = getattr(player, "replaced_human_name", "")
@@ -468,6 +761,7 @@ class Table(DataClassJSONMixin):
 
         self.members = [m for m in self.members if m.username != username]
         self._users.pop(username, None)
+        self.clear_voice_listener_settings(removed_account_id)
         if self._manager and hasattr(self._manager, "_username_to_table"):
             self._manager._username_to_table.pop(username, None)
         if self._server and hasattr(self._server, "on_table_member_removed"):
@@ -496,6 +790,27 @@ class Table(DataClassJSONMixin):
             self._server.on_tables_changed()
         return True
 
+    def _member_account_id(self, username: str) -> str:
+        """Resolve a current human member without treating names as identity."""
+        attached_user = self._users.get(username)
+        account_id = normalize_voice_identity(
+            getattr(attached_user, "uuid", "")
+        )
+        if account_id:
+            return account_id
+        if self._game:
+            for player in self._game.players:
+                if player.is_bot and not getattr(player, "replaced_human", False):
+                    continue
+                if player.name == username or (
+                    getattr(player, "replaced_human_name", "") == username
+                ):
+                    return normalize_voice_identity(player.id)
+        if self._db:
+            account = self._db.get_user(username)
+            return normalize_voice_identity(getattr(account, "uuid", ""))
+        return ""
+
     def apply_player_substitution(
         self,
         incoming_username: str,
@@ -522,7 +837,9 @@ class Table(DataClassJSONMixin):
             return False
 
         outgoing_member = None
+        outgoing_account_id = ""
         if outgoing_username and outgoing_username != incoming_username:
+            outgoing_account_id = self._member_account_id(outgoing_username)
             outgoing_member = next(
                 (
                     member
@@ -550,6 +867,7 @@ class Table(DataClassJSONMixin):
                     if member.username != outgoing_username
                 ]
                 self._users.pop(outgoing_username, None)
+                self.clear_voice_listener_settings(outgoing_account_id)
                 self._member_offline_since.pop(outgoing_username, None)
                 if self._manager and hasattr(self._manager, "_username_to_table"):
                     self._manager._username_to_table.pop(outgoing_username, None)
@@ -1074,6 +1392,7 @@ class Table(DataClassJSONMixin):
         if self._game and hasattr(self._game, "destroy") and not getattr(self._game, "_destroyed", False):
              self._game.destroy()
 
+        self.clear_all_voice_settings()
         if self._manager:
             self._manager.on_table_destroy(self)
 
@@ -1380,9 +1699,15 @@ class Table(DataClassJSONMixin):
         live_member_names = {member.username for member in live_members}
         removed_member_names = old_member_names - live_member_names
 
+        removed_member_ids = {
+            username: self._member_account_id(username)
+            for username in removed_member_names
+        }
+
         self.members = live_members
         self._users = live_users
         for username in removed_member_names:
+            self.clear_voice_listener_settings(removed_member_ids[username])
             if (
                 self._manager
                 and hasattr(self._manager, "_username_to_table")
@@ -1486,7 +1811,9 @@ class Table(DataClassJSONMixin):
             invalid_usernames.append(member.username)
 
         for username in invalid_usernames:
+            removed_account_id = self._member_account_id(username)
             self._users.pop(username, None)
+            self.clear_voice_listener_settings(removed_account_id)
             if self._manager and hasattr(self._manager, "_username_to_table"):
                 self._manager._username_to_table.pop(username, None)
             if self._server:

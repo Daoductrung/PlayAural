@@ -263,9 +263,24 @@ export type VoiceJoinInfoPacket = {
   room?: string;
   room_label?: string;
   server_requested?: boolean;
+  settings?: VoiceSettingsPacket;
   scope?: string;
   token: string;
   url: string;
+};
+
+export type VoiceParticipantSetting = {
+  muted: boolean;
+  participant_id: string;
+  volume: number;
+};
+
+export type VoiceSettingsPacket = {
+  context_id: string;
+  host_muted: boolean;
+  participants: VoiceParticipantSetting[];
+  type: "voice_settings";
+  version: number;
 };
 
 export type VoiceJoinErrorPacket = {
@@ -311,6 +326,7 @@ export type ServerPacket =
   | VoiceJoinErrorPacket
   | VoiceJoinInfoPacket
   | VoiceLeaveAckPacket
+  | VoiceSettingsPacket
   | { type: string; [key: string]: unknown };
 
 export type AuthorizePacket = {

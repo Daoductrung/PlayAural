@@ -4,6 +4,7 @@ import { executeCopyDirective } from "./copy_directive.js";
 import { installKeybinds } from "./keybinds.js";
 import { createNetworkClient, loadPacketValidator } from "./network.js";
 import { createStore, normalizeHistoryBuffer } from "./store.js";
+import { parseVoiceSettings } from "./voice_settings.js";
 import {
   AVAILABLE_LOCALES,
   DEFAULT_LOCALE,
@@ -675,6 +676,8 @@ class VoiceChatManager {
     this.pendingJoin = false;
     this.micEnabled = false;
     this.micTogglePending = null;
+    this.hostMuted = false;
+    this.participantSettings = new Map();
     this.remoteAudio = new Map();
     this.volume = 0.8;
     this.statusKeyOrText = "voice-chat-not-connected";
@@ -688,14 +691,60 @@ class VoiceChatManager {
 
   setVolume(percent) {
     this.volume = clampNumber(percent, 0, 100, 80) / 100;
-    for (const element of this.remoteAudio.values()) {
-      element.volume = this.volume;
+    for (const entry of this.remoteAudio.values()) {
+      entry.element.volume = this.effectiveParticipantVolume(entry.participantId);
+    }
+  }
+
+  effectiveParticipantVolume(participantId) {
+    const setting = this.participantSettings.get(participantId);
+    return setting?.muted ? 0 : this.volume * (setting?.volume ?? 1);
+  }
+
+  clearSettings() {
+    this.hostMuted = false;
+    this.participantSettings = new Map();
+  }
+
+  applySettings(payload) {
+    const parsed = parseVoiceSettings(payload);
+    if (!parsed || parsed.contextId !== this.currentTableContextId) {
+      return false;
+    }
+    const wasHostMuted = this.hostMuted;
+    this.hostMuted = parsed.hostMuted;
+    this.participantSettings = parsed.participants;
+    this.setVolume(this.volume * 100);
+    if (this.hostMuted) {
+      void this.enforceHostMute();
+    }
+    if (wasHostMuted !== this.hostMuted && this.state === "connected") {
+      this.statusKeyOrText = this.hostMuted
+        ? "voice-chat-host-muted"
+        : "voice-chat-host-unmuted";
+      this.statusParams = {};
+    }
+    this.updateUI();
+    return true;
+  }
+
+  async enforceHostMute() {
+    const room = this.room;
+    this.micTogglePending = null;
+    this.micEnabled = false;
+    this.app.audio.setMicrophoneActive(false);
+    this.updateUI();
+    if (room) {
+      await room.localParticipant.setMicrophoneEnabled(false).catch(() => undefined);
     }
   }
 
   setTableContext(tableId) {
     const previous = this.currentTableContextId || "";
     this.currentTableContextId = tableId || "";
+    if (previous !== this.currentTableContextId) {
+      this.clearSettings();
+    }
     if (previous && this.currentTableContextId && previous !== this.currentTableContextId) {
       this.app.audio.stopAll(800);
     }
@@ -765,9 +814,15 @@ class VoiceChatManager {
       voiceLeaveBtn.hidden = !connected;
     }
     if (voiceMicBtn) {
-      voiceMicBtn.textContent = Localization.get(this.micEnabled ? "voice-chat-turn-off-mic" : "voice-chat-turn-on-mic");
+      voiceMicBtn.textContent = Localization.get(
+        this.hostMuted
+          ? "voice-chat-host-muted"
+          : this.micEnabled
+            ? "voice-chat-turn-off-mic"
+            : "voice-chat-turn-on-mic",
+      );
       voiceMicBtn.setAttribute("aria-pressed", this.micEnabled ? "true" : "false");
-      voiceMicBtn.disabled = !connected || micBusy;
+      voiceMicBtn.disabled = !connected || micBusy || this.hostMuted;
       voiceMicBtn.hidden = !connected;
     }
     if (voiceStatus) {
@@ -873,6 +928,9 @@ class VoiceChatManager {
       scope: packet.scope || "table",
       contextId: packet.context_id || "",
     };
+    if (packet.settings) {
+      this.applySettings(packet.settings);
+    }
     this.updateUI();
 
     room.on("trackSubscribed", (track, publication, participant) => {
@@ -940,7 +998,10 @@ class VoiceChatManager {
       this.attachExistingTracks(room);
       this.presenceRegistered = this.sendPresence("connected");
       this.requestedContextId = "";
-      this.setStatus("voice-chat-listen-only", true);
+      this.setStatus(
+        this.hostMuted ? "voice-chat-host-muted" : "voice-chat-listen-only",
+        true,
+      );
       this.updateUI();
     } catch (error) {
       if (!this.ownsRoomAttempt(room, joinGeneration)) {
@@ -991,8 +1052,9 @@ class VoiceChatManager {
     element.controls = false;
     element.dataset.voiceTrack = key;
     element.setAttribute("aria-hidden", "true");
-    element.volume = this.volume;
-    this.remoteAudio.set(key, element);
+    const participantId = String(participant?.identity || "");
+    element.volume = this.effectiveParticipantVolume(participantId);
+    this.remoteAudio.set(key, { element, participantId });
     this.app.elements.voiceAudioContainer?.appendChild(element);
     const result = element.play();
     if (result && typeof result.catch === "function") {
@@ -1005,14 +1067,14 @@ class VoiceChatManager {
     if (!key || !this.remoteAudio.has(key)) {
       return;
     }
-    const element = this.remoteAudio.get(key);
-    element?.parentNode?.removeChild(element);
+    const entry = this.remoteAudio.get(key);
+    entry?.element?.parentNode?.removeChild(entry.element);
     this.remoteAudio.delete(key);
   }
 
   cleanupElements() {
-    for (const element of this.remoteAudio.values()) {
-      element?.parentNode?.removeChild(element);
+    for (const entry of this.remoteAudio.values()) {
+      entry.element?.parentNode?.removeChild(entry.element);
     }
     this.remoteAudio.clear();
     this.app.elements.voiceAudioContainer?.replaceChildren();
@@ -1080,6 +1142,10 @@ class VoiceChatManager {
     }
     const room = this.room;
     const enable = !this.micEnabled;
+    if (enable && this.hostMuted) {
+      this.setStatus("voice-chat-host-muted", true);
+      return;
+    }
     const previousMicEnabled = this.micEnabled;
     if (enable && (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)) {
       this.app.audio.playSound({ asset: "voice_mic_error.ogg" });
@@ -1101,6 +1167,13 @@ class VoiceChatManager {
             // The stale room may already be disconnected.
           }
         }
+        return;
+      }
+      if (enable && this.hostMuted) {
+        await room.localParticipant.setMicrophoneEnabled(false).catch(() => undefined);
+        this.micEnabled = false;
+        this.app.audio.setMicrophoneActive(false);
+        this.setStatus("voice-chat-host-muted", true);
         return;
       }
       this.micEnabled = enable;
@@ -2476,6 +2549,9 @@ class PlayAuralWebApp {
         break;
       case "voice_context_closed":
         this.handleVoiceContextClosed(packet);
+        break;
+      case "voice_settings":
+        this.voice.applySettings(packet);
         break;
       case "disconnect":
         this.handleServerDisconnect(packet);

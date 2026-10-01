@@ -4864,9 +4864,14 @@ class Database:
     def _delete_table_checkpoints_for_user(
         self, cursor: sqlite3.Cursor, user: UserRecord
     ) -> int:
-        """Delete transient table checkpoints that reference an account."""
-        cursor.execute("SELECT table_id, host, members_json FROM tables")
+        """Delete owned/member checkpoints and scrub retained voice references."""
+        from ..tables.table import Table
+
+        cursor.execute(
+            "SELECT table_id, host, members_json, table_state_json FROM tables"
+        )
         table_ids: list[str] = []
+        voice_state_updates: list[tuple[str, str]] = []
         for row in cursor.fetchall():
             host = self.get_user(str(row["host"]))
             if host and host.uuid == user.uuid:
@@ -4882,9 +4887,26 @@ class Database:
             )
             if any(record and record.uuid == user.uuid for record in member_records):
                 table_ids.append(row["table_id"])
+                continue
+            try:
+                updated_state = Table.discard_voice_account_from_checkpoint(
+                    row["table_state_json"],
+                    user.uuid,
+                )
+            except (TypeError, ValueError):
+                # Loading owns corruption reporting. Account deletion must not
+                # rewrite an unrecognized checkpoint into a partial format.
+                continue
+            if updated_state != row["table_state_json"]:
+                voice_state_updates.append((updated_state, row["table_id"]))
 
         for table_id in table_ids:
             cursor.execute("DELETE FROM tables WHERE table_id = ?", (table_id,))
+        for table_state_json, table_id in voice_state_updates:
+            cursor.execute(
+                "UPDATE tables SET table_state_json = ? WHERE table_id = ?",
+                (table_state_json, table_id),
+            )
         return len(table_ids)
 
     def get_non_admin_users(self) -> list[UserRecord]:
@@ -5537,7 +5559,7 @@ class Database:
                 # Keep the legacy scalar populated during the compatibility
                 # window; table_state_json is the canonical extensible state.
                 int(table.is_private),
-                table.serialize_saved_state(),
+                table.serialize_saved_state(include_checkpoint_state=True),
                 self._serialize_active_human_offline_elapsed(table, saved_at),
                 "manual",
                 datetime.fromtimestamp(saved_at).isoformat(),
@@ -5573,7 +5595,10 @@ class Database:
             is_private=bool(row["is_private"]),
         )
         table.restore_saved_state(
-            Table.deserialize_saved_state(row["table_state_json"])
+            Table.deserialize_saved_state(
+                row["table_state_json"],
+                include_checkpoint_state=True,
+            )
         )
         table._checkpoint_kind = (
             row["checkpoint_kind"]
@@ -5640,7 +5665,10 @@ class Database:
                     is_private=bool(row["is_private"]),
                 )
                 table.restore_saved_state(
-                    Table.deserialize_saved_state(row["table_state_json"])
+                    Table.deserialize_saved_state(
+                        row["table_state_json"],
+                        include_checkpoint_state=True,
+                    )
                 )
                 table._checkpoint_kind = row["checkpoint_kind"] or "legacy"
                 table._checkpoint_created_at = row["checkpoint_created_at"] or ""
@@ -5738,7 +5766,7 @@ class Database:
                         table.game_json,
                         table.status,
                         int(table.is_private),
-                        table.serialize_saved_state(),
+                        table.serialize_saved_state(include_checkpoint_state=True),
                         self._serialize_active_human_offline_elapsed(
                             table,
                             checkpoint_saved_at,

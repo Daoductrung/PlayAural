@@ -75,6 +75,7 @@ import type {
   VoiceJoinErrorPacket,
   VoiceJoinInfoPacket,
   VoiceLeaveAckPacket,
+  VoiceSettingsPacket,
 } from "../network/packets";
 import {
   BUFFER_NAMES,
@@ -659,6 +660,7 @@ export function PlayAuralApp() {
   const [voiceState, setVoiceState] = useState<MobileVoiceConnectionState>("disconnected");
   const [voiceMicEnabled, setVoiceMicEnabled] = useState(false);
   const [voiceMicBusy, setVoiceMicBusy] = useState(false);
+  const [voiceHostMuted, setVoiceHostMuted] = useState(false);
   const currentMusic = useMemo(
     () => audio.getActiveLayerAssets("music").join(", "),
     [audio, audioRevision],
@@ -677,6 +679,7 @@ export function PlayAuralApp() {
   const lastPingStartedAtRef = useRef<number | null>(lastPingStartedAt);
   const preferencesRef = useRef<Record<string, unknown>>(preferences);
   const voiceMicBusyRef = useRef(false);
+  const voiceHostMutedRef = useRef(false);
   const voiceContextRef = useRef<VoiceContextState>({
     contextId: "",
     scope: "table",
@@ -743,6 +746,14 @@ export function PlayAuralApp() {
     voiceMicBusyRef.current = busy;
     setVoiceMicBusy(busy);
   }, []);
+  const updateVoiceHostMuted = useCallback((muted: boolean) => {
+    voiceHostMutedRef.current = muted;
+    setVoiceHostMuted(muted);
+  }, []);
+  const updateVoiceContext = useCallback((context: VoiceContextState) => {
+    voiceContextRef.current = context;
+    setVoiceContext(context);
+  }, []);
 
   useEffect(() => {
     audio.setStateListener(() => {
@@ -776,10 +787,6 @@ export function PlayAuralApp() {
   useEffect(() => {
     preferencesRef.current = preferences;
   }, [preferences]);
-
-  useEffect(() => {
-    voiceContextRef.current = voiceContext;
-  }, [voiceContext]);
 
   useEffect(() => {
     voiceRequestedContextIdRef.current = voiceRequestedContextId;
@@ -1362,6 +1369,28 @@ export function PlayAuralApp() {
     addHistoryMessage("system", text);
   }, [addHistoryMessage, announceInterfaceFeedback, audio, resolveVoiceStatusText]);
 
+  const applyServerVoiceSettings = useCallback((payload: unknown): boolean => {
+    const hostMuted = voice.applyVoiceSettings(
+      payload,
+      voiceContextRef.current.contextId,
+    );
+    if (hostMuted === null) {
+      return false;
+    }
+    const changed = voiceHostMutedRef.current !== hostMuted;
+    updateVoiceHostMuted(hostMuted);
+    if (hostMuted) {
+      updateVoiceMicBusy(false);
+      setVoiceMicEnabled(false);
+    }
+    if (changed && voiceStateRef.current === "connected") {
+      setVoiceStatusText(resolveVoiceStatusText(
+        hostMuted ? "voice-chat-host-muted" : "voice-chat-host-unmuted",
+      ));
+    }
+    return true;
+  }, [resolveVoiceStatusText, updateVoiceHostMuted, updateVoiceMicBusy, voice]);
+
   const isTerminalExitReason = useCallback((message: string | undefined) => {
     return message === "exit" || message === "logged-out" || message === "kicked" || message === "banned";
   }, []);
@@ -1633,14 +1662,16 @@ export function PlayAuralApp() {
     voicePresenceRegisteredRef.current = false;
     voiceJoinPendingRef.current = false;
     setVoiceRequestedContextId("");
-    setVoiceContext({
+    updateVoiceContext({
       contextId: "",
       scope: "table",
     });
+    voice.clearVoiceSettings();
+    updateVoiceHostMuted(false);
     setVoiceMicEnabled(false);
     setVoiceState("disconnected");
     setVoiceStatusText(resolveVoiceStatusText(statusKey));
-  }, [resolveVoiceStatusText]);
+  }, [resolveVoiceStatusText, updateVoiceContext, updateVoiceHostMuted, voice]);
 
   const ensureVoiceMicrophonePermission = useCallback(async (promptIfNeeded: boolean): Promise<boolean> => {
     if (Platform.OS === "web") {
@@ -1733,10 +1764,12 @@ export function PlayAuralApp() {
     voice.leave(false);
     setVoiceRequestedContextId("");
     if (clearContext) {
-      setVoiceContext({
+      updateVoiceContext({
         contextId: "",
         scope: "table",
       });
+      voice.clearVoiceSettings();
+      updateVoiceHostMuted(false);
     }
     setVoiceMicEnabled(false);
     setVoiceState("disconnected");
@@ -1746,7 +1779,15 @@ export function PlayAuralApp() {
       setVoiceStatusText(resolveVoiceStatusText(statusKey));
     }
     audio.refreshPlaybackState();
-  }, [audio, resolveVoiceStatusText, sendVoiceLeave, setVoiceStatusMessage, voice]);
+  }, [
+    audio,
+    resolveVoiceStatusText,
+    sendVoiceLeave,
+    setVoiceStatusMessage,
+    updateVoiceContext,
+    updateVoiceHostMuted,
+    voice,
+  ]);
 
   useEffect(() => {
     voice.setCallbacks({
@@ -2736,6 +2777,10 @@ export function PlayAuralApp() {
           const contextPacket = packet as TableContextPacket;
           const contextId = String(contextPacket.table_id || "");
           const previousContextId = voiceContextRef.current.contextId;
+          if (previousContextId !== contextId) {
+            voice.clearVoiceSettings();
+            updateVoiceHostMuted(false);
+          }
           if (previousContextId && contextId && contextId !== previousContextId) {
             stopGameAudio();
           }
@@ -2754,7 +2799,7 @@ export function PlayAuralApp() {
               statusKey: "voice-chat-left-table",
             });
           }
-          setVoiceContext({
+          updateVoiceContext({
             contextId,
             scope: "table",
           });
@@ -2810,12 +2855,20 @@ export function PlayAuralApp() {
             setVoiceStatusMessage("voice-chat-joining", true);
           }
           voiceJoinPendingRef.current = false;
-          setVoiceContext({
+          updateVoiceContext({
             contextId: packetContextId,
             scope: "table",
           });
           setVoiceRequestedContextId("");
+          if (voicePacket.settings) {
+            applyServerVoiceSettings(voicePacket.settings);
+          }
           voice.join(voicePacket);
+          return;
+        }
+
+        if (packet.type === "voice_settings") {
+          applyServerVoiceSettings(packet as VoiceSettingsPacket);
           return;
         }
 
@@ -2863,9 +2916,13 @@ export function PlayAuralApp() {
           }
           leaveVoiceChat({
             announce: false,
-            clearContext: true,
+            // The server closed only the LiveKit session. The player still
+            // belongs to this table, so retain the table-bound context and
+            // keep Join available (for example after an administrator
+            // unmutes them). A later table_context packet owns table exit.
+            clearContext: false,
             sendLeave: false,
-            statusKey: "voice-chat-left-table",
+            statusKey: "voice-chat-not-connected",
           });
           return;
         }
@@ -3048,7 +3105,11 @@ export function PlayAuralApp() {
           id: "voiceMic",
           kind: "voiceMic" as const,
           text: localization.t(
-            voiceMicEnabled ? "voice-chat-turn-off-mic" : "voice-chat-turn-on-mic",
+            voiceHostMuted
+              ? "voice-chat-host-muted"
+              : voiceMicEnabled
+                ? "voice-chat-turn-off-mic"
+                : "voice-chat-turn-on-mic",
           ),
         }]
       : []),
@@ -3058,7 +3119,7 @@ export function PlayAuralApp() {
       kind: "message" as const,
       text: message.text,
     })),
-  ], [appLocale, chatMessages, localization, voiceMicEnabled, voiceState]);
+  ], [appLocale, chatMessages, localization, voiceHostMuted, voiceMicEnabled, voiceState]);
   const [chatFocusIndex, setChatFocusIndex] = useAnchoredFocus(chatFocusItems);
   const focusedChatItem = chatFocusItems[chatFocusIndex] ?? null;
   const getChatFocusSpeechText = useCallback(
@@ -4882,6 +4943,10 @@ export function PlayAuralApp() {
     if (voiceMicBusyRef.current) {
       return;
     }
+    if (!voiceMicEnabled && voiceHostMutedRef.current) {
+      setVoiceStatusMessage("voice-chat-host-muted", true);
+      return;
+    }
     const requestedContextId = voiceContextRef.current.contextId;
     updateVoiceMicBusy(true);
     try {
@@ -5302,12 +5367,16 @@ export function PlayAuralApp() {
           {voiceState === "connected" ? (
             <Pressable
               accessibilityLabel={localization.t(
-                voiceMicEnabled ? "voice-chat-turn-off-mic" : "voice-chat-turn-on-mic",
+                voiceHostMuted
+                  ? "voice-chat-host-muted"
+                  : voiceMicEnabled
+                    ? "voice-chat-turn-off-mic"
+                    : "voice-chat-turn-on-mic",
               )}
               accessibilityRole="button"
-              accessibilityState={{ disabled: voiceMicBusy, selected: voiceMicEnabled }}
+              accessibilityState={{ disabled: voiceMicBusy || voiceHostMuted, selected: voiceMicEnabled }}
               accessible
-              disabled={voiceMicBusy}
+              disabled={voiceMicBusy || voiceHostMuted}
               onPress={() => {
                 void audio.handleUserInteraction();
                 void toggleVoiceMicrophone();
@@ -5323,11 +5392,17 @@ export function PlayAuralApp() {
                 styles.buttonSecondary,
                 styles.chatActionButton,
                 chatFocusIndex === voiceMicChatFocusIndex ? styles.menuItemFocused : undefined,
-                voiceMicBusy ? styles.buttonDisabled : undefined,
+                voiceMicBusy || voiceHostMuted ? styles.buttonDisabled : undefined,
               ]}
             >
               <Text style={[styles.buttonText, localeTextDirectionStyle]}>
-                {localization.t(voiceMicEnabled ? "voice-chat-turn-off-mic" : "voice-chat-turn-on-mic")}
+                {localization.t(
+                  voiceHostMuted
+                    ? "voice-chat-host-muted"
+                    : voiceMicEnabled
+                      ? "voice-chat-turn-off-mic"
+                      : "voice-chat-turn-on-mic",
+                )}
               </Text>
             </Pressable>
           ) : null}

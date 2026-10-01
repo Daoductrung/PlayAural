@@ -37,6 +37,7 @@ voice-chat-listen-only = Đã tham gia trò chuyện thoại. Bạn đang chỉ 
 voice-chat-left = Đã rời trò chuyện thoại.
 voice-chat-mic-on = Mic đã bật.
 voice-chat-mic-off = Mic đã tắt.
+voice-chat-host-muted = Chủ bàn đã tắt mic của bạn. Bạn vẫn có thể nghe.
 voice-chat-not-connected = Trò chuyện thoại chưa được kết nối.
 voice-chat-unavailable = Trò chuyện thoại hiện chưa khả dụng.
 voice-chat-sdk-missing = Máy khách này chưa cài đặt hỗ trợ trò chuyện thoại.

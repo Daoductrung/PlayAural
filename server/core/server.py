@@ -136,7 +136,16 @@ from ..documentation.manager import DocumentationManager
 from .smtp_mailer import SmtpMailer
 from ..users.bot import Bot
 from ..game_utils.stats_helpers import RatingHelper
-from ..voice import VoiceAuthorizationError, VoiceContext, VoiceService
+from ..voice import (
+    VOICE_PERSONAL_VOLUME_DEFAULT,
+    VOICE_SETTINGS_PROTOCOL_VERSION,
+    VoiceAuthorizationError,
+    VoiceContext,
+    VoiceService,
+    normalize_personal_voice_volume,
+    personal_voice_volume_choices,
+    validate_voice_settings_snapshot,
+)
 from ..game_utils.client_types import (
     is_mobile_client_type,
     is_web_client_type,
@@ -271,6 +280,11 @@ USER_REPORT_REASON_MENU = "user_report_reason_menu"
 USER_REPORT_CONFIRM_MENU = "user_report_confirm_menu"
 TABLE_MEMBERS_MENU = "table_members_menu"
 TABLE_MEMBER_ACTIONS_MENU = "table_member_actions_menu"
+HOST_VOICE_MANAGEMENT_MENU = "host_voice_management_menu"
+HOST_VOICE_TARGET_MENU = "host_voice_target_menu"
+PERSONAL_VOICE_SETTINGS_MENU = "personal_voice_settings_menu"
+PERSONAL_VOICE_VOLUME_MENU = "personal_voice_volume_menu"
+PERSONAL_VOICE_VOLUME_ACTION_PREFIX = "personal_voice_volume_"
 FRIENDS_MENU_IDS = frozenset(
     {
         "friends_hub_menu",
@@ -445,6 +459,8 @@ class Server:
         HOST_SUBSTITUTION_SEAT_MENU, HOST_SUBSTITUTION_SPECTATOR_MENU,
         PLAYER_SUBSTITUTION_PROMPT_MENU,
         TABLE_MEMBERS_MENU, TABLE_MEMBER_ACTIONS_MENU,
+        HOST_VOICE_MANAGEMENT_MENU, HOST_VOICE_TARGET_MENU,
+        PERSONAL_VOICE_SETTINGS_MENU, PERSONAL_VOICE_VOLUME_MENU,
         "table_invite_prompt", "game_over",
     }
 
@@ -460,6 +476,8 @@ class Server:
         HOST_GAME_SWITCH_MENU, HOST_GAME_SWITCH_CONFIRM_MENU,
         HOST_SUBSTITUTION_SEAT_MENU, HOST_SUBSTITUTION_SPECTATOR_MENU,
         TABLE_MEMBERS_MENU, TABLE_MEMBER_ACTIONS_MENU,
+        HOST_VOICE_MANAGEMENT_MENU, HOST_VOICE_TARGET_MENU,
+        PERSONAL_VOICE_SETTINGS_MENU, PERSONAL_VOICE_VOLUME_MENU,
     }
 
     GAMEPLAY_CLIENT_MENU_IDS = {
@@ -502,6 +520,10 @@ class Server:
         self._recent_presence_events: dict[str, tuple[bool, float]] = {}
         self._social_block_revision = 0
         self._session_locks: weakref.WeakValueDictionary[
+            str,
+            asyncio.Lock,
+        ] = weakref.WeakValueDictionary()
+        self._table_voice_settings_locks: weakref.WeakValueDictionary[
             str,
             asyncio.Lock,
         ] = weakref.WeakValueDictionary()
@@ -981,6 +1003,14 @@ PlayAural Server
             self._session_locks[key] = lock
         return lock
 
+    def _table_voice_settings_lock_for(self, table_id: str) -> asyncio.Lock:
+        """Serialize provider and table voice-policy changes for one table."""
+        lock = self._table_voice_settings_locks.get(table_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._table_voice_settings_locks[table_id] = lock
+        return lock
+
     def _active_user_for_client(
         self,
         client: ClientConnection,
@@ -1211,6 +1241,8 @@ PlayAural Server
                 record_last_seen=False,
             )
             self._remove_deleted_account_from_table(username, user)
+            for table in self._tables.get_all_tables():
+                table.discard_voice_account_settings(account.uuid)
             self._chat_rate_limiter.remove_user(account.uuid)
             self._voice_rate_limiter.remove_user(username)
             self._table_interaction_rate_limiter.remove_account(account.uuid)
@@ -3430,6 +3462,10 @@ PlayAural Server
             HOST_SUBSTITUTION_SPECTATOR_MENU,
             TABLE_MEMBERS_MENU,
             TABLE_MEMBER_ACTIONS_MENU,
+            HOST_VOICE_MANAGEMENT_MENU,
+            HOST_VOICE_TARGET_MENU,
+            PERSONAL_VOICE_SETTINGS_MENU,
+            PERSONAL_VOICE_VOLUME_MENU,
         }:
             return
 
@@ -3487,6 +3523,63 @@ PlayAural Server
                 table,
                 state.get("target_kind", ""),
                 state.get("target_id", ""),
+            )
+        elif current_menu == HOST_VOICE_MANAGEMENT_MENU:
+            self._nav_refresh(user, self._show_host_voice_management_menu, table)
+        elif current_menu == HOST_VOICE_TARGET_MENU:
+            target_uuid = str(state.get("target_uuid") or "")
+            target_name = str(state.get("target_name") or "")
+            if not self._resolve_voice_table_member(
+                table,
+                target_uuid,
+                target_name,
+            ):
+                user.speak_l("voice-member-left", buffer="system")
+                self._nav_back(user)
+                return
+            self._nav_refresh(
+                user,
+                self._show_host_voice_target_menu,
+                table,
+                target_uuid,
+                target_name,
+            )
+        elif current_menu == PERSONAL_VOICE_SETTINGS_MENU:
+            target_uuid = str(state.get("target_uuid") or "")
+            target_name = str(state.get("target_name") or "")
+            if not self._resolve_voice_table_member(
+                table,
+                target_uuid,
+                target_name,
+            ):
+                user.speak_l("voice-member-left", buffer="system")
+                self._return_to_game(user, table)
+                return
+            self._nav_refresh(
+                user,
+                self._show_personal_voice_settings_menu,
+                table,
+                target_uuid,
+                target_name,
+            )
+        elif current_menu == PERSONAL_VOICE_VOLUME_MENU:
+            target_uuid = str(state.get("target_uuid") or "")
+            target_name = str(state.get("target_name") or "")
+            if not self._resolve_voice_table_member(
+                table,
+                target_uuid,
+                target_name,
+            ):
+                user.speak_l("voice-member-left", buffer="system")
+                self._return_to_game(user, table)
+                return
+            self._nav_refresh(
+                user,
+                self._show_personal_voice_volume_menu,
+                table,
+                target_uuid,
+                target_name,
+                focus_current=False,
             )
 
     # Dice keeping style display names
@@ -4788,6 +4881,39 @@ PlayAural Server
             return "voice-muted-minutes", {"minutes": str(int(remaining // 60) + 1)}
         return "voice-muted-permanent", {}
 
+    @staticmethod
+    def _voice_settings_snapshot(
+        table: "Table",
+        listener_id: str,
+    ) -> dict[str, Any]:
+        """Build one complete, context-bound client mix/moderation snapshot."""
+        snapshot = {
+            "type": "voice_settings",
+            "version": VOICE_SETTINGS_PROTOCOL_VERSION,
+            "context_id": table.table_id,
+            "host_muted": table.is_voice_host_muted(listener_id),
+            "participants": table.personal_voice_settings_snapshot(listener_id),
+        }
+        validated = validate_voice_settings_snapshot(snapshot)
+        if validated is None:
+            raise ValueError("table voice settings produced an invalid snapshot")
+        return validated
+
+    async def _send_voice_settings(
+        self,
+        user: NetworkUser,
+        table: "Table",
+    ) -> None:
+        """Replace a client's table-scoped voice settings atomically."""
+        if self._tables.get_table(table.table_id) is not table:
+            return
+        packet = self._voice_settings_snapshot(table, user.uuid)
+        queue_packet = getattr(user, "queue_protocol_packet", None)
+        if callable(queue_packet):
+            queue_packet(packet)
+            return
+        await user.connection.send(packet)
+
     def _record_voice_join_authorization(
         self,
         username: str,
@@ -4796,6 +4922,7 @@ PlayAural Server
         context_id: str,
         announce_presence: bool = True,
         continuation: bool = False,
+        can_publish: bool = True,
     ) -> None:
         expires_at = (
             asyncio.get_running_loop().time()
@@ -4807,6 +4934,7 @@ PlayAural Server
             "expires_at": expires_at,
             "announce_presence": announce_presence,
             "continuation": continuation,
+            "can_publish": can_publish,
         }
         next_expiry = getattr(
             self,
@@ -5019,12 +5147,26 @@ PlayAural Server
         }
         try:
             context = resolver(user, request)
+            table = (
+                self._tables.get_table(context.context_id)
+                if context.scope == "table"
+                else None
+            )
+            host_muted = bool(
+                table and table.is_voice_host_muted(user.uuid)
+            )
             response = self._voice.create_join_packet(
                 context=context,
                 identity=user.uuid,
                 display_name=user.username,
+                can_publish=not host_muted,
                 metadata={"username": user.username},
             )
+            if table:
+                response["settings"] = self._voice_settings_snapshot(
+                    table,
+                    user.uuid,
+                )
         except VoiceAuthorizationError as error:
             await self._send_voice_error(
                 user,
@@ -5039,6 +5181,7 @@ PlayAural Server
             context_id=context.context_id,
             announce_presence=announce_presence,
             continuation=continuation,
+            can_publish=not host_muted,
         )
         self._cancel_scheduled_voice_context_close(
             user.username,
@@ -5626,6 +5769,32 @@ PlayAural Server
             )
             return
 
+        table = (
+            self._tables.get_table(context.context_id)
+            if context.scope == "table"
+            else None
+        )
+        if table and bool(authorization.get("can_publish", True)) != (
+            not table.is_voice_host_muted(user.uuid)
+        ):
+            try:
+                await self._voice.set_participant_can_publish(
+                    context=context,
+                    identity=user.uuid,
+                    can_publish=not table.is_voice_host_muted(user.uuid),
+                )
+            except VoiceAuthorizationError:
+                await self._send_voice_context_closed(
+                    user,
+                    scope=context.scope,
+                    context_id=context.context_id,
+                )
+                user.speak_l(
+                    "voice-moderation-provider-failed",
+                    buffer="system",
+                )
+                return
+
         existing = self._voice_presence_by_user.get(user.username)
         if (
             existing
@@ -5641,11 +5810,6 @@ PlayAural Server
             "context_id": context.context_id,
         }
         if authorization.get("announce_presence", True) is not False:
-            table = (
-                self._tables.get_table(context.context_id)
-                if context.scope == "table"
-                else None
-            )
             await self._broadcast_voice_presence_event(
                 table,
                 user.username,
@@ -5693,6 +5857,8 @@ PlayAural Server
                 message_key,
                 play_sound=play_sound,
             )
+        elif table:
+            self._refresh_voice_presence_views(table)
         return True
 
     def _voice_presence_matches(
@@ -5786,6 +5952,20 @@ PlayAural Server
             if not user or not user.approved:
                 continue
             user.speak_l(message_key, buffer="system", player=actor_username)
+        self._refresh_voice_presence_views(table)
+
+    def _refresh_voice_presence_views(self, table) -> None:
+        """Repaint only open table panels whose rows expose voice presence."""
+        if not table:
+            return
+        for member in table.members:
+            user = self._users.get(member.username)
+            if not user or table.get_user(member.username) is not user:
+                continue
+            self._refresh_table_presence_menu(
+                user,
+                self._user_states.get(member.username, {}),
+            )
 
     async def _broadcast_voice_presence_event(
         self,
@@ -6218,6 +6398,14 @@ PlayAural Server
             await self.admin_manager.handle_menu_selection(user, selection_id, current_menu, state)
         elif current_menu == "host_management_menu":
             await self._handle_host_management_selection(user, selection_id, state)
+        elif current_menu == HOST_VOICE_MANAGEMENT_MENU:
+            await self._handle_host_voice_management_selection(
+                user, selection_id, state
+            )
+        elif current_menu == HOST_VOICE_TARGET_MENU:
+            await self._handle_host_voice_target_selection(
+                user, selection_id, state
+            )
         elif current_menu == "host_invite_menu":
             await self._handle_host_invite_selection(user, selection_id, state)
         elif current_menu == "host_pass_menu":
@@ -6254,6 +6442,14 @@ PlayAural Server
             await self._handle_table_members_selection(user, selection_id, state)
         elif current_menu == TABLE_MEMBER_ACTIONS_MENU:
             await self._handle_table_member_actions_selection(user, selection_id, state)
+        elif current_menu == PERSONAL_VOICE_SETTINGS_MENU:
+            await self._handle_personal_voice_settings_selection(
+                user, selection_id, state
+            )
+        elif current_menu == PERSONAL_VOICE_VOLUME_MENU:
+            await self._handle_personal_voice_volume_selection(
+                user, selection_id, state
+            )
         elif current_menu == "table_invite_prompt":
             await self._handle_table_invite_selection(user, selection_id, state)
         elif current_menu == "logout_confirm_menu":
@@ -10157,6 +10353,10 @@ PlayAural Server
             MenuItem(text=Localization.get(locale, privacy_key), id="toggle_privacy"),
             MenuItem(text=Localization.get(locale, "host-management-invite"), id="invite_friend"),
             MenuItem(
+                text=Localization.get(locale, "host-management-voice"),
+                id="manage_voice",
+            ),
+            MenuItem(
                 text=Localization.get(locale, "host-management-switch-game"),
                 id="switch_game",
             ),
@@ -10241,6 +10441,9 @@ PlayAural Server
         elif selection_id == "invite_friend":
             self._nav_push(user, self._show_host_invite_menu, table)
 
+        elif selection_id == "manage_voice":
+            self._nav_push(user, self._show_host_voice_management_menu, table)
+
         elif selection_id == "switch_game":
             self._nav_push(user, self._show_host_game_switch_menu, table)
 
@@ -10265,6 +10468,389 @@ PlayAural Server
 
         elif selection_id == "back":
             self._nav_back(user)
+
+    # --- Table Voice Controls ---
+
+    def _resolve_voice_table_member(
+        self,
+        table: "Table",
+        account_id: str,
+        expected_name: str = "",
+    ) -> dict[str, Any] | None:
+        """Resolve a current human roster row by immutable account identity."""
+        current_member_names = {member.username for member in table.members}
+        for row in self._table_member_rows(table):
+            if row.get("kind") != "user":
+                continue
+            if row.get("name") not in current_member_names:
+                continue
+            if str(row.get("account_id") or "") != account_id:
+                continue
+            if expected_name and row.get("name") != expected_name:
+                continue
+            return row
+        return None
+
+    def _get_host_voice_management_items(
+        self,
+        user: NetworkUser,
+        table: "Table",
+    ) -> list[MenuItem]:
+        items: list[MenuItem] = []
+        for row in self._table_member_rows(table):
+            account_id = str(row.get("account_id") or "")
+            if row.get("kind") != "user" or not account_id:
+                continue
+            host_muted = table.is_voice_host_muted(account_id)
+            if row.get("name") == user.username and not host_muted:
+                continue
+            status_parts = [
+                Localization.get(
+                    user.locale,
+                    (
+                        "voice-member-status-connected"
+                        if row.get("in_voice_chat")
+                        else "voice-member-status-not-connected"
+                    ),
+                )
+            ]
+            if host_muted:
+                status_parts.append(
+                    Localization.get(user.locale, "voice-member-status-host-muted")
+                )
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "voice-member-entry",
+                        player=row["name"],
+                        status=Localization.format_list_and(
+                            user.locale,
+                            status_parts,
+                        ),
+                    ),
+                    id=f"host_voice_member_{account_id}",
+                )
+            )
+        if not items:
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "voice-host-management-no-members",
+                    ),
+                    id="voice_host_no_members",
+                    read_only=True,
+                )
+            )
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        return items
+
+    def _show_host_voice_management_menu(
+        self,
+        user: NetworkUser,
+        table: "Table",
+    ) -> None:
+        if (
+            self._tables.get_table(table.table_id) is not table
+            or table.host != user.username
+        ):
+            self._return_to_game(user, self._tables.get_table(table.table_id))
+            return
+        user.show_menu(
+            HOST_VOICE_MANAGEMENT_MENU,
+            self._get_host_voice_management_items(user, table),
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {
+            "menu": HOST_VOICE_MANAGEMENT_MENU,
+            "table_id": table.table_id,
+        }
+
+    async def _handle_host_voice_management_selection(
+        self,
+        user: NetworkUser,
+        selection_id: str,
+        state: dict,
+    ) -> None:
+        table = self._tables.get_table(state.get("table_id"))
+        if not table or table.host != user.username:
+            self._return_to_game(user, table)
+            return
+        if selection_id == "back":
+            self._nav_back(user)
+            return
+        prefix = "host_voice_member_"
+        if not selection_id.startswith(prefix):
+            return
+        account_id = selection_id[len(prefix):]
+        row = self._resolve_voice_table_member(table, account_id)
+        if not row:
+            user.speak_l("voice-member-left", buffer="system")
+            self._nav_refresh(user, self._show_host_voice_management_menu, table)
+            return
+        self._nav_push(
+            user,
+            self._show_host_voice_target_menu,
+            table,
+            account_id,
+            row["name"],
+        )
+
+    def _show_host_voice_target_menu(
+        self,
+        user: NetworkUser,
+        table: "Table",
+        target_uuid: str,
+        target_name: str,
+    ) -> None:
+        if (
+            self._tables.get_table(table.table_id) is not table
+            or table.host != user.username
+        ):
+            self._return_to_game(user, self._tables.get_table(table.table_id))
+            return
+        row = self._resolve_voice_table_member(table, target_uuid, target_name)
+        if not row:
+            user.speak_l("voice-member-left", buffer="system")
+            self._show_host_voice_management_menu(user, table)
+            return
+        muted = table.is_voice_host_muted(target_uuid)
+        items = [
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "voice-host-target-summary",
+                    player=target_name,
+                    voice_status=Localization.get(
+                        user.locale,
+                        (
+                            "voice-member-status-connected"
+                            if row.get("in_voice_chat")
+                            else "voice-member-status-not-connected"
+                        ),
+                    ),
+                    moderation_status=Localization.get(
+                        user.locale,
+                        (
+                            "voice-member-status-host-muted"
+                            if muted
+                            else "voice-member-status-host-unmuted"
+                        ),
+                    ),
+                ),
+                id="voice_host_target_summary",
+                read_only=True,
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "voice-host-unmute-action" if muted else "voice-host-mute-action",
+                    player=target_name,
+                ),
+                id="toggle_host_voice_mute",
+            ),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back"),
+        ]
+        # A newly promoted host may inherit an earlier host mute. They can
+        # remove it, but no host may mute their own microphone by this menu.
+        if target_uuid == user.uuid and not muted:
+            items.pop(1)
+        user.show_menu(
+            HOST_VOICE_TARGET_MENU,
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {
+            "menu": HOST_VOICE_TARGET_MENU,
+            "table_id": table.table_id,
+            "target_uuid": target_uuid,
+            "target_name": target_name,
+        }
+
+    def _announce_host_voice_moderation(
+        self,
+        table: "Table",
+        actor: NetworkUser,
+        target_name: str,
+        target_uuid: str,
+        *,
+        muted: bool,
+    ) -> None:
+        action = "muted" if muted else "unmuted"
+        for member in table.members:
+            recipient = self._users.get(member.username)
+            if recipient is None or table.get_user(member.username) is not recipient:
+                continue
+            if recipient.uuid == actor.uuid == target_uuid:
+                # Hosts cannot mute themselves. This branch is the recovery
+                # path for a newly promoted host removing an inherited mute.
+                if muted:
+                    continue
+                key = "voice-host-unmuted-self"
+                params: dict[str, Any] = {}
+            elif recipient.uuid == actor.uuid:
+                key = f"voice-host-{action}-actor"
+                params = {"player": target_name}
+            elif recipient.uuid == target_uuid:
+                key = f"voice-host-{action}-target"
+                params = {"host": actor.username}
+            else:
+                key = f"voice-host-{action}-observer"
+                params = {"host": actor.username, "player": target_name}
+            recipient.speak_l(key, buffer="system", **params)
+
+    async def _handle_host_voice_target_selection(
+        self,
+        user: NetworkUser,
+        selection_id: str,
+        state: dict,
+    ) -> None:
+        table_id = str(state.get("table_id") or "")
+        table = self._tables.get_table(table_id)
+        if selection_id == "back":
+            self._nav_back(user)
+            return
+        if selection_id != "toggle_host_voice_mute":
+            return
+        target_uuid = str(state.get("target_uuid") or "")
+        target_name = str(state.get("target_name") or "")
+        async with self._table_voice_settings_lock_for(table_id):
+            # The lock may have been queued behind another toggle. Resolve the
+            # desired state only now so two rapid actions cannot both apply the
+            # same stale transition.
+            table = self._tables.get_table(table_id)
+            if not table or table.host != user.username:
+                self._return_to_game(user, table)
+                return
+            row = self._resolve_voice_table_member(
+                table,
+                target_uuid,
+                target_name,
+            )
+            if not row:
+                user.speak_l("voice-member-left", buffer="system")
+                self._nav_back(user)
+                return
+            desired_muted = not table.is_voice_host_muted(target_uuid)
+            if target_uuid == user.uuid and desired_muted:
+                user.speak_l("voice-host-cannot-mute-self", buffer="system")
+                self._nav_refresh(
+                    user,
+                    self._show_host_voice_target_menu,
+                    table,
+                    target_uuid,
+                    target_name,
+                )
+                return
+            if not table.can_set_voice_host_muted(target_uuid, desired_muted):
+                user.speak_l("voice-settings-limit-reached", buffer="system")
+                return
+            rejection = self._table_interaction_rate_limiter.try_consume(
+                [
+                    self._table_interaction_rate_limiter.voice_moderation_key(
+                        user.uuid,
+                        table.table_id,
+                    )
+                ]
+            )
+            if rejection:
+                user.speak_l(
+                    "voice-host-moderation-rate-limited",
+                    buffer="system",
+                    seconds=rejection.seconds,
+                )
+                return
+
+            provider_failed = False
+            if row.get("in_voice_chat"):
+                try:
+                    await self._voice.set_participant_can_publish(
+                        context=self._resolve_table_voice_context(
+                            user,
+                            {"context_id": table.table_id},
+                        ),
+                        identity=target_uuid,
+                        can_publish=not desired_muted,
+                    )
+                except VoiceAuthorizationError as error:
+                    provider_failed = True
+                    # A participant can leave while the provider request is in
+                    # flight. With no live media session left to update, retain
+                    # the table policy so it applies safely on their next join.
+                    if self._voice_presence_matches(
+                        target_name,
+                        scope="table",
+                        context_id=table.table_id,
+                    ):
+                        user.speak_l(str(error), buffer="system")
+                        return
+
+            # Account deletion and table destruction own complete cleanup. A
+            # host transfer or ordinary member departure does not invalidate a
+            # moderation action that was authorized before the provider await.
+            if (
+                self._tables.get_table(table.table_id) is not table
+                or self._db.get_user_by_uuid(target_uuid) is None
+            ):
+                self._return_to_game(user, self._tables.get_table(table.table_id))
+                return
+            if not table.set_voice_host_muted(target_uuid, desired_muted):
+                # The table-wide lock makes this unreachable after preflight,
+                # but fail closed if an out-of-band mutation violates that
+                # invariant after LiveKit already accepted a restrictive mute.
+                if not provider_failed and desired_muted:
+                    await self.force_voice_context_leave(
+                        target_name,
+                        scope="table",
+                        context_id=table.table_id,
+                        broadcast=False,
+                        play_sound=False,
+                        table=table,
+                    )
+                user.speak_l("voice-settings-limit-reached", buffer="system")
+                return
+
+            target_user = self._users.get(target_name)
+            current_row = self._resolve_voice_table_member(
+                table,
+                target_uuid,
+                target_name,
+            )
+            if (
+                target_user
+                and target_user.uuid == target_uuid
+                and table.get_user(target_name) is target_user
+            ):
+                await self._send_voice_settings(target_user, table)
+            if current_row:
+                self._announce_host_voice_moderation(
+                    table,
+                    user,
+                    target_name,
+                    target_uuid,
+                    muted=desired_muted,
+                )
+            else:
+                user.speak_l(
+                    (
+                        "voice-host-muted-actor"
+                        if desired_muted
+                        else "voice-host-unmuted-actor"
+                    ),
+                    buffer="system",
+                    player=target_name,
+                )
+            self.on_tables_changed()
+            self._nav_refresh(
+                user,
+                self._show_host_voice_target_menu,
+                table,
+                target_uuid,
+                target_name,
+            )
 
     # --- Switch Game ---
 
@@ -12861,6 +13447,12 @@ PlayAural Server
                 )
 
         if target_record and not is_self:
+            items.append(
+                MenuItem(
+                    text=Localization.get(locale, "voice-personal-settings-action"),
+                    id="personal_voice_settings",
+                )
+            )
             if self._find_current_friend_record(user, target_name):
                 items.extend(
                     item
@@ -12957,6 +13549,317 @@ PlayAural Server
             "target_id": target_id,
             "target_uuid": target_uuid,
         }
+
+    def _show_personal_voice_settings_menu(
+        self,
+        user: NetworkUser,
+        table: "Table",
+        target_uuid: str,
+        target_name: str,
+    ) -> None:
+        if (
+            self._tables.get_table(table.table_id) is not table
+            or table.get_user(user.username) is not user
+            or not any(
+                member.username == user.username for member in table.members
+            )
+        ):
+            self._return_to_game(user, self._tables.get_table(table.table_id))
+            return
+        row = self._resolve_voice_table_member(table, target_uuid, target_name)
+        if not row or target_uuid == user.uuid:
+            user.speak_l("voice-member-left", buffer="system")
+            self._show_table_members_menu(user, table)
+            return
+        volume, muted = table.get_personal_voice_settings(user.uuid, target_uuid)
+        items = [
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "voice-personal-settings-summary",
+                    player=target_name,
+                    volume=volume,
+                    mute_status=Localization.get(
+                        user.locale,
+                        (
+                            "voice-personal-status-muted"
+                            if muted
+                            else "voice-personal-status-unmuted"
+                        ),
+                    ),
+                    connection_status=Localization.get(
+                        user.locale,
+                        (
+                            "voice-member-status-connected"
+                            if row.get("in_voice_chat")
+                            else "voice-member-status-not-connected"
+                        ),
+                    ),
+                ),
+                id="voice_personal_settings_summary",
+                read_only=True,
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    (
+                        "voice-personal-unmute-action"
+                        if muted
+                        else "voice-personal-mute-action"
+                    ),
+                    player=target_name,
+                ),
+                id="toggle_personal_voice_mute",
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "voice-personal-volume-action",
+                    volume=volume,
+                ),
+                id="set_personal_voice_volume",
+            ),
+        ]
+        if muted or volume != VOICE_PERSONAL_VOLUME_DEFAULT:
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "voice-personal-reset-action",
+                    ),
+                    id="reset_personal_voice_settings",
+                )
+            )
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        user.show_menu(
+            PERSONAL_VOICE_SETTINGS_MENU,
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {
+            "menu": PERSONAL_VOICE_SETTINGS_MENU,
+            "table_id": table.table_id,
+            "target_uuid": target_uuid,
+            "target_name": target_name,
+        }
+
+    def _show_personal_voice_volume_menu(
+        self,
+        user: NetworkUser,
+        table: "Table",
+        target_uuid: str,
+        target_name: str,
+        *,
+        focus_current: bool = True,
+    ) -> None:
+        if (
+            self._tables.get_table(table.table_id) is not table
+            or table.get_user(user.username) is not user
+            or not any(
+                member.username == user.username for member in table.members
+            )
+            or not self._resolve_voice_table_member(
+                table,
+                target_uuid,
+                target_name,
+            )
+        ):
+            user.speak_l("voice-member-left", buffer="system")
+            self._show_table_members_menu(user, table)
+            return
+        current_volume, _muted = table.get_personal_voice_settings(
+            user.uuid,
+            target_uuid,
+        )
+        items = [
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "voice-personal-volume-choice",
+                    volume=volume,
+                ),
+                id=f"{PERSONAL_VOICE_VOLUME_ACTION_PREFIX}{volume}",
+            )
+            for volume in personal_voice_volume_choices()
+        ]
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        user.show_menu(
+            PERSONAL_VOICE_VOLUME_MENU,
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+            position=(
+                next(
+                    (
+                        index + 1
+                        for index, item in enumerate(items)
+                        if item.id
+                        == f"{PERSONAL_VOICE_VOLUME_ACTION_PREFIX}{current_volume}"
+                    ),
+                    None,
+                )
+                if focus_current
+                else None
+            ),
+        )
+        self._user_states[user.username] = {
+            "menu": PERSONAL_VOICE_VOLUME_MENU,
+            "table_id": table.table_id,
+            "target_uuid": target_uuid,
+            "target_name": target_name,
+        }
+
+    def _validate_personal_voice_target(
+        self,
+        user: NetworkUser,
+        state: dict,
+    ) -> tuple["Table | None", str, str]:
+        table = self._tables.get_table(state.get("table_id"))
+        target_uuid = str(state.get("target_uuid") or "")
+        target_name = str(state.get("target_name") or "")
+        if (
+            not table
+            or table.get_user(user.username) is not user
+            or not any(
+                member.username == user.username for member in table.members
+            )
+            or target_uuid == user.uuid
+            or not self._resolve_voice_table_member(
+                table,
+                target_uuid,
+                target_name,
+            )
+        ):
+            return table, "", ""
+        return table, target_uuid, target_name
+
+    async def _handle_personal_voice_settings_selection(
+        self,
+        user: NetworkUser,
+        selection_id: str,
+        state: dict,
+    ) -> None:
+        if selection_id == "back":
+            self._nav_back(user)
+            return
+        table, target_uuid, target_name = self._validate_personal_voice_target(
+            user,
+            state,
+        )
+        if not table or not target_uuid:
+            user.speak_l("voice-member-left", buffer="system")
+            self._return_to_game(user, table)
+            return
+        if selection_id == "set_personal_voice_volume":
+            self._nav_push(
+                user,
+                self._show_personal_voice_volume_menu,
+                table,
+                target_uuid,
+                target_name,
+            )
+            return
+        if selection_id not in {
+            "toggle_personal_voice_mute",
+            "reset_personal_voice_settings",
+        }:
+            return
+        announcement_key = "voice-personal-reset"
+        async with self._table_voice_settings_lock_for(table.table_id):
+            table, target_uuid, target_name = self._validate_personal_voice_target(
+                user,
+                state,
+            )
+            if not table or not target_uuid:
+                user.speak_l("voice-member-left", buffer="system")
+                self._return_to_game(user, table)
+                return
+            if selection_id == "toggle_personal_voice_mute":
+                _volume, muted = table.get_personal_voice_settings(
+                    user.uuid,
+                    target_uuid,
+                )
+                if not table.set_personal_voice_muted(
+                    user.uuid,
+                    target_uuid,
+                    not muted,
+                ):
+                    user.speak_l("voice-settings-limit-reached", buffer="system")
+                    return
+                announcement_key = (
+                    "voice-personal-muted"
+                    if not muted
+                    else "voice-personal-unmuted"
+                )
+            elif not table.reset_personal_voice_settings(user.uuid, target_uuid):
+                user.speak_l("voice-settings-limit-reached", buffer="system")
+                return
+        user.speak_l(
+            announcement_key,
+            buffer="system",
+            player=target_name,
+        )
+        await self._send_voice_settings(user, table)
+        self._nav_refresh(
+            user,
+            self._show_personal_voice_settings_menu,
+            table,
+            target_uuid,
+            target_name,
+        )
+
+    async def _handle_personal_voice_volume_selection(
+        self,
+        user: NetworkUser,
+        selection_id: str,
+        state: dict,
+    ) -> None:
+        if selection_id == "back":
+            self._nav_back(user)
+            return
+        if not selection_id.startswith(PERSONAL_VOICE_VOLUME_ACTION_PREFIX):
+            return
+        table, target_uuid, target_name = self._validate_personal_voice_target(
+            user,
+            state,
+        )
+        if not table or not target_uuid:
+            user.speak_l("voice-member-left", buffer="system")
+            self._return_to_game(user, table)
+            return
+        try:
+            raw_volume = int(selection_id[len(PERSONAL_VOICE_VOLUME_ACTION_PREFIX):])
+        except ValueError:
+            return
+        volume = normalize_personal_voice_volume(raw_volume)
+        if volume is None:
+            user.speak_l("voice-settings-invalid", buffer="system")
+            return
+        async with self._table_voice_settings_lock_for(table.table_id):
+            table, target_uuid, target_name = self._validate_personal_voice_target(
+                user,
+                state,
+            )
+            if not table or not target_uuid:
+                user.speak_l("voice-member-left", buffer="system")
+                self._return_to_game(user, table)
+                return
+            if not table.set_personal_voice_volume(
+                user.uuid,
+                target_uuid,
+                volume,
+            ):
+                user.speak_l("voice-settings-invalid", buffer="system")
+                return
+        await self._send_voice_settings(user, table)
+        user.speak_l(
+            "voice-personal-volume-set",
+            buffer="system",
+            player=target_name,
+            volume=volume,
+        )
+        self._nav_back(user)
 
     async def _handle_table_members_selection(
         self, user: NetworkUser, selection_id: str, state: dict
@@ -13152,6 +14055,14 @@ PlayAural Server
                 self._show_public_profile,
                 target_record.username,
                 expected_uuid=target_record.uuid,
+            )
+        elif selection_id == "personal_voice_settings" and target_record:
+            self._nav_push(
+                user,
+                self._show_personal_voice_settings_menu,
+                table,
+                target_record.uuid,
+                target_record.username,
             )
         elif selection_id == "send_friend_request" and target_record:
             self._send_friend_request_to_record(user, target_record)
@@ -16028,6 +16939,15 @@ PlayAural Server
                 return
             if menu == "host_management_menu":
                 self._show_host_management_menu(user, table)
+            elif menu == HOST_VOICE_MANAGEMENT_MENU:
+                self._show_host_voice_management_menu(user, table)
+            elif menu == HOST_VOICE_TARGET_MENU:
+                self._show_host_voice_target_menu(
+                    user,
+                    table,
+                    str(frame.get("target_uuid") or ""),
+                    str(frame.get("target_name") or ""),
+                )
             elif menu == "host_invite_menu":
                 self._show_host_invite_menu(user, table)
             elif menu == "host_pass_menu":
@@ -16064,6 +16984,21 @@ PlayAural Server
                     table,
                     frame.get("target_kind", ""),
                     frame.get("target_id", ""),
+                )
+            elif menu == PERSONAL_VOICE_SETTINGS_MENU:
+                self._show_personal_voice_settings_menu(
+                    user,
+                    table,
+                    str(frame.get("target_uuid") or ""),
+                    str(frame.get("target_name") or ""),
+                )
+            elif menu == PERSONAL_VOICE_VOLUME_MENU:
+                self._show_personal_voice_volume_menu(
+                    user,
+                    table,
+                    str(frame.get("target_uuid") or ""),
+                    str(frame.get("target_name") or ""),
+                    focus_current=False,
                 )
             else:
                 self._return_to_game(user, table)

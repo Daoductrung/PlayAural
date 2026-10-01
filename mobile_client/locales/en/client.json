@@ -56,6 +56,8 @@
   "voice-chat-left-table": "You left the table and left Voice Chat.",
   "voice-chat-mic-on": "Microphone on.",
   "voice-chat-mic-off": "Microphone off.",
+  "voice-chat-host-muted": "Your microphone is disabled by the table host. You can still listen.",
+  "voice-chat-host-unmuted": "The table host has allowed your microphone again. It remains off until you turn it on.",
   "voice-chat-mic-denied": "Microphone access was denied. Please allow microphone permission to speak in voice chat.",
   "voice-chat-mic-unsupported": "This device cannot enable the microphone for voice chat.",
   "voice-chat-mic-permission-denied": "Microphone permission was denied. You can still listen in voice chat, but speaking will stay unavailable until microphone access is allowed.",

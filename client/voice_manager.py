@@ -51,6 +51,76 @@ VOICE_OUTPUT_IDLE_RESET_MS = 200
 VOICE_ECHO_REFERENCE_QUEUE_FRAMES = 3
 VOICE_REMOTE_TRACK_DRAIN_MS = 60
 VOICE_MIC_DRAIN_TIMEOUT_MS = 250
+VOICE_SETTINGS_PROTOCOL_VERSION = 1
+VOICE_PERSONAL_VOLUME_MIN = 10
+VOICE_PERSONAL_VOLUME_MAX = 100
+VOICE_PERSONAL_VOLUME_STEP = 10
+MAX_VOICE_SETTINGS_IDENTITIES = 256
+MAX_VOICE_IDENTITY_LENGTH = 128
+
+
+def _parse_voice_settings(payload: Any) -> tuple[bool, dict[str, tuple[float, bool]]] | None:
+    """Validate one complete table-scoped voice settings snapshot."""
+    if not isinstance(payload, dict):
+        return None
+    expected_keys = {
+        "type",
+        "version",
+        "context_id",
+        "host_muted",
+        "participants",
+    }
+    if set(payload) != expected_keys:
+        return None
+    if payload.get("type") != "voice_settings":
+        return None
+    if payload.get("version") != VOICE_SETTINGS_PROTOCOL_VERSION:
+        return None
+    if type(payload.get("host_muted")) is not bool:
+        return None
+    raw_context_id = payload.get("context_id")
+    context_id = raw_context_id.strip() if isinstance(raw_context_id, str) else ""
+    entries = payload.get("participants")
+    if (
+        not context_id
+        or context_id != raw_context_id
+        or len(context_id) > MAX_VOICE_IDENTITY_LENGTH
+        or not isinstance(entries, list)
+        or len(entries) > MAX_VOICE_SETTINGS_IDENTITIES
+    ):
+        return None
+    settings: dict[str, tuple[float, bool]] = {}
+    for entry in entries:
+        if not isinstance(entry, dict) or set(entry) != {
+            "participant_id",
+            "volume",
+            "muted",
+        }:
+            return None
+        raw_participant_id = entry.get("participant_id")
+        participant_id = (
+            raw_participant_id.strip()
+            if isinstance(raw_participant_id, str)
+            else ""
+        )
+        volume = entry.get("volume")
+        muted = entry.get("muted")
+        if (
+            not participant_id
+            or participant_id != raw_participant_id
+            or len(participant_id) > MAX_VOICE_IDENTITY_LENGTH
+            or participant_id in settings
+            or type(volume) is not int
+            or not VOICE_PERSONAL_VOLUME_MIN
+            <= volume
+            <= VOICE_PERSONAL_VOLUME_MAX
+            or (volume - VOICE_PERSONAL_VOLUME_MIN)
+            % VOICE_PERSONAL_VOLUME_STEP
+            or type(muted) is not bool
+        ):
+            return None
+        settings[participant_id] = (volume / 100.0, muted)
+    return payload["host_muted"], settings
 
 
 def _normalize_device_part(value: Any) -> str:
@@ -381,10 +451,12 @@ class _RealtimeOutputPlayer:
         *,
         loop: asyncio.AbstractEventLoop,
         get_volume: Callable[[], float],
+        get_participant_volume: Callable[[str], float] | None = None,
         output_device: int | None = None,
     ) -> None:
         self.loop = loop
         self.get_volume = get_volume
+        self.get_participant_volume = get_participant_volume
         self.output_device = output_device
         self.num_channels = VOICE_PREFERRED_OUTPUT_CHANNELS
         self.output_stream = None
@@ -647,7 +719,7 @@ class _RealtimeOutputPlayer:
                 playback.buffer for playback in self.track_streams.values()
             )
 
-    async def add_track(self, track: Any) -> None:
+    async def add_track(self, track: Any, participant_id: str = "") -> None:
         async with self._track_lock:
             if not self.running:
                 raise RuntimeError("Voice output is not running")
@@ -667,7 +739,13 @@ class _RealtimeOutputPlayer:
                 noise_cancellation=None,
             )
             buffer = _BoundedPcmBuffer(
-                self.get_volume,
+                (
+                    lambda participant_id=participant_id: self.get_participant_volume(
+                        participant_id
+                    )
+                    if self.get_participant_volume
+                    else self.get_volume()
+                ),
                 max_bytes=self._buffer_size(self.num_channels),
                 frame_bytes=self.num_channels * VOICE_SAMPLE_WIDTH_BYTES,
                 startup_bytes=(
@@ -802,6 +880,8 @@ class VoiceManager:
         # Voice volume: 0.1–1.0, read by audio thread and main thread
         self._voice_volume: float = 0.8
         self._volume_lock = threading.Lock()
+        self._participant_voice_settings: dict[str, tuple[float, bool]] = {}
+        self._host_muted = False
         self._start_loop()
 
     @property
@@ -865,6 +945,32 @@ class VoiceManager:
             lambda: self._set_microphone_enabled(enabled, input_device=input_device)
         )
 
+    def apply_voice_settings(self, payload: Any) -> bool | None:
+        """Atomically replace table settings and enforce host mute locally."""
+        parsed = _parse_voice_settings(payload)
+        if parsed is None:
+            return None
+        host_muted, settings = parsed
+        with self._volume_lock:
+            self._host_muted = host_muted
+            self._participant_voice_settings = settings
+        if host_muted:
+            self._submit_operation(self._disable_microphone)
+        return host_muted
+
+    def clear_voice_settings(self) -> None:
+        with self._volume_lock:
+            self._host_muted = False
+            self._participant_voice_settings = {}
+
+    def _get_participant_voice_volume(self, participant_id: str) -> float:
+        with self._volume_lock:
+            personal_volume, muted = self._participant_voice_settings.get(
+                participant_id,
+                (1.0, False),
+            )
+            return 0.0 if muted else self._voice_volume * personal_volume
+
     def set_voice_volume(self, volume: float) -> None:
         """Set remote voice playback gain (0.1–1.0).
 
@@ -916,6 +1022,7 @@ class VoiceManager:
             self.output_player = _RealtimeOutputPlayer(
                 loop=self.loop,
                 get_volume=self._get_voice_volume,
+                get_participant_volume=self._get_participant_voice_volume,
             )
             await self.output_player.start()
             self.room = rtc.Room(loop=self.loop)
@@ -932,7 +1039,12 @@ class VoiceManager:
                 return
             self.on_state("connected")
             self.on_mic_state(False)
-            self.on_status("voice-chat-listen-only", True)
+            with self._volume_lock:
+                host_muted = self._host_muted
+            self.on_status(
+                "voice-chat-host-muted" if host_muted else "voice-chat-listen-only",
+                True,
+            )
         except Exception:
             traceback.print_exc()
             await self._leave(notify=False)
@@ -948,7 +1060,10 @@ class VoiceManager:
                 return
             if getattr(track, "kind", None) != rtc.TrackKind.KIND_AUDIO:
                 return
-            asyncio.run_coroutine_threadsafe(self._add_remote_track(track), self.loop)
+            asyncio.run_coroutine_threadsafe(
+                self._add_remote_track(track, getattr(participant, "identity", "")),
+                self.loop,
+            )
 
         @room.on("track_unsubscribed")
         def on_track_unsubscribed(track: Any, publication: Any, participant: Any) -> None:
@@ -974,7 +1089,10 @@ class VoiceManager:
             track = getattr(publication, "track", None)
             if track is not None and getattr(track, "kind", None) == rtc.TrackKind.KIND_AUDIO:
                 asyncio.run_coroutine_threadsafe(
-                    self._add_remote_track(track),
+                    self._add_remote_track(
+                        track,
+                        getattr(participant, "identity", ""),
+                    ),
                     self.loop,
                 )
 
@@ -1002,16 +1120,19 @@ class VoiceManager:
                     and not bool(getattr(publication, "muted", False))
                     and getattr(track, "kind", None) == rtc.TrackKind.KIND_AUDIO
                 ):
-                    await self._add_remote_track(track)
+                    await self._add_remote_track(
+                        track,
+                        getattr(participant, "identity", ""),
+                    )
 
-    async def _add_remote_track(self, track: Any) -> None:
+    async def _add_remote_track(self, track: Any, participant_id: str = "") -> None:
         if not self.output_player or not track:
             return
         track_sid = getattr(track, "sid", "")
         if not track_sid:
             return
         try:
-            await self.output_player.add_track(track)
+            await self.output_player.add_track(track, participant_id)
         except Exception:
             traceback.print_exc()
 
@@ -1028,6 +1149,11 @@ class VoiceManager:
     ) -> None:
         if not self.room or not self.connected:
             self.on_status("voice-chat-not-connected", True)
+            return
+        with self._volume_lock:
+            host_muted = self._host_muted
+        if enabled and host_muted:
+            self.on_status("voice-chat-host-muted", True)
             return
         if self._mic_busy:
             return
@@ -1049,6 +1175,12 @@ class VoiceManager:
                 self.local_publication = await self.room.local_participant.publish_track(
                     self.local_track, options
                 )
+                with self._volume_lock:
+                    host_muted = self._host_muted
+                if host_muted:
+                    await self._disable_microphone()
+                    self.on_status("voice-chat-host-muted", True)
+                    return
                 self.mic_enabled = True
                 self.on_mic_state(True)
                 self.on_status("voice-chat-mic-on", True)
@@ -1058,7 +1190,12 @@ class VoiceManager:
         except Exception:
             traceback.print_exc()
             await self._disable_microphone()
-            self.on_status("voice-chat-mic-denied", True)
+            with self._volume_lock:
+                host_muted = self._host_muted
+            self.on_status(
+                "voice-chat-host-muted" if host_muted else "voice-chat-mic-denied",
+                True,
+            )
         finally:
             self._mic_busy = False
 

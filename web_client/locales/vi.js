@@ -92,6 +92,8 @@ export default {
   "voice-chat-left": "Đã rời Trò chuyện thoại.",
   "voice-chat-mic-on": "Mic đã bật.",
   "voice-chat-mic-off": "Mic đã tắt.",
+  "voice-chat-host-muted": "Chủ bàn đã tắt mic của bạn. Bạn vẫn có thể nghe.",
+  "voice-chat-host-unmuted": "Chủ bàn đã cho phép bạn dùng lại mic. Mic vẫn tắt cho đến khi bạn tự bật lên.",
   "voice-chat-unavailable": "Trò chuyện thoại hiện chưa khả dụng.",
   "voice-chat-sdk-missing": "Bản web này chưa có hỗ trợ Trò chuyện thoại.",
   "voice-chat-mic-unsupported": "Trình duyệt này không thể truy cập mic từ trang hiện tại.",

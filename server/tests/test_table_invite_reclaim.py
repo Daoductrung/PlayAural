@@ -11,6 +11,10 @@ from server.auth.auth import AuthManager
 from server.auth.table_interaction_rate_limit import TableInteractionRateLimiter
 from server.core import server as server_module
 from server.core.server import (
+    HOST_VOICE_MANAGEMENT_MENU,
+    HOST_VOICE_TARGET_MENU,
+    PERSONAL_VOICE_SETTINGS_MENU,
+    PERSONAL_VOICE_VOLUME_MENU,
     Server,
     TABLE_MEMBERS_MENU,
     TABLE_MEMBER_ACTIONS_MENU,
@@ -28,6 +32,15 @@ from server.tables.table import (
 )
 from server.users.bot import Bot
 from server.users.test_user import MockUser
+from server.voice import VoiceAuthorizationError
+
+
+class RecordingConnection:
+    def __init__(self):
+        self.sent: list[dict] = []
+
+    async def send(self, packet: dict) -> None:
+        self.sent.append(packet)
 
 
 class TestTableInviteReclaim:
@@ -1768,6 +1781,394 @@ class TestTableInviteReclaim:
             self.server._user_states[host.username],
         )
         assert self.server._user_states[host.username]["menu"] == TABLE_MEMBERS_MENU
+
+    @pytest.mark.asyncio
+    async def test_table_voice_controls_apply_by_account_id_with_personal_feedback(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        host.connection = RecordingConnection()
+        guest.connection = RecordingConnection()
+        table, _game = self._create_started_table(host, guest)
+
+        self.server._open_host_management_from_game(host, table)
+        await self.server._handle_host_management_selection(
+            host,
+            "manage_voice",
+            self.server._user_states[host.username],
+        )
+        assert self.server._user_states[host.username]["menu"] == HOST_VOICE_MANAGEMENT_MENU
+        assert f"host_voice_member_{guest.uuid}" in self._get_menu_action_ids(
+            host,
+            HOST_VOICE_MANAGEMENT_MENU,
+        )
+
+        await self.server._handle_host_voice_management_selection(
+            host,
+            f"host_voice_member_{guest.uuid}",
+            self.server._user_states[host.username],
+        )
+        assert self.server._user_states[host.username]["menu"] == HOST_VOICE_TARGET_MENU
+        await self.server._handle_host_voice_target_selection(
+            host,
+            "toggle_host_voice_mute",
+            self.server._user_states[host.username],
+        )
+
+        assert table.is_voice_host_muted(guest.uuid)
+        assert guest.connection.sent[-1] == {
+            "type": "voice_settings",
+            "version": 1,
+            "context_id": table.table_id,
+            "host_muted": True,
+            "participants": [],
+        }
+        assert any(
+            "You disabled Guest's microphone" in text
+            for text in host.get_spoken_messages()
+        )
+        assert any(
+            "Host disabled your microphone" in text
+            for text in guest.get_spoken_messages()
+        )
+
+        self.server._show_table_members_menu(host, table)
+        await self.server._handle_table_members_selection(
+            host,
+            f"table_member_user_{guest.username}",
+            self.server._user_states[host.username],
+        )
+        assert "personal_voice_settings" in self._get_menu_action_ids(
+            host,
+            TABLE_MEMBER_ACTIONS_MENU,
+        )
+        await self.server._handle_table_member_actions_selection(
+            host,
+            "personal_voice_settings",
+            self.server._user_states[host.username],
+        )
+        assert self.server._user_states[host.username]["menu"] == PERSONAL_VOICE_SETTINGS_MENU
+        await self.server._handle_personal_voice_settings_selection(
+            host,
+            "toggle_personal_voice_mute",
+            self.server._user_states[host.username],
+        )
+        assert table.get_personal_voice_settings(host.uuid, guest.uuid) == (100, True)
+        assert host.connection.sent[-1]["participants"] == [
+            {"participant_id": guest.uuid, "volume": 100, "muted": True}
+        ]
+
+        await self.server._handle_personal_voice_settings_selection(
+            host,
+            "set_personal_voice_volume",
+            self.server._user_states[host.username],
+        )
+        assert self.server._user_states[host.username]["menu"] == PERSONAL_VOICE_VOLUME_MENU
+        await self.server._handle_personal_voice_volume_selection(
+            host,
+            "personal_voice_volume_30",
+            self.server._user_states[host.username],
+        )
+        assert table.get_personal_voice_settings(host.uuid, guest.uuid) == (30, True)
+
+    @pytest.mark.asyncio
+    async def test_voice_presence_repaints_open_management_menu_in_place(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, _game = self._create_started_table(host, guest)
+        self.server._show_host_voice_management_menu(host, table)
+
+        def guest_row_text() -> str:
+            items = host.get_current_menu_items(HOST_VOICE_MANAGEMENT_MENU) or []
+            return next(
+                item.text
+                for item in items
+                if item.id == f"host_voice_member_{guest.uuid}"
+            )
+
+        assert "not connected" in guest_row_text()
+        self.server._voice_presence_by_user[guest.username] = {
+            "scope": "table",
+            "context_id": table.table_id,
+        }
+        await self.server._broadcast_voice_presence_event(
+            table,
+            guest.username,
+            "voice-status-connected",
+            play_sound=False,
+        )
+        assert "connected to voice chat" in guest_row_text()
+
+        await self.server._clear_voice_presence(
+            guest.username,
+            "",
+            table=table,
+            broadcast=False,
+        )
+        assert "not connected" in guest_row_text()
+
+    @pytest.mark.asyncio
+    async def test_voice_presence_refresh_preserves_open_volume_menu_focus(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, _game = self._create_started_table(host, guest)
+        self.server._show_personal_voice_volume_menu(
+            host,
+            table,
+            guest.uuid,
+            guest.username,
+        )
+        assert host.menus[PERSONAL_VOICE_VOLUME_MENU]["position"] is not None
+        host.clear_messages()
+
+        self.server._voice_presence_by_user[guest.username] = {
+            "scope": "table",
+            "context_id": table.table_id,
+        }
+        await self.server._broadcast_voice_presence_event(
+            table,
+            guest.username,
+            "voice-status-connected",
+            play_sound=False,
+        )
+
+        repaint = next(
+            message
+            for message in reversed(host.messages)
+            if message.type == "show_menu"
+            and message.data["menu_id"] == PERSONAL_VOICE_VOLUME_MENU
+        )
+        assert repaint.data["position"] is None
+        assert repaint.data["selection_id"] is None
+
+    def test_departing_voice_target_closes_personal_overlay_without_stale_stack(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, _game = self._create_started_table(host, guest)
+        self.server._show_personal_voice_volume_menu(
+            host,
+            table,
+            guest.uuid,
+            guest.username,
+        )
+
+        assert table.remove_member(guest.username)
+
+        state = self.server._user_states[host.username]
+        assert state["menu"] == "in_game"
+        assert "_stack" not in state
+        assert any(
+            "no longer at this table" in text
+            for text in host.get_spoken_messages()
+        )
+
+    @pytest.mark.asyncio
+    async def test_stale_personal_voice_menu_cannot_mutate_after_target_leaves(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        host.connection = RecordingConnection()
+        table, _game = self._create_started_table(host, guest)
+        self.server._show_personal_voice_settings_menu(
+            host,
+            table,
+            guest.uuid,
+            guest.username,
+        )
+        stale_state = dict(self.server._user_states[host.username])
+
+        assert table.remove_member(guest.username)
+        await self.server._handle_personal_voice_settings_selection(
+            host,
+            "toggle_personal_voice_mute",
+            stale_state,
+        )
+
+        assert table.get_personal_voice_settings(host.uuid, guest.uuid) == (100, False)
+        assert any(
+            "no longer at this table" in text
+            for text in host.get_spoken_messages()
+        )
+
+    @pytest.mark.asyncio
+    async def test_live_host_voice_mute_commits_only_after_provider_success(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        host.connection = RecordingConnection()
+        guest.connection = RecordingConnection()
+        table, _game = self._create_started_table(host, guest)
+        self.server._voice_presence_by_user[guest.username] = {
+            "scope": "table",
+            "context_id": table.table_id,
+        }
+        calls = []
+
+        async def fail_update(**kwargs):
+            calls.append(kwargs)
+            raise VoiceAuthorizationError("voice-moderation-provider-failed")
+
+        self.server._voice = SimpleNamespace(
+            set_participant_can_publish=fail_update,
+        )
+        self.server._show_host_voice_target_menu(
+            host,
+            table,
+            guest.uuid,
+            guest.username,
+        )
+
+        await self.server._handle_host_voice_target_selection(
+            host,
+            "toggle_host_voice_mute",
+            self.server._user_states[host.username],
+        )
+
+        assert calls[0]["identity"] == guest.uuid
+        assert calls[0]["can_publish"] is False
+        assert not table.is_voice_host_muted(guest.uuid)
+        assert guest.connection.sent == []
+        assert any(
+            "could not be applied" in text
+            for text in host.get_spoken_messages()
+        )
+
+    @pytest.mark.asyncio
+    async def test_live_host_voice_mute_updates_provider_before_client_snapshot(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        host.connection = RecordingConnection()
+        guest.connection = RecordingConnection()
+        table, _game = self._create_started_table(host, guest)
+        self.server._voice_presence_by_user[guest.username] = {
+            "scope": "table",
+            "context_id": table.table_id,
+        }
+        events = []
+
+        async def apply_provider_permission(**kwargs):
+            events.append(("provider", kwargs["identity"], kwargs["can_publish"]))
+
+        async def record_guest_packet(packet):
+            events.append(("client", packet["host_muted"]))
+            guest.connection.sent.append(packet)
+
+        self.server._voice = SimpleNamespace(
+            set_participant_can_publish=apply_provider_permission,
+        )
+        guest.connection.send = record_guest_packet
+        self.server._show_host_voice_target_menu(
+            host,
+            table,
+            guest.uuid,
+            guest.username,
+        )
+
+        await self.server._handle_host_voice_target_selection(
+            host,
+            "toggle_host_voice_mute",
+            self.server._user_states[host.username],
+        )
+
+        assert events == [
+            ("provider", guest.uuid, False),
+            ("client", True),
+        ]
+        assert table.is_voice_host_muted(guest.uuid)
+
+    @pytest.mark.asyncio
+    async def test_rapid_host_voice_toggles_serialize_against_provider_state(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        host.connection = RecordingConnection()
+        guest.connection = RecordingConnection()
+        table, _game = self._create_started_table(host, guest)
+        self.server._voice_presence_by_user[guest.username] = {
+            "scope": "table",
+            "context_id": table.table_id,
+        }
+        first_started = asyncio.Event()
+        release_first = asyncio.Event()
+        provider_permissions = []
+
+        async def apply_provider_permission(**kwargs):
+            provider_permissions.append(kwargs["can_publish"])
+            if len(provider_permissions) == 1:
+                first_started.set()
+                await release_first.wait()
+
+        self.server._voice = SimpleNamespace(
+            set_participant_can_publish=apply_provider_permission,
+        )
+        self.server._show_host_voice_target_menu(
+            host,
+            table,
+            guest.uuid,
+            guest.username,
+        )
+        state = dict(self.server._user_states[host.username])
+
+        first = asyncio.create_task(
+            self.server._handle_host_voice_target_selection(
+                host,
+                "toggle_host_voice_mute",
+                state,
+            )
+        )
+        await first_started.wait()
+        second = asyncio.create_task(
+            self.server._handle_host_voice_target_selection(
+                host,
+                "toggle_host_voice_mute",
+                state,
+            )
+        )
+        release_first.set()
+        await asyncio.gather(first, second)
+
+        assert provider_permissions == [False, True]
+        assert not table.is_voice_host_muted(guest.uuid)
+
+    @pytest.mark.asyncio
+    async def test_host_voice_policy_survives_target_departure_during_provider_update(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        host.connection = RecordingConnection()
+        guest.connection = RecordingConnection()
+        table, _game = self._create_started_table(host, guest)
+        self.server._voice_presence_by_user[guest.username] = {
+            "scope": "table",
+            "context_id": table.table_id,
+        }
+        provider_started = asyncio.Event()
+        finish_provider = asyncio.Event()
+
+        async def participant_disappears(**_kwargs):
+            provider_started.set()
+            await finish_provider.wait()
+            raise VoiceAuthorizationError("voice-moderation-provider-failed")
+
+        self.server._voice = SimpleNamespace(
+            set_participant_can_publish=participant_disappears,
+        )
+        self.server._show_host_voice_target_menu(
+            host,
+            table,
+            guest.uuid,
+            guest.username,
+        )
+        state = dict(self.server._user_states[host.username])
+        moderation = asyncio.create_task(
+            self.server._handle_host_voice_target_selection(
+                host,
+                "toggle_host_voice_mute",
+                state,
+            )
+        )
+        await provider_started.wait()
+        self.server._voice_presence_by_user.pop(guest.username, None)
+        assert table.remove_member(guest.username)
+        finish_provider.set()
+        await moderation
+
+        assert table.is_voice_host_muted(guest.uuid)
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(

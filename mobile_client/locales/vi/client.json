@@ -56,6 +56,8 @@
   "voice-chat-left-table": "Bạn đã rời bàn và rời khỏi Trò chuyện thoại.",
   "voice-chat-mic-on": "Mic đã bật.",
   "voice-chat-mic-off": "Mic đã tắt.",
+  "voice-chat-host-muted": "Chủ bàn đã tắt mic của bạn. Bạn vẫn có thể nghe.",
+  "voice-chat-host-unmuted": "Chủ bàn đã cho phép bạn dùng lại mic. Mic vẫn tắt cho đến khi bạn tự bật lên.",
   "voice-chat-mic-denied": "Quyền dùng mic đã bị từ chối. Hãy cho phép quyền microphone để nói trong trò chuyện thoại.",
   "voice-chat-mic-unsupported": "Thiết bị này không thể bật mic cho trò chuyện thoại.",
   "voice-chat-mic-permission-denied": "Quyền microphone đã bị từ chối. Bạn vẫn có thể nghe trong trò chuyện thoại, nhưng sẽ chưa thể nói cho đến khi cấp quyền mic.",

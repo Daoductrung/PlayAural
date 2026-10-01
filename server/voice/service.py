@@ -3,15 +3,25 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import logging
 import os
 import re
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
+from livekit import api
+
+from .settings import normalize_voice_identity
 from .tokens import generate_livekit_token
 
 
 SUPPORTED_PROVIDER = "livekit"
-DEFAULT_TOKEN_TTL_SECONDS = 900
+MIN_TOKEN_TTL_SECONDS = 60
+MAX_TOKEN_TTL_SECONDS = 86400
+# Self-hosted LiveKit cannot revoke a previously issued token when participant
+# permissions change. Keep the default credential replay window short; an
+# established media connection is unaffected when its join token expires.
+DEFAULT_TOKEN_TTL_SECONDS = MIN_TOKEN_TTL_SECONDS
 ROOM_COMPONENT_PATTERN = re.compile(r"[^A-Za-z0-9_.:-]+")
 
 
@@ -47,7 +57,10 @@ class VoiceService:
         room_prefix = os.environ.get("PLAYAURAL_VOICE_ROOM_PREFIX", "playaural").strip() or "playaural"
         ttl_raw = os.environ.get("PLAYAURAL_VOICE_TOKEN_TTL_SECONDS", str(DEFAULT_TOKEN_TTL_SECONDS)).strip()
         try:
-            token_ttl_seconds = max(60, min(86400, int(ttl_raw)))
+            token_ttl_seconds = max(
+                MIN_TOKEN_TTL_SECONDS,
+                min(MAX_TOKEN_TTL_SECONDS, int(ttl_raw)),
+            )
         except ValueError:
             token_ttl_seconds = DEFAULT_TOKEN_TTL_SECONDS
         return cls(
@@ -91,6 +104,7 @@ class VoiceService:
         context: VoiceContext,
         identity: str,
         display_name: str,
+        can_publish: bool = True,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         if not self.is_ready():
@@ -106,6 +120,7 @@ class VoiceService:
             name=display_name,
             room=room,
             ttl_seconds=self.token_ttl_seconds,
+            can_publish=can_publish,
             metadata=token_metadata,
         )
         return {
@@ -124,6 +139,64 @@ class VoiceService:
             "expires_at": expires_at,
             "ice_servers": [],
         }
+
+    async def set_participant_can_publish(
+        self,
+        *,
+        context: VoiceContext,
+        identity: str,
+        can_publish: bool,
+    ) -> None:
+        """Apply an authoritative microphone-publish policy to a live member."""
+        if not self.is_ready():
+            raise VoiceAuthorizationError("voice-unavailable")
+        participant_id = normalize_voice_identity(identity)
+        if not participant_id:
+            raise VoiceAuthorizationError("voice-invalid-participant")
+
+        room_name = self.build_room_name(context)
+        client = None
+        try:
+            client = api.LiveKitAPI(
+                self._api_url(),
+                api_key=self.api_key,
+                api_secret=self.api_secret,
+            )
+            await client.room.update_participant(
+                api.UpdateParticipantRequest(
+                    room=room_name,
+                    identity=participant_id,
+                    permission=api.ParticipantPermission(
+                        can_subscribe=True,
+                        can_publish=can_publish,
+                        can_publish_data=False,
+                        can_publish_sources=(
+                            [api.TrackSource.MICROPHONE]
+                            if can_publish
+                            else []
+                        ),
+                    ),
+                )
+            )
+        except Exception as exc:
+            raise VoiceAuthorizationError("voice-moderation-provider-failed") from exc
+        finally:
+            if client is not None:
+                try:
+                    await client.aclose()
+                except Exception:
+                    logging.getLogger("playaural").warning(
+                        "Failed to close the LiveKit administration client",
+                        exc_info=True,
+                    )
+
+    def _api_url(self) -> str:
+        """Translate a public WebSocket endpoint to LiveKit's HTTP API URL."""
+        parsed = urlsplit(self.public_url)
+        scheme = {"wss": "https", "ws": "http"}.get(parsed.scheme, parsed.scheme)
+        if scheme not in {"http", "https"} or not parsed.netloc:
+            raise VoiceAuthorizationError("voice-unavailable")
+        return urlunsplit((scheme, parsed.netloc, parsed.path.rstrip("/"), "", ""))
 
     def _safe_component(self, value: str) -> str:
         normalized = ROOM_COMPONENT_PATTERN.sub("_", value.strip())

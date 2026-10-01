@@ -38,6 +38,16 @@ rapid second handover. Keep confirmed presence during that bounded grant;
 successful reconfirmation is silent, while client rejection, media-connection
 failure, or grant expiry clears it and announces one real disconnect. Clients
 must revoke failed join grants, and the server must close late confirmations.
+Table voice controls are keyed only by immutable account UUID. Host microphone
+moderation is server-authoritative and must update both the table policy and
+LiveKit publish permission; client microphone locks are defense in depth, not
+the authority. Personal mute and volume are listener-private mixer state. Both
+are checkpoint-only properties of the durable table: preserve them across a
+game switch and server restore, preserve settings *about* a departed target so
+they apply if that account rejoins, clear preferences owned by a listener when
+that listener leaves the table, and clear everything when the table is
+destroyed. Never persist these controls in a manual saved game or key them by
+username, display name, participant label, or seat.
 `clear_ui` clears server-owned menus and inputs only; table context and unified
 audio/voice lifecycle packets own runtime teardown.
 

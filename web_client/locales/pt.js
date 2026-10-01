@@ -92,6 +92,8 @@ export default {
   "voice-chat-left": "Saiu do bate-papo por voz.",
   "voice-chat-mic-on": "O microfone está ligado.",
   "voice-chat-mic-off": "O microfone está desligado.",
+  "voice-chat-host-muted": "O host da mesa desativou seu microfone. Você ainda pode ouvir.",
+  "voice-chat-host-unmuted": "O host da mesa permitiu novamente o uso do seu microfone. Ele permanece desligado até que você o ligue.",
   "voice-chat-unavailable": "O bate-papo por voz não está disponível agora.",
   "voice-chat-sdk-missing": "O suporte ao bate-papo por voz não está instalado neste cliente.",
   "voice-chat-mic-unsupported": "Este navegador não consegue acessar um microfone a partir desta página.",

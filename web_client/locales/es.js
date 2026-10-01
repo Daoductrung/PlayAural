@@ -92,6 +92,8 @@ export default {
   "voice-chat-left": "Saliste del chat de voz.",
   "voice-chat-mic-on": "El micrófono está activado.",
   "voice-chat-mic-off": "El micrófono está desactivado.",
+  "voice-chat-host-muted": "El anfitrión de la mesa desactivó tu micrófono. Aún puedes escuchar.",
+  "voice-chat-host-unmuted": "El anfitrión de la mesa volvió a permitir el uso de tu micrófono. Permanece desactivado hasta que lo actives.",
   "voice-chat-unavailable": "El chat de voz no está disponible en este momento.",
   "voice-chat-sdk-missing": "El soporte de chat de voz no está instalado en este cliente.",
   "voice-chat-mic-unsupported": "Este navegador no puede acceder a un micrófono desde esta página.",

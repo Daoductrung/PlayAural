@@ -56,6 +56,8 @@
   "voice-chat-left-table": "Saliste de la mesa y del chat de voz.",
   "voice-chat-mic-on": "Micrófono activado.",
   "voice-chat-mic-off": "Micrófono desactivado.",
+  "voice-chat-host-muted": "El anfitrión de la mesa desactivó tu micrófono. Aún puedes escuchar.",
+  "voice-chat-host-unmuted": "El anfitrión de la mesa volvió a permitir el uso de tu micrófono. Permanece desactivado hasta que lo actives.",
   "voice-chat-mic-denied": "Se denegó el acceso al micrófono. Permite el acceso al micrófono para hablar en el chat de voz.",
   "voice-chat-mic-unsupported": "Este dispositivo no puede activar el micrófono para el chat de voz.",
   "voice-chat-mic-permission-denied": "Se denegó el permiso del micrófono. Aún puedes escuchar el chat de voz, pero no podrás hablar hasta que permitas el acceso al micrófono.",

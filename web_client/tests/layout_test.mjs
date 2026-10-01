@@ -380,8 +380,14 @@ test("locale bundle changes preserve packet order and authentication chrome", as
 });
 
 test("the offline shell precaches the updated UI modules", async () => {
-  const serviceWorker = await readFile(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(serviceWorker, /playaural-web-v1\.0\.5\.2-shell-19/u);
+  const [serviceWorker, gameEntry] = await Promise.all([
+    readFile(new URL("../sw.js", import.meta.url), "utf8"),
+    readFile(new URL("../game.js", import.meta.url), "utf8"),
+  ]);
+  const version = gameEntry.match(/PLAYAURAL_WEB_VERSION = "([^"]+)"/u)?.[1];
+  assert.ok(version, "the Web entry point must declare its release version");
+  const escapedVersion = version.replace(/\./gu, "\\.");
+  assert.match(serviceWorker, new RegExp(`playaural-web-v${escapedVersion}-shell-\\d+`, "u"));
   for (const asset of [
     "store.js",
     "spatial_audio.js",

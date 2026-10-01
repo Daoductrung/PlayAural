@@ -37,6 +37,7 @@ voice-chat-listen-only = Te uniste al chat de voz. Solo estás escuchando.
 voice-chat-left = Saliste del chat de voz.
 voice-chat-mic-on = El micrófono está activado.
 voice-chat-mic-off = El micrófono está desactivado.
+voice-chat-host-muted = El anfitrión de la mesa desactivó tu micrófono. Aún puedes escuchar.
 voice-chat-not-connected = El chat de voz no está conectado.
 voice-chat-unavailable = El chat de voz no está disponible en este momento.
 voice-chat-sdk-missing = El soporte de chat de voz no está instalado en este cliente.

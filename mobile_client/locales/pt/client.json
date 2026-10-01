@@ -56,6 +56,8 @@
   "voice-chat-left-table": "Você saiu da mesa e do bate-papo por voz.",
   "voice-chat-mic-on": "Microfone ligado.",
   "voice-chat-mic-off": "Microfone desligado.",
+  "voice-chat-host-muted": "O host da mesa desativou seu microfone. Você ainda pode ouvir.",
+  "voice-chat-host-unmuted": "O host da mesa permitiu novamente o uso do seu microfone. Ele permanece desligado até que você o ligue.",
   "voice-chat-mic-denied": "O acesso ao microfone foi negado. Permita o uso do microfone para falar no bate-papo por voz.",
   "voice-chat-mic-unsupported": "Este dispositivo não consegue ativar o microfone para o bate-papo por voz.",
   "voice-chat-mic-permission-denied": "A permissão do microfone foi negada. Você ainda pode ouvir o bate-papo por voz, mas só poderá falar depois que o acesso ao microfone for permitido.",

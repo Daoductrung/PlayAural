@@ -37,6 +37,7 @@ voice-chat-listen-only = Entrou no bate-papo por voz. Você está apenas ouvindo
 voice-chat-left = Saiu do bate-papo por voz.
 voice-chat-mic-on = O microfone está ligado.
 voice-chat-mic-off = O microfone está desligado.
+voice-chat-host-muted = Seu microfone foi desativado pelo host da mesa. Você ainda pode ouvir.
 voice-chat-not-connected = O bate-papo por voz não está conectado.
 voice-chat-unavailable = O bate-papo por voz não está disponível no momento.
 voice-chat-sdk-missing = O suporte a bate-papo por voz não está instalado neste cliente.

@@ -25,9 +25,9 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
   findNodeHandle,
+  type TextInput,
   useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -50,6 +50,7 @@ import { useFocusScroll } from "./useFocusScroll";
 import { useAnchoredFocus } from "./useAnchoredFocus";
 import { gridCellSizeForViewport } from "./gridLayout";
 import { BoardViewport } from "./BoardViewport";
+import { NativeTextInput } from "./NativeTextInput";
 import type {
   AuthorizeSuccessPacket,
   AudioCommandPacket,
@@ -221,7 +222,6 @@ type MenuFocusContext = {
 };
 
 type InputState = {
-  defaultValue: string;
   inputId: string;
   maxLength?: number;
   multiline: boolean;
@@ -2740,7 +2740,6 @@ export function PlayAuralApp() {
           nativeMenuFocusRequestedAtRef.current = 0;
           clearScheduledNativeFocus();
           setInputState({
-            defaultValue: inputPacket.default_value || "",
             inputId: inputPacket.input_id,
             maxLength: inputPacket.max_length,
             multiline: inputPacket.multiline ?? false,
@@ -3181,6 +3180,7 @@ export function PlayAuralApp() {
     { id: "help", text: localization.t("client-help") },
   ];
   const focusedShortcutItem = shortcutItems[shortcutFocusIndex] ?? null;
+  const hasAuthInput = username.length > 0 || password.length > 0;
   const authFocusableItems = useMemo<AuthFocusableItem[]>(() => {
     if (connected) {
       return [];
@@ -3199,7 +3199,7 @@ export function PlayAuralApp() {
     if (authMode === "login") {
       items.push({ action: "focus_password", id: "field-password", text: localization.t("password") });
       items.push({ action: "connect", id: "button-connect", text: localization.t("auth-login-submit") });
-      if (username || password) {
+      if (hasAuthInput) {
         items.push({
           action: "clear_saved_account",
           id: "button-clear-account",
@@ -3270,7 +3270,7 @@ export function PlayAuralApp() {
     });
 
     return items;
-  }, [appLocale, authMode, connected, localization, password, username]);
+  }, [appLocale, authMode, connected, hasAuthInput, localization]);
   const focusedAuthItem = authFocusableItems[authFocusIndex] ?? null;
   const authScroll = useFocusScroll(
     selfVoicingEnabled && !connected && !dialogState && focusedAuthItem ? `auth:${focusedAuthItem.id}` : null,
@@ -5260,7 +5260,7 @@ export function PlayAuralApp() {
       <ScrollView {...chatScroll} style={styles.scrollArea}>
         <Text style={[styles.helpText, localeTextDirectionStyle]}>{localization.t("chat-input-label")}</Text>
         <View style={chatFocusIndex === 0 ? styles.authFieldFocused : undefined}>
-          <TextInput
+          <NativeTextInput
             accessibilityLabel={localization.t("chat-input-label")}
             onChangeText={setChatDraft}
             onFocus={() => {
@@ -5726,9 +5726,11 @@ export function PlayAuralApp() {
       {authMode === "login" ? (
         <>
           <View style={[styles.authField, isAuthFocused("field-username") ? styles.authFieldFocused : undefined]}>
-            <TextInput
+            <NativeTextInput
               accessibilityLabel={localization.t("username")}
               autoCapitalize="none"
+              autoComplete="username"
+              autoCorrect={false}
               onChangeText={setUsername}
               onFocus={() => {
                 handleTextInputFocus("auth:field-username", () => {
@@ -5747,8 +5749,11 @@ export function PlayAuralApp() {
             />
           </View>
           <View style={[styles.authField, isAuthFocused("field-password") ? styles.authFieldFocused : undefined]}>
-            <TextInput
+            <NativeTextInput
               accessibilityLabel={localization.t("password")}
+              autoCapitalize="none"
+              autoComplete="current-password"
+              autoCorrect={false}
               onChangeText={setPassword}
               onFocus={() => {
                 handleTextInputFocus("auth:field-password", () => {
@@ -5785,7 +5790,7 @@ export function PlayAuralApp() {
               <Text style={[styles.buttonText, localeTextDirectionStyle]}>{localization.t("auth-login-submit")}</Text>
             </Pressable>
           </View>
-          {username || password ? (
+          {hasAuthInput ? (
             <View style={styles.row}>
               <Pressable
                 accessibilityLabel={localization.t("auth-clear-account")}
@@ -5814,9 +5819,11 @@ export function PlayAuralApp() {
       {authMode === "register" ? (
         <>
           <View style={[styles.authField, isAuthFocused("field-username") ? styles.authFieldFocused : undefined]}>
-            <TextInput
+            <NativeTextInput
               accessibilityLabel={localization.t("username")}
               autoCapitalize="none"
+              autoComplete="username-new"
+              autoCorrect={false}
               onChangeText={setUsername}
               onFocus={() => {
                 handleTextInputFocus("auth:field-username", () => {
@@ -5835,9 +5842,11 @@ export function PlayAuralApp() {
             />
           </View>
           <View style={[styles.authField, isAuthFocused("field-register-email") ? styles.authFieldFocused : undefined]}>
-            <TextInput
+            <NativeTextInput
               accessibilityLabel={localization.t("auth-email")}
               autoCapitalize="none"
+              autoComplete="email"
+              autoCorrect={false}
               keyboardType="email-address"
               onChangeText={setRegisterEmail}
               onFocus={() => {
@@ -5857,8 +5866,11 @@ export function PlayAuralApp() {
             />
           </View>
           <View style={[styles.authField, isAuthFocused("field-password") ? styles.authFieldFocused : undefined]}>
-            <TextInput
+            <NativeTextInput
               accessibilityLabel={localization.t("password")}
+              autoCapitalize="none"
+              autoComplete="new-password"
+              autoCorrect={false}
               onChangeText={setPassword}
               onFocus={() => {
                 handleTextInputFocus("auth:field-password", () => {
@@ -5878,8 +5890,11 @@ export function PlayAuralApp() {
             />
           </View>
           <View style={[styles.authField, isAuthFocused("field-register-confirm-password") ? styles.authFieldFocused : undefined]}>
-            <TextInput
+            <NativeTextInput
               accessibilityLabel={localization.t("auth-confirm-password")}
+              autoCapitalize="none"
+              autoComplete="new-password"
+              autoCorrect={false}
               onChangeText={setRegisterConfirmPassword}
               onFocus={() => {
                 handleTextInputFocus("auth:field-register-confirm-password", () => {
@@ -5923,9 +5938,11 @@ export function PlayAuralApp() {
       {authMode === "forgot" ? (
         <>
           <View style={[styles.authField, isAuthFocused("field-forgot-email") ? styles.authFieldFocused : undefined]}>
-            <TextInput
+            <NativeTextInput
               accessibilityLabel={localization.t("auth-email")}
               autoCapitalize="none"
+              autoComplete="email"
+              autoCorrect={false}
               keyboardType="email-address"
               onChangeText={setForgotEmail}
               onFocus={() => {
@@ -5966,9 +5983,11 @@ export function PlayAuralApp() {
       {authMode === "reset" ? (
         <>
           <View style={[styles.authField, isAuthFocused("field-reset-email") ? styles.authFieldFocused : undefined]}>
-            <TextInput
+            <NativeTextInput
               accessibilityLabel={localization.t("auth-email")}
               autoCapitalize="none"
+              autoComplete="email"
+              autoCorrect={false}
               keyboardType="email-address"
               onChangeText={setResetEmail}
               onFocus={() => {
@@ -5988,9 +6007,11 @@ export function PlayAuralApp() {
             />
           </View>
           <View style={[styles.authField, isAuthFocused("field-reset-code") ? styles.authFieldFocused : undefined]}>
-            <TextInput
+            <NativeTextInput
               accessibilityLabel={localization.t("auth-reset-code")}
               autoCapitalize="characters"
+              autoComplete="one-time-code"
+              autoCorrect={false}
               onChangeText={setResetCode}
               onFocus={() => {
                 handleTextInputFocus("auth:field-reset-code", () => {
@@ -6009,8 +6030,11 @@ export function PlayAuralApp() {
             />
           </View>
           <View style={[styles.authField, isAuthFocused("field-reset-password") ? styles.authFieldFocused : undefined]}>
-            <TextInput
+            <NativeTextInput
               accessibilityLabel={localization.t("auth-new-password")}
+              autoCapitalize="none"
+              autoComplete="new-password"
+              autoCorrect={false}
               onChangeText={setResetPassword}
               onFocus={() => {
                 handleTextInputFocus("auth:field-reset-password", () => {
@@ -6030,8 +6054,11 @@ export function PlayAuralApp() {
             />
           </View>
           <View style={[styles.authField, isAuthFocused("field-reset-confirm-password") ? styles.authFieldFocused : undefined]}>
-            <TextInput
+            <NativeTextInput
               accessibilityLabel={localization.t("auth-confirm-password")}
+              autoCapitalize="none"
+              autoComplete="new-password"
+              autoCorrect={false}
               onChangeText={setResetConfirmPassword}
               onFocus={() => {
                 handleTextInputFocus("auth:field-reset-confirm-password", () => {
@@ -6212,9 +6239,10 @@ export function PlayAuralApp() {
                   inputOverlayFocus === 0 ? styles.authFieldFocused : undefined,
                 ]}
               >
-                <TextInput
+                <NativeTextInput
                   accessibilityLabel={inputState.prompt}
                   editable={!inputState.readOnly}
+                  key={inputState.inputId}
                   maxLength={inputState.maxLength}
                   multiline={inputState.multiline}
                   onChangeText={setInputValue}

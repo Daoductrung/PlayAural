@@ -384,7 +384,13 @@ test("empty History keeps both controls and a stable spoken empty row", () => {
 test("self-voicing auth order follows the displayed controls and never includes hidden fields", () => {
   const localization = new MobileLocalization();
   for (const authMode of ["login", "register", "forgot", "reset"]) {
-    const items = handler("authFocusableItems", { connected: false, localization, appLocale: "en", authMode, username: "", password: "" });
+    const items = handler("authFocusableItems", {
+      connected: false,
+      localization,
+      appLocale: "en",
+      authMode,
+      hasAuthInput: false,
+    });
     const ids = items.map((item) => item.id);
     assert.deepEqual(ids.slice(0, 4), ["locale", "tab-login", "tab-register", "tab-forgot"]);
     assert.equal(ids.includes("field-username"), authMode === "login" || authMode === "register");

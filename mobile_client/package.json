@@ -21,7 +21,7 @@
     "verify:native-spatial-audio": "node scripts/verify-steam-audio-sdk.mjs",
     "test:gestures": "node --test tests/self-voicing-gestures.test.mjs",
     "test:shortcuts": "node --test tests/shortcuts.test.mjs",
-    "test:navigation": "node --test tests/mobile-navigation.test.mjs tests/message-history.test.mjs tests/board-viewport.test.mjs",
+    "test:navigation": "node --test tests/mobile-navigation.test.mjs tests/message-history.test.mjs tests/board-viewport.test.mjs tests/native-text-input.test.mjs",
     "generate:sounds": "node scripts/generate-sound-manifest.mjs",
     "generate:locales": "node scripts/generate-locale-registry.mjs"
   },

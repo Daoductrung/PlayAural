@@ -1548,6 +1548,16 @@ class TestTableInviteReclaim:
             guest,
             PigGame(options=PigOptions(target_score=25)),
         )
+        self.server._show_table_members_menu(host, table)
+        await self.server._handle_table_members_selection(
+            host,
+            f"table_member_user_{guest.username}",
+            self.server._user_states[host.username],
+        )
+        assert "table_pass_host" in self._get_menu_action_ids(
+            host,
+            TABLE_MEMBER_ACTIONS_MENU,
+        )
         client = SimpleNamespace(
             username=guest.username,
             address="guest-client",
@@ -1563,6 +1573,15 @@ class TestTableInviteReclaim:
         assert "disconnect.ogg" in self._sound_names(host)
         assert "table_leave.ogg" not in self._sound_names(host)
         assert any(member.username == guest.username for member in table.members)
+        assert self.server._user_states[host.username]["menu"] == (
+            TABLE_MEMBER_ACTIONS_MENU
+        )
+        assert "table_pass_host" not in self._get_menu_action_ids(
+            host,
+            TABLE_MEMBER_ACTIONS_MENU,
+        )
+        assert not self.server._perform_host_pass(host, table, guest.username)
+        assert table.host == host.username
 
         returning_guest = MockUser(guest.username, uuid=guest.uuid)
         self.server._users[guest.username] = returning_guest
@@ -1573,6 +1592,112 @@ class TestTableInviteReclaim:
         assert game.get_user(game.get_player_by_id(guest.uuid)) is returning_guest
         assert "reconnect.ogg" in self._sound_names(host)
         assert "table_join.ogg" not in self._sound_names(host)
+        assert "table_pass_host" in self._get_menu_action_ids(
+            host,
+            TABLE_MEMBER_ACTIONS_MENU,
+        )
+
+    @pytest.mark.asyncio
+    async def test_disconnect_revokes_host_transfer_before_voice_cleanup(
+        self,
+        monkeypatch,
+    ):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, _game = self._create_waiting_table(
+            host,
+            guest,
+            PigGame(options=PigOptions(target_score=25)),
+        )
+        self.server._show_table_members_menu(host, table)
+        await self.server._handle_table_members_selection(
+            host,
+            f"table_member_user_{guest.username}",
+            self.server._user_states[host.username],
+        )
+        assert "table_pass_host" in self._get_menu_action_ids(
+            host,
+            TABLE_MEMBER_ACTIONS_MENU,
+        )
+
+        cleanup_started = asyncio.Event()
+        finish_cleanup = asyncio.Event()
+
+        async def delayed_voice_cleanup(*_args, **_kwargs):
+            cleanup_started.set()
+            await finish_cleanup.wait()
+
+        monkeypatch.setattr(
+            self.server,
+            "_clear_voice_presence",
+            delayed_voice_cleanup,
+        )
+        client = SimpleNamespace(
+            username=guest.username,
+            address="guest-client",
+            authenticated=True,
+            retired=False,
+        )
+        guest.connection = client
+        disconnect = asyncio.create_task(self.server._on_client_disconnect(client))
+        await cleanup_started.wait()
+
+        assert "table_pass_host" not in self._get_menu_action_ids(
+            host,
+            TABLE_MEMBER_ACTIONS_MENU,
+        )
+        assert not self.server._perform_host_pass(host, table, guest.username)
+        assert table.host == host.username
+
+        finish_cleanup.set()
+        await disconnect
+
+    @pytest.mark.asyncio
+    async def test_table_member_action_menu_returns_to_roster_when_target_leaves(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, game = self._create_waiting_table(
+            host,
+            guest,
+            PigGame(options=PigOptions(target_score=25)),
+        )
+        host_player = game.get_player_by_id(host.uuid)
+        guest_player = game.get_player_by_id(guest.uuid)
+        assert host_player is not None
+        assert guest_player is not None
+        self.server._set_in_game_state(host, table.table_id)
+
+        game._action_whos_at_table(host_player, "whos_at_table")
+        await self.server._handle_table_members_selection(
+            host,
+            f"table_member_user_{guest.username}",
+            self.server._user_states[host.username],
+        )
+        assert self.server._user_states[host.username]["menu"] == (
+            TABLE_MEMBER_ACTIONS_MENU
+        )
+        self.server._user_states[host.username].update(
+            {
+                "_last_selection_id": "table_pass_host",
+                "_last_selection_position": 1,
+            }
+        )
+
+        game.remove_player(guest_player.id)
+        assert table.remove_member(guest.username)
+
+        state = self.server._user_states[host.username]
+        assert state["menu"] == TABLE_MEMBERS_MENU
+        assert [frame.get("menu") for frame in state["_stack"]] == ["in_game"]
+        assert "_last_selection_id" not in state
+        assert "_last_selection_position" not in state
+        assert f"table_member_user_{guest.username}" not in self._get_menu_action_ids(
+            host,
+            TABLE_MEMBERS_MENU,
+        )
+
+        await self.server._handle_table_members_selection(host, "back", state)
+        assert self.server._user_states[host.username]["menu"] == "in_game"
 
     @pytest.mark.asyncio
     async def test_network_disconnected_replacement_stays_under_human_roster_row(self):

@@ -1103,6 +1103,7 @@ PlayAural Server
                 self._cancel_player_substitution_requests_for_user(username)
 
                 table = self._tables.find_user_table(username)
+                self._refresh_table_session_presence(table)
                 await self._clear_voice_presence(
                     username,
                     "voice-status-connection-lost",
@@ -1193,6 +1194,7 @@ PlayAural Server
         self._cancel_player_substitution_requests_for_user(username)
 
         table = self._tables.find_user_table(username)
+        self._refresh_table_session_presence(table)
         await self._clear_voice_presence(
             username,
             "voice-status-connection-lost",
@@ -2331,6 +2333,9 @@ PlayAural Server
             else:
                 self._restore_menu_from_state(user, saved_state)
 
+        if table and self._tables.get_table(table.table_id) is table:
+            self._refresh_table_session_presence(table)
+
     def _show_mandatory_email_menu(self, user: NetworkUser) -> None:
         """Show the mandatory email setup menu."""
         user.speak_l("mandatory-email-notice", buffer="system")
@@ -3332,6 +3337,22 @@ PlayAural Server
             state = self._user_states.get(username, {})
             self._refresh_social_presence_menu(user, state)
             self._refresh_table_presence_menu(user, state)
+
+    def _refresh_table_session_presence(self, table: "Table | None") -> None:
+        """Refresh one table's open menus when a live session appears or vanishes.
+
+        Table authority changes as soon as the gameplay transport disconnects,
+        while public/social presence deliberately observes a short debounce
+        window. Keep those lifecycles separate so table controls cannot remain
+        actionable during that grace period and friends lists do not flap.
+        """
+        if not table:
+            return
+        table_id = table.table_id
+        for username, current_user in tuple(self._users.items()):
+            state = self._user_states.get(username, {})
+            if state.get("table_id") == table_id:
+                self._refresh_table_presence_menu(current_user, state)
 
     def on_social_relationships_changed(self, *target_uuids: str) -> None:
         """Refresh authoritative social surfaces for the affected accounts."""
@@ -12865,15 +12886,7 @@ PlayAural Server
         candidates = []
         if table.game:
             for row in self._table_member_rows(table):
-                player = row.get("player")
-                if (
-                    row["kind"] == "user"
-                    and player
-                    and not getattr(player, "is_bot", False)
-                    and not row["is_spectator"]
-                    and row["name"] != user.username
-                    and row.get("is_online")
-                ):
+                if self._is_host_transfer_candidate(user, table, row):
                     candidates.append(row["name"])
         if not candidates:
             items.append(MenuItem(text=Localization.get(locale, "host-pass-no-candidates"), id=""))
@@ -12905,13 +12918,8 @@ PlayAural Server
             user.speak_l("action-not-host", buffer="system")
             return False
 
-        target = table.game.get_player_by_name(new_host_name)
-        if (
-            target
-            and not target.is_bot
-            and not target.is_spectator
-            and self._is_table_member_online(new_host_name)
-        ):
+        row = self._resolve_table_member_target(table, "user", new_host_name)
+        if row and self._is_host_transfer_candidate(user, table, row):
             table.host = new_host_name
             table.game.host = new_host_name
             self._cancel_player_substitution_requests_matching(
@@ -13215,7 +13223,11 @@ PlayAural Server
                             "is_host": human_name == table.host,
                             "is_online": bool(
                                 replaced_member
-                                and self._is_table_member_online(human_name)
+                                and self._is_table_member_online(
+                                    table,
+                                    human_name,
+                                    account_id=player.id,
+                                )
                             ),
                             "in_voice_chat": bool(
                                 replaced_member
@@ -13262,7 +13274,11 @@ PlayAural Server
                         "is_bot": False,
                         "is_spectator": getattr(player, "is_spectator", False),
                         "is_host": player.name == table.host,
-                        "is_online": self._is_table_member_online(player.name),
+                        "is_online": self._is_table_member_online(
+                            table,
+                            player.name,
+                            account_id=player.id,
+                        ),
                         "in_voice_chat": self._is_table_member_in_voice_chat(
                             table,
                             player.name,
@@ -13291,7 +13307,11 @@ PlayAural Server
                     "is_bot": False,
                     "is_spectator": member.is_spectator,
                     "is_host": member.username == table.host,
-                    "is_online": self._is_table_member_online(member.username),
+                    "is_online": self._is_table_member_online(
+                        table,
+                        member.username,
+                        account_id=account_id,
+                    ),
                     "in_voice_chat": self._is_table_member_in_voice_chat(
                         table,
                         member.username,
@@ -13314,9 +13334,51 @@ PlayAural Server
         )
         return rows
 
-    def _is_table_member_online(self, username: str) -> bool:
-        """Return whether a human table member currently has a live server user."""
-        return username in self._users
+    def _is_table_member_online(
+        self,
+        table: "Table",
+        username: str,
+        *,
+        account_id: str = "",
+    ) -> bool:
+        """Return whether this table has the account's authoritative live session."""
+        live_user = self._users.get(username)
+        if (
+            live_user is None
+            or table.get_user(username) is not live_user
+            or not getattr(live_user, "active", True)
+            or not any(member.username == username for member in table.members)
+        ):
+            return False
+        return not account_id or str(getattr(live_user, "uuid", "")) == account_id
+
+    def _is_host_transfer_candidate(
+        self,
+        user: NetworkUser,
+        table: "Table",
+        row: dict[str, Any],
+    ) -> bool:
+        """Validate one current, seated account for table-host transfer."""
+        player = row.get("player")
+        account_id = str(row.get("account_id") or "")
+        return bool(
+            table.game
+            and table.host == user.username
+            and row.get("kind") == "user"
+            and row.get("name") != user.username
+            and row.get("is_table_member")
+            and not row.get("is_spectator")
+            and not row.get("is_replaced_by_bot")
+            and player
+            and account_id
+            and not getattr(player, "is_bot", False)
+            and str(getattr(player, "id", "")) == account_id
+            and self._is_table_member_online(
+                table,
+                str(row.get("name") or ""),
+                account_id=account_id,
+            )
+        )
 
     def _is_table_member_in_voice_chat(self, table: "Table", username: str) -> bool:
         """Return whether a human table member is in this table's voice chat."""
@@ -13537,7 +13599,7 @@ PlayAural Server
                             id="table_offer_substitution",
                         )
                     )
-                if row.get("is_online") and not row.get("is_replaced_by_bot"):
+                if self._is_host_transfer_candidate(user, table, row):
                     items.append(
                         MenuItem(
                             text=Localization.get(locale, "host-management-pass-host"),
@@ -16771,9 +16833,13 @@ PlayAural Server
         current menu level — NOT when navigating forward (use _nav_push for that).
         Unlike calling the show function directly, this keeps _stack intact so
         the user can still navigate back through the full hierarchy they entered.
+        Focus metadata is retained only if the refreshed logical surface is
+        still the same one; a target disappearing may redirect to its parent.
         """
         username = user.username
         current = self._user_states.get(username, {})
+        current_identity = self._navigation_frame_identity(current)
+        current_menu = current.get("menu")
         saved_stack = list(current.get("_stack", []))
         saved_focus = {
             key: current[key]
@@ -16787,7 +16853,14 @@ PlayAural Server
                 state,
                 saved_stack,
             )
-            state.update(saved_focus)
+            refreshed_identity = self._navigation_frame_identity(state)
+            same_surface = (
+                current_identity == refreshed_identity
+                if current_identity is not None or refreshed_identity is not None
+                else current_menu == state.get("menu")
+            )
+            if same_surface:
+                state.update(saved_focus)
 
     def _enter_input_state(self, user: NetworkUser, input_id: str, **extra) -> None:
         """Transition into an editbox input state, recording the parent frame.

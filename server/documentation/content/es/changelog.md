@@ -12,7 +12,7 @@ Novedades:
 Mejoras:
 
 * Amigos ahora incluye Solicitudes enviadas, donde puedes revisar o cancelar las solicitudes salientes. También se muestra cuándo se conectaron por última vez los amigos que están desconectados.
-* Denunciar a un usuario ahora está disponible desde Quién está en la mesa, incluso para espectadores y asientos de personas desconectadas; no se puede denunciar a los bots.
+* Reportar a un usuario ahora está disponible desde Quién está en la mesa, incluso para espectadores y asientos de personas desconectadas; no se puede reportar a los bots.
 * Opciones generales y Opciones de partida ahora están separadas en menús más claros, y el foco vuelve al elemento que abrió cada submenú.
 * Pulsa F1 en Escritorio o Web para escuchar una descripción del elemento de menú enfocado. En el modo de autolectura de Móvil, usa un toque con tres dedos. Los avisos de confirmación ahora son visibles y se leen en voz alta, mientras que los comentarios breves de los menús ya no llenan el historial de mensajes.
 * Iniciar sesión desde otro cliente de Escritorio, Web o Móvil ahora transfiere la sesión activa sin problemas y conserva la mesa, el asiento de jugador, el turno y la conexión de voz actuales. Cerrar una aplicación o cerrar sesión también abandona las mesas y sesiones de voz de forma más fiable.
@@ -32,7 +32,7 @@ Sábado 26 de septiembre de 2026
 Novedades:
 
 * El chat global ahora está organizado en canales de idioma. No hay ningún canal seleccionado de forma predeterminada; elige Personal y Opciones > Opciones generales > Idioma del chat global antes de enviar o recibir mensajes globales. Fuera de una mesa, los mensajes normales se envían al canal seleccionado; en una mesa, permanecen en el chat de la mesa y `/g` los envía al canal global.
-* Denunciar a un usuario ya está disponible para casos de abuso grave o reiterado. Las denuncias registran el motivo, el canal de idioma y la hora exacta de envío para su revisión manual, sin avisar ni castigar automáticamente al usuario denunciado. Los mensajes del chat global se conservan junto con su remitente y la hora hasta que un desarrollador borra el historial, lo que permite revisar las denuncias en su contexto; mientras esperas, puedes bloquear al usuario de inmediato.
+* Reportar a un usuario ya está disponible para casos de abuso grave o reiterado. Los reportes registran el motivo, el canal de idioma y la hora exacta de envío para su revisión manual, sin avisar ni castigar automáticamente al usuario reportado. Los mensajes del chat global se conservan junto con su remitente y la hora hasta que un desarrollador borra el historial, lo que permite revisar los reportes en su contexto; mientras esperas, puedes bloquear al usuario de inmediato.
 * Punto de Ruptura ya está disponible por completo en español y portugués, incluidos todos los textos del juego y las guías para principiantes.
 
 Mejoras:

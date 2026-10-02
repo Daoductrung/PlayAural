@@ -192,7 +192,7 @@ ageofheroes-tax-collection-you = Eliges Recaudación de Impuestos: { $cities } {
 ageofheroes-tax-collection-brief = { $player } impuestos: { $cards } de { $cities }.
 ageofheroes-tax-collection-you-brief = Impuestos: { $cards } de { $cities }.
 ageofheroes-tax-no-city = Recaudación de Impuestos: No tienes ciudades sobrevivientes. Descarta una carta para robar una nueva.
-ageofheroes-tax-no-city-done = { $player } elige Recaudación de Impuestos pero no tiene ciudades, así que { GENDER_TERM($player_gender, "subject") } intercambia una carta.
+ageofheroes-tax-no-city-done = { $player } elige Recaudación de Impuestos pero no tiene ciudades, así que { GENDER_TERM($player_gender, "subject") }intercambia una carta.
 ageofheroes-tax-no-city-done-you = Recaudación de Impuestos: Intercambiaste { $card } por una carta nueva.
 
 # Construcción

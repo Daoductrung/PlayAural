@@ -406,7 +406,7 @@ monopoly-player-utility-rent-roll-brief = Tirada de alquiler de { $utility } de 
 monopoly-you-draw-card = Sacas: { $card }
 monopoly-player-draw-card = { $player } saca: { $card }
 monopoly-you-no-repair-cost = No tienes { $development }, así que la carta de reparaciones no te cuesta nada.
-monopoly-player-no-repair-cost = { $player } no tiene { $development }, así que la carta de reparaciones no le supone ningún coste a { GENDER_TERM($player_gender, "object") }.
+monopoly-player-no-repair-cost = { $player } no tiene { $development }, así que la carta de reparaciones no le supone ningún coste.
 monopoly-you-no-repair-cost-brief = Sin { $development }; sin costo de reparación.
 monopoly-player-no-repair-cost-brief = { $player } no tiene { $development }; sin costo de reparación.
 monopoly-you-collect-bank = Cobras { $amount } del Banco. Ahora tienes { $cash }.
@@ -482,7 +482,7 @@ monopoly-player-jail-roll-brief = Tirada en la cárcel de { $player }: { $total 
    *[no] .
 }
 monopoly-you-leave-jail-doubles = Sacaste dobles y sales de la cárcel. Avanza según esta tirada, pero no vuelvas a tirar.
-monopoly-player-leaves-jail-doubles = { $player } sacó dobles y sale de la cárcel. Esta tirada hace avanzar a { GENDER_TERM($player_gender, "object") }, pero no concede otra tirada.
+monopoly-player-leaves-jail-doubles = { $player } sacó dobles y sale de la cárcel. Esta tirada { GENDER_TERM($player_gender, "object") } hace avanzar, pero no concede otra tirada.
 monopoly-you-leave-jail-doubles-brief = Dobles: fuera de la cárcel.
 monopoly-player-leaves-jail-doubles-brief = { $player } sale de la cárcel con dobles.
 monopoly-you-stay-jail = No sacaste dobles en el intento { $attempt }, así que tu turno termina en la cárcel.
@@ -687,7 +687,7 @@ monopoly-status-trade-preparing = { $proposer } está preparando un intercambio 
 monopoly-whose-turn-your-action = Es tu turno; debes { $phase }.
 monopoly-whose-turn-your-turn-pending = Es tu turno, pero { $decision_player } debe { $phase }.
 monopoly-whose-turn-other-turn-your-action = Es el turno de { $turn_player }, pero tú debes { $phase }.
-monopoly-whose-turn-player-action = Es el turno de { $turn_player }; { GENDER_TERM($turn_player_gender, "subject") } debe { $phase }.
+monopoly-whose-turn-player-action = Es el turno de { $turn_player }; { GENDER_TERM($turn_player_gender, "subject") }debe { $phase }.
 monopoly-whose-turn-pending = Es el turno de { $turn_player }, pero { $decision_player } actualmente debe { $phase }.
 monopoly-results-winner = Ganador: { $player }.
 monopoly-results-place = { $rank }. { $player }; efectivo { $cash }; patrimonio neto estimado { $net_worth }; { $bankrupt ->

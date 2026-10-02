@@ -65,7 +65,7 @@ yahtzee-you-rolled = Sacaste: { $dice }. { $remaining ->
     }.
 }
 yahtzee-player-rolled = { $player } sacó: { $dice }. { $remaining ->
-    [0] { GENDER_TERM($player_gender, "subject-capitalized") } debe elegir una categoría de puntuación.
+    [0] Debe elegir una categoría de puntuación.
    *[other] Quedan { $remaining } { $remaining ->
         [one] lanzamiento
        *[other] lanzamientos

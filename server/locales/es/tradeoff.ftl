@@ -27,7 +27,7 @@ tradeoff-player-scored = { $player } anotó { $points } puntos con { $sets }.
 tradeoff-you-scored-brief = Anotaste { $points } puntos esta ronda.
 tradeoff-player-scored-brief = { $player } anotó { $points } puntos esta ronda.
 tradeoff-you-no-sets = Anotaste 0 puntos porque tus 15 dados no formaron ninguna combinación puntuable.
-tradeoff-no-sets = { $player } anotó 0 puntos porque los 15 dados de { GENDER_TERM($player_gender, "object") } no formaron ninguna combinación puntuable.
+tradeoff-no-sets = { $player } anotó 0 puntos porque sus 15 dados no formaron ninguna combinación puntuable.
 
 tradeoff-set-triple = trío de { $value }
 tradeoff-set-group = grupo de { $value }

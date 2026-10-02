@@ -59,7 +59,7 @@ senet-sticks-none = Aún no hay tirada.
 
 # Win
 senet-wins-you = ¡Ganaste! Todas tus fichas cruzaron la casa final.
-senet-wins-other = ¡{ $player } gana! Todas las fichas de { GENDER_TERM($player_gender, "object") } cruzaron la casa final.
+senet-wins-other = ¡{ $player } gana! Todas sus fichas cruzaron la casa final.
 
 # Action labels
 senet-check-status = Estado

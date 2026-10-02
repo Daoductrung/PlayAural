@@ -22,15 +22,15 @@ deadmanspoker-already-matched-all-in = Você já cobriu o all-in.
 deadmanspoker-coward-used = Você já usou a desistência covarde nesta partida.
 deadmanspoker-coward-first-decision-only = A desistência covarde está disponível apenas na sua primeira decisão de uma mão.
 deadmanspoker-all-in-too-early = O all-in está disponível apenas a partir da rodada de apostas 2, após as três primeiras cartas comunitárias serem reveladas.
+deadmanspoker-all-in-after-switch = Você não pode dar all-in no mesmo turno em que troca uma carta. Pague ou desista para encerrar o turno.
 deadmanspoker-switch-not-now = Você não pode trocar uma carta agora.
-deadmanspoker-switch-used = Você já trocou uma carta nesta mão.
+deadmanspoker-switch-used = Você já usou Trocar carta nesta partida.
 deadmanspoker-switch-too-late = É tarde demais para trocar uma carta.
 deadmanspoker-switch-no-cards = Você não tem uma carta particular para trocar.
 deadmanspoker-switch-no-deck = O baralho não tem cartas de substituição suficientes.
 deadmanspoker-switch-choice-missing = Essa carta de substituição não está mais disponível.
 
 deadmanspoker-match-start = Começa o jogo O Pôquer do Morto. Cada bala na mesa é uma aposta com a sua vida em risco.
-deadmanspoker-hand-start = Mão { $hand }. Cada jogador ativo aposta a primeira bala.
 deadmanspoker-hand-start-all-alive = Mão { $hand }. Todos apostam a primeira bala.
 deadmanspoker-hand-start-survivors = Mão { $hand }. Cada sobrevivente aposta a primeira bala.
 deadmanspoker-community-arrives = Cinco cartas comunitárias chegam viradas para baixo.

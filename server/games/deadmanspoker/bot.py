@@ -21,7 +21,7 @@ MAX_BULLETS = 8
 STARTING_BULLETS = 1
 SHOWDOWN_EQUITY_SAMPLES = 180
 SWITCH_EQUITY_SAMPLES = 120
-SWITCH_CANDIDATE_COUNT = 3
+SWITCH_CHOICE_EQUITY_SAMPLES = 140
 
 
 @dataclass(frozen=True)
@@ -166,14 +166,31 @@ def _choose_switch_replacement(
     if not game.pending_switch_candidates:
         return None
     best_index = 0
-    best_value: tuple = (-1, (), -1, -1)
+    best_value: tuple = (-1.0, -1.0, -1, (), -1, -1)
+    discarded = (
+        player.hand[game.pending_switch_card_index]
+        if 0 <= game.pending_switch_card_index < len(player.hand)
+        else None
+    )
+    offered_cards = list(game.pending_switch_candidates)
+    unavailable_cards = offered_cards + ([discarded] if discarded else [])
     for index, candidate in enumerate(game.pending_switch_candidates):
         trial = list(player.hand)
         if 0 <= game.pending_switch_card_index < len(trial):
             trial[game.pending_switch_card_index] = candidate
         cards = trial + game.revealed_community_cards
         score = _score_cards(cards)
+        equity = _estimate_showdown_equity(
+            game,
+            player,
+            hand=trial,
+            extra_known_cards=unavailable_cards,
+            samples=SWITCH_CHOICE_EQUITY_SAMPLES,
+            salt=f"switch-choice:{candidate.rank}:{candidate.suit}",
+        )
         value = (
+            equity.safe_rate,
+            equity.win_rate,
             score[0],
             score[1],
             _draw_potential(cards),
@@ -192,9 +209,6 @@ def _should_use_switch(
 ) -> bool:
     if player.used_switch or game.revealed_community_count >= 5:
         return False
-    # Switching blind before the flop is usually worse than waiting for context.
-    if game.revealed_community_count < 3:
-        return False
     if profile.category >= 3 and profile.private_improves_board:
         return False
     if profile.private_pair and profile.high_private >= 11:
@@ -204,8 +218,15 @@ def _should_use_switch(
     if not evaluation:
         return False
 
+    preflop_rescue = (
+        game.revealed_community_count == 0
+        and not profile.private_pair
+        and profile.high_private <= 9
+        and evaluation.improvement_rate >= 0.68
+    )
     terrible_hand = (
-        profile.category == 0
+        game.revealed_community_count >= 3
+        and profile.category == 0
         and profile.high_private <= 10
         and profile.draw_potential <= 1
         and evaluation.improvement_rate >= 0.42
@@ -223,29 +244,33 @@ def _should_use_switch(
         and evaluation.category_gain_rate >= 0.18
     )
     clear_upgrade_available = (
-        profile.category <= 1
+        game.revealed_community_count >= 3
+        and profile.category <= 1
         and evaluation.improvement_rate >= 0.58
         and evaluation.category_gain_rate >= 0.24
     )
     if not (
-        terrible_hand
+        preflop_rescue
+        or terrible_hand
         or board_context_problem
         or strategic_draw_chase
         or clear_upgrade_available
     ):
         return False
 
-    chance = 0.56
+    chance = 0.42 if preflop_rescue else 0.64
     if terrible_hand:
         chance += 0.14
     if strategic_draw_chase:
         chance += 0.12
     if evaluation.category_gain_rate >= 0.35:
         chance += 0.08
+    if game.revealed_community_count == 4:
+        chance += 0.10
 
-    if player.committed_bullets >= 5 and chance:
+    if player.committed_bullets >= 5:
         chance += 0.06
-    if random.random() >= min(0.88, chance):  # nosec B311
+    if random.random() >= min(0.92, chance):  # nosec B311
         return False
 
     player.bot_switch_round_stage = game.round_stage
@@ -336,7 +361,7 @@ def _should_use_coward_fold(
     player: "DeadMansPokerPlayer",
     profile: HandProfile,
 ) -> bool:
-    if player.used_coward_fold or player.acted_this_hand:
+    if player.used_coward_fold or player.acted_this_hand or player.switched_this_turn:
         return False
     if player.committed_bullets != 1:
         return False
@@ -405,14 +430,18 @@ def _should_all_in(
     player: "DeadMansPokerPlayer",
     profile: HandProfile,
 ) -> bool:
-    if game.round_stage < 2 or game.revealed_community_count < 3:
+    if (
+        player.switched_this_turn
+        or game.round_stage < 2
+        or game.revealed_community_count < 3
+    ):
         return False
     if player.committed_bullets >= MAX_BULLETS:
         return False
     opponents = len(game.active_hand_players) - 1
     if opponents <= 0:
         return False
-    equity = _estimate_showdown_equity(game, player, samples=100)
+    equity = _estimate_showdown_equity(game, player)
     if profile.category >= 5 and profile.private_improves_board:
         return True
     if (
@@ -494,7 +523,10 @@ def _profile(
         high_private=max(private_ranks, default=0),
         board_pressure=_board_pressure(community),
         draw_potential=_draw_potential(full_cards),
-        improvement_outs=_one_card_improvement_outs(full_cards),
+        improvement_outs=_one_card_improvement_outs(
+            full_cards,
+            player.known_dead_cards,
+        ),
         opponents=max(0, len(game.active_hand_players) - 1),
         risk=player.committed_bullets / MAX_BULLETS,
     )
@@ -520,7 +552,10 @@ def _profile_for_cards(
         high_private=max(private_ranks, default=0),
         board_pressure=_board_pressure(community),
         draw_potential=_draw_potential(full_cards),
-        improvement_outs=_one_card_improvement_outs(full_cards),
+        improvement_outs=_one_card_improvement_outs(
+            full_cards,
+            player.known_dead_cards,
+        ),
         opponents=max(0, len(game.active_hand_players) - 1),
         risk=player.committed_bullets / MAX_BULLETS,
     )
@@ -530,16 +565,23 @@ def _estimate_showdown_equity(
     game: "DeadMansPokerGame",
     player: "DeadMansPokerPlayer",
     *,
+    hand: list[Card] | None = None,
+    extra_known_cards: list[Card] | None = None,
     samples: int = SHOWDOWN_EQUITY_SAMPLES,
+    salt: str = "showdown-equity",
 ) -> ShowdownEquity:
+    private_hand = list(player.hand if hand is None else hand)
     revealed = list(game.revealed_community_cards)
     needed_community = max(0, 5 - len(revealed))
     opponents = max(1, len(game.active_hand_players) - 1)
-    deck = _unknown_standard_cards(player.hand + revealed)
+    known_cards = private_hand + revealed + player.known_dead_cards
+    if extra_known_cards:
+        known_cards.extend(extra_known_cards)
+    deck = _unknown_standard_cards(known_cards)
     if len(deck) < needed_community + (opponents * 2):
         return ShowdownEquity(win_rate=0.0, tie_rate=0.0)
 
-    rng = random.Random(_visible_seed(game, player, "showdown-equity"))
+    rng = random.Random(_visible_seed(game, player, salt, hand=private_hand))
     wins = 0
     ties = 0
     for _ in range(max(1, samples)):
@@ -547,7 +589,7 @@ def _estimate_showdown_equity(
         rng.shuffle(pool)
         final_community = revealed + pool[:needed_community]
         index = needed_community
-        hero_score, _best_cards = best_hand(player.hand + final_community)
+        hero_score, _best_cards = best_hand(private_hand + final_community)
         best_opponent_score: tuple[int, tuple[int, ...]] | None = None
         for _opponent in range(opponents):
             opponent_hand = pool[index : index + 2]
@@ -573,7 +615,7 @@ def _best_switch_evaluation(
     *,
     options: list[str] | None = None,
 ) -> SwitchEvaluation | None:
-    if len(player.hand) != 2 or game.revealed_community_count < 3:
+    if len(player.hand) != 2:
         return None
     option_indexes: list[int] = []
     raw_options = (
@@ -596,8 +638,9 @@ def _best_switch_evaluation(
     current_score = _score_cards(current_cards)
     current_value = _score_value(current_score)
     current_draw = _draw_potential(current_cards)
-    deck = _unknown_standard_cards(current_cards)
-    if len(deck) < SWITCH_CANDIDATE_COUNT:
+    candidate_count = game.switch_candidate_count
+    deck = _unknown_standard_cards(current_cards + player.known_dead_cards)
+    if candidate_count <= 0 or len(deck) < candidate_count:
         return None
 
     evaluations: list[SwitchEvaluation] = []
@@ -616,7 +659,7 @@ def _best_switch_evaluation(
         category_gains = 0
         total_gain = 0.0
         for _ in range(SWITCH_EQUITY_SAMPLES):
-            candidates = rng.sample(deck, SWITCH_CANDIDATE_COUNT)
+            candidates = rng.sample(deck, candidate_count)
             best_score = max(
                 _score_cards(kept_private + [candidate] + community)
                 for candidate in candidates
@@ -673,11 +716,18 @@ def _visible_seed(
     game: "DeadMansPokerGame",
     player: "DeadMansPokerPlayer",
     salt: str,
+    *,
+    hand: list[Card] | None = None,
 ) -> str:
+    visible_cards = (
+        list(player.hand if hand is None else hand)
+        + game.revealed_community_cards
+        + player.known_dead_cards
+    )
     card_key = ",".join(
         f"{card.rank}:{card.suit}"
         for card in sorted(
-            player.hand + game.revealed_community_cards,
+            visible_cards,
             key=lambda card: (card.suit, card.rank),
         )
     )
@@ -712,13 +762,16 @@ def _score_value(score: tuple[int, tuple[int, ...]]) -> float:
     return value
 
 
-def _one_card_improvement_outs(cards: list[Card]) -> int:
+def _one_card_improvement_outs(
+    cards: list[Card],
+    unavailable_cards: list[Card] | None = None,
+) -> int:
     if len(cards) >= 7:
         return 0
     current_score = _score_cards(cards)
     return sum(
         1
-        for candidate in _unknown_standard_cards(cards)
+        for candidate in _unknown_standard_cards(cards + (unavailable_cards or []))
         if _score_cards(cards + [candidate]) > current_score
     )
 

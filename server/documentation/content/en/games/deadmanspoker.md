@@ -54,8 +54,6 @@ From strongest to weakest, poker hands are:
 
 If two players have the same type of hand, the higher ranks decide the winner. For example, a pair of kings beats a pair of queens. If the main ranks are equal, the next highest extra cards decide. If the best hands are exactly tied, those players tie for the best hand.
 
-The game announces this strongest hand as Royal Flush.
-
 \*\*Hand Setup\*\*
 
 At the start of each hand:
@@ -103,11 +101,15 @@ Use it when your opening cards look terrible and you do not want the danger to g
 
 \*\*Switch Card\*\*
 
-Switch Card can be used once per hand.
+Switch Card is a once-per-match escape hatch. Once you use it, it is gone for the rest of the match, even after a new hand begins.
 
-You choose one of your two private cards. The game then offers three replacement cards. Choose one replacement, and that card becomes part of your private hand.
+Choose one of your two private cards, then pick its replacement from a small private selection. Acting early gives you more choices, while waiting gives you more information:
 
-Switching does not spend your betting decision. After the switch finishes, it is still your turn and you must choose Call, Fold, or All-in.
+\* Before the first community cards are revealed, you choose from 4 replacements.
+\* After the first 3 community cards are revealed, you choose from 3 replacements.
+\* After the fourth community card is revealed, you choose from 2 replacements.
+
+Switching does not spend your betting decision. After the switch, it is still your turn, but you must Call or Fold. You cannot Switch and then go All-in on the same turn.
 
 Other players are told exactly which card you discarded. They are not told which replacement card you chose.
 
@@ -118,6 +120,8 @@ You cannot switch after the final community card is revealed, and you cannot swi
 All-in means you push your committed bullets up to 8.
 
 All-in is available only from betting round 2 onward, after the first three community cards have been revealed. The opening round is for the first commitment decisions, so players cannot immediately force the table to 8 bullets before anyone sees the flop.
+
+If you used Switch on this turn, you cannot be the player who declares All-in. You must finish the current turn by Calling or Folding. This does not stop you from matching another player's All-in if they declare it later in the round.
 
 When someone goes all-in, normal betting stops. Every other active player must choose:
 

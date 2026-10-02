@@ -22,15 +22,15 @@ deadmanspoker-already-matched-all-in = شما قبلاً همه‌چیز را ه
 deadmanspoker-coward-used = شما قبلاً در این مسابقه از کناره‌گیری ترسو استفاده کرده‌اید.
 deadmanspoker-coward-first-decision-only = کناره‌گیری ترسو فقط در اولین تصمیم شما در یک دست در دسترس است.
 deadmanspoker-all-in-too-early = همه‌چیز فقط از دور شرط‌بندی ۲، پس از آشکار شدن سه کارت مشترک اول، در دسترس است.
+deadmanspoker-all-in-after-switch = نمی‌توانید در همان نوبتی که کارتی را تعویض می‌کنید، همه‌چیز بروید. برای پایان این نوبت، همراهی یا کناره‌گیری را انتخاب کنید.
 deadmanspoker-switch-not-now = در حال حاضر نمی‌توانید کارت را تعویض کنید.
-deadmanspoker-switch-used = شما قبلاً در این دست یک کارت را تعویض کرده‌اید.
+deadmanspoker-switch-used = شما قبلاً در این مسابقه از تعویض کارت استفاده کرده‌اید.
 deadmanspoker-switch-too-late = برای تعویض کارت دیر شده است.
 deadmanspoker-switch-no-cards = شما کارت خصوصی برای تعویض ندارید.
 deadmanspoker-switch-no-deck = دسته کارت‌های جایگزین کافی ندارد.
 deadmanspoker-switch-choice-missing = آن کارت جایگزین دیگر در دسترس نیست.
 
 deadmanspoker-match-start = پوکر مرد مرده آغاز شد. هر گلوله روی میز شرطی با جان شماست.
-deadmanspoker-hand-start = دست { $hand }. هر بازیکن فعال اولین گلوله را تعهد می‌کند.
 deadmanspoker-hand-start-all-alive = دست { $hand }. همه اولین گلوله را تعهد می‌کنند.
 deadmanspoker-hand-start-survivors = دست { $hand }. هر بازمانده اولین گلوله را تعهد می‌کند.
 deadmanspoker-community-arrives = پنج کارت مشترک رو به پایین می‌رسند.

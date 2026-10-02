@@ -103,11 +103,11 @@ Solo puedes usarlo una vez por partida, y solo en tu primera decisión de una ma
 
 \*\*Cambiar carta\*\*
 
-Cambiar carta se puede usar una vez por mano.
+Cambiar carta se puede usar una sola vez por partida. Una vez que lo uses, no volverá a estar disponible en las manos siguientes.
 
-Eliges una de tus dos cartas privadas. El juego entonces ofrece tres cartas de reemplazo. Elige una de reemplazo, y esa carta se convierte en parte de tu mano privada.
+Elige una de tus dos cartas privadas y después escoge su reemplazo de una selección que solo tú conoces. Antes del flop puedes elegir entre 4 cartas; después del flop, entre 3; y después de la cuarta carta comunitaria, entre 2.
 
-Cambiar no gasta tu decisión de apuesta. Después de que termina el cambio, sigue siendo tu turno y debes elegir Igualar, Retirarte, o All-in.
+Cambiar no gasta tu decisión de apuesta. Después del cambio sigue siendo tu turno, pero debes Igualar o Retirarte. No puedes Cambiar carta y después ir all-in en el mismo turno.
 
 A los demás jugadores se les dice exactamente qué carta descartaste. No se les dice cuál carta de reemplazo elegiste.
 

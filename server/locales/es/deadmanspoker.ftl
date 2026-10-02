@@ -22,15 +22,15 @@ deadmanspoker-already-matched-all-in = Ya igualaste el all-in.
 deadmanspoker-coward-used = Ya usaste el Retiro del Cobarde en esta partida.
 deadmanspoker-coward-first-decision-only = El Retiro del Cobarde solo está disponible en tu primera decisión de una mano.
 deadmanspoker-all-in-too-early = El all-in solo está disponible desde la ronda de apuestas 2, después de que se revelen las primeras tres cartas comunitarias.
+deadmanspoker-all-in-after-switch = No puedes ir all-in en el mismo turno en que cambias una carta. Iguala o retírate para terminar el turno.
 deadmanspoker-switch-not-now = No puedes cambiar una carta en este momento.
-deadmanspoker-switch-used = Ya cambiaste una carta en esta mano.
+deadmanspoker-switch-used = Ya usaste Cambiar carta en esta partida.
 deadmanspoker-switch-too-late = Ya es muy tarde para cambiar una carta.
 deadmanspoker-switch-no-cards = No tienes ninguna carta privada para cambiar.
 deadmanspoker-switch-no-deck = El mazo no tiene suficientes cartas de reemplazo.
 deadmanspoker-switch-choice-missing = Esa carta de reemplazo ya no está disponible.
 
 deadmanspoker-match-start = Comienza El Póker del Muerto. Cada bala en la mesa es una apuesta con tu vida detrás.
-deadmanspoker-hand-start = Mano { $hand }. Cada jugador activo compromete la primera bala.
 deadmanspoker-hand-start-all-alive = Mano { $hand }. Todos comprometen la primera bala.
 deadmanspoker-hand-start-survivors = Mano { $hand }. Cada superviviente compromete la primera bala.
 deadmanspoker-community-arrives = Llegan cinco cartas comunitarias boca abajo.

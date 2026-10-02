@@ -42,6 +42,8 @@ HAND_SIZE = 2
 COMMUNITY_CARD_COUNT = 5
 MAX_BULLETS = 8
 STARTING_BULLETS = 1
+SWITCH_CANDIDATE_COUNTS = (4, 3, 2)
+MAX_SWITCH_CANDIDATE_COUNT = max(SWITCH_CANDIDATE_COUNTS)
 ROUND_SOUND_DELAY_TICKS = 40
 PRIVATE_REVEAL_DELAY_TICKS = 40
 EMPTY_CLICK_TO_UNLOAD_TICKS = 20
@@ -143,6 +145,8 @@ class DeadMansPokerPlayer(Player):
     acted_this_hand: bool = False
     used_coward_fold: bool = False
     used_switch: bool = False
+    switched_this_turn: bool = False
+    known_dead_cards: list[Card] = field(default_factory=list)
     matched_all_in: bool = False
     hands_won: int = 0
     folds_survived: int = 0
@@ -176,19 +180,16 @@ class DeadMansPokerGame(Game):
     hand_number: int = 0
     phase: str = PHASE_MATCH_START
     round_stage: int = 1
-    first_actor_index: int = 0
+    hand_order_ids: list[str] = field(default_factory=list)
+    next_hand_starter_id: str = ""
     all_in_initiator_id: str = ""
     pending_switch_player_id: str = ""
     pending_switch_card_index: int = -1
     pending_switch_candidates: list[Card] = field(default_factory=list)
-    pending_switch_previous_phase: str = ""
     pending_roulette_ids: list[str] = field(default_factory=list)
     pending_roulette_results: dict[str, bool] = field(default_factory=dict)
     pending_roulette_context: str = ""
     winner_id: str = ""
-
-    def __post_init__(self) -> None:
-        super().__post_init__()
 
     @classmethod
     def get_name(cls) -> str:
@@ -304,9 +305,8 @@ class DeadMansPokerGame(Game):
         self.hand_number = 0
         self.round = 0
         self.round_stage = 1
-        self.first_actor_index = self._choose_initial_first_actor_index(
-            self.get_active_player_count()
-        )
+        self.hand_order_ids.clear()
+        self.next_hand_starter_id = ""
         self.winner_id = ""
         self.deck = None
         self.community.clear()
@@ -324,6 +324,8 @@ class DeadMansPokerGame(Game):
             dmp_player.acted_this_hand = False
             dmp_player.used_coward_fold = False
             dmp_player.used_switch = False
+            dmp_player.switched_this_turn = False
+            dmp_player.known_dead_cards.clear()
             dmp_player.matched_all_in = False
             dmp_player.hands_won = 0
             dmp_player.folds_survived = 0
@@ -414,10 +416,73 @@ class DeadMansPokerGame(Game):
     def _sort_private_hand(self, hand: list[Card]) -> list[Card]:
         return sorted(hand, key=lambda card: (14 if card.rank == 1 else card.rank, card.suit), reverse=True)
 
-    def _choose_initial_first_actor_index(self, player_count: int) -> int:
-        if player_count <= 1:
+    @property
+    def switch_candidate_count(self) -> int:
+        """Return the number of Switch choices available at the current reveal."""
+        if self.revealed_community_count >= COMMUNITY_CARD_COUNT:
             return 0
-        return random.randrange(player_count)  # nosec B311
+        if self.revealed_community_count >= 4:
+            return SWITCH_CANDIDATE_COUNTS[2]
+        if self.revealed_community_count >= 3:
+            return SWITCH_CANDIDATE_COUNTS[1]
+        return SWITCH_CANDIDATE_COUNTS[0]
+
+    def _next_surviving_hand_starter_id(
+        self,
+        alive: list[DeadMansPokerPlayer],
+    ) -> str:
+        alive_ids = {player.id for player in alive}
+        if self.next_hand_starter_id in alive_ids:
+            return self.next_hand_starter_id
+        if not self.next_hand_starter_id or not self.hand_order_ids:
+            return ""
+        try:
+            previous_index = self.hand_order_ids.index(self.next_hand_starter_id)
+        except ValueError:
+            return ""
+        for offset in range(1, len(self.hand_order_ids) + 1):
+            candidate_id = self.hand_order_ids[
+                (previous_index + offset) % len(self.hand_order_ids)
+            ]
+            if candidate_id in alive_ids:
+                return candidate_id
+        return ""
+
+    def _migrate_legacy_hand_order(self) -> None:
+        """Recover stable rotation state from saves made before ID-based order."""
+        if self.hand_order_ids or self.hand_number <= 1 or not self.turn_player_ids:
+            return
+        self.hand_order_ids = list(dict.fromkeys(self.turn_player_ids))
+        if len(self.hand_order_ids) > 1:
+            self.next_hand_starter_id = self.hand_order_ids[1]
+        elif self.hand_order_ids:
+            self.next_hand_starter_id = self.hand_order_ids[0]
+
+    def _hand_order(self, alive: list[DeadMansPokerPlayer]) -> list[DeadMansPokerPlayer]:
+        """Rotate the opener by stable seat identity, skipping eliminated seats."""
+        if not alive:
+            return []
+        self._migrate_legacy_hand_order()
+        starter_id = self._next_surviving_hand_starter_id(alive)
+        if not starter_id:
+            start_index = random.randrange(len(alive)) if len(alive) > 1 else 0  # nosec B311
+            return alive[start_index:] + alive[:start_index]
+
+        alive_ids = {player.id for player in alive}
+        previous_order = [
+            player
+            for player_id in self.hand_order_ids
+            if isinstance((player := self.get_player_by_id(player_id)), DeadMansPokerPlayer)
+            and not player.eliminated
+            and player.id in alive_ids
+        ]
+        previous_ids = {player.id for player in previous_order}
+        ordered = previous_order + [player for player in alive if player.id not in previous_ids]
+        starter_index = next(
+            (index for index, player in enumerate(ordered) if player.id == starter_id),
+            0,
+        )
+        return ordered[starter_index:] + ordered[:starter_index]
 
     def _roulette_pan_values(self, player_count: int) -> list[int]:
         if player_count <= 0:
@@ -481,7 +546,6 @@ class DeadMansPokerGame(Game):
         self.pending_switch_player_id = ""
         self.pending_switch_card_index = -1
         self.pending_switch_candidates.clear()
-        self.pending_switch_previous_phase = ""
         self.pending_roulette_ids.clear()
         self.pending_roulette_results.clear()
         self.pending_roulette_context = ""
@@ -496,9 +560,11 @@ class DeadMansPokerGame(Game):
             self._start_game_over_sequence(None)
             return
 
-        start_index = self.first_actor_index % len(alive)
-        ordered = alive[start_index:] + alive[:start_index]
-        self.first_actor_index = (start_index + 1) % len(alive)
+        ordered = self._hand_order(alive)
+        self.hand_order_ids = [player.id for player in ordered]
+        self.next_hand_starter_id = (
+            ordered[1].id if len(ordered) > 1 else ordered[0].id
+        )
 
         for player in alive:
             player.hand = []
@@ -507,7 +573,8 @@ class DeadMansPokerGame(Game):
             player.committed_bullets = STARTING_BULLETS
             player.acted_this_round = False
             player.acted_this_hand = False
-            player.used_switch = False
+            player.switched_this_turn = False
+            player.known_dead_cards.clear()
             player.matched_all_in = False
             player.bot_switch_round_stage = 0
             player.bot_switch_plan = ""
@@ -581,6 +648,7 @@ class DeadMansPokerGame(Game):
         self.phase = PHASE_DECISION
         for player in self.active_hand_players:
             player.acted_this_round = False
+            player.switched_this_turn = False
         self._set_next_pending_turn()
         self.refresh_menus()
 
@@ -690,7 +758,7 @@ class DeadMansPokerGame(Game):
                 show_in_actions_menu=False,
             )
         )
-        for index in range(3):
+        for index in range(MAX_SWITCH_CANDIDATE_COUNT):
             action_set.add(
                 Action(
                     id=f"choose_switch_{index}",
@@ -709,7 +777,9 @@ class DeadMansPokerGame(Game):
 
         if self.is_touch_client(user):
             primary_actions = ["call", "fold", "switch_card", "all_in"]
-            switch_actions = [f"choose_switch_{index}" for index in range(3)]
+            switch_actions = [
+                f"choose_switch_{index}" for index in range(MAX_SWITCH_CANDIDATE_COUNT)
+            ]
             pinned = set(primary_actions) | set(switch_actions)
             rest = [action_id for action_id in action_set._order if action_id not in pinned]
             action_set._order = (
@@ -885,6 +955,8 @@ class DeadMansPokerGame(Game):
             return "deadmanspoker-switch-too-late"
         if len(dmp_player.hand) != HAND_SIZE:
             return "deadmanspoker-switch-no-cards"
+        if not self.deck or self.deck.size() < self.switch_candidate_count:
+            return "deadmanspoker-switch-no-deck"
         return None
 
     def _is_all_in_enabled(self, player: Player) -> str | None:
@@ -896,6 +968,8 @@ class DeadMansPokerGame(Game):
             return self._is_call_enabled(dmp_player)
         if self.phase != PHASE_DECISION:
             return "deadmanspoker-not-decision-phase"
+        if dmp_player.switched_this_turn:
+            return "deadmanspoker-all-in-after-switch"
         if self.round_stage < 2 or self.revealed_community_count < 3:
             return "deadmanspoker-all-in-too-early"
         if dmp_player.committed_bullets >= MAX_BULLETS:
@@ -914,6 +988,8 @@ class DeadMansPokerGame(Game):
             return "action-not-available"
         if self.pending_switch_player_id != player.id:
             return "action-not-your-turn"
+        if not 0 <= self.pending_switch_card_index < len(player.hand):
+            return "deadmanspoker-switch-no-cards"
         index = self._switch_choice_index(action_id)
         if index < 0 or index >= len(self.pending_switch_candidates):
             return "deadmanspoker-switch-choice-missing"
@@ -1110,10 +1186,7 @@ class DeadMansPokerGame(Game):
         self._fold_player(player, coward=True)
 
     def _fold_uses_coward_context(self, player: Player) -> bool:
-        phase_allows_decision = self.phase == PHASE_DECISION or (
-            self.phase == PHASE_SWITCH
-            and self.pending_switch_previous_phase == PHASE_DECISION
-        )
+        phase_allows_decision = self.phase in {PHASE_DECISION, PHASE_SWITCH}
         return (
             phase_allows_decision
             and isinstance(player, DeadMansPokerPlayer)
@@ -1191,7 +1264,8 @@ class DeadMansPokerGame(Game):
             return
         if card_index < 0 or card_index >= len(dmp_player.hand):
             return
-        if not self.deck or self.deck.size() < 3:
+        candidate_count = self.switch_candidate_count
+        if not self.deck or candidate_count <= 0 or self.deck.size() < candidate_count:
             user = self.get_user(player)
             if user:
                 user.speak_l("deadmanspoker-switch-no-deck", buffer="game")
@@ -1199,8 +1273,7 @@ class DeadMansPokerGame(Game):
 
         self.pending_switch_player_id = dmp_player.id
         self.pending_switch_card_index = card_index
-        self.pending_switch_candidates = self.deck.draw(3)
-        self.pending_switch_previous_phase = self.phase
+        self.pending_switch_candidates = self.deck.draw(candidate_count)
         self.phase = PHASE_SWITCH
         user = self.get_user(dmp_player)
         if user:
@@ -1220,24 +1293,23 @@ class DeadMansPokerGame(Game):
             return
         if self.pending_switch_player_id != dmp_player.id:
             return
+        if not 0 <= self.pending_switch_card_index < len(dmp_player.hand):
+            return
 
         chosen = self.pending_switch_candidates[index]
-        discarded = (
-            dmp_player.hand[self.pending_switch_card_index]
-            if 0 <= self.pending_switch_card_index < len(dmp_player.hand)
-            else None
-        )
-        if 0 <= self.pending_switch_card_index < len(dmp_player.hand):
-            dmp_player.hand[self.pending_switch_card_index] = chosen
-            dmp_player.hand = self._sort_private_hand(dmp_player.hand)
+        candidates = list(self.pending_switch_candidates)
+        discarded = dmp_player.hand[self.pending_switch_card_index]
+        dmp_player.hand[self.pending_switch_card_index] = chosen
+        dmp_player.hand = self._sort_private_hand(dmp_player.hand)
         dmp_player.used_switch = True
+        dmp_player.switched_this_turn = True
+        self._record_switch_knowledge(dmp_player, discarded, chosen, candidates)
         if dmp_player.is_bot:
             _bot_record_switch_result(self, dmp_player, discarded, chosen)
         self.pending_switch_player_id = ""
         self.pending_switch_card_index = -1
         self.pending_switch_candidates.clear()
-        self.phase = self.pending_switch_previous_phase or PHASE_DECISION
-        self.pending_switch_previous_phase = ""
+        self.phase = PHASE_DECISION
         self.start_sequence(
             "deadmanspoker_switch",
             [
@@ -1264,6 +1336,31 @@ class DeadMansPokerGame(Game):
             pause_bots=True,
         )
         self.request_menu_focus(dmp_player, "call")
+
+    @staticmethod
+    def _remember_dead_cards(
+        player: DeadMansPokerPlayer,
+        cards: list[Card],
+    ) -> None:
+        known = {(card.rank, card.suit) for card in player.known_dead_cards}
+        for card in cards:
+            key = (card.rank, card.suit)
+            if key not in known:
+                player.known_dead_cards.append(card)
+                known.add(key)
+
+    def _record_switch_knowledge(
+        self,
+        actor: DeadMansPokerPlayer,
+        discarded: Card,
+        chosen: Card,
+        candidates: list[Card],
+    ) -> None:
+        """Store only cards each seat legitimately learned during Switch."""
+        for player in self.alive_players:
+            self._remember_dead_cards(player, [discarded])
+        rejected = [card for card in candidates if card != chosen]
+        self._remember_dead_cards(actor, rejected)
 
     def _start_commit_sequence(
         self,
@@ -2060,6 +2157,8 @@ class DeadMansPokerGame(Game):
         player.active_in_hand = False
         player.folded_this_hand = True
         player.hand.clear()
+        player.switched_this_turn = False
+        player.known_dead_cards.clear()
         self.broadcast_personal_l(
             player,
             "deadmanspoker-you-eliminated",

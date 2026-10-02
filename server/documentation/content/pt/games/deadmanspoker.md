@@ -103,11 +103,11 @@ Use-a quando suas cartas iniciais parecerem horríveis e você não quiser que o
 
 **Trocar Carta**
 
-Trocar Carta pode ser usado uma vez por mão.
+Trocar Carta pode ser usado apenas uma vez por partida. Depois de usá-lo, ele não volta a ficar disponível nas mãos seguintes.
 
-Você escolhe uma de suas duas cartas particulares. O jogo então oferece três cartas de substituição. Escolha uma substituição e essa carta se torna parte de sua mão particular.
+Escolha uma de suas duas cartas particulares e depois escolha a substituta em uma seleção que só você conhece. Antes do flop, você escolhe entre 4 cartas; depois do flop, entre 3; e depois da quarta carta comunitária, entre 2.
 
-Trocar não gasta sua decisão de aposta. Após a troca terminar, ainda é o seu turno e você deve escolher Pagar, Desistir ou All-in.
+Trocar não gasta sua decisão de aposta. Depois da troca, ainda é o seu turno, mas você deve Pagar ou Desistir. Você não pode Trocar Carta e depois dar all-in no mesmo turno.
 
 Os outros jogadores são informados exatamente de qual carta você descartou. Eles não são informados de qual carta de substituição você escolheu.
 

@@ -1071,7 +1071,11 @@ and cleanup rules required for genuinely persistent data.
 - PlayAural ships English and Vietnamese, and — unlike upstream PlayPalace,
   where translators own everything but `en` — here the agent authors **both**.
   A new or changed `en` key must land with its `vi` counterpart, kept in
-  structural parity: same keys, same `$variables`, matching plural/select arms.
+  structural parity: same keys, same data-bearing `$variables`, and matching
+  plural/select arms. A locale may omit a variable used only as the first
+  argument to `GENDER_TERM(...)` when its natural sentence does not need
+  gender; if the selector is used, its name must match the source key. Never
+  omit names, counts, scores, formatted values, or other player/game data.
 - Agent-authored Vietnamese is provisional: write it and keep parity, but flag
   it for native review rather than treating it as final.
 - Prefer writing the `en` strings before the game/feature code — it forces the

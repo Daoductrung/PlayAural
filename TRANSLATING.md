@@ -56,8 +56,13 @@ score-line = { $player } has { $score } points.
 
 Rules:
 
-- Do not rename, remove, or translate variables such as `{ $player }` or
-  `{ $score }`.
+- Do not rename, remove, or translate data-bearing variables such as
+  `{ $player }`, `{ $score }`, or a value passed to `NUMBER(...)`.
+- A variable used only as the first argument to `GENDER_TERM(...)` is a
+  grammatical selector rather than displayed data. You may omit that selector
+  when your natural translation does not need gender, but do not rename it,
+  replace it with a different selector, or remove any player/game information
+  along with it.
 - Keep every plural/select arm that exists in English.
 - Keep message attributes such as `.label` when English has them.
 - Do not define the same Fluent key twice, even in different files. The server
@@ -132,7 +137,8 @@ non-English server locale. The tool reports:
 - missing files and keys
 - obsolete files and keys
 - duplicate Fluent keys in one file or across files in the same locale
-- missing or extra variables
+- missing data-bearing variables, extra variables, and renamed or unknown
+  gender selectors; an unused `GENDER_TERM(...)` selector may be omitted
 - attribute mismatches
 - plural/select arm differences for review
 

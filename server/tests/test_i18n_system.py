@@ -215,6 +215,9 @@ def test_compare_locales_reports_missing_obsolete_and_structural_drift(tmp_path)
         """
 keep = Keep { $count }
 duplicate = Keep one definition
+gender-optional = { $player } ends { GENDER_TERM($player_gender, "possessive-determiner") } turn.
+gender-renamed = { $player } ends { GENDER_TERM($player_gender, "possessive-determiner") } turn.
+formatted-number = { NUMBER($value, maximumFractionDigits: 1) } MiB
 choice =
     { $count ->
         [one] One point
@@ -231,6 +234,9 @@ attrs =
 keep = Giu
 duplicate = Giu mot
 duplicate = Giu hai
+gender-optional = { $player } ket thuc luot.
+gender-renamed = { $player } ket thuc luot { GENDER_TERM($wrong_gender, "possessive-determiner") }.
+formatted-number = MiB
 choice =
     { $count ->
        *[other] { $count } diem
@@ -261,7 +267,15 @@ old-key = Old
         (label, key) for label, key, _lines in file_report.duplicate_keys
     }
     assert file_report.obsolete_keys == ["old-key"]
-    assert file_report.variable_mismatches == [("keep", ["count"], [])]
+    assert file_report.variable_mismatches == [
+        ("formatted-number", ["value"], []),
+        (
+            "gender-renamed",
+            ["player", "player_gender"],
+            ["player", "wrong_gender"],
+        ),
+        ("keep", ["count"], []),
+    ]
     assert file_report.variant_mismatches == [("choice", ["one", "other"], ["other"])]
     assert file_report.attribute_mismatches == [("attrs", ["label"], [])]
 

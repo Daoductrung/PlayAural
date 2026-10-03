@@ -498,7 +498,10 @@ participants; do not reuse game-player error strings for account lookups.
   vocabulary, an allowlisted context backed by
   `<context>-gender-term-<form>`. Unspecified and non-binary values use the
   locale's neutral fallback.
-- Maintain EN/VI parity: same keys, variables, and plural/select arms.
+- Maintain EN/VI parity: same keys, data-bearing variables, and plural/select
+  arms. A locale may omit a variable used only as a `GENDER_TERM(...)`
+  selector when its natural sentence does not need gender; if used, the
+  selector name must still match the source key.
 - Agents author both EN and VI strings in this repo, but Vietnamese is
   provisional and should be flagged for native review when quality matters.
 - Prefer writing locale keys before feature code so every announcement path is

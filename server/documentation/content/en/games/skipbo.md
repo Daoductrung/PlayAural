@@ -48,9 +48,9 @@ With the \*\*Standard\* stock setting, each player receives 30 stock cards in a 
 
 The undealt cards become the draw pile. Four shared building positions are available in the center, and each player receives four personal discard positions.
 
-The \*\*Classic\* starting layout leaves all building and discard positions empty. The \*\*Beginner\* layout places one face-up card on every building position and every player's discard position. A numbered building seed begins at its printed number. A seeded Skip-Bo wild counts as 1. A seeded 12 is already complete and is set aside for later reshuffling.
+All building and discard positions begin empty. Players create them by playing or discarding cards during their turns.
 
-PlayAural chooses the first starting player at random because player ages are not known. In a scored match, the starting position moves forward one seat after each game.
+PlayAural randomly selects the opening player for the first game. In a scored match, the opening position moves forward one seat after each game so the same seat does not always start.
 
 \*\*Your turn\*\*
 
@@ -76,7 +76,7 @@ In the rare case that your hand is empty and no card can be drawn, \*\*End turn 
 
 An empty building position needs a 1. After that, the pile accepts the next number only: 2 after 1, 3 after 2, and so on through 12. If a pile shows 6, for example, it accepts a 7 or a Skip-Bo wild used as 7.
 
-A wild takes the exact value needed by the destination pile. The turn menu names that value, such as \*\*Skip-Bo as 7\*; you never need to choose the number separately.
+A wild takes the exact value needed by the destination pile. Each destination choice names that value, such as \*\*play Skip-Bo as 7\*\*; you choose the pile, not a number separately.
 
 When a 12 is played, that building pile is complete. Its cards are set aside, the building position becomes empty, and a new sequence may begin there with 1.
 
@@ -100,21 +100,21 @@ Scores carry between games only in the \*\*Scored match\* format. Stock piles, h
 
 \* \*\*Stock piles:\*\* \*\*Standard\* deals 30 cards with 2 to 4 players and 20 with 5 or 6. \*\*Quick 10\* and \*\*Quick 15\* use exactly that many cards for every player. Default: Standard.
 
-\* \*\*Starting layout:\*\* \*\*Classic\* begins with empty building and discard positions. \*\*Beginner\* seeds every building and discard position with one face-up card. Default: Classic.
-
 \* \*\*Match format:\*\* \*\*Single game\* ends after the first stock-pile victory. \*\*Scored match\* carries scores across games until the target is reached. Default: Single game.
 
 \* \*\*Match target:\*\* Points needed to win a scored match, from 25 to 5,000. This option appears only when Scored match is selected. Default: 500.
 
 \* \*\*Team mode:\*\* \*\*Individual\* gives every player a separate result. Four players may choose two teams of two, and six players may choose three teams of two. Default: Individual.
 
-The game will not start with an unsupported player count, partnership layout, stock setting, setup, scoring format, or match target.
+The game will not start with an unsupported player count, partnership layout, stock setting, scoring format, or match target.
 
 \*\*Turn menu and accessibility\*\*
 
-During your turn, the menu lists every legal building play with a compact card, source, and destination, such as \*\*7 — stock to pile 2\*\. Each card in your hand also has a \*\*Discard and end turn\* action. After choosing it, select the discard pile that should receive the card.
+The turn menu gives each available card exactly one row. It includes every card in your hand and any face-up stock or top discard card that can be played. A row names the card and its source without repeating the same card for several possible destinations.
 
-Your hand remains visible when another player has the turn. Those card rows keep the same stable identities they use on your own turn, helping screen-reader focus remain predictable. Selecting one out of turn simply tells you that it is not your turn; it never opens a discard selector or changes the game.
+Select a card with several legal destinations to choose where it goes. Building choices report the pile's current top and the card value to be played there. A hand card also offers your four discard piles; choosing one of them discards the card and ends your turn. If a stock or discard card has only one legal destination, selecting it plays the card immediately.
+
+Your hand remains visible when another player has the turn. Those card rows keep the same stable identities they use on your own turn, helping screen-reader focus remain predictable. Selecting one out of turn simply tells you that it is not your turn; it never opens a destination selector or changes the game.
 
 After a successful building play, focus first follows another legal play to the same building pile when one exists. Otherwise it moves to the next useful legal play or hand-card action. Pile status windows also keep one stable row for each pile while their values change.
 

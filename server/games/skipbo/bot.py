@@ -86,14 +86,22 @@ def choose_discard_pile(
     return best_index
 
 
+def choose_play(
+    game: SkipBoGame,
+    player: SkipBoPlayer,
+    choices: list[PlayChoice],
+) -> PlayChoice:
+    """Choose the strongest destination among known legal plays."""
+
+    return max(choices, key=lambda choice: _choice_score(game, player, choice))
+
+
 def choose_action(game: SkipBoGame, player: SkipBoPlayer) -> str | None:
     """Choose one legal play, otherwise end the turn with a strategic discard."""
 
     choices = game._legal_play_choices(player)
     if choices:
-        return max(
-            choices, key=lambda choice: _choice_score(game, player, choice)
-        ).action_id
+        return choose_play(game, player, choices).action_id
 
     if player.hand:
         discard_card = min(
@@ -104,7 +112,7 @@ def choose_action(game: SkipBoGame, player: SkipBoPlayer) -> str | None:
                 random.random(),
             ),
         )
-        return f"end_turn_{discard_card.id}"
+        return game._source_action_id("hand", player, -1, discard_card)
 
     if not game._draw_available():
         return "end_turn_empty"

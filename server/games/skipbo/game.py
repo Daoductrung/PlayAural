@@ -24,7 +24,7 @@ from ..base import Game, GameOptions, Player
 from ..registry import register_game
 from . import cards
 from .bot import choose_action as bot_choose_action
-from .bot import choose_discard_pile
+from .bot import choose_discard_pile, choose_play
 from .cards import SkipBoCard
 
 STOCK_STANDARD = "standard"
@@ -35,14 +35,6 @@ STOCK_MODE_LABELS = {
     STOCK_STANDARD: "skipbo-stock-mode-standard",
     STOCK_SHORT: "skipbo-stock-mode-short",
     STOCK_SHORT_FIFTEEN: "skipbo-stock-mode-short-15",
-}
-
-SETUP_CLASSIC = "classic"
-SETUP_BEGINNER = "beginner"
-SETUP_MODES = [SETUP_CLASSIC, SETUP_BEGINNER]
-SETUP_MODE_LABELS = {
-    SETUP_CLASSIC: "skipbo-setup-mode-classic",
-    SETUP_BEGINNER: "skipbo-setup-mode-beginner",
 }
 
 SCORING_SINGLE = "single"
@@ -76,6 +68,9 @@ SOUND_DISCARD_FAMILY = "game_cards/discard"
 SOUND_SHUFFLE_FAMILY = "game_cards/shuffle"
 SOUND_RECYCLE = "game_cards/small_shuffle.ogg"
 SOUND_GAME_WIN = "gamewin.ogg"
+CARD_ACTION_PREFIX = "use_"
+BUILDING_MOVE_PREFIX = "building_"
+DISCARD_MOVE_PREFIX = "discard_"
 
 
 @dataclass
@@ -92,18 +87,6 @@ class SkipBoOptions(GameOptions):
             prompt="skipbo-select-stock-mode",
             change_msg="skipbo-option-changed-stock-mode",
             description="skipbo-desc-stock-mode",
-        )
-    )
-    setup_mode: str = option_field(
-        MenuOption(
-            default=SETUP_CLASSIC,
-            choices=SETUP_MODES,
-            choice_labels=SETUP_MODE_LABELS,
-            value_key="mode",
-            label="skipbo-set-setup-mode",
-            prompt="skipbo-select-setup-mode",
-            change_msg="skipbo-option-changed-setup-mode",
-            description="skipbo-desc-setup-mode",
         )
     )
     scoring_mode: str = option_field(
@@ -155,14 +138,39 @@ class SkipBoPlayer(Player):
 
 
 @dataclass(frozen=True)
-class PlayChoice:
+class CardSource:
     action_id: str
     source_kind: str
     owner: SkipBoPlayer
     source_pile_index: int
     card: SkipBoCard
+
+
+@dataclass(frozen=True)
+class PlayChoice:
+    source: CardSource
     building_pile_index: int
     needed_value: int
+
+    @property
+    def action_id(self) -> str:
+        return self.source.action_id
+
+    @property
+    def source_kind(self) -> str:
+        return self.source.source_kind
+
+    @property
+    def owner(self) -> SkipBoPlayer:
+        return self.source.owner
+
+    @property
+    def source_pile_index(self) -> int:
+        return self.source.source_pile_index
+
+    @property
+    def card(self) -> SkipBoCard:
+        return self.source.card
 
 
 @register_game
@@ -357,8 +365,8 @@ class SkipBoGame(Game):
         turn_set = self.get_action_set(player, "turn")
         if not turn_set:
             return
-        turn_set.remove_by_prefix("play_")
-        turn_set.remove_by_prefix("end_turn_")
+        turn_set.remove_by_prefix(CARD_ACTION_PREFIX)
+        turn_set.remove("end_turn_empty")
         self._populate_turn_actions(turn_set, player)
 
     def _populate_turn_actions(self, turn_set: ActionSet, player: SkipBoPlayer) -> None:
@@ -367,37 +375,36 @@ class SkipBoGame(Game):
         if self.is_sequence_gameplay_locked():
             return
 
-        if self.current_player == player:
-            for choice in self._legal_play_choices(player):
-                turn_set.add(
-                    Action(
-                        id=choice.action_id,
-                        label="",
-                        handler="_action_play",
-                        is_enabled="_is_play_enabled",
-                        is_hidden="_is_turn_action_hidden",
-                        get_label="_get_play_label",
-                        show_in_actions_menu=False,
-                    )
+        sources = self._card_sources(player)
+        legal_source_ids = {
+            choice.action_id for choice in self._legal_play_choices(player)
+        }
+        for source in sources:
+            if (
+                source.source_kind != "hand"
+                and source.action_id not in legal_source_ids
+            ):
+                continue
+            move_count = len(self._move_options_for_source(player, source))
+            input_request = None
+            if self.current_player == player and move_count > 1:
+                input_request = MenuInput(
+                    prompt="skipbo-select-card-move",
+                    options="_move_options_for_pending_card",
+                    option_label="_card_move_option_label",
+                    bot_select="_bot_select_card_move",
+                    locks_gameplay=True,
                 )
-
-        for card in sorted(player.hand, key=cards.sort_key):
             turn_set.add(
                 Action(
-                    id=f"end_turn_{card.id}",
+                    id=source.action_id,
                     label="",
-                    handler="_action_end_turn",
-                    is_enabled="_is_end_turn_enabled",
-                    is_hidden="_is_hand_card_action_hidden",
-                    get_label="_get_end_turn_label",
-                    get_description="_get_end_turn_description",
-                    input_request=MenuInput(
-                        prompt="skipbo-select-discard-pile",
-                        options="_options_for_discard_pile",
-                        bot_select="_bot_select_discard_pile",
-                        option_label="_discard_pile_option_label",
-                        locks_gameplay=True,
-                    ),
+                    handler="_action_use_card",
+                    is_enabled="_is_card_action_enabled",
+                    is_hidden="_is_card_action_hidden",
+                    get_label="_get_card_action_label",
+                    get_description="_get_card_action_description",
+                    input_request=input_request,
                     show_in_actions_menu=False,
                 )
             )
@@ -423,8 +430,6 @@ class SkipBoGame(Game):
         errors = list(super().prestart_validate())
         if self.options.stock_mode not in STOCK_MODES:
             errors.append("skipbo-error-invalid-stock-mode")
-        if self.options.setup_mode not in SETUP_MODES:
-            errors.append("skipbo-error-invalid-setup-mode")
         if self.options.scoring_mode not in SCORING_MODES:
             errors.append("skipbo-error-invalid-scoring-mode")
         if self.options.scoring_mode == SCORING_MATCH and (
@@ -525,10 +530,6 @@ class SkipBoGame(Game):
             for player in active_players:
                 player.stock_pile.append(self.deck.pop())
 
-        beginner_completed = 0
-        if self.options.setup_mode == SETUP_BEGINNER:
-            beginner_completed = self._deal_beginner_setup(active_players)
-
         self.turn_index = (self.dealer_index + 1) % len(self.turn_player_ids)
         quick = self.options.stock_mode in (STOCK_SHORT, STOCK_SHORT_FIFTEEN)
         if self.options.scoring_mode == SCORING_MATCH:
@@ -544,14 +545,6 @@ class SkipBoGame(Game):
         else:
             start_key = "skipbo-game-start-quick" if quick else "skipbo-game-start"
             self.broadcast_l(start_key, buffer="game", stock_count=stock_count)
-        if self.options.setup_mode == SETUP_BEGINNER:
-            self.broadcast_l("skipbo-round-beginner-setup", buffer="game")
-            if beginner_completed:
-                self.broadcast_l(
-                    "skipbo-round-beginner-completed",
-                    buffer="game",
-                    count=beginner_completed,
-                )
         for owner in active_players:
             top = owner.stock_pile[-1]
             self.broadcast_personal_l(
@@ -573,24 +566,6 @@ class SkipBoGame(Game):
             if player_count <= STANDARD_STOCK_PLAYER_CUTOFF
             else STANDARD_STOCK_LARGE_TABLE
         )
-
-    def _deal_beginner_setup(self, active_players: list[SkipBoPlayer]) -> int:
-        """Deal the current-rule beginner layout from the remaining draw deck."""
-
-        for player in active_players:
-            for pile in player.discard_piles:
-                pile.append(self.deck.pop())
-        completed_count = 0
-        for index in range(BUILDING_PILE_COUNT):
-            seed = self.deck.pop()
-            value = cards.MIN_NUMBER if seed.is_wild else seed.value
-            if value == cards.MAX_NUMBER:
-                self.completed_cards.append(seed)
-                completed_count += 1
-                continue
-            self.building_piles[index].append(seed)
-            self.building_values[index] = value
-        return completed_count
 
     def _start_turn(self) -> None:
         player = self.current_player
@@ -680,20 +655,56 @@ class SkipBoGame(Game):
             if isinstance(candidate, SkipBoPlayer) and candidate.name in members
         ]
 
-    def _source_cards(
-        self, player: SkipBoPlayer
-    ) -> list[tuple[str, SkipBoPlayer, int, SkipBoCard]]:
-        sources: list[tuple[str, SkipBoPlayer, int, SkipBoCard]] = []
-        owners = self._playable_source_owners(player)
-        for owner in owners:
-            if owner.stock_pile:
-                sources.append(("stock", owner, -1, owner.stock_pile[-1]))
-        for owner in owners:
-            for pile_index, pile in enumerate(owner.discard_piles):
-                if pile:
-                    sources.append(("discard", owner, pile_index, pile[-1]))
+    @staticmethod
+    def _source_action_id(
+        source_kind: str,
+        owner: SkipBoPlayer,
+        source_pile_index: int,
+        card: SkipBoCard,
+    ) -> str:
+        source_id = {
+            "hand": f"h_{card.id}",
+            "stock": f"s_{owner.id}_{card.id}",
+            "discard": f"d_{owner.id}_{source_pile_index}_{card.id}",
+        }[source_kind]
+        return f"{CARD_ACTION_PREFIX}{source_id}"
+
+    def _make_card_source(
+        self,
+        source_kind: str,
+        owner: SkipBoPlayer,
+        source_pile_index: int,
+        card: SkipBoCard,
+    ) -> CardSource:
+        return CardSource(
+            action_id=self._source_action_id(
+                source_kind, owner, source_pile_index, card
+            ),
+            source_kind=source_kind,
+            owner=owner,
+            source_pile_index=source_pile_index,
+            card=card,
+        )
+
+    def _card_sources(self, player: SkipBoPlayer) -> list[CardSource]:
+        sources: list[CardSource] = []
+        if self.current_player == player:
+            owners = self._playable_source_owners(player)
+            for owner in owners:
+                if owner.stock_pile:
+                    sources.append(
+                        self._make_card_source("stock", owner, -1, owner.stock_pile[-1])
+                    )
+            for owner in owners:
+                for pile_index, pile in enumerate(owner.discard_piles):
+                    if pile:
+                        sources.append(
+                            self._make_card_source(
+                                "discard", owner, pile_index, pile[-1]
+                            )
+                        )
         for card in sorted(player.hand, key=cards.sort_key):
-            sources.append(("hand", player, -1, card))
+            sources.append(self._make_card_source("hand", player, -1, card))
         return sources
 
     def _building_needed(self, pile_index: int) -> int:
@@ -706,54 +717,53 @@ class SkipBoGame(Game):
             if card.is_wild or card.value == self._building_needed(index)
         ]
 
-    def _play_action_id(
-        self,
-        source_kind: str,
-        owner: SkipBoPlayer,
-        source_pile_index: int,
-        card: SkipBoCard,
-        building_pile_index: int,
-    ) -> str:
-        source = {
-            "hand": f"h_{card.id}",
-            "stock": f"s_{owner.id}_{card.id}",
-            "discard": f"d_{owner.id}_{source_pile_index}_{card.id}",
-        }[source_kind]
-        return f"play_{source}_b_{building_pile_index}"
-
     def _legal_play_choices(self, player: SkipBoPlayer) -> list[PlayChoice]:
         if self.status != "playing" or self.current_player != player:
             return []
         choices: list[PlayChoice] = []
-        for source_kind, owner, source_pile_index, card in self._source_cards(player):
-            for building_index in self._legal_targets(card):
+        for source in self._card_sources(player):
+            for building_index in self._legal_targets(source.card):
                 choices.append(
                     PlayChoice(
-                        action_id=self._play_action_id(
-                            source_kind,
-                            owner,
-                            source_pile_index,
-                            card,
-                            building_index,
-                        ),
-                        source_kind=source_kind,
-                        owner=owner,
-                        source_pile_index=source_pile_index,
-                        card=card,
+                        source=source,
                         building_pile_index=building_index,
                         needed_value=self._building_needed(building_index),
                     )
                 )
         return choices
 
-    def _choice_for_action(
+    def _source_for_action(
         self, player: SkipBoPlayer, action_id: str
+    ) -> CardSource | None:
+        return next(
+            (
+                source
+                for source in self._card_sources(player)
+                if source.action_id == action_id
+            ),
+            None,
+        )
+
+    def _building_choices_for_source(
+        self, player: SkipBoPlayer, source: CardSource
+    ) -> list[PlayChoice]:
+        return [
+            choice
+            for choice in self._legal_play_choices(player)
+            if choice.action_id == source.action_id
+        ]
+
+    def _choice_for_move(
+        self, player: SkipBoPlayer, source: CardSource, move_id: str
     ) -> PlayChoice | None:
+        pile_index = self._move_index(move_id, BUILDING_MOVE_PREFIX)
+        if pile_index is None:
+            return None
         return next(
             (
                 choice
-                for choice in self._legal_play_choices(player)
-                if choice.action_id == action_id
+                for choice in self._building_choices_for_source(player, source)
+                if choice.building_pile_index == pile_index
             ),
             None,
         )
@@ -778,11 +788,35 @@ class SkipBoGame(Game):
     # Gameplay action handlers
     # ------------------------------------------------------------------
 
-    def _action_play(self, player: Player, action_id: str) -> None:
+    def _action_use_card(self, player: Player, *args: str) -> None:
         if not isinstance(player, SkipBoPlayer):
             return
-        choice = self._choice_for_action(player, action_id)
-        if choice is None or not self._remove_source_card(player, choice):
+        input_value = args[0] if len(args) == 2 else None
+        action_id = args[-1] if args else ""
+        source = self._source_for_action(player, action_id)
+        if source is None:
+            return
+
+        options = self._move_options_for_source(player, source)
+        if input_value is None:
+            if len(options) != 1:
+                return
+            input_value = options[0]
+        if input_value not in options:
+            return
+
+        choice = self._choice_for_move(player, source, input_value)
+        if choice is not None:
+            self._execute_building_play(player, choice)
+            return
+
+        pile_index = self._move_index(input_value, DISCARD_MOVE_PREFIX)
+        if source.source_kind != "hand" or pile_index is None:
+            return
+        self._execute_discard(player, source.card, pile_index)
+
+    def _execute_building_play(self, player: SkipBoPlayer, choice: PlayChoice) -> None:
+        if not self._remove_source_card(player, choice):
             return
 
         building = self.building_piles[choice.building_pile_index]
@@ -826,17 +860,10 @@ class SkipBoGame(Game):
         BotHelper.jolt_bot(player)
         self.refresh_menus()
 
-    def _action_end_turn(
-        self, player: Player, input_value: str, action_id: str
+    def _execute_discard(
+        self, player: SkipBoPlayer, card: SkipBoCard, pile_index: int
     ) -> None:
-        if not isinstance(player, SkipBoPlayer):
-            return
-        card = self._hand_card_from_end_action(player, action_id)
-        try:
-            pile_index = int(input_value)
-        except (TypeError, ValueError):
-            return
-        if card is None or pile_index not in range(DISCARD_PILE_COUNT):
+        if card not in player.hand or pile_index not in range(DISCARD_PILE_COUNT):
             return
 
         player.hand.remove(card)
@@ -896,35 +923,53 @@ class SkipBoGame(Game):
             locale, key, owner=owner.name, pile=source_pile_index + 1
         )
 
-    def _get_play_label(self, player: Player, action_id: str) -> str:
+    def _get_card_action_label(self, player: Player, action_id: str) -> str:
         if not isinstance(player, SkipBoPlayer):
             return ""
-        choice = self._choice_for_action(player, action_id)
-        if choice is None:
-            return self._localize(player, "skipbo-error-play-changed")
+        source = self._source_for_action(player, action_id)
+        if source is None:
+            return self._localize(player, "skipbo-error-card-changed")
         user = self.get_user(player)
         locale = user.locale if user else "en"
+        if self.current_player != player:
+            return Localization.get(
+                locale,
+                "skipbo-hand-menu-card",
+                card=cards.format_card(source.card, locale),
+            )
+
+        choices = self._building_choices_for_source(player, source)
+        if source.source_kind != "hand" and len(choices) == 1:
+            choice = choices[0]
+            return Localization.get(
+                locale,
+                "skipbo-play-action",
+                card=cards.format_card(
+                    source.card, locale, wild_as=choice.needed_value
+                ),
+                source=self._compact_source_label(player, source, locale),
+                pile=choice.building_pile_index + 1,
+            )
         return Localization.get(
             locale,
-            "skipbo-play-action",
-            card=cards.format_card(choice.card, locale, wild_as=choice.needed_value),
-            source=self._compact_source_label(player, choice, locale),
-            pile=choice.building_pile_index + 1,
+            "skipbo-card-action",
+            card=cards.format_card(source.card, locale),
+            source=self._compact_source_label(player, source, locale),
         )
 
     def _compact_source_label(
-        self, player: SkipBoPlayer, choice: PlayChoice, locale: str
+        self, player: SkipBoPlayer, source: CardSource, locale: str
     ) -> str:
-        if choice.source_kind == "hand":
+        if source.source_kind == "hand":
             return Localization.get(locale, "skipbo-action-source-hand")
-        is_owner = player.id == choice.owner.id
-        if choice.source_kind == "stock":
+        is_owner = player.id == source.owner.id
+        if source.source_kind == "stock":
             key = (
                 "skipbo-action-source-stock"
                 if is_owner
                 else "skipbo-action-source-player-stock"
             )
-            return Localization.get(locale, key, owner=choice.owner.name)
+            return Localization.get(locale, key, owner=source.owner.name)
         key = (
             "skipbo-action-source-discard"
             if is_owner
@@ -933,9 +978,34 @@ class SkipBoGame(Game):
         return Localization.get(
             locale,
             key,
-            owner=choice.owner.name,
-            pile=choice.source_pile_index + 1,
+            owner=source.owner.name,
+            pile=source.source_pile_index + 1,
         )
+
+    def _get_card_action_description(
+        self, player: Player, action_id: str
+    ) -> str | None:
+        if not isinstance(player, SkipBoPlayer) or self.current_player != player:
+            return None
+        source = self._source_for_action(player, action_id)
+        if source is None:
+            return None
+        choices = self._building_choices_for_source(player, source)
+        if source.source_kind != "hand" and len(choices) <= 1:
+            return None
+
+        user = self.get_user(player)
+        piles = Localization.format_list_and(
+            user.locale if user else "en",
+            [str(choice.building_pile_index + 1) for choice in choices],
+        )
+        if source.source_kind == "hand" and choices:
+            return self._localize(
+                player, "skipbo-card-desc-play-or-discard", piles=piles
+            )
+        if source.source_kind == "hand":
+            return self._localize(player, "skipbo-card-desc-discard-only")
+        return self._localize(player, "skipbo-card-desc-choose-building", piles=piles)
 
     def _focus_after_play(self, player: SkipBoPlayer, building_pile_index: int) -> None:
         """Keep the actor on a useful, deterministic continuation."""
@@ -956,7 +1026,10 @@ class SkipBoGame(Game):
             return
         ordered_hand = sorted(player.hand, key=cards.sort_key)
         if ordered_hand:
-            self.request_menu_focus(player, f"end_turn_{ordered_hand[0].id}")
+            self.request_menu_focus(
+                player,
+                self._source_action_id("hand", player, -1, ordered_hand[0]),
+            )
         elif not self._draw_available():
             self.request_menu_focus(player, "end_turn_empty")
 
@@ -975,7 +1048,9 @@ class SkipBoGame(Game):
             (card for card in ordered_hand if cards.sort_key(card) > discarded_key),
             ordered_hand[-1],
         )
-        self.request_menu_focus(player, f"end_turn_{next_card.id}")
+        self.request_menu_focus(
+            player, self._source_action_id("hand", player, -1, next_card)
+        )
 
     def _should_prompt_for_action_input(self, action: Action, player: Player) -> bool:
         if action.id == "read_discard_piles" and isinstance(
@@ -984,77 +1059,86 @@ class SkipBoGame(Game):
             return len(self._discard_owner_options(player)) > 1
         return super()._should_prompt_for_action_input(action, player)
 
-    def _hand_card_from_end_action(
-        self, player: SkipBoPlayer, action_id: str
-    ) -> SkipBoCard | None:
-        if not action_id.startswith("end_turn_"):
+    @staticmethod
+    def _move_index(move_id: str, prefix: str) -> int | None:
+        if not move_id.startswith(prefix):
             return None
         try:
-            card_id = int(action_id.removeprefix("end_turn_"))
+            index = int(move_id.removeprefix(prefix))
         except ValueError:
             return None
-        return next((card for card in player.hand if card.id == card_id), None)
+        return index
 
-    def _get_end_turn_label(self, player: Player, action_id: str) -> str:
+    def _move_options_for_source(
+        self, player: SkipBoPlayer, source: CardSource
+    ) -> list[str]:
+        options = [
+            f"{BUILDING_MOVE_PREFIX}{choice.building_pile_index}"
+            for choice in self._building_choices_for_source(player, source)
+        ]
+        if source.source_kind == "hand":
+            options.extend(
+                f"{DISCARD_MOVE_PREFIX}{index}" for index in range(DISCARD_PILE_COUNT)
+            )
+        return options
+
+    def _move_options_for_pending_card(self, player: Player) -> list[str]:
         if not isinstance(player, SkipBoPlayer):
-            return ""
-        card = self._hand_card_from_end_action(player, action_id)
-        if card is None:
-            return self._localize(player, "skipbo-error-discard-card-changed")
+            return []
+        source = self._source_for_action(
+            player, self._pending_actions.get(player.id, "")
+        )
+        return self._move_options_for_source(player, source) if source else []
+
+    def _card_move_option_label(self, player: Player, move_id: str) -> str:
+        if not isinstance(player, SkipBoPlayer):
+            return move_id
         user = self.get_user(player)
         locale = user.locale if user else "en"
-        key = (
-            "skipbo-end-turn-action"
-            if self.current_player == player
-            else "skipbo-hand-menu-card"
+        source = self._source_for_action(
+            player, self._pending_actions.get(player.id, "")
         )
+        if source is None:
+            return self._localize(player, "skipbo-error-card-changed")
+
+        choice = self._choice_for_move(player, source, move_id)
+        if choice is not None:
+            card = cards.format_card(source.card, locale, wild_as=choice.needed_value)
+            pile = self.building_piles[choice.building_pile_index]
+            key = "skipbo-move-building-top" if pile else "skipbo-move-building-empty"
+            return Localization.get(
+                locale,
+                key,
+                pile=choice.building_pile_index + 1,
+                current=self.building_values[choice.building_pile_index],
+                card=card,
+            )
+
+        pile_index = self._move_index(move_id, DISCARD_MOVE_PREFIX)
+        if pile_index is None or pile_index not in range(DISCARD_PILE_COUNT):
+            return self._localize(player, "skipbo-error-card-changed")
+        pile = player.discard_piles[pile_index]
+        key = "skipbo-move-discard-top" if pile else "skipbo-move-discard-empty"
         return Localization.get(
             locale,
             key,
-            card=cards.format_card(card, locale),
-        )
-
-    def _get_end_turn_description(self, player: Player, action_id: str) -> str | None:
-        if self.current_player != player:
-            return None
-        return self._localize(player, "skipbo-end-turn-action-desc")
-
-    def _options_for_discard_pile(self, player: Player) -> list[str]:
-        return [str(index) for index in range(DISCARD_PILE_COUNT)]
-
-    def _discard_pile_option_label(self, player: Player, value: str) -> str:
-        if not isinstance(player, SkipBoPlayer):
-            return value
-        try:
-            pile_index = int(value)
-        except ValueError:
-            return value
-        if pile_index not in range(DISCARD_PILE_COUNT):
-            return value
-        user = self.get_user(player)
-        locale = user.locale if user else "en"
-        pile = player.discard_piles[pile_index]
-        if not pile:
-            return Localization.get(
-                locale, "skipbo-discard-pile-choice-empty", pile=pile_index + 1
-            )
-        return Localization.get(
-            locale,
-            "skipbo-discard-pile-choice-top",
             pile=pile_index + 1,
-            card=cards.format_card(pile[-1], locale),
+            top=cards.format_card(pile[-1], locale) if pile else "",
         )
 
-    def _bot_select_discard_pile(
-        self, player: Player, options: list[str]
-    ) -> str | None:
+    def _bot_select_card_move(self, player: Player, options: list[str]) -> str | None:
         if not isinstance(player, SkipBoPlayer):
             return options[0] if options else None
-        action_id = self._pending_actions.get(player.id, "")
-        card = self._hand_card_from_end_action(player, action_id)
-        if card is None:
+        source = self._source_for_action(
+            player, self._pending_actions.get(player.id, "")
+        )
+        if source is None:
             return options[0] if options else None
-        return str(choose_discard_pile(self, player, card))
+        building_choices = self._building_choices_for_source(player, source)
+        if building_choices:
+            selected = choose_play(self, player, building_choices)
+            return f"{BUILDING_MOVE_PREFIX}{selected.building_pile_index}"
+        return f"{DISCARD_MOVE_PREFIX}{choose_discard_pile(self, player, source.card)}"
 
     def _turn_action_guard(
         self, player: Player, action_id: str | None = None
@@ -1066,45 +1150,26 @@ class SkipBoGame(Game):
         if self.current_player != player:
             return "action-not-your-turn"
         input_owner = self._gameplay_input_lock_owner()
-        if input_owner:
-            if input_owner.id == player.id:
-                pending = self._pending_actions.get(player.id)
-                if pending != action_id:
-                    return "skipbo-error-discard-selection-you"
-            else:
-                return (
-                    "skipbo-error-discard-selection-player",
-                    {"player": input_owner},
-                )
+        if input_owner and self._pending_actions.get(player.id) != action_id:
+            return "skipbo-error-card-move-selection-you"
         return None
 
-    def _is_play_enabled(
+    def _is_card_action_enabled(
         self, player: Player, *, action_id: str | None = None
     ) -> str | tuple[str, dict] | None:
         guard = self._turn_action_guard(player, action_id)
         if guard:
             return guard
         if not isinstance(player, SkipBoPlayer) or not action_id:
-            return "skipbo-error-play-changed"
-        return (
-            None
-            if self._choice_for_action(player, action_id)
-            else "skipbo-error-play-changed"
-        )
-
-    def _is_end_turn_enabled(
-        self, player: Player, *, action_id: str | None = None
-    ) -> str | tuple[str, dict] | None:
-        guard = self._turn_action_guard(player, action_id)
-        if guard:
-            return guard
-        if not isinstance(player, SkipBoPlayer) or not action_id:
-            return "skipbo-error-discard-card-changed"
-        return (
-            None
-            if self._hand_card_from_end_action(player, action_id)
-            else "skipbo-error-discard-card-changed"
-        )
+            return "skipbo-error-card-changed"
+        source = self._source_for_action(player, action_id)
+        if source is None:
+            return "skipbo-error-card-changed"
+        if source.source_kind == "hand" or self._building_choices_for_source(
+            player, source
+        ):
+            return None
+        return "skipbo-error-play-changed"
 
     def _is_end_turn_empty_enabled(self, player: Player) -> str | None:
         guard = self._turn_action_guard(player, "end_turn_empty")
@@ -1127,7 +1192,7 @@ class SkipBoGame(Game):
             else Visibility.HIDDEN
         )
 
-    def _is_hand_card_action_hidden(
+    def _is_card_action_hidden(
         self, player: Player, *, action_id: str | None = None
     ) -> Visibility:
         if (
@@ -1136,10 +1201,16 @@ class SkipBoGame(Game):
             or not isinstance(player, SkipBoPlayer)
             or player.is_spectator
             or not action_id
-            or self._hand_card_from_end_action(player, action_id) is None
         ):
             return Visibility.HIDDEN
-        return Visibility.VISIBLE
+        source = self._source_for_action(player, action_id)
+        if source is None:
+            return Visibility.HIDDEN
+        if source.source_kind == "hand" or self._building_choices_for_source(
+            player, source
+        ):
+            return Visibility.VISIBLE
+        return Visibility.HIDDEN
 
     # ------------------------------------------------------------------
     # Public and private information

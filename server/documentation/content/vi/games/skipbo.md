@@ -48,9 +48,9 @@ Với kho bài \*\*Tiêu chuẩn\*\*, mỗi người nhận 30 lá khi bàn có 
 
 Các lá chưa chia tạo thành chồng bài rút. Ở giữa bàn có bốn vị trí chồng bài xây dùng chung. Mỗi người còn có bốn vị trí chồng bài bỏ riêng.
 
-Cách chuẩn bị \*\*Cổ điển\*\* để trống toàn bộ vị trí chồng bài xây và chồng bài bỏ. \*\*Chia sẵn các chồng cho người mới\*\* đặt một lá ngửa vào mỗi vị trí chồng bài xây và mỗi chồng bài bỏ của mọi người. Lá số mở đầu chồng bài xây ở đúng số in trên lá. Lá Skip-Bo được chia sẵn tính là số 1. Lá 12 được chia sẵn đã hoàn tất chồng và được đặt sang một bên để xáo lại khi cần.
+Ban đầu, mọi vị trí chồng bài xây và chồng bài bỏ đều trống. Người chơi tạo các chồng này bằng cách đánh hoặc bỏ bài trong lượt.
 
-PlayAural chọn ngẫu nhiên người bắt đầu vì hệ thống không biết tuổi của người chơi. Trong Trận tính điểm, vị trí bắt đầu chuyển sang ghế kế tiếp sau mỗi ván.
+PlayAural chọn ngẫu nhiên người đi trước trong ván đầu tiên. Trong Trận tính điểm, vị trí đi trước chuyển sang ghế kế tiếp sau mỗi ván để không phải lúc nào cũng cùng một ghế bắt đầu.
 
 \*\*Lượt của bạn\*\*
 
@@ -76,7 +76,7 @@ Trong trường hợp hiếm gặp khi bạn không có bài trên tay và cũng
 
 Một vị trí chồng bài xây đang trống cần lá số 1. Sau đó, chồng chỉ nhận đúng số kế tiếp: 2 sau 1, 3 sau 2, và tiếp tục như vậy đến 12. Chẳng hạn, chồng đang có số 6 sẽ nhận lá số 7 hoặc một lá Skip-Bo dùng thay số 7.
 
-Lá Skip-Bo tự nhận đúng giá trị mà chồng đích đang cần. Trình đơn lượt đọc rõ giá trị đó, chẳng hạn \*\*Skip-Bo thay số 7\*\*; bạn không phải chọn số riêng.
+Lá Skip-Bo tự nhận đúng giá trị mà chồng đích đang cần. Mỗi lựa chọn đích đọc rõ giá trị đó, chẳng hạn \*\*đánh Skip-Bo thay số 7\*\*; bạn chọn chồng bài, không cần chọn số riêng.
 
 Khi lá 12 được đánh, chồng bài xây hoàn tất. Các lá trong chồng được đặt sang một bên, vị trí đó trở lại trống và có thể bắt đầu chuỗi mới bằng số 1.
 
@@ -100,21 +100,21 @@ Bên thắng mỗi ván nhận 25 điểm thắng, cộng thêm 5 điểm cho m�
 
 \* \*\*Kho bài:\*\* \*\*Tiêu chuẩn\*\* dùng 30 lá với 2 đến 4 người và 20 lá với 5 hoặc 6 người. \*\*Nhanh 10 lá\*\* và \*\*Nhanh 15 lá\*\* dùng đúng số lá đó cho mọi người. Mặc định: Tiêu chuẩn.
 
-\* \*\*Cách chuẩn bị:\*\* \*\*Cổ điển\*\* để trống các vị trí chồng bài xây và chồng bài bỏ. \*\*Chia sẵn các chồng cho người mới\*\* đặt một lá ngửa vào từng vị trí. Mặc định: Cổ điển.
-
 \* \*\*Thể thức trận:\*\* \*\*Một ván\*\* kết thúc sau lần thắng kho bài đầu tiên. \*\*Trận tính điểm\*\* giữ điểm qua nhiều ván cho đến khi đạt mốc thắng. Mặc định: Một ván.
 
 \* \*\*Mốc thắng trận:\*\* Số điểm cần để thắng Trận tính điểm, từ 25 đến 5.000. Tùy chọn này chỉ xuất hiện khi chọn Trận tính điểm. Mặc định: 500.
 
 \* \*\*Chế độ đội:\*\* \*\*Cá nhân\*\* cho mỗi người một kết quả riêng. Bàn 4 người có thể chọn hai đội, mỗi đội hai người; bàn 6 người có thể chọn ba đội, mỗi đội hai người. Mặc định: Cá nhân.
 
-Trò chơi sẽ không bắt đầu nếu số người, cách chia đội, kiểu kho bài, cách chuẩn bị, thể thức hoặc mốc thắng không hợp lệ.
+Trò chơi sẽ không bắt đầu nếu số người, cách chia đội, kiểu kho bài, thể thức hoặc mốc thắng không hợp lệ.
 
 \*\*Trình đơn lượt và khả năng tiếp cận\*\*
 
-Trong lượt của bạn, trình đơn liệt kê mọi nước đánh hợp lệ bằng tên lá, nguồn và đích ngắn gọn, chẳng hạn \*\*7 — kho bài vào chồng bài xây 2\*\. Mỗi lá trên tay còn có hành động \*\*Bỏ lá và kết thúc lượt\*\*. Sau khi chọn, hãy chọn chồng bài bỏ sẽ nhận lá đó.
+Trong trình đơn lượt, mỗi lá bài có đúng một dòng. Trình đơn gồm mọi lá trên tay và những lá ngửa trên kho bài hoặc trên cùng chồng bài bỏ đang đánh được. Mỗi dòng chỉ nêu lá bài và nguồn, không lặp lại cùng một lá cho từng đích đến.
 
-Bài trên tay vẫn hiện khi người khác đang đi lượt. Các dòng bài giữ nguyên mã ổn định như trong lượt của bạn, giúp tiêu điểm của trình đọc màn hình dễ đoán. Nếu chọn một lá ngoài lượt, bạn chỉ nghe \*\*Chưa đến lượt của bạn\*\*; trình đơn chọn chồng bài bỏ không mở và trạng thái trò chơi không thay đổi.
+Nếu một lá có nhiều đích hợp lệ, hãy chọn lá đó rồi chọn nơi đánh. Mỗi lựa chọn chồng bài xây cho biết lá trên cùng hiện tại và giá trị sẽ được đánh. Với bài trên tay, trình đơn đích còn có bốn chồng bài bỏ; chọn một chồng sẽ bỏ lá bài và kết thúc lượt. Nếu lá từ kho bài hoặc chồng bài bỏ chỉ có một đích hợp lệ, chọn lá đó sẽ đánh ngay.
+
+Bài trên tay vẫn hiện khi người khác đang đi lượt. Các dòng bài giữ nguyên mã ổn định như trong lượt của bạn, giúp tiêu điểm của trình đọc màn hình dễ đoán. Nếu chọn một lá ngoài lượt, bạn chỉ nghe \*\*Chưa đến lượt của bạn\*\*; trình đơn chọn đích không mở và trạng thái trò chơi không thay đổi.
 
 Sau khi đánh thành công vào chồng bài xây, tiêu điểm ưu tiên theo nước đánh hợp lệ tiếp theo vào chính chồng đó. Nếu không có, tiêu điểm chuyển tới nước đánh hữu ích hoặc hành động bài trên tay kế tiếp. Các cửa sổ xem chồng bài cũng giữ một dòng ổn định cho từng chồng khi số liệu thay đổi.
 

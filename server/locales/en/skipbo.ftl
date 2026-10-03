@@ -3,8 +3,6 @@ game-name-skipbo = Skip-Bo
 skipbo-stock-mode-standard = Standard (30 or 20 cards)
 skipbo-stock-mode-short = Quick 10 cards
 skipbo-stock-mode-short-15 = Quick 15 cards
-skipbo-setup-mode-classic = Classic empty piles
-skipbo-setup-mode-beginner = Beginner seeded piles
 skipbo-scoring-single = Single game
 skipbo-scoring-match = Scored match
 
@@ -12,11 +10,6 @@ skipbo-set-stock-mode = Stock piles: { $mode }
 skipbo-select-stock-mode = Select the stock pile length:
 skipbo-option-changed-stock-mode = Stock piles now use { $mode }.
 skipbo-desc-stock-mode = Standard uses 30 stock cards with 2 to 4 players and 20 with 5 or 6 players. Quick games use 10 or 15 stock cards for every player.
-
-skipbo-set-setup-mode = Starting layout: { $mode }
-skipbo-select-setup-mode = Select the starting layout:
-skipbo-option-changed-setup-mode = The starting layout is now { $mode }.
-skipbo-desc-setup-mode = Classic begins with empty building and discard piles. The official Beginner setup deals one face-up card to every shared building pile and every player's discard pile so more plays are available immediately.
 
 skipbo-set-scoring-mode = Match format: { $mode }
 skipbo-select-scoring-mode = Select the match format:
@@ -47,13 +40,17 @@ skipbo-action-source-discard = discard pile { $pile }
 skipbo-action-source-player-discard = { $owner }'s discard pile { $pile }
 
 skipbo-play-action = { $card } — { $source } to pile { $pile }
-skipbo-end-turn-action = Discard { $card } and end turn
-skipbo-end-turn-action-desc = Choose a discard pile. This card becomes its playable top card and ends your turn.
+skipbo-card-action = { $card } — { $source }
+skipbo-card-desc-play-or-discard = Available building piles: { $piles }. Choose the card to play it or discard it and end your turn.
+skipbo-card-desc-discard-only = Choose the card to discard it and end your turn.
+skipbo-card-desc-choose-building = Available building piles: { $piles }. Choose the card to select one.
 skipbo-end-turn-empty = End turn without discarding
 skipbo-end-turn-empty-desc = Your hand is empty and no cards can be drawn, so no discard is possible.
-skipbo-select-discard-pile = Choose a discard pile:
-skipbo-discard-pile-choice-empty = Discard pile { $pile }: empty
-skipbo-discard-pile-choice-top = Discard pile { $pile }: { $card } on top
+skipbo-select-card-move = Choose where to move this card:
+skipbo-move-building-empty = Building pile { $pile}: empty; play { $card }
+skipbo-move-building-top = Building pile { $pile}: { $current } on top; play { $card }
+skipbo-move-discard-empty = Discard pile { $pile}: empty; discard here and end turn
+skipbo-move-discard-top = Discard pile { $pile}: { $top } on top; discard here and end turn
 
 skipbo-read-building-piles = View building piles
 skipbo-read-stock-piles = View stock piles
@@ -65,11 +62,6 @@ skipbo-game-start = The game begins. Each stock pile has { $stock_count } cards.
 skipbo-game-start-quick = The quick game begins. Each stock pile has { $stock_count } cards.
 skipbo-match-game-start = Scored game { $game } begins. Each stock pile has { $stock_count } cards.
 skipbo-match-game-start-quick = Quick scored game { $game } begins. Each stock pile has { $stock_count } cards.
-skipbo-round-beginner-setup = Beginner setup dealt one face-up card to every building and discard position.
-skipbo-round-beginner-completed = { $count ->
-    [one] One building position was seeded with a 12 and completed immediately.
-   *[other] { $count } building positions were seeded with 12s and completed immediately.
-  }
 skipbo-initial-stock-you = Your face-up stock card is { $card }.
 skipbo-initial-stock-player = { $player }'s face-up stock card is { $card }.
 skipbo-draw-turn-you = You draw { $count } { $count ->
@@ -144,16 +136,14 @@ skipbo-hand-empty = You do not have any cards in hand yet.
 skipbo-hand-menu-card = Hand: { $card }
 
 skipbo-error-invalid-stock-mode = The selected stock pile length is not supported. Choose Standard, Quick 10, or Quick 15.
-skipbo-error-invalid-setup-mode = The selected starting layout is not supported. Choose Classic or Beginner.
 skipbo-error-invalid-scoring-mode = The selected match format is not supported. Choose Single game or Scored match.
 skipbo-error-winning-score-range = The match target must be from { $min } to { $max } points; it is currently { $value }.
 skipbo-error-partnership-player-count = Partnerships require exactly 4 players for two partnerships or 6 players for three partnerships.
 skipbo-error-game-not-active = This Skip-Bo game is not currently active.
 skipbo-error-round-transition = The current game has ended. Wait for the next game to begin.
-skipbo-error-discard-selection-you = Choose a discard pile first.
-skipbo-error-discard-selection-player = { $player } is choosing a discard pile. Please wait.
+skipbo-error-card-move-selection-you = Choose where to move the selected card first.
 skipbo-error-play-changed = That play is no longer available because the card or building pile changed. Choose a current turn-menu action.
-skipbo-error-discard-card-changed = That card is no longer in your hand. Choose a current end-turn action.
+skipbo-error-card-changed = That card is no longer available. Choose a current turn-menu action.
 skipbo-error-cards-available = You still have a card available to discard. End your turn by choosing that card and one of your four discard piles.
 skipbo-error-no-discard-targets = No other player's discard piles are available.
 skipbo-error-discard-target-changed = That player's discard piles are no longer available. Choose a current player.

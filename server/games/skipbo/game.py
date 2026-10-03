@@ -68,6 +68,7 @@ SOUND_DISCARD_FAMILY = "game_cards/discard"
 SOUND_SHUFFLE_FAMILY = "game_cards/shuffle"
 SOUND_RECYCLE = "game_cards/small_shuffle.ogg"
 SOUND_GAME_WIN = "gamewin.ogg"
+SOUND_MUSIC = "game_uno/music.ogg"
 CARD_ACTION_PREFIX = "use_"
 BUILDING_MOVE_PREFIX = "building_"
 DISCARD_MOVE_PREFIX = "discard_"
@@ -464,6 +465,7 @@ class SkipBoGame(Game):
         self.turn_skip_count = 0
         self.winner_team_index = -1
         self._sync_table_status()
+        self.play_music(SOUND_MUSIC)
 
         active_players = [
             player

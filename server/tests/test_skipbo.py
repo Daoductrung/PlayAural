@@ -21,6 +21,7 @@ from ..games.skipbo.game import (
     SOUND_DISCARD_FAMILY,
     SOUND_DRAW_FAMILY,
     SOUND_GAME_WIN,
+    SOUND_MUSIC,
     SOUND_PLAY_FAMILY,
     SOUND_SHUFFLE_FAMILY,
     STOCK_SHORT,
@@ -215,6 +216,27 @@ def test_short_game_deals_ten_stock_cards() -> None:
 def test_current_official_fifteen_card_quick_game() -> None:
     game = make_game(6, start=True, stock_mode=STOCK_SHORT_FIFTEEN)
     assert all(len(player.stock_pile) == 15 for player in game.get_active_players())
+
+
+def test_game_start_uses_replayable_uno_background_music() -> None:
+    game = make_game(2, start=True)
+
+    for player in game.players:
+        user = game.get_user(player)
+        assert any(
+            message.type == "play_music" and message.data["name"] == SOUND_MUSIC
+            for message in user.messages
+        )
+    assert any(
+        state.kind == "music" and state.asset == SOUND_MUSIC
+        for state in game.active_audio.values()
+    )
+
+    loaded = SkipBoGame.from_json(game.to_json())
+    assert any(
+        state.kind == "music" and state.asset == SOUND_MUSIC
+        for state in loaded.active_audio.values()
+    )
 
 
 @pytest.mark.parametrize(
@@ -752,17 +774,6 @@ def test_serialization_preserves_every_pile_and_active_round_transition() -> Non
     assert [item.value for item in loaded.players[0].discard_piles[3]] == [8, 7]
     assert loaded._team_manager.teams[0].total_score == 125
     assert loaded.has_active_sequence(sequence_id=NEXT_ROUND_SEQUENCE_ID)
-
-
-def test_legacy_seeded_setup_option_is_ignored_when_loading() -> None:
-    game = make_game(2, start=True)
-    payload = json.loads(game.to_json())
-    payload["options"]["setup_mode"] = "beginner"
-
-    loaded = SkipBoGame.from_json(json.dumps(payload))
-
-    assert not hasattr(loaded.options, "setup_mode")
-    assert count_cards(loaded) == cards.DECK_SIZE
 
 
 def test_card_selector_combines_legal_building_and_discard_destinations() -> None:

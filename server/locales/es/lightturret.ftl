@@ -21,7 +21,7 @@ lightturret-you-shoot-brief = Disparas: +{ $gain } luz, +{ $coins } monedas. Luz
 lightturret-player-shoots-brief = { $player } dispara: +{ $gain } luz, +{ $coins } monedas. Luz { $light }/{ $power}; monedas { $total_coins }.
 
 lightturret-you-shoot-overload = Disparas y ganas { $gain } de luz más { $coins } monedas, llegando a { $light } de luz contra { $power } de energía. Superas la capacidad por { $overload } y quedas eliminado con { $total_coins } monedas restantes.
-lightturret-player-shoots-overload = { $player } dispara y gana { $gain } de luz más { $coins } monedas, llegando a { $light } de luz contra { $power } de energía. La sobrecarga deja a { GENDER_TERM($player_gender, "object") } { $overload } por encima de la capacidad y elimina a { GENDER_TERM($player_gender, "object") } con { $total_coins } monedas restantes.
+lightturret-player-shoots-overload = { $player } dispara y gana { $gain } de luz más { $coins } monedas, llegando a { $light } de luz contra { $power } de energía. La sobrecarga { GENDER_TERM($player_gender, "object") } deja { $overload } por encima de la capacidad y { GENDER_TERM($player_gender, "object") } elimina con { $total_coins } monedas restantes.
 lightturret-you-shoot-overload-brief = Te sobrecargas: +{ $gain } luz, { $light }/{ $power}, excedido por { $overload}. Eliminado.
 lightturret-player-shoots-overload-brief = { $player } se sobrecarga: +{ $gain } luz, { $light }/{ $power}, excedido por { $overload}. Eliminado.
 
@@ -36,7 +36,7 @@ lightturret-you-upgrade-accident-brief = Tu mejora falla: +{ $gain } luz. Luz { 
 lightturret-player-upgrades-accident-brief = La mejora de { $player } falla: +{ $gain } luz. Luz { $light }/{ $power}; monedas { $coins }.
 
 lightturret-you-upgrade-overload = Gastas { $cost } monedas, pero el núcleo falla y añade { $gain } de luz. Llegas a { $light } de luz contra { $power } de energía, superas la capacidad por { $overload } y quedas eliminado con { $coins } monedas restantes.
-lightturret-player-upgrades-overload = { $player } gasta { $cost } monedas, pero el núcleo falla y añade { $gain } de luz. El fallo deja a { GENDER_TERM($player_gender, "object") } con { $light } de luz frente a { $power } de energía, { $overload } por encima de la capacidad, y elimina a { GENDER_TERM($player_gender, "object") } con { $coins } monedas restantes.
+lightturret-player-upgrades-overload = { $player } gasta { $cost } monedas, pero el núcleo falla y añade { $gain } de luz. El fallo { GENDER_TERM($player_gender, "object") } deja con { $light } de luz frente a { $power } de energía, { $overload } por encima de la capacidad, y { GENDER_TERM($player_gender, "object") } elimina con { $coins } monedas restantes.
 lightturret-you-upgrade-overload-brief = Sobrecarga por mejora: +{ $gain } luz, { $light }/{ $power}, excedido por { $overload}. Eliminado.
 lightturret-player-upgrades-overload-brief = { $player } sobrecarga por mejora: +{ $gain } luz, { $light }/{ $power}, excedido por { $overload}. Eliminado.
 

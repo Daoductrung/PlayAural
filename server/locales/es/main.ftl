@@ -763,12 +763,12 @@ friend-error-self = No puedes enviarte una solicitud de amistad a ti mismo.
 friend-error-already-friends = Ya eres amigo de este usuario.
 friend-error-duplicate = Ya tienes una solicitud de amistad pendiente con este usuario.
 friend-error-blocked = Las solicitudes de amistad no están disponibles entre tú y { $username }.
-friend-error-blocked-by-you = Bloqueaste a { $username }. Desbloquea a { GENDER_TERM($username_gender, "object") } antes de enviarle una solicitud de amistad.
+friend-error-blocked-by-you = Bloqueaste a { $username }. Desbloquéa{ GENDER_TERM($username_gender, "object") } antes de enviarle una solicitud de amistad.
 friend-request-sent = Solicitud de amistad enviada a { $username }.
 friend-request-received = Recibiste una nueva solicitud de amistad de { $username }.
 
 block-confirm = ¿Bloquear a { $username }? Esto elimina cualquier amistad y solicitud de amistad pendiente entre ustedes. Ninguno de los dos podrá enviarle al otro solicitudes de amistad, mensajes privados ni invitaciones a mesas, y los mensajes de chat normales quedarán ocultos en ambas direcciones. Hasta que se desbloquee, ninguno de los dos podrá entrar de nuevo a una mesa organizada por el otro ni restaurar una mesa guardada que incluya a ambos jugadores. Bloquear no saca a ningún jugador de una mesa compartida, no impide recuperar un asiento reservado, ni silencia el chat de voz de la mesa.
-block-success = Bloqueaste a { $username }. El contacto social directo ya no está disponible entre ustedes, los mensajes de chat normales de { GENDER_TERM($username_gender, "object") } quedan ocultos, y ninguno de los dos puede entrar de nuevo a una mesa organizada por el otro ni restaurar una mesa guardada que incluya a ambos usuarios.
+block-success = Bloqueaste a { $username }. El contacto social directo ya no está disponible entre ustedes, sus mensajes de chat normales quedan ocultos, y ninguno de los dos puede entrar de nuevo a una mesa organizada por el otro ni restaurar una mesa guardada que incluya a ambos usuarios.
 block-error-self = No puedes bloquearte a ti mismo.
 block-already-active = Ya bloqueaste a { $username }.
 block-no-longer-active = Este bloqueo ya no está activo.
@@ -1119,7 +1119,7 @@ report-channel-unspecified = ningún canal de chat global seleccionado
 report-confirm-summary = Reportar a { $username } por { $reason }. Canal de contexto: { $channel }. El reporte se guardará para revisión manual. El usuario no recibirá una notificación ni una sanción automática.
 report-submit = Enviar reporte
 report-change-reason = Cambiar el motivo
-report-submitted = Tu reporte sobre { $username } se guardó con la hora exacta de envío para su revisión manual. El usuario no recibió ninguna notificación. También puedes bloquear a { GENDER_TERM($username_gender, "object") } para impedir el contacto directo y ocultar sus mensajes globales.
+report-submitted = Tu reporte sobre { $username } se guardó con la hora exacta de envío para su revisión manual. El usuario no recibió ninguna notificación. También puedes bloquear{ GENDER_TERM($username_gender, "object") } para impedir el contacto directo y ocultar sus mensajes globales.
 report-target-cooldown = Reportaste a { $username } recientemente. Espera { $duration } antes de enviar otro reporte; usa Bloquear ahora si no quieres recibir { GENDER_TERM($username_gender, "possessive-determiner") } mensajes.
 report-rate-limited = Has enviado varios reportes recientemente. Inténtalo de nuevo dentro de { $duration }.
 report-failed = No se pudo guardar el reporte de forma segura. Inténtalo de nuevo más tarde.
@@ -1129,11 +1129,14 @@ server-power-maintenance-active = No se puede programar una operación de energ�
 # Formas gramaticales compartidas para el género de la cuenta. Los juegos
 # pueden sustituir una forma mediante <context>-gender-term-<form> al llamar a
 # GENDER_TERM; los nombres técnicos context y form no deben traducirse.
+# Sujeto opcional. Incluye el espacio final: "él ", "ella " o nada. Escribe el
+# mensaje pegado al verbo ("así que { GENDER_TERM(...) }intercambia"). Sin género
+# definido (también los bots) el sujeto se omite, como es natural en español.
 gender-term-subject =
     { $gender ->
-        [male] él
-        [female] ella
-       *[other] esa persona
+        [male] { "él " }
+        [female] { "ella " }
+       *[other] { "" }
     }
 gender-term-subject-capitalized =
     { $gender ->
@@ -1145,31 +1148,34 @@ gender-term-subject-be =
     { $gender ->
         [male] él está
         [female] ella está
-       *[other] esa persona está
+       *[other] está
     }
 gender-term-subject-be-capitalized =
     { $gender ->
         [male] Él está
         [female] Ella está
-       *[other] Esa persona está
+       *[other] Está
     }
 gender-term-subject-have =
     { $gender ->
         [male] él tiene
         [female] ella tiene
-       *[other] esa persona tiene
+       *[other] tiene
     }
 gender-term-subject-have-capitalized =
     { $gender ->
         [male] Él tiene
         [female] Ella tiene
-       *[other] Esa persona tiene
+       *[other] Tiene
     }
+# Pronombre átono de objeto: "lo", "la" o "le" (sin género definido, también los
+# bots). Va delante del verbo ("{ GENDER_TERM(...) } deja") o pegado al gerundio,
+# infinitivo o imperativo ("dejándo{ GENDER_TERM(...) }"). No se escribe tras "a".
 gender-term-object =
     { $gender ->
-        [male] él
-        [female] ella
-       *[other] esa persona
+        [male] lo
+        [female] la
+       *[other] le
     }
 gender-term-possessive-determiner =
     { $gender ->
@@ -1187,7 +1193,7 @@ gender-term-possessive-pronoun =
     { $gender ->
         [male] el suyo
         [female] el suyo
-       *[other] el de esa persona
+       *[other] el suyo
     }
 gender-term-reflexive =
     { $gender ->
@@ -1265,21 +1271,21 @@ player-substitution-no-seats = (No hay asientos de jugadores activos disponibles
 player-substitution-seat-unavailable = Ese asiento ya no está disponible para una sustitución. No se cambió ninguna función.
 player-substitution-no-spectators = (No hay espectadores aptos disponibles)
 player-substitution-spectator-unavailable = Ese espectador ya no está disponible para una sustitución. No se cambió ninguna función.
-player-substitution-user-busy = { $player } está completando otra entrada o vista de estado. Inténtalo de nuevo cuando esa vista ya no esté abierta para { GENDER_TERM($player_gender, "object") }.
+player-substitution-user-busy = { $player } está completando otra entrada o vista de estado. Inténtalo de nuevo cuando ya no tenga esa vista abierta.
 player-substitution-game-busy = El juego está completando una elección sincronizada o una recuperación de la mesa que bloquea temporalmente las sustituciones. Inténtalo de nuevo cuando termine.
-player-substitution-offer-sent = Se ofreció el asiento de { $seat } a { $player }. { GENDER_TERM($player_gender, "subject-capitalized") } debe aceptar antes de que cambie el control.
-player-substitution-self-offer-sent = Se ofreció tu asiento a { $player }. Si { GENDER_TERM($player_gender, "subject") } acepta la oferta, pasarás a ser espectador y seguirás como anfitrión; el resultado final del asiento se registrará para { GENDER_TERM($player_gender, "object") }.
-player-substitution-self-incoming-consent-sent = Pediste a { $player } que te cediera { GENDER_TERM($player_gender, "possessive-determiner") } asiento. Si { GENDER_TERM($player_gender, "subject") } acepta la solicitud, tomarás el control de inmediato porque al elegirte ya confirmaste tu consentimiento.
-player-substitution-outgoing-consent-sent = Pediste a { $player } que cediera { GENDER_TERM($player_gender, "possessive-determiner") } asiento a { $substitute }. Si { GENDER_TERM($player_gender, "subject") } acepta la solicitud, { $substitute } también deberá aceptar antes de que cambie el control.
+player-substitution-offer-sent = Se ofreció el asiento de { $seat } a { $player }. Debe aceptar antes de que cambie el control.
+player-substitution-self-offer-sent = Se ofreció tu asiento a { $player }. Si { GENDER_TERM($player_gender, "subject") }acepta la oferta, pasarás a ser espectador y seguirás como anfitrión; el resultado final del asiento se registrará a nombre de { $player }.
+player-substitution-self-incoming-consent-sent = Pediste a { $player } que te cediera { GENDER_TERM($player_gender, "possessive-determiner") } asiento. Si { GENDER_TERM($player_gender, "subject") }acepta la solicitud, tomarás el control de inmediato porque al elegirte ya confirmaste tu consentimiento.
+player-substitution-outgoing-consent-sent = Pediste a { $player } que cediera { GENDER_TERM($player_gender, "possessive-determiner") } asiento a { $substitute }. Si { $player } acepta la solicitud, { $substitute } también deberá aceptar antes de que cambie el control.
 player-substitution-offer-pending = { $player } ya tiene una solicitud de sustitución pendiente de respuesta.
 player-substitution-seat-offer-pending = El asiento de { $seat } ya tiene una solicitud de sustitución pendiente de respuesta.
 player-substitution-self-seat-offer-pending = Tu asiento ya tiene una solicitud de sustitución pendiente de respuesta.
-player-substitution-request-outgoing = { $host } quiere que { $player } te sustituya en tu asiento actual. Si aceptas, pasarás a ser espectador y { GENDER_TERM($player_gender, "subject") } recibirá exactamente el estado de la partida, la información privada, el tiempo de turno restante y la atribución del resultado final del asiento. No se reiniciará ningún temporizador.
-player-substitution-request-outgoing-host-incoming = { $host } quiere sustituirte en tu asiento actual. Si aceptas, pasarás a ser espectador y { GENDER_TERM($host_gender, "subject") } recibirá exactamente el estado de la partida, la información privada, el tiempo de turno restante y la atribución del resultado final del asiento. No se reiniciará ningún temporizador.
-player-substitution-request-player = { $host } te ofrece el asiento de { $player } con { GENDER_TERM($player_gender, "possessive-determiner") } consentimiento. Si aceptas, heredarás exactamente el estado de la partida, la información privada, el tiempo de turno restante y la atribución del resultado final del asiento; no se reiniciará ningún temporizador y { GENDER_TERM($player_gender, "subject") } pasará a ser espectador.
-player-substitution-request-host-seat = { $host } te ofrece su propio asiento. Si aceptas, heredarás exactamente el estado de la partida, la información privada, el tiempo de turno restante y la atribución del resultado final del asiento; no se reiniciará ningún temporizador y { GENDER_TERM($host_gender, "subject") } pasará a ser espectador, pero seguirá siendo el anfitrión.
+player-substitution-request-outgoing = { $host } quiere que { $player } te sustituya en tu asiento actual. Si aceptas, pasarás a ser espectador y { $player } recibirá exactamente el estado de la partida, la información privada, el tiempo de turno restante y la atribución del resultado final del asiento. No se reiniciará ningún temporizador.
+player-substitution-request-outgoing-host-incoming = { $host } quiere sustituirte en tu asiento actual. Si aceptas, pasarás a ser espectador y { $host } recibirá exactamente el estado de la partida, la información privada, el tiempo de turno restante y la atribución del resultado final del asiento. No se reiniciará ningún temporizador.
+player-substitution-request-player = { $host } te ofrece el asiento de { $player } con { GENDER_TERM($player_gender, "possessive-determiner") } consentimiento. Si aceptas, heredarás exactamente el estado de la partida, la información privada, el tiempo de turno restante y la atribución del resultado final del asiento; no se reiniciará ningún temporizador y { $player } pasará a ser espectador.
+player-substitution-request-host-seat = { $host } te ofrece su propio asiento. Si aceptas, heredarás exactamente el estado de la partida, la información privada, el tiempo de turno restante y la atribución del resultado final del asiento; no se reiniciará ningún temporizador y { $host } pasará a ser espectador, pero seguirá siendo el anfitrión.
 player-substitution-request-bot = { $host } te ofrece el asiento controlado por { $bot }. Si aceptas, heredarás exactamente el estado de la partida, la información privada, el tiempo de turno restante y la atribución del resultado final del asiento; no se reiniciará ningún temporizador.
-player-substitution-request-replacement = { $host } te ofrece el asiento reservado de { $player }, controlado actualmente por { $bot }. Si aceptas, heredarás exactamente el estado de la partida, la información privada, el tiempo de turno restante y la atribución del resultado final del asiento; no se reiniciará ningún temporizador y { GENDER_TERM($player_gender, "subject") } ya no podrá recuperar ese asiento.
+player-substitution-request-replacement = { $host } te ofrece el asiento reservado de { $player }, controlado actualmente por { $bot }. Si aceptas, heredarás exactamente el estado de la partida, la información privada, el tiempo de turno restante y la atribución del resultado final del asiento; no se reiniciará ningún temporizador y { $player } ya no podrá recuperar ese asiento.
 player-substitution-decline = Rechazar sustitución
 player-substitution-accept = Aceptar sustitución
 player-substitution-offer-expired = La solicitud de sustitución caducó. No se cambió ninguna función.
@@ -1289,10 +1295,10 @@ player-substitution-no-longer-available = Esa solicitud de sustitución ya no es
 player-substitution-awaiting-incoming = { $player } ya puede aceptar o rechazar la sustitución. Todavía no se cambió ninguna función.
 player-substitution-complete-player-you = Tomaste el control del antiguo asiento de { $player }. { GENDER_TERM($player_gender, "subject-be-capitalized") } ahora como espectador.
 player-substitution-complete-outgoing-you = { $player } tomó el control de tu antiguo asiento. Ahora eres espectador.
-player-substitution-complete-player = { $player } tomó el control del antiguo asiento de { $outgoing }. { GENDER_TERM($outgoing_gender, "subject-be-capitalized") } ahora como espectador.
+player-substitution-complete-player = { $player } tomó el control del antiguo asiento de { $outgoing }. { $outgoing } está ahora como espectador.
 player-substitution-complete-host-player-you = Tomaste el control del antiguo asiento de { $player }. { GENDER_TERM($player_gender, "subject-be-capitalized") } ahora como espectador y conserva la función de anfitrión.
 player-substitution-complete-outgoing-host-you = { $player } tomó el control de tu antiguo asiento. Ahora eres espectador y sigues siendo el anfitrión.
-player-substitution-complete-host = { $player } tomó el control del antiguo asiento de { $outgoing }. { GENDER_TERM($outgoing_gender, "subject-be-capitalized") } ahora como espectador y sigue siendo el anfitrión.
+player-substitution-complete-host = { $player } tomó el control del antiguo asiento de { $outgoing }. { $outgoing } está ahora como espectador y sigue siendo el anfitrión.
 player-substitution-complete-bot-you = Tomaste el control del asiento de { $bot }.
 player-substitution-complete-bot = { $player } tomó el control del asiento de { $bot }.
 player-substitution-complete-replacement-you = Tomaste el control del asiento reservado de { $replaced_player }, que estaba en manos de { $bot }. La reserva anterior terminó.

@@ -69,6 +69,10 @@ from ...game_utils.game_result import GameResult, PlayerResult
 from ...game_utils.menu_management_mixin import MenuBuild
 from ...game_utils.options import IntOption, option_field
 from ...game_utils.sequence_runner_mixin import SequenceBeat, SequenceOperation
+from ...game_utils.stats_helpers import (
+    RATING_COMPETITORS_KEY,
+    rating_competitors_from_scores,
+)
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
 from ...users.base import MenuItem
@@ -118,6 +122,7 @@ class Flip7FlipState(DataClassJSONMixin):
 
     target_id: str
     remaining: int = FLIP_THREE_COUNT
+    pending_action_count: int = 0
 
 
 @dataclass
@@ -826,13 +831,24 @@ class Flip7Game(Game):
         forced = bool(payload.get("forced", False))
 
         if outcome == OUTCOME_PENDING:
-            self.pending_actions.append(
-                Flip7PendingAction(
-                    kind=card.kind,
-                    owner_id=str(payload.get("pending_owner") or ""),
-                    card=card,
-                )
+            pending = Flip7PendingAction(
+                kind=card.kind,
+                owner_id=str(payload.get("pending_owner") or ""),
+                card=card,
             )
+            state = self.flip_state
+            if state is None:
+                self.pending_actions.append(pending)
+            else:
+                # A nested Flip Three must resolve all of the actions it
+                # reveals before returning to the suspended outer queue. Keep
+                # this flip's cards in reveal order at the head of that queue.
+                insert_at = max(
+                    0,
+                    min(state.pending_action_count, len(self.pending_actions)),
+                )
+                self.pending_actions.insert(insert_at, pending)
+                state.pending_action_count += 1
             return
 
         if card.kind == CARD_NUMBER:
@@ -1127,6 +1143,10 @@ class Flip7Game(Game):
 
     def _after_choice_flow(self) -> None:
         if self.flip_state is not None:
+            # A Second Chance revealed by Flip Three is resolved immediately.
+            # Once it has been given away (or discarded because no recipient
+            # exists), resume the unfinished forced reveals.
+            self._flip_draw()
             return
         if self.pending_actions:
             self._resolve_pending_flow()
@@ -1957,6 +1977,9 @@ class Flip7Game(Game):
             for p in sorted_players
         }
         winner = sorted_players[0] if sorted_players else None
+        rating_competitors = rating_competitors_from_scores(
+            ([player.id], player.total_score) for player in sorted_players
+        )
         return GameResult(
             game_type=self.get_type(),
             timestamp=datetime.now().isoformat(),
@@ -1972,6 +1995,7 @@ class Flip7Game(Game):
                 "player_stats": player_stats,
                 "rounds_played": self.round,
                 "target_score": self.options.target_score,
+                RATING_COMPETITORS_KEY: rating_competitors,
             },
         )
 

@@ -32,7 +32,7 @@ Quem vira uma carta de ação é quem escolhe o alvo dela, seja a carta distribu
 
 \*\*Vira 3\*\*
 
-O jogador escolhido vira três cartas seguidas, e cada uma é resolvida assim que é virada. As cartas de ação que saem durante um Vira 3 ficam guardadas e são resolvidas depois das três voltas, na ordem em que foram viradas, então cada uma pode abrir a sua própria escolha. Se o jogador que está virando estourar no meio, ele para de virar e as cartas de ação guardadas são descartadas. Se o baralho acabar antes das três voltas terminarem, a rodada acaba mais cedo. Durante um Vira 3, o jogador que está virando não pode escolher virar outra carta nem parar.
+O jogador escolhido vira três cartas seguidas, e cada uma é resolvida assim que é virada. As cartas Congelar e Vira 3 que saem durante um Vira 3 ficam guardadas e são resolvidas depois das três voltas, na ordem em que foram viradas, então cada uma pode abrir a sua própria escolha. Segunda Chance é resolvida imediatamente: se o jogador que está virando ainda não tiver uma, ele a guarda e pode usá-la contra um número repetido posterior no mesmo Vira 3; se já tiver uma, precisa entregar a nova a outro jogador elegível antes de continuar com as cartas restantes. Se o jogador que está virando estourar no meio, ele para de virar e as cartas Congelar ou Vira 3 guardadas são descartadas. Se o baralho acabar antes das três voltas terminarem, a rodada acaba mais cedo. Durante um Vira 3, o jogador que está virando não pode escolher virar outra carta nem parar.
 
 \*\*Pontuação\*\*
 

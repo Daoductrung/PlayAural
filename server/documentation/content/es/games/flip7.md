@@ -32,7 +32,7 @@ Quien voltea una carta de acción es quien elige su objetivo, sin importar si se
 
 \*\*Voltea 3\*\*
 
-El jugador elegido voltea tres cartas seguidas y cada una se resuelve en el momento. Las cartas de acción que salen durante un Voltea 3 se guardan y se resuelven después de terminar las tres, en el orden en que se voltearon, así que cada una puede abrir su propia elección. Si el jugador que está volteando se pasa a mitad del proceso, deja de voltear y las cartas de acción guardadas se descartan. Si la baraja se acaba antes de completar las tres, la ronda termina antes de tiempo. Durante un Voltea 3, el jugador que está volteando no puede elegir voltear otra carta ni detenerse.
+El jugador elegido voltea tres cartas seguidas y cada una se resuelve en el momento. Las cartas Congelar y Voltea 3 que salen durante un Voltea 3 se guardan y se resuelven después de terminar las tres, en el orden en que se voltearon, así que cada una puede abrir su propia elección. Segunda oportunidad se resuelve de inmediato: si el jugador que está volteando no tiene una, la aparta y puede usarla para evitar un número repetido posterior dentro del mismo Voltea 3; si ya tiene una, debe entregar la nueva a otro jugador elegible antes de continuar con las cartas restantes. Si el jugador que está volteando se pasa a mitad del proceso, deja de voltear y las cartas Congelar o Voltea 3 guardadas se descartan. Si la baraja se acaba antes de completar las tres, la ronda termina antes de tiempo. Durante un Voltea 3, el jugador que está volteando no puede elegir voltear otra carta ni detenerse.
 
 \*\*Puntuación\*\*
 

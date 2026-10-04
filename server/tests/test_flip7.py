@@ -41,6 +41,7 @@ from ..game_utils.sequence_runner_mixin import (
     SequenceBeat,
     SequenceOperation,
 )
+from ..game_utils.stats_helpers import RATING_COMPETITORS_KEY
 from ..messages.localization import Localization
 from ..ui.keybinds import KeybindState
 from ..users.bot import Bot
@@ -504,6 +505,39 @@ def test_flip7_forced_second_chance_opens_a_choice_when_already_held():
     assert game.pending_choice.actor_id == target.id
     assert game.pending_choice.card is not None
     assert game.pending_choice.card.kind == CARD_SECOND_CHANCE
+
+    recipient = game.players[2]
+    game.before_menu_build(target)
+    game.execute_action(target, f"choose_second_chance_{recipient.id}")
+
+    assert advance_until(
+        game, lambda: game.flip_state is None and game.drawn_card is None
+    )
+    assert recipient.second_chance is True
+    assert sorted(target.numbers) == [3, 4, 7]
+
+
+def test_flip7_forced_extra_second_chance_without_a_target_resumes_flip_three():
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [11, 7, 12])
+    target = game.players[1]
+    for uid, player in enumerate(game.players, start=90):
+        player.cards.append(_card(CARD_SECOND_CHANCE, uid=uid))
+    extra = _card(CARD_SECOND_CHANCE, uid=1)
+    game.deck = [
+        _card(CARD_NUMBER, 4, uid=3),
+        _card(CARD_NUMBER, 3, uid=2),
+        extra,
+    ]
+
+    game._start_flip_three(target)
+
+    assert advance_until(
+        game, lambda: game.flip_state is None and game.drawn_card is None
+    )
+    assert game.pending_choice is None
+    assert extra in game.discard
+    assert sorted(target.numbers) == [3, 4, 7]
 
 
 def test_flip7_bust_discards_only_the_busted_recipients_pending_cards():
@@ -1027,6 +1061,46 @@ def test_flip7_nested_flip_three_resolves_the_inner_choice_before_the_queue():
     assert game.phase == PHASE_PLAYING
 
 
+def test_flip7_nested_flip_three_actions_resolve_before_outer_queue_remainder():
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [11, 4, 12])
+    outer, nested, _third = game.players
+    outer_flip = _card(CARD_FLIP_THREE, uid=1)
+    outer_freeze = _card(CARD_FREEZE, uid=2)
+    nested_freeze = _card(CARD_FREEZE, uid=3)
+    game.pending_actions = [
+        Flip7PendingAction(
+            kind=CARD_FLIP_THREE, owner_id=outer.id, card=outer_flip
+        ),
+        Flip7PendingAction(
+            kind=CARD_FREEZE, owner_id=outer.id, card=outer_freeze
+        ),
+    ]
+    game.deck = [
+        _card(CARD_NUMBER, 6, uid=6),
+        _card(CARD_NUMBER, 5, uid=5),
+        nested_freeze,
+    ]
+
+    game._resolve_pending_flow()
+    assert game.pending_choice is not None
+    assert game.pending_choice.kind == CHOICE_FLIP_THREE
+    assert game._choice_actor() is outer
+
+    game.before_menu_build(outer)
+    game.execute_action(outer, f"choose_flip_three_{nested.id}")
+    assert advance_until(
+        game,
+        lambda: game.flip_state is None and game.pending_choice is not None,
+    )
+
+    # The inner Freeze is offered before the outer Freeze that was suspended
+    # behind the nested Flip Three.
+    assert game.pending_choice.kind == CHOICE_FREEZE
+    assert game._choice_actor() is nested
+    assert [pending.card for pending in game.pending_actions] == [outer_freeze]
+
+
 def test_flip7_freeze_targeting_self_uses_personal_and_third_person_forms():
     game = _make_game(player_count=2, start=False, locales=("en", "vi"))
     _deal_number_cards(game, [3, 4])
@@ -1245,6 +1319,10 @@ def test_flip7_result_binds_winner_and_players_to_immutable_account_ids():
         "flip_sevens": 1,
         "cards_drawn": 9,
     }
+    assert result.custom_data[RATING_COMPETITORS_KEY] == [
+        {"player_ids": [first.id], "rank": 0},
+        {"player_ids": [second.id], "rank": 1},
+    ]
 
 
 def test_flip7_empty_deck_reshuffles_the_discard_pile():

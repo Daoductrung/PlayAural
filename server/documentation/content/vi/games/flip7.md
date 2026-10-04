@@ -32,7 +32,7 @@ Người lật ra lá hành động là người chọn mục tiêu cho lá đó
 
 \*\*Lật 3\*\*
 
-Người chơi bị chọn sẽ lật ba lá liên tiếp, mỗi lá được áp dụng ngay khi lật. Các lá hành động lật trong chuỗi Lật 3 được giữ lại và xử lý sau khi lật đủ ba lá, theo đúng thứ tự đã lật, nên mỗi lá vẫn có thể mở ra lựa chọn riêng. Nếu người đang lật bị cháy bài giữa chừng, họ dừng lật và mọi lá hành động đang giữ đều bị loại bỏ. Nếu bộ bài hết trước khi lật đủ ba lá, vòng kết thúc sớm. Trong chuỗi Lật 3, người đang lật không thể chọn lật thêm hay dừng lại.
+Người chơi bị chọn sẽ lật ba lá liên tiếp, mỗi lá được áp dụng ngay khi lật. Những lá Đóng băng và Lật 3 xuất hiện trong chuỗi Lật 3 được giữ lại và xử lý sau khi lật đủ ba lá, theo đúng thứ tự đã lật, nên mỗi lá vẫn có thể mở ra lựa chọn riêng. Cơ hội thứ hai được xử lý ngay: nếu người đang lật chưa có lá này, họ đặt nó sang một bên và có thể dùng nó để tránh một số bị lặp về sau trong cùng chuỗi Lật 3; nếu đã có một lá, họ phải trao lá mới cho một người chơi hợp lệ khác trước khi tiếp tục lật những lá còn lại. Nếu người đang lật bị cháy bài giữa chừng, họ dừng lật và mọi lá Đóng băng hoặc Lật 3 đang giữ đều bị loại bỏ. Nếu bộ bài hết trước khi lật đủ ba lá, vòng kết thúc sớm. Trong chuỗi Lật 3, người đang lật không thể chọn lật thêm hay dừng lại.
 
 \*\*Tính điểm\*\*
 

@@ -32,7 +32,7 @@ Whoever draws an action card is the one who chooses its target, whether it was d
 
 \*\*Flip Three\*\*
 
-The chosen player flips three cards in a row, resolving each one as it is turned over. Action cards turned during a Flip Three are held and resolved after the three flips finish, in the order they were turned, so they can each open their own choice. If the flipping player busts partway through, they stop flipping and any held action cards are discarded. If the deck runs out before all three flips finish, the round ends early. During a Flip Three the flipping player cannot choose to draw or stop.
+The chosen player flips three cards in a row, resolving each one as it is turned over. Freeze and Flip Three cards turned during a Flip Three are held and resolved after the three flips finish, in the order they were turned, so they can each open their own choice. Second Chance is resolved immediately: if the flipping player does not have one, it is set aside and can protect them from a later duplicate in the same Flip Three; if they already have one, they must give the new card to another eligible player before the remaining flips continue. If the flipping player busts partway through, they stop flipping and any held Freeze or Flip Three cards are discarded. If the deck runs out before all three flips finish, the round ends early. During a Flip Three the flipping player cannot choose to draw or stop.
 
 \*\*Scoring\*\*
 

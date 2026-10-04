@@ -118,7 +118,7 @@ Bài trên tay vẫn hiện khi người khác đang đi lượt. Các dòng bà
 
 Sau khi đánh thành công vào chồng bài xây, tiêu điểm ưu tiên theo nước đánh hợp lệ tiếp theo vào chính chồng đó. Nếu không có, tiêu điểm chuyển tới nước đánh hữu ích hoặc hành động bài trên tay kế tiếp. Các cửa sổ xem chồng bài cũng giữ một dòng ổn định cho từng chồng khi số liệu thay đổi.
 
-Trên máy tính, các lệnh xem chồng bài nằm trong trình đơn hành động và có phím tắt, nhờ đó trình đơn lượt chỉ tập trung vào bài. Thiết bị cảm ứng cũng hiện các lệnh xem hữu ích này ngay trong trình đơn lượt.
+Trên máy tính, các lệnh xem chồng bài nằm trong trình đơn hành động và có phím tắt, nhờ đó trình đơn lượt chỉ tập trung vào bài. Thiết bị cảm ứng cũng hiện các lệnh này trong trình đơn lượt, tiếp theo là Kiểm tra điểm khi phù hợp, Lượt của ai và Ai đang ở trong bàn.
 
 \*\*Hành động thông tin\*\*
 
@@ -133,6 +133,8 @@ Trên máy tính, các lệnh xem chồng bài nằm trong trình đơn hành đ
 \* \*\*Kiểm tra điểm:\*\* Chỉ có trong Trận tính điểm. Bảng điểm ngắn và chi tiết cho biết tiến độ so với mốc thắng.
 
 \* \*\*Kiểm tra lượt hiện tại:\*\* Cho biết người đang đi lượt.
+
+\* \*\*Ai đang ở trong bàn:\*\* Liệt kê người chơi và khán giả hiện có tại bàn.
 
 \*\*Phím tắt bàn phím\*\*
 
@@ -149,6 +151,8 @@ Trên máy tính, các lệnh xem chồng bài nằm trong trình đơn hành đ
 \* \*\*Shift+S:\*\* Mở bảng điểm chi tiết trong Trận tính điểm.
 
 \* \*\*T:\*\* Kiểm tra lượt hiện tại.
+
+\* \*\*Ctrl+U:\*\* Nghe danh sách người hiện có ở bàn.
 
 \* \*\*Escape:\*\* Mở trình đơn hành động.
 

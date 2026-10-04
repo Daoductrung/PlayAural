@@ -12,6 +12,7 @@ from ..games.registry import GameRegistry
 from ..games.skipbo import cards
 from ..games.skipbo.cards import SkipBoCard
 from ..games.skipbo.game import (
+    BOT_ACTION_DELAY_TICKS,
     BUILDING_PILE_COUNT,
     DISCARD_PILE_COUNT,
     HAND_SIZE,
@@ -141,6 +142,19 @@ def count_cards(game: SkipBoGame) -> int:
             *(len(pile) for player in game.players for pile in player.discard_piles),
         ]
     )
+
+
+def run_bot_game(game: SkipBoGame, *, max_ticks: int) -> None:
+    """Advance bot logic without making completion tests depend on UX pacing."""
+
+    for _ in range(max_ticks):
+        if game.status == "finished":
+            return
+        current = game.current_player
+        if isinstance(current, SkipBoPlayer) and current.is_bot:
+            current.bot_think_ticks = 0
+        game.on_tick()
+        game.flush_menus()
 
 
 def sound_names(user: MockUser) -> list[str]:
@@ -636,6 +650,89 @@ def test_partnership_can_use_partner_stock_and_discard_but_not_partner_hand() ->
     assert all(item.card.id != 2102 for item in choices)
 
 
+def test_partnership_turn_menu_identifies_and_plays_each_team_source_once() -> None:
+    game = make_game(4, start=True, team_mode="2v2")
+    partner = game.players[0]
+    player = game.players[2]
+    opponent = game.players[1]
+    set_turn(game, player)
+    player.stock_pile = [card(2110, 0)]
+    player.discard_piles = [[card(2111, 0)], [], [], []]
+    player.hand = [card(2112, 0)]
+    partner.stock_pile = [card(2113, 0)]
+    partner.discard_piles = [[], [], [card(2114, 0)], []]
+    partner.hand = [card(2115, 1)]
+    opponent.stock_pile = [card(2116, 0)]
+    game.building_piles = [[] for _ in range(BUILDING_PILE_COUNT)]
+    game.building_values = [0 for _ in range(BUILDING_PILE_COUNT)]
+    game.refresh_menus()
+    game.flush_menus()
+
+    user = game.get_user(player)
+    assert user is not None
+    card_rows = [
+        item for item in user.menus["turn_menu"]["items"] if item.id.startswith("use_")
+    ]
+    assert [item.id for item in card_rows] == [
+        "use_s_p3_2110",
+        "use_s_p1_2113",
+        "use_d_p3_0_2111",
+        "use_d_p1_2_2114",
+        "use_h_2112",
+    ]
+    assert [game._get_card_action_label(player, item.id) for item in card_rows] == [
+        "Skip-Bo wild — stock",
+        "Skip-Bo wild — Player1's stock",
+        "Skip-Bo wild — discard pile 1",
+        "Skip-Bo wild — Player1's discard pile 3",
+        "Skip-Bo wild — hand",
+    ]
+    assert len({item.id for item in card_rows}) == len(card_rows)
+    assert all("2115" not in item.id and "2116" not in item.id for item in card_rows)
+
+    partner_user = game.get_user(partner)
+    opponent_user = game.get_user(opponent)
+    assert partner_user is not None
+    assert opponent_user is not None
+    for listener in (user, partner_user, opponent_user):
+        listener.clear_messages()
+
+    game.execute_action(player, "use_s_p1_2113")
+    assert game._pending_actions[player.id] == "use_s_p1_2113"
+    assert game._move_options_for_pending_card(player) == [
+        "building_0",
+        "building_1",
+        "building_2",
+        "building_3",
+    ]
+    game.handle_event(
+        player,
+        {
+            "type": "menu",
+            "menu_id": "action_input_menu",
+            "selection_id": "building_2",
+        },
+    )
+
+    assert partner.stock_pile == []
+    assert game.building_piles[2][-1].id == 2113
+    assert game.building_values[2] == 1
+    assert game.status == "playing"
+    assert any(
+        message == "You play Skip-Bo as 1 from Player1's stock pile to building pile 3."
+        for message in user.get_spoken_messages()
+    )
+    assert any(
+        message == "Player3 plays Skip-Bo as 1 from your stock pile to building pile 3."
+        for message in partner_user.get_spoken_messages()
+    )
+    assert any(
+        message
+        == "Player3 plays Skip-Bo as 1 from Player1's stock pile to building pile 3."
+        for message in opponent_user.get_spoken_messages()
+    )
+
+
 def test_partnership_round_ends_only_after_both_stock_piles_are_empty() -> None:
     game = make_game(4, start=True, team_mode="2v2", scoring_mode=SCORING_MATCH)
     player = game.players[0]
@@ -903,7 +1000,9 @@ def test_desktop_inspection_actions_stay_in_the_actions_menu() -> None:
     }
 
     assert inspection_ids.isdisjoint(visible_ids)
+    assert {"whose_turn", "whos_at_table"}.isdisjoint(visible_ids)
     assert inspection_ids <= enabled_ids
+    assert {"whose_turn", "whos_at_table"} <= enabled_ids
     assert all(
         "read_hand" not in binding.actions
         for bindings in game._keybinds.values()
@@ -911,22 +1010,72 @@ def test_desktop_inspection_actions_stay_in_the_actions_menu() -> None:
     )
 
 
-def test_touch_inspection_actions_follow_the_standard_utility_order() -> None:
-    game = make_game(2, start=True, client_type="mobile")
+@pytest.mark.parametrize("client_type", ["mobile", "web"])
+def test_touch_actions_follow_the_standard_utility_order(client_type: str) -> None:
+    game = make_game(2, start=True, client_type=client_type)
     current = game.current_player
     assert isinstance(current, SkipBoPlayer)
     current_ids = [
         resolved.action.id for resolved in game.get_all_visible_actions(current)
     ]
-    ordered_info = [
+    ordered_utilities = [
         "read_building_piles",
         "read_stock_piles",
         "read_own_discard_piles",
         "read_discard_piles",
+        "whose_turn",
+        "whos_at_table",
     ]
     assert [
-        action_id for action_id in current_ids if action_id in ordered_info
-    ] == ordered_info
+        action_id for action_id in current_ids if action_id in ordered_utilities
+    ] == ordered_utilities
+
+
+def test_scored_match_exposes_brief_scores_in_the_touch_utility_order() -> None:
+    game = make_game(
+        2,
+        start=True,
+        client_type="mobile",
+        scoring_mode=SCORING_MATCH,
+    )
+    current = game.current_player
+    assert isinstance(current, SkipBoPlayer)
+    current_ids = [
+        resolved.action.id for resolved in game.get_all_visible_actions(current)
+    ]
+    ordered_utilities = [
+        "read_building_piles",
+        "read_stock_piles",
+        "read_own_discard_piles",
+        "read_discard_piles",
+        "check_scores",
+        "whose_turn",
+        "whos_at_table",
+    ]
+
+    assert [
+        action_id for action_id in current_ids if action_id in ordered_utilities
+    ] == ordered_utilities
+    assert "check_scores_detailed" not in current_ids
+
+
+def test_score_actions_are_disabled_outside_a_scored_match() -> None:
+    single = make_game(2, start=True)
+    single_player = single.current_player
+    assert isinstance(single_player, SkipBoPlayer)
+    single_enabled = {
+        resolved.action.id for resolved in single.get_all_enabled_actions(single_player)
+    }
+    assert "check_scores" not in single_enabled
+    assert "check_scores_detailed" not in single_enabled
+
+    match = make_game(2, start=True, scoring_mode=SCORING_MATCH)
+    match_player = match.current_player
+    assert isinstance(match_player, SkipBoPlayer)
+    match_enabled = {
+        resolved.action.id for resolved in match.get_all_enabled_actions(match_player)
+    }
+    assert {"check_scores", "check_scores_detailed"} <= match_enabled
 
 
 def test_hand_cards_remain_private_and_report_off_turn_activation() -> None:
@@ -1034,6 +1183,8 @@ def test_touch_spectator_can_inspect_any_player_but_no_private_cards() -> None:
         "read_building_piles",
         "read_stock_piles",
         "read_discard_piles",
+        "whose_turn",
+        "whos_at_table",
     } <= visible_ids
     assert "read_own_discard_piles" not in enabled_ids
     assert game._discard_owner_options(spectator) == ["p1", "p2"]
@@ -1153,14 +1304,57 @@ def test_bot_prioritizes_a_playable_stock_card() -> None:
     assert selected.source_kind == "stock"
 
 
+def test_bot_uses_a_deliberate_delay_before_each_visible_play() -> None:
+    game = make_game(2, start=True, bots=True, stock_mode=STOCK_SHORT)
+    player = game.current_player
+    assert isinstance(player, SkipBoPlayer)
+    assert player.bot_think_ticks == BOT_ACTION_DELAY_TICKS
+
+    player.stock_pile = [card(2803, 2)]
+    player.hand = [card(2804, 1), card(2805, 7)]
+    game.building_piles = [[] for _ in range(BUILDING_PILE_COUNT)]
+    game.building_values = [0 for _ in range(BUILDING_PILE_COUNT)]
+    game.refresh_menus()
+    game.flush_menus()
+
+    for _ in range(BOT_ACTION_DELAY_TICKS):
+        game.on_tick()
+    assert player.bot_pending_action is None
+    assert game.building_values == [0 for _ in range(BUILDING_PILE_COUNT)]
+
+    game.on_tick()
+    assert player.bot_pending_action is not None
+
+    game.on_tick()
+
+    assert game.building_values.count(1) == 1
+    assert player.bot_think_ticks == BOT_ACTION_DELAY_TICKS
+
+
+def test_bot_coordinates_discard_card_and_pile_instead_of_only_shedding_high() -> None:
+    game = make_game(2, start=True, bots=True, stock_mode=STOCK_SHORT)
+    player = game.players[0]
+    set_turn(game, player)
+    player.stock_pile = [card(2810, 7)]
+    player.hand = [card(2811, 8), card(2812, 12)]
+    player.discard_piles = [[card(2813, 9)], [], [], []]
+    game.building_piles = [[card(2814 + index, 1)] for index in range(4)]
+    game.building_values = [1 for _ in range(BUILDING_PILE_COUNT)]
+
+    random.seed(7)
+    action_id = game.bot_think(player)
+    assert action_id is not None
+    selected = game._source_for_action(player, action_id)
+    assert selected is not None
+    assert selected.card.id == 2811
+    game._pending_actions[player.id] = action_id
+    assert game._bot_select_card_move(player, []) == "discard_0"
+
+
 def test_two_bot_quick_game_completes_and_conserves_every_card() -> None:
     game = make_game(2, start=True, bots=True, seed=4, stock_mode=STOCK_SHORT)
 
-    for _ in range(2_000):
-        if game.status == "finished":
-            break
-        game.on_tick()
-        game.flush_menus()
+    run_bot_game(game, max_ticks=2_000)
 
     assert game.status == "finished"
     assert count_cards(game) == cards.DECK_SIZE
@@ -1191,11 +1385,7 @@ def test_every_gameplay_option_combination_completes_cleanly(
         random.seed(100 + player_count + index)
         game.on_start()
         game.flush_menus()
-        for _ in range(5_000):
-            if game.status == "finished":
-                break
-            game.on_tick()
-            game.flush_menus()
+        run_bot_game(game, max_ticks=5_000)
 
         assert game.status == "finished", (
             team_mode,

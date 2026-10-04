@@ -314,7 +314,7 @@ loading an asset.
 ### Server Architecture
 - **`server/core/server.py`** — Main orchestrator, auth routing, menus, reconnect, moderation, MOTD, presence
 - **`server/network/websocket_server.py`** — Async WebSocket transport
-- **`server/games/`** — 47 registered game implementations
+- **`server/games/`** — 48 registered game implementations
 - **`server/game_utils/`** — shared game mixins and helpers
 - **`server/tables/`** — table lifecycle, save/restore, membership
 - **`server/auth/`** — authentication, CAPTCHA checks, password reset, rate limiting
@@ -1071,7 +1071,11 @@ and cleanup rules required for genuinely persistent data.
 - PlayAural ships English and Vietnamese, and — unlike upstream PlayPalace,
   where translators own everything but `en` — here the agent authors **both**.
   A new or changed `en` key must land with its `vi` counterpart, kept in
-  structural parity: same keys, same `$variables`, matching plural/select arms.
+  structural parity: same keys, same data-bearing `$variables`, and matching
+  plural/select arms. A locale may omit a variable used only as the first
+  argument to `GENDER_TERM(...)` when its natural sentence does not need
+  gender; if the selector is used, its name must match the source key. Never
+  omit names, counts, scores, formatted values, or other player/game data.
 - Agent-authored Vietnamese is provisional: write it and keep parity, but flag
   it for native review rather than treating it as final.
 - Prefer writing the `en` strings before the game/feature code — it forces the
@@ -1278,11 +1282,11 @@ Mobile rules:
   language names; metadata complements it and does not replace it.
 
 ### Game Counts and Catalog
-The server currently registers **47 games**:
+The server currently registers **48 games**:
 - category ids are `cards`, `dice`, `board`, `poker`, `arcade`, and `misc`
 - the Play menu exposes a persisted category filter with dynamic per-category game counts
 - games usually expose one category through `get_category()`, while `get_categories()` supports future multi-category games
-- recent additions include `Bingo`, `Metal Pipe`, `Nine`, `Senet`, `Cards Against Humanity`, `21`, `Age of Heroes`, `UNO`, `Exploding Kittens`, `BANG! The Bullet`, and `Monopoly`
+- recent additions include `Skip-Bo`, `Bingo`, `Metal Pipe`, `Nine`, `Senet`, `Cards Against Humanity`, `21`, `Age of Heroes`, `UNO`, `Exploding Kittens`, `BANG! The Bullet`, and `Monopoly`
 
 ### Key Tech Stack
 - Python 3.11, `asyncio`, `websockets>=12.0`, `mashumaro`, `fluent-runtime`, `openskill`, `argon2-cffi`

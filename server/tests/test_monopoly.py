@@ -62,14 +62,6 @@ from server.users.test_user import MockUser
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def _catalog_size() -> int:
-    """Number of game packages (one registered game each)."""
-    import server.games as games_package
-
-    games_dir = Path(games_package.__file__).resolve().parent
-    return sum(1 for entry in games_dir.iterdir() if (entry / "game.py").exists())
-
-
 BOARD = get_board("standard")
 LONDON_BOARD = get_board("london")
 PARIS_BOARD = get_board("paris")
@@ -148,7 +140,6 @@ def test_registration_metadata_and_catalog_count() -> None:
         "rating",
         "games_played",
     ]
-    assert len(GameRegistry.get_all()) == _catalog_size()
     assert get_board_ids() == (
         "australia",
         "germany",

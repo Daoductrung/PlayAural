@@ -4,7 +4,7 @@ game-name-flip7 = Flip 7
 flip7-set-target-score = Điểm mục tiêu: { $score }
 flip7-enter-target-score = Nhập điểm mục tiêu
 flip7-option-changed-target = Đã đặt điểm mục tiêu là { $score }.
-flip7-desc-target-score = Số điểm cần đạt để thắng ở lượt. Mặc định: 200, phạm vi 50–1000.
+flip7-desc-target-score = Số điểm cần đạt để thắng trận. Mặc định: 200, phạm vi 50–1000.
 
 # Các lá bài
 flip7-card-number = { $value }
@@ -79,8 +79,8 @@ flip7-you-label = Bạn
 flip7-area-status-stayed = , đã dừng trong vòng này
 flip7-area-status-busted = , đã cháy bài trong vòng này
 flip7-area-numbers-none = Chưa có lá số nào
-flip7-area-inline = { $who }{ $status }: { $numbers }. Tổng { $points } điểm.{ $bonus }
-flip7-area-bonus-suffix = Phần thưởng: { $bonuses }.
+flip7-area-inline = { $who }{ $status }: { $numbers }. Tổng { $points } điểm.
+flip7-area-inline-with-bonuses = { $who }{ $status }: { $numbers }. Tổng { $points } điểm. Phần thưởng: { $bonuses }.
 flip7-check-round = Vòng { $round }. Điểm mục tiêu { $target }.
 flip7-status-playing = vẫn đang chơi
 flip7-status-stayed = đã dừng

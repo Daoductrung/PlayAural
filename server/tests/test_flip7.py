@@ -20,6 +20,7 @@ from ..games.flip7.game import (
     MAX_NUMBER,
     MODIFIER_VALUES,
     OUTCOME_CHOICE,
+    OUTCOME_OK,
     OUTCOME_PENDING,
     PHASE_MATCH_END,
     PHASE_PLAYING,
@@ -33,7 +34,9 @@ from ..games.flip7.game import (
     Flip7Options,
     Flip7PendingAction,
 )
+from ..games.flip7 import audio
 from ..games.registry import GameRegistry
+from ..game_utils.audio_duration import measure_audio_duration_ticks
 from ..game_utils.sequence_runner_mixin import (
     SequenceBeat,
     SequenceOperation,
@@ -131,14 +134,14 @@ def _take_from_deck(game, kind, value=None):
     return card
 
 
-def _effect_payload(player, card, uid):
+def _effect_payload(player, card, uid, outcome=OUTCOME_PENDING):
     return {
         "target_id": player.id,
         "kind": card.kind,
         "value": card.value,
         "uid": uid,
         "forced": True,
-        "outcome": OUTCOME_PENDING,
+        "outcome": outcome,
         "pending_owner": player.id,
     }
 
@@ -165,7 +168,7 @@ def test_flip7_registration_metadata_and_leaderboards():
     assert game.get_name() == "Flip 7"
     assert game.get_type() == "flip7"
     assert game.get_category() == "cards"
-    assert (game.get_min_players(), game.get_max_players()) == (2, 10)
+    assert (game.get_min_players(), game.get_max_players()) == (3, 10)
     assert game.get_supported_leaderboards() == [
         "wins",
         "total_score",
@@ -437,27 +440,139 @@ def test_flip7_flip_three_forced_draws_apply_cards():
     assert target.round_status == STATUS_PLAYING
 
 
-def test_flip7_forced_action_cards_are_queued_for_the_recipient():
+def test_flip7_forced_action_cards_defer_only_flip_three_and_freeze():
     game = _make_game(player_count=3)
     target = game.players[1]
     freeze = _card(CARD_FREEZE, uid=1)
+    flip_three = _card(CARD_FLIP_THREE, uid=3)
     chance = _card(CARD_SECOND_CHANCE, uid=2)
 
-    # Forced action cards are deferrable, not instantly answered.
+    # Only Flip Three and Freeze wait for the three forced flips to finish.
     assert game._get_card_outcome(target, freeze, forced=True) == OUTCOME_PENDING
-    assert game._get_card_outcome(target, chance, forced=True) == OUTCOME_PENDING
+    assert game._get_card_outcome(target, flip_three, forced=True) == OUTCOME_PENDING
+    # A Second Chance is never deferred, so it can still spend itself on a
+    # duplicate later in the very same Flip Three.
+    assert game._get_card_outcome(target, chance, forced=True) == OUTCOME_OK
 
     game.drawn_card = freeze
     game._apply_card_effect(_effect_payload(target, freeze, uid=1))
     game.drawn_card = chance
-    game._apply_card_effect(_effect_payload(target, chance, uid=2))
+    game._apply_card_effect(_effect_payload(target, chance, uid=2, outcome=OUTCOME_OK))
 
-    assert [p.kind for p in game.pending_actions] == [
-        CARD_FREEZE,
-        CARD_SECOND_CHANCE,
-    ]
+    assert [p.kind for p in game.pending_actions] == [CARD_FREEZE]
     assert all(p.owner_id == target.id for p in game.pending_actions)
+    assert chance in target.cards
     assert game.pending_choice is None
+
+
+def test_flip7_forced_second_chance_saves_a_duplicate_in_the_same_flip_three():
+    # Publisher rule: holding a 7, a Flip Three revealing Second Chance, 7, 8
+    # sets the Second Chance aside, spends it on the duplicate 7, then reveals 8.
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [11, 7, 12])
+    target = game.players[1]
+    game.deck = [
+        _card(CARD_NUMBER, 8, uid=3),
+        _card(CARD_NUMBER, 7, uid=2),
+        _card(CARD_SECOND_CHANCE, uid=1),
+    ]
+    game._start_flip_three(target)
+    assert advance_until(game, lambda: game.flip_state is None)
+
+    assert target.round_status == STATUS_PLAYING
+    assert sorted(c.value for c in target.cards) == [7, 8]
+    assert not any(c.kind == CARD_SECOND_CHANCE for c in target.cards)
+    assert sorted(c.value for c in game.discard if c.kind == CARD_NUMBER) == [7]
+    assert game.pending_actions == []
+
+
+def test_flip7_forced_second_chance_opens_a_choice_when_already_held():
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [11, 7, 12])
+    target = game.players[1]
+    target.cards.append(_card(CARD_SECOND_CHANCE, uid=90))
+    game.deck = [
+        _card(CARD_NUMBER, 4, uid=3),
+        _card(CARD_NUMBER, 3, uid=2),
+        _card(CARD_SECOND_CHANCE, uid=1),
+    ]
+    game._start_flip_three(target)
+    assert advance_until(game, lambda: game.pending_choice is not None)
+
+    assert game.pending_choice is not None
+    assert game.pending_choice.kind == CHOICE_SECOND_CHANCE
+    assert game.pending_choice.actor_id == target.id
+    assert game.pending_choice.card is not None
+    assert game.pending_choice.card.kind == CARD_SECOND_CHANCE
+
+
+def test_flip7_bust_discards_only_the_busted_recipients_pending_cards():
+    # An outer Freeze stays queued when a nested Flip Three recipient busts.
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [11, 4, 12])
+    outer, nested, _third = game.players
+    outer_freeze = _card(CARD_FREEZE, uid=1)
+    game.pending_actions = [
+        Flip7PendingAction(kind=CARD_FREEZE, owner_id=outer.id, card=outer_freeze),
+        Flip7PendingAction(
+            kind=CARD_FLIP_THREE,
+            owner_id=nested.id,
+            card=_card(CARD_FLIP_THREE, uid=2),
+        ),
+    ]
+
+    game._flip_bust_abort(nested.id)
+
+    # The outer Freeze survives and is now offered, not thrown away.
+    assert outer_freeze not in game.discard
+    assert all(p.card is not outer_freeze for p in game.pending_actions)
+    assert game.pending_choice is not None
+    assert game.pending_choice.kind == CHOICE_FREEZE
+    assert game.pending_choice.actor_id == outer.id
+    assert _card(CARD_FLIP_THREE, uid=2) in game.discard
+
+
+def test_flip7_frozen_owner_still_resolves_its_queued_action_cards():
+    # Being frozen is not busting: revealed Flip Three/Freeze cards resolve.
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [11, 4, 12])
+    owner, target, _third = game.players
+    owner.round_status = STATUS_STAYED
+    frozen = _card(CARD_FREEZE, uid=1)
+    game.pending_actions = [
+        Flip7PendingAction(kind=CARD_FREEZE, owner_id=owner.id, card=frozen)
+    ]
+
+    game._resolve_pending_flow()
+
+    # The frozen owner is offered the choice instead of losing the card.
+    assert game.pending_actions == []
+    assert frozen not in game.discard
+    assert game.pending_choice is not None
+    assert game.pending_choice.kind == CHOICE_FREEZE
+    assert game.pending_choice.actor_id == owner.id
+
+
+def test_flip7_missing_owner_recovery_keeps_other_owners_cards():
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [11, 4, 12])
+    _first, gone, survivor = game.players
+    lost = _card(CARD_FLIP_THREE, uid=1)
+    kept = _card(CARD_FREEZE, uid=2)
+    game.pending_actions = [
+        Flip7PendingAction(kind=CARD_FLIP_THREE, owner_id=gone.id, card=lost),
+        Flip7PendingAction(kind=CARD_FREEZE, owner_id=survivor.id, card=kept),
+    ]
+    game.remove_player(gone.id)
+
+    game._resolve_pending_flow()
+
+    # The survivor's Freeze is resolved, not destroyed by the missing owner.
+    assert lost in game.discard
+    assert kept not in game.discard
+    assert all(p.card is not kept for p in game.pending_actions)
+    assert game.pending_choice is not None
+    assert game.pending_choice.actor_id == survivor.id
 
 
 def test_flip7_flip_three_forced_bust_aborts_the_flow():
@@ -561,9 +676,50 @@ def test_flip7_match_reaches_end_phase_when_target_is_met():
 
     game._end_round()
 
+    # The end screen waits until the round-end and win cues have finished.
     assert game.phase == PHASE_MATCH_END
-    assert game.status == "finished"
+    assert game.status != "finished"
+    assert advance_until(game, lambda: game.status == "finished")
     assert first.total_score == 203
+
+
+def test_flip7_round_end_cue_completes_before_the_first_card_is_dealt():
+    game = _make_game(player_count=3, start=False)
+    game.deck = [
+        _card(CARD_NUMBER, 3, uid=31),
+        _card(CARD_NUMBER, 4, uid=32),
+        _card(CARD_NUMBER, 5, uid=33),
+    ]
+    game.on_start()
+    game.flush_menus()
+    # Nothing may be dealt while the round-start cue is still audible.
+    assert game.drawn_card is None
+    assert all(not player.cards for player in game._active())
+    assert advance_until(game, lambda: game.deal_index > 0)
+    assert game.drawn_card is not None
+
+
+def test_flip7_match_win_cue_precedes_the_end_screen():
+    game = _make_game(player_count=2, start=False)
+    _deal_number_cards(game, [11, 12])
+    winner = game.players[0]
+    winner.total_score = 198
+    winner.round_status = STATUS_STAYED
+    game.players[1].round_status = STATUS_BUSTED
+
+    game._end_round()
+
+    assert game.status != "finished"
+    # The winner is announced before the game is finished, not after.
+    while game.status != "finished":
+        game.on_tick()
+        game.flush_menus()
+    said = [
+        message
+        for message in game.get_user(winner).messages
+        if message.type == "speak"
+    ]
+    assert said
 
 
 # ---------------------------------------------------------------------------
@@ -663,6 +819,45 @@ def test_flip7_keybind_c_speaks_the_area_even_though_standalone():
         if message.type == "speak" and message.data.get("buffer") == "game"
     ]
     assert any("Total" in text for text in spoken)
+
+
+def test_flip7_modifier_reveals_use_the_exact_value_cue():
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [3, 4, 5])
+    for value in (2, 4, 6, 8, 10):
+        card = _card(CARD_MODIFIER, value, uid=value)
+        assert game._card_reveal_sound(card, forced=False) == (
+            f"game_flip7/modifier_plus_{value}.ogg"
+        )
+
+
+def test_flip7_forced_action_reveals_keep_their_own_cue():
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [3, 4, 5])
+    expected = {
+        CARD_FREEZE: "game_flip7/freeze.ogg",
+        CARD_FLIP_THREE: "game_flip7/flip_three.ogg",
+        CARD_SECOND_CHANCE: "game_flip7/second_chance.ogg",
+    }
+    for kind, cue in expected.items():
+        card = _card(kind, uid=1)
+        assert game._card_reveal_sound(card, forced=True) == cue
+        assert game._card_reveal_sound(card, forced=False) == cue
+
+
+def test_flip7_audio_fallback_metadata_matches_every_shipped_asset():
+    # Server-only deployments cannot measure assets, so the fallback table must
+    # equal the real durations of the exact files that ship with each client.
+    repository_root = ROOT
+    for key, declared in audio.AUDIO_DURATIONS_TICKS.items():
+        if not key.startswith("game_flip7/") or not key.endswith(".ogg"):
+            continue
+        measured = measure_audio_duration_ticks(
+            repository_root / "client" / "sounds" / key,
+            ticks_per_second=audio.TICKS_PER_SECOND,
+        )
+        assert measured is not None, key
+        assert declared == measured, f"{key}: table={declared} asset={measured}"
 
 
 def test_flip7_deal_reveals_announce_cards_and_schedule_sound():
@@ -969,6 +1164,41 @@ def test_flip7_pending_choice_keeps_unrelated_players_turn_rows_stable():
     assert actor_items[0].startswith("choose_freeze_")
 
 
+def test_flip7_pending_choice_repeated_builds_preserve_set_order_and_focus():
+    # before_menu_build() must be idempotent while another player chooses.
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [3, 4, 5])
+    actor, observer, third = game.players
+    observer_user = game.get_user(observer)
+    game.flush_menus()
+
+    _resolve(game, actor, _card(CARD_FREEZE, uid=1))
+
+    def snapshot(user):
+        return [
+            item.id for item in user.menus["turn_menu"]["items"]
+        ]
+
+    first = snapshot(observer_user)
+    assert first[:2] == ["hit", "stay"]
+    # The retained rows must be reported, or the set is torn down every build.
+    assert game._desired_turn_action_ids(observer) == ["hit", "stay"]
+
+    for _ in range(5):
+        game.before_menu_build(observer)
+        game.flush_menus()
+        assert snapshot(observer_user) == first
+
+    turn_updates = [
+        message
+        for message in observer_user.messages
+        if message.type in {"show_menu", "update_menu"}
+        and message.data.get("menu_id") == "turn_menu"
+    ]
+    # A same-menu repaint without a focus directive must not move focus.
+    assert turn_updates[-1].data.get("selection_id") is None
+
+
 def test_flip7_spectators_read_public_information_but_not_private_areas():
     game = _make_game(player_count=3, start=False)
     _deal_number_cards(game, [3, 4, 5])
@@ -1043,10 +1273,8 @@ def test_flip7_freeze_target_label_formats_target_name_in_portuguese():
     actor = game.players[0]
     target = game.players[1]
     _resolve(game, actor, _card(CARD_FREEZE, uid=1))
-    
+
     label = Localization.get("pt", "flip7-target-freeze", target=target.name, points=game.round_points(target))
     assert target.name in label
     assert "Faça target" not in label
     assert f"Faça {target.name} congelar (5 pontos)" in label
-
-

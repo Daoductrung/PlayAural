@@ -1,6 +1,6 @@
 \*\*Flip 7\*\*
 
-Flip 7 is a push-your-luck card game for 2 to 10 players. Each round, every player still in the game collects number cards and decides whether to draw again or stop and bank their points. After a completed round, the unique highest match total at or above the target score wins the match.
+Flip 7 is a push-your-luck card game for 3 to 10 players. Each round, every player still in the game collects number cards and decides whether to draw again or stop and bank their points. After a completed round, the unique highest match total at or above the target score wins the match.
 
 \*\*Goal\*\*
 
@@ -42,7 +42,7 @@ If you collect seven different number cards, you score the Flip 7 bonus of 15 po
 
 Busted players score 0 for the round. Players who stopped or survived until the round ends bank their current round total.
 
-After each completed round, if exactly one player has a match total at or above the target score, that player wins the match. If two or more players are tied at the top with that total, nobody wins yet and the match continues with another round.
+After each completed round, the player with the highest match total is the leader. If that highest total reaches or passes the target score and only one player holds it, that player wins the match. If the highest total is tied between players, nobody wins yet and the match continues with another round. For example, with a target of 200 and totals of 210 and 205, the player on 210 wins as the sole leader.
 
 \*\*Options\*\*
 

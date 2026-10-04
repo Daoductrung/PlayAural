@@ -8,6 +8,7 @@ import pytest
 from ..games.flip7.game import (
     Flip7Game, Flip7PendingAction, CARD_NUMBER, CARD_MODIFIER, CARD_DOUBLE,
     CARD_SECOND_CHANCE, CARD_FREEZE, CARD_FLIP_THREE, CONTINUE_FLOW,
+    CHOICE_SECOND_CHANCE,
     PHASE_PLAYING, STATUS_BUSTED, STATUS_STAYED, TAG_FLOW,
 )
 from ..users.test_user import MockUser
@@ -211,7 +212,7 @@ def test_missing_recipient_does_not_lose_revealed_card():
     conserved(game, restore=True)
 
 
-@pytest.mark.parametrize("kind", [CARD_FREEZE, CARD_FLIP_THREE, CARD_SECOND_CHANCE])
+@pytest.mark.parametrize("kind", [CARD_FREEZE, CARD_FLIP_THREE])
 def test_forced_pending_cards_survive_save_and_early_abort(kind):
     game = make_game()
     card = take(game, kind)
@@ -220,6 +221,31 @@ def test_forced_pending_cards_survive_save_and_early_abort(kind):
     game = conserved(game, restore=True)
     game._flip_bust_abort("p0")
     assert card in game.discard
+    conserved(game, restore=True)
+
+
+def test_forced_second_chance_is_assigned_and_survives_save_restore():
+    # A Second Chance revealed during Flip Three is never deferred, so it must
+    # reach its owner's hand instead of the pending queue.
+    game = make_game()
+    player = game.players[0]
+    card = take(game, CARD_SECOND_CHANCE)
+    reveal(game, player, card, forced=True)
+    assert game.pending_actions == []
+    assert card in player.cards
+    conserved(game, restore=True)
+
+
+def test_forced_second_chance_with_existing_chance_opens_a_choice_and_is_conserved():
+    game = make_game()
+    player = game.players[0]
+    player.cards.append(take(game, CARD_SECOND_CHANCE))
+    card = take(game, CARD_SECOND_CHANCE)
+    reveal(game, player, card, forced=True)
+    assert game.pending_actions == []
+    assert game.pending_choice is not None
+    assert game.pending_choice.kind == CHOICE_SECOND_CHANCE
+    assert game.pending_choice.card is card
     conserved(game, restore=True)
 
 
@@ -284,12 +310,10 @@ def test_many_rounds_recycle_original_cards_without_new_identities():
         assert all(c is original[c.uid] for c in game._physical_cards())
 
 
-@pytest.mark.parametrize("damage", ["legacy", "missing", "duplicate"])
+@pytest.mark.parametrize("damage", ["missing", "duplicate"])
 def test_unsafe_save_is_rejected_without_guessing_cards(damage):
     data = json.loads(make_game().to_json())
-    if damage == "legacy":
-        data.pop("card_state_version")
-    elif damage == "missing":
+    if damage == "missing":
         data["deck"].pop()
     else:
         data["deck"][0] = data["deck"][1]

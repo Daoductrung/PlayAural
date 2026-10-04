@@ -9,9 +9,12 @@ Provides a structured way to capture game results, enabling:
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mashumaro.mixins.json import DataClassJSONMixin
+
+if TYPE_CHECKING:
+    from .player import Player
 
 
 @dataclass
@@ -26,6 +29,19 @@ class PlayerResult(DataClassJSONMixin):
     player_id: str
     player_name: str
     is_bot: bool
+
+    @classmethod
+    def from_player(cls, player: "Player") -> "PlayerResult":
+        """Build one result row from a game seat.
+
+        A seat whose human disconnected and was replaced by a bot still belongs
+        to the original account, so it is never recorded as a bot result.
+        """
+        return cls(
+            player_id=player.id,
+            player_name=player.name,
+            is_bot=player.is_bot and not player.replaced_human,
+        )
 
 
 @dataclass

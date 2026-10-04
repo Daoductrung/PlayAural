@@ -1,6 +1,6 @@
 \*\*Flip 7\*\*
 
-Flip 7 é um jogo de cartas de arriscar a sorte para 2 a 10 jogadores. Em cada rodada, cada jogador que ainda está na rodada junta cartas de número e decide se vira mais uma carta ou se para para garantir os pontos. Depois de uma rodada completa, o único jogador com a maior pontuação que alcançar ou ultrapassar a pontuação-alvo vence a partida.
+Flip 7 é um jogo de cartas de arriscar a sorte para 3 a 10 jogadores. Em cada rodada, cada jogador que ainda está na rodada junta cartas de número e decide se vira mais uma carta ou se para para garantir os pontos. Depois de uma rodada completa, o único jogador com a maior pontuação que alcançar ou ultrapassar a pontuação-alvo vence a partida.
 
 \*\*Objetivo\*\*
 
@@ -42,7 +42,7 @@ Se você juntar sete números diferentes, completa o Flip 7, ganha o bônus de 1
 
 Jogadores que estouram marcam 0 naquela rodada. Jogadores que pararam ou sobreviveram até o fim da rodada garantem o total atual.
 
-Depois de cada rodada completa, se exatamente um jogador tem uma pontuação acumulada igual ou acima da pontuação-alvo, esse jogador vence a partida. Se dois ou mais jogadores ficam empatados na liderança com essa pontuação, ainda não há vencedor e a partida continua com outra rodada.
+Depois de cada rodada completa, o jogador com a maior pontuação acumulada é o líder. Se essa maior pontuação alcançar ou passar a pontuação-alvo e apenas um jogador a tiver, esse jogador vence a partida. Se a maior pontuação estiver empatada entre jogadores, ainda não há vencedor e a partida continua com outra rodada. Por exemplo, com um alvo de 200 e pontuações de 210 e 205, vence o jogador com 210 por ser o único líder.
 
 \*\*Opções\*\*
 
@@ -52,7 +52,7 @@ Depois de cada rodada completa, se exatamente um jogador tem uma pontuação acu
 
 * \*\*Verificar minha área:\*\* Fala suas cartas atuais, bônus e total da rodada.
 * \*\*Verificar a mesa:\*\* Fala a rodada, a pontuação-alvo e o estado e total de cada jogador.
-\* \*\*Verificar o baralho:\*\* Fala quantas cartas há no baralho e no descarte.
+* \*\*Verificar o baralho:\*\* Fala quantas cartas há no baralho e no descarte.
 * \*\*Verificar pontuações:\*\* Fala as pontuações acumuladas da partida.
 
 \*\*Atalhos de teclado\*\*

@@ -52,6 +52,7 @@ from .constants import (
     PHASE_PLAYING,
     PHASE_ROUND_END,
     SEQUENCE_CARD_FLOW_PREFIX,
+    SEQUENCE_MATCH_END_PREFIX,
     SEQUENCE_ROUND_START_PREFIX,
     STATUS_BUSTED,
     STATUS_PLAYING,
@@ -175,8 +176,6 @@ class Flip7Game(Game):
     replays the exact same outcome after reconnecting.
     """
 
-    relevant_preferences = ["brief_announcements"]
-
     players: list[Flip7Player] = field(default_factory=list)
     options: Flip7Options = field(default_factory=Flip7Options)
 
@@ -184,7 +183,6 @@ class Flip7Game(Game):
     dealer_index: int = -1
     deck: list[Flip7Card] = field(default_factory=list)
     discard: list[Flip7Card] = field(default_factory=list)
-    card_state_version: int = 2
     phase: str = PHASE_PLAYING
     deal_order: list[str] = field(default_factory=list)
     deal_index: int = 0
@@ -192,14 +190,6 @@ class Flip7Game(Game):
     pending_actions: list[Flip7PendingAction] = field(default_factory=list)
     flip_state: Flip7FlipState | None = None
     drawn_card: Flip7Card | None = None
-
-    @classmethod
-    def __pre_deserialize__(cls, data: dict) -> dict:
-        # Older saves discarded card identities and cannot be repaired without
-        # guessing which physical cards were lost. Leave the save untouched.
-        if data.get("round", 0) and data.get("card_state_version") != 2:
-            raise ValueError("Legacy Flip 7 card state cannot be restored safely")
-        return data
 
     @classmethod
     def __post_deserialize__(cls, self):
@@ -229,7 +219,9 @@ class Flip7Game(Game):
 
     @classmethod
     def get_min_players(cls) -> int:
-        return 2
+        # The published game is a 3+ player race. The official two-player
+        # variant is a different challenge and is not implemented here.
+        return 3
 
     @classmethod
     def get_max_players(cls) -> int:
@@ -527,6 +519,12 @@ class Flip7Game(Game):
         if callback_id == FLIP_BUST_ABORT:
             self._flip_bust_abort(str(payload.get("target_id", "")))
             return
+        if callback_id == "match_win":
+            self._announce_match_win(payload)
+            return
+        if callback_id == "finish_match":
+            self.finish_game()
+            return
 
     # ------------------------------------------------------------------
     # Card reveal flow
@@ -547,18 +545,24 @@ class Flip7Game(Game):
             self.play_sound_family(sound)
 
     def _card_reveal_sound(self, card: Flip7Card, *, forced: bool) -> str:
+        # Each action card keeps its own cue even while a Flip Three is forcing
+        # it, so a deferred card is still announced as itself.
         if card.kind == CARD_NUMBER:
             return audio.SOUND_CARD_NUMBER_FAMILY
         if card.kind == CARD_MODIFIER:
-            return audio.SOUND_MODIFIER_FAMILY
+            # Pick the exact +N asset: a family would let clients pick a
+            # semantically different modifier.
+            return audio.SOUND_MODIFIER_BY_VALUE.get(
+                card.value, audio.SOUND_MODIFIER_BY_VALUE[2]
+            )
         if card.kind == CARD_DOUBLE:
             return audio.SOUND_DOUBLE
+        if card.kind == CARD_SECOND_CHANCE:
+            return audio.SOUND_SECOND_CHANCE
         if card.kind == CARD_FREEZE:
             return audio.SOUND_FREEZE
-        if card.kind == CARD_FLIP_THREE and not forced:
+        if card.kind == CARD_FLIP_THREE:
             return audio.SOUND_FLIP_THREE
-        if card.kind == CARD_SECOND_CHANCE and not forced:
-            return audio.SOUND_SECOND_CHANCE
         return audio.SOUND_CARD_NUMBER_FAMILY
 
     def _reveal_wait_beat(
@@ -770,8 +774,10 @@ class Flip7Game(Game):
         if card.kind == CARD_DOUBLE:
             return OUTCOME_OK
         if card.kind == CARD_SECOND_CHANCE:
-            if forced:
-                return OUTCOME_PENDING
+            # Second Chance is never deferred, not even while a Flip Three is
+            # still revealing: the official rule lets it be set aside and spend
+            # itself on a duplicate later in that same Flip Three. Only Flip
+            # Three and Freeze wait for the three flips to finish.
             if not player.second_chance:
                 return OUTCOME_OK
             return OUTCOME_CHOICE
@@ -946,12 +952,25 @@ class Flip7Game(Game):
             player, "flip7-flip-seven-you", "flip7-flip-seven", buffer="game"
         )
 
+    def _discard_pending_actions_for(self, owner_id: str) -> list[Flip7PendingAction]:
+        """Drop and discard only the queued action cards one owner revealed."""
+        kept: list[Flip7PendingAction] = []
+        dropped: list[Flip7PendingAction] = []
+        for pending in self.pending_actions:
+            if pending.owner_id == owner_id:
+                dropped.append(pending)
+            else:
+                kept.append(pending)
+        for pending in dropped:
+            self.discard.append(pending.card)
+        self.pending_actions = kept
+        return dropped
+
     def _flip_bust_abort(self, target_id: str) -> None:
         self.flip_state = None
-        if self.pending_actions:
-            for pending in self.pending_actions:
-                self.discard.append(pending.card)
-            self.pending_actions = []
+        # A bust only voids the action cards that busted recipient revealed.
+        # An outer player's queued Freeze stays queued and resolvable.
+        if self._discard_pending_actions_for(target_id):
             player = self.get_player_by_id(target_id)
             if isinstance(player, Flip7Player):
                 self.broadcast_personal_l(
@@ -1119,21 +1138,18 @@ class Flip7Game(Game):
         while self.pending_actions:
             pending = self.pending_actions[0]
             owner = self.get_player_by_id(pending.owner_id)
-            if owner is None:
-                for leftover in self.pending_actions:
-                    self.discard.append(leftover.card)
-                self.pending_actions = []
-                self._continue_flow()
-                return
-            if owner.round_status != STATUS_PLAYING:
-                self.pending_actions.pop(0)
-                self.discard.append(pending.card)
-                self.broadcast_personal_l(
-                    owner,
-                    "flip7-you-pending-discarded",
-                    "flip7-player-pending-discarded",
-                    buffer="game",
-                )
+            # A missing or busted owner voids only that owner's queued cards.
+            # A frozen/stopped owner is not busting: the official Flip Three
+            # rule still resolves the Flip Three/Freeze cards it revealed.
+            if owner is None or owner.round_status == STATUS_BUSTED:
+                dropped = self._discard_pending_actions_for(pending.owner_id)
+                if owner is not None and dropped:
+                    self.broadcast_personal_l(
+                        owner,
+                        "flip7-you-pending-discarded",
+                        "flip7-player-pending-discarded",
+                        buffer="game",
+                    )
                 continue
             self.pending_actions.pop(0)
             result = self._open_choice(pending.kind, owner, card=pending.card)
@@ -1234,10 +1250,10 @@ class Flip7Game(Game):
         self.start_sequence(
             self._flow_id(SEQUENCE_ROUND_START_PREFIX, dealer, suffix="deal"),
             [
-                SequenceBeat.after_audio(
-                    audio.sound_ticks(audio.SOUND_ROUND_START),
-                    ops=[SequenceOperation.callback_op("deal_step")],
-                )
+                # Sequence ops run at the START of a beat, so the cue needs its
+                # own beat before the first card may be dealt.
+                SequenceBeat.after_audio(audio.sound_ticks(audio.SOUND_ROUND_START)),
+                SequenceBeat(ops=[SequenceOperation.callback_op("deal_step")]),
             ],
             tag=TAG_FLOW,
             lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
@@ -1388,13 +1404,38 @@ class Flip7Game(Game):
         if leader is not None:
             self.phase = PHASE_MATCH_END
             winner, _ = leader
-            self.play_sound(audio.SOUND_MATCH_WIN)
-            self.broadcast_personal_l(
-                winner, "flip7-match-win-you", "flip7-match-win", buffer="game"
+            # Let the round-end cue, then the win cue and its announcement,
+            # finish before the end screen replaces them.
+            self.start_sequence(
+                self._flow_id(SEQUENCE_MATCH_END_PREFIX, winner, suffix="win"),
+                [
+                    SequenceBeat.after_audio(audio.sound_ticks(audio.SOUND_ROUND_END)),
+                    SequenceBeat(
+                        ops=[
+                            SequenceOperation.sound_op(audio.SOUND_MATCH_WIN),
+                            SequenceOperation.callback_op(
+                                "match_win",
+                                {"winner_id": winner.id},
+                            ),
+                        ]
+                    ),
+                    SequenceBeat.after_audio(audio.sound_ticks(audio.SOUND_MATCH_WIN)),
+                    SequenceBeat(ops=[SequenceOperation.callback_op("finish_match")]),
+                ],
+                tag=TAG_FLOW,
+                lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
+                pause_bots=True,
             )
-            self.finish_game()
             return
         self._schedule_start_round()
+
+    def _announce_match_win(self, payload: dict) -> None:
+        winner = self.get_player_by_id(str(payload.get("winner_id", "")))
+        if not isinstance(winner, Flip7Player):
+            return
+        self.broadcast_personal_l(
+            winner, "flip7-match-win-you", "flip7-match-win", buffer="game"
+        )
 
     def _match_leader(self) -> tuple[Flip7Player, int] | None:
         """Return the sole leader once the target is reached, else ``None``."""
@@ -1418,7 +1459,10 @@ class Flip7Game(Game):
         choice = self.pending_choice
         if choice is not None:
             if self._choice_actor() is not player:
-                return []
+                # Non-actors keep their stable disabled hit/stay rows, exactly
+                # as create_turn_action_set builds them. Reporting [] here would
+                # make every before_menu_build() destroy and rebuild the set.
+                return ["hit", "stay"]
             return [
                 f"choose_{choice.kind}_{target.id}"
                 for target in self._choice_targets()
@@ -1764,13 +1808,20 @@ class Flip7Game(Game):
             bonuses.append(Localization.get(locale, "flip7-card-double"))
         if player.second_chance:
             bonuses.append(Localization.get(locale, "flip7-card-second-chance"))
-        bonus_text = ""
         if bonuses:
-            bonus_text = " " + Localization.get(
-                locale,
-                "flip7-area-bonus-suffix",
-                bonuses=self._read_list(locale, bonuses),
-            )
+            # Each locale owns the whole sentence, including the spacing and
+            # punctuation that introduce the bonus clause.
+            return [
+                Localization.get(
+                    locale,
+                    "flip7-area-inline-with-bonuses",
+                    who=who,
+                    status=status,
+                    numbers=numbers,
+                    points=self.round_points(player),
+                    bonuses=self._read_list(locale, bonuses),
+                )
+            ]
         return [
             Localization.get(
                 locale,
@@ -1779,7 +1830,6 @@ class Flip7Game(Game):
                 status=status,
                 numbers=numbers,
                 points=self.round_points(player),
-                bonus=bonus_text,
             )
         ]
 
@@ -1912,12 +1962,7 @@ class Flip7Game(Game):
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=p.id,
-                    player_name=p.name,
-                    is_bot=p.is_bot and not p.replaced_human,
-                )
-                for p in self._active()
+                PlayerResult.from_player(p) for p in self._active()
             ],
             custom_data={
                 "winner_name": winner.name if winner else None,

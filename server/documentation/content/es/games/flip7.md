@@ -1,6 +1,6 @@
 \*\*Flip 7\*\*
 
-Flip 7 es un juego de cartas de arriesgar la suerte para 2 a 10 jugadores. En cada ronda, cada jugador que sigue en la ronda junta cartas de número y decide si voltea otra carta o si se detiene para guardar sus puntos. Después de una ronda completa, el único jugador con el total más alto que alcance o supere la puntuación objetivo gana la partida.
+Flip 7 es un juego de cartas de arriesgar la suerte para 3 a 10 jugadores. En cada ronda, cada jugador que sigue en la ronda junta cartas de número y decide si voltea otra carta o si se detiene para guardar sus puntos. Después de una ronda completa, el único jugador con el total más alto que alcance o supere la puntuación objetivo gana la partida.
 
 \*\*Objetivo\*\*
 
@@ -25,7 +25,7 @@ Cuando se acaba la baraja, el descarte se baraja de nuevo y vuelve a convertirse
 * \*\*Cartas modificadoras:\*\* Agregan puntos de bono, como +2 o +10.
 * \*\*Doble:\*\* Duplica el valor de tus cartas de número antes de sumar los modificadores.
 * \*\*Segunda oportunidad:\*\* Te protege una vez contra un número repetido. Si ya tienes una Segunda oportunidad, la carta nueva no se aparta: debes entregarla a otro jugador elegible.
-\* \*\*Congelar:\*\* Elige un jugador que siga jugando la ronda. Ese jugador se detiene y guarda su total actual. Puedes elegirte a ti mismo, y si eres el único jugador que sigue en la ronda, te detienes automáticamente.
+* \*\*Congelar:\*\* Elige un jugador que siga jugando la ronda. Ese jugador se detiene y guarda su total actual. Puedes elegirte a ti mismo, y si eres el único jugador que sigue en la ronda, te detienes automáticamente.
 * \*\*Voltea 3:\*\* Elige un jugador que debe voltear tres cartas seguidas.
 
 Quien voltea una carta de acción es quien elige su objetivo, sin importar si se repartió al comienzo de la ronda, se volteó en tu turno o llegó dentro de un Voltea 3.
@@ -42,7 +42,7 @@ Si juntas siete números diferentes, completas Flip 7, ganas el bono de 15 punto
 
 Los jugadores que se pasan anotan 0 en esa ronda. Los jugadores que se detuvieron o sobrevivieron hasta el final de la ronda guardan su total actual.
 
-Después de cada ronda completa, si exactamente un jugador tiene un total de partida igual o superior a la puntuación objetivo, ese jugador gana la partida. Si dos o más jugadores quedan empatados en el primer lugar con ese total, todavía no hay ganador y la partida continúa con otra ronda.
+Después de cada ronda completa, el jugador con el total de partida más alto es el líder. Si ese total más alto llega o supera la puntuación objetivo y solo un jugador lo tiene, ese jugador gana la partida. Si el total más alto está empatado entre varios jugadores, todavía no hay ganador y la partida continúa con otra ronda. Por ejemplo, con un objetivo de 200 y totales de 210 y 205, gana el jugador con 210 por ser el único líder.
 
 \*\*Opciones\*\*
 
@@ -52,7 +52,7 @@ Después de cada ronda completa, si exactamente un jugador tiene un total de par
 
 * \*\*Revisar mi área:\*\* Dice tus cartas actuales, bonos y total de la ronda.
 * \*\*Revisar la mesa:\*\* Dice la ronda, la puntuación objetivo y el estado y total de cada jugador.
-\* \*\*Revisar la baraja:\*\* Dice cuántas cartas hay en la baraja y en el descarte.
+* \*\*Revisar la baraja:\*\* Dice cuántas cartas hay en la baraja y en el descarte.
 * \*\*Revisar puntuaciones:\*\* Dice las puntuaciones acumuladas de la partida.
 
 \*\*Atajos de teclado\*\*

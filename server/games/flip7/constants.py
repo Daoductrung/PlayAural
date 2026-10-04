@@ -63,9 +63,9 @@ BOT_MAX_THINK_TICKS = TICKS_PER_SECOND + TICKS_PER_SECOND // 2
 
 SEQUENCE_CARD_FLOW_PREFIX = "flip7_card_flow"
 SEQUENCE_ROUND_START_PREFIX = "flip7_round_start"
+SEQUENCE_MATCH_END_PREFIX = "flip7_match_end"
 TAG_FLOW = "flip7_card_flow"
 
 # Continuation callback ids understood by on_sequence_callback.
 CONTINUE_FLOW = "continue_flow"
 NEXT_FLIP_DRAW = "next_flip_draw"
-FLIP_FINISH = "flip_finish"

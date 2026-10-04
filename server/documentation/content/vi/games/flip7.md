@@ -1,6 +1,6 @@
 \*\*Flip 7\*\*
 
-Flip 7 là trò chơi bài thử vận may dành cho 2 đến 10 người chơi. Trong mỗi vòng, mỗi người chơi còn trong vòng đấu thu thập các lá số và quyết định lật thêm bài hoặc dừng lại để giữ điểm. Sau một vòng đã hoàn thành, người chơi duy nhất có tổng điểm cao nhất và đạt hoặc vượt điểm mục tiêu sẽ thắng trận.
+Flip 7 là trò chơi bài thử vận may dành cho 3 đến 10 người chơi. Trong mỗi vòng, mỗi người chơi còn trong vòng đấu thu thập các lá số và quyết định lật thêm bài hoặc dừng lại để giữ điểm. Sau một vòng đã hoàn thành, người chơi duy nhất có tổng điểm cao nhất và đạt hoặc vượt điểm mục tiêu sẽ thắng trận.
 
 \*\*Mục tiêu\*\*
 
@@ -42,7 +42,7 @@ Nếu bạn có bảy lá số khác nhau, bạn nhận thêm thưởng Flip 7 l
 
 Người chơi bị cháy bài ghi 0 điểm trong vòng đó. Người chơi đã dừng lại hoặc còn an toàn đến cuối vòng sẽ giữ tổng điểm hiện tại.
 
-Sau mỗi vòng đã hoàn thành, nếu có đúng một người chơi có tổng điểm trận đấu đạt hoặc vượt điểm mục tiêu, người đó thắng trận. Nếu có hai người trở lên cùng dẫn đầu với tổng điểm đó, thì chưa có người thắng và trận đấu tiếp tục với một vòng nữa.
+Sau mỗi vòng đã hoàn thành, người chơi có tổng điểm trận đấu cao nhất sẽ dẫn đầu. Nếu tổng điểm cao nhất đó đạt hoặc vượt điểm mục tiêu và chỉ có một người giữ tổng điểm ấy, người đó thắng trận. Nếu tổng điểm cao nhất bị nhiều người bằng nhau, thì chưa có người thắng và trận đấu tiếp tục với một vòng nữa. Ví dụ, với điểm mục tiêu là 200 và tổng điểm lần lượt là 210 và 205, người có 210 điểm thắng vì là người dẫn đầu duy nhất.
 
 \*\*Tuỳ chọn\*\*
 

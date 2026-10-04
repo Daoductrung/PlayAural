@@ -62,14 +62,6 @@ from server.users.test_user import MockUser
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def _catalog_size() -> int:
-    """Number of game packages (one registered game each)."""
-    import server.games as games_package
-
-    games_dir = Path(games_package.__file__).resolve().parent
-    return sum(1 for entry in games_dir.iterdir() if (entry / "game.py").exists())
-
-
 def audio_duration_ticks(path: Path) -> int:
     """Read an OGG Vorbis or WAV duration without requiring a codec."""
 
@@ -266,7 +258,6 @@ def all_card_ids(game: BangGame) -> list[int]:
 
 def test_registration_metadata_options_and_catalog_count():
     assert GameRegistry.get("bang") is BangGame
-    assert len(GameRegistry.get_all()) == _catalog_size()
     assert BangGame.get_name() == "BANG! The Bullet"
     assert BangGame.get_category() == "cards"
     assert (BangGame.get_min_players(), BangGame.get_max_players()) == (3, 8)

@@ -125,6 +125,31 @@ test("self-voicing toggles resolve from synchronous state", () => {
   );
 });
 
+test("three-finger single tap requests menu help without colliding with triple tap", () => {
+  assert.match(hookSource, /onThreeFingerTap: \(\) => void/);
+  assert.match(
+    hookSource,
+    /gesture\.taps === 3[\s\S]*clearThreeFingerTap\(\);[\s\S]*onThreeFingerTripleTap\(\)/,
+  );
+  assert.match(
+    hookSource,
+    /gesture\.taps === 1 && current\.enabled[\s\S]*setTimeout\([\s\S]*onThreeFingerTap\(\)[\s\S]*sourceRecognizer\.config\.multiFingerMultiTapTimeoutMs/,
+  );
+  assert.match(
+    hookSource,
+    /const handleGestureStart = \([\s\S]*clearThreeFingerTap\(\);[\s\S]*recognizer\.start\(frame\)/,
+  );
+  assert.match(appSource, /onThreeFingerTap: requestFocusedMenuDescription/);
+  assert.match(
+    appSource,
+    /type: "menu_description",[\s\S]*menu_id: currentMenu\.menuId,[\s\S]*menu_item_id: item\.id/,
+  );
+  assert.match(
+    appSource,
+    /MENU_DESCRIPTION_HARDWARE_KEY = "F1"[\s\S]*event\.key === MENU_DESCRIPTION_HARDWARE_KEY[\s\S]*!event\.altKey[\s\S]*!event\.ctrlKey[\s\S]*!event\.metaKey[\s\S]*!event\.shiftKey[\s\S]*requestFocusedMenuDescription\(\)/,
+  );
+});
+
 const point = (id, x, y) => ({ id, x, y });
 const frame = (timestamp, touches, changedTouches = [], activeTouchCount) => ({
   ...(activeTouchCount === undefined ? {} : { activeTouchCount }),

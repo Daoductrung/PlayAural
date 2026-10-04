@@ -1,6 +1,7 @@
 """Mixin providing game result handling and persistence."""
 
 from datetime import datetime
+import logging
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -92,11 +93,7 @@ class GameResultMixin:
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=p.id,
-                    player_name=p.name,
-                    is_bot=p.is_bot and not p.replaced_human,
-                )
+                PlayerResult.from_player(p)
                 for p in self.get_active_players()
             ],
             custom_data={},
@@ -119,40 +116,60 @@ class GameResultMixin:
         return lines
 
     def _persist_result(self, result: GameResult) -> None:
-        """Persist the game result to the database and update ratings."""
+        """Persist one result, its derived stats, and ratings atomically."""
         # Only persist if there are human players
         if not result.has_human_players():
             return
+        if result.game_type != self.get_type():
+            logging.getLogger("playaural.results").error(
+                "Refused mismatched result type %s from game %s",
+                result.game_type,
+                self.get_type(),
+            )
+            return
 
         if self._table:
-            self._table.save_game_result(result)
-            # Update player ratings
-            self._update_ratings(result)
+            rating_updates = self._calculate_rating_updates(result)
+            try:
+                self._table.save_game_result(result, rating_updates=rating_updates)
+            except Exception:
+                # Result storage is transactional. A persistence failure must
+                # never leave gameplay stuck in its finished transition.
+                logging.getLogger("playaural.results").exception(
+                    "Failed to persist completed %s game result",
+                    self.get_type(),
+                )
 
-    def _update_ratings(self, result: GameResult) -> None:
-        """Update player ratings based on game result."""
+    def _calculate_rating_updates(
+        self,
+        result: GameResult,
+    ) -> dict[str, tuple[float, float]]:
+        """Return validated rating values for the result without persisting them."""
         if "rating" not in self.get_supported_leaderboards():
-            return
+            return {}
+        if result.custom_data.get("competitive") is False:
+            return {}
 
         if not self._table or not self._table._db:
-            return
+            return {}
 
         rating_helper = RatingHelper(self._table._db, self.get_type())
-
-        teams, ranks = RatingHelper.extract_teams_and_ranks(result)
-        if not teams or len(teams) < 2:
-            # Need at least 2 competitors to update ratings
-            return
-
-        rating_helper.update_ratings(teams, ranks=ranks)
-
-    def get_rankings_for_rating(self, result: GameResult) -> list[list[str]]:
-        """Backward-compatible placement buckets derived from result data."""
-        teams, ranks = RatingHelper.extract_teams_and_ranks(result)
-        grouped: dict[int, list[str]] = {}
-        for team, rank in zip(teams, ranks):
-            grouped.setdefault(rank, []).extend(team)
-        return [grouped[rank] for rank in sorted(grouped)]
+        try:
+            teams, ranks = RatingHelper.extract_teams_and_ranks(result)
+            updates = rating_helper.calculate_updates(teams, ranks=ranks)
+        except Exception:
+            # A malformed rating payload must not strand the table at game end.
+            # Skip settlement and leave a diagnostic; the independent result
+            # and stat validation still decides whether persistence is safe.
+            logging.getLogger("playaural.ratings").exception(
+                "Skipped invalid rating settlement for game %s",
+                self.get_type(),
+            )
+            return {}
+        return {
+            player_id: (rating.mu, rating.sigma)
+            for player_id, rating in updates.items()
+        }
 
     def _show_end_screen(self, result: GameResult) -> None:
         """Show the end screen to all players using structured result."""

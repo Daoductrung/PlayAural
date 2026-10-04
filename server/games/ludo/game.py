@@ -759,7 +759,7 @@ class LudoGame(Game):
             idx: self._describe_token(token, locale, ludo_player) for idx, token in moveable
         }
         if user:
-            user.speak_l("ludo-select-token", buffer="game")
+            user.speak_l("ludo-select-token", buffer="game", history=False)
         if player.is_bot:
             BotHelper.jolt_bot(player, ticks=random.randint(20, 40))  # nosec B311
         first_move_action = f"move_token_{min(ludo_player.move_options) + 1}"
@@ -777,10 +777,6 @@ class LudoGame(Game):
         self._start_move_sequence(ludo_player, token)
         self.request_menu_focus(ludo_player, "roll_dice")
         self.refresh_menus()
-
-    def _schedule_move(self, player: LudoPlayer, token: LudoToken) -> None:
-        """Backward-compatible wrapper around the shared sequence runner."""
-        self._start_move_sequence(player, token)
 
     def _build_move_sequence(
         self,
@@ -1057,6 +1053,17 @@ class LudoGame(Game):
     def build_game_result(self) -> GameResult:
         sorted_teams = self._team_manager.get_sorted_teams(by_score=True, descending=True)
         winner = sorted_teams[0] if sorted_teams else None
+        winning_names = {
+            member
+            for team in sorted_teams
+            if winner and team.total_score == winner.total_score
+            for member in team.members
+        }
+        winner_ids = [
+            player.id
+            for player in self.get_active_players()
+            if player.name in winning_names
+        ]
 
         final_scores = {}
         for team in sorted_teams:
@@ -1068,15 +1075,12 @@ class LudoGame(Game):
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=p.id,
-                    player_name=p.name,
-                    is_bot=p.is_bot and not p.replaced_human,
-                )
+                PlayerResult.from_player(p)
                 for p in self.get_active_players()
             ],
             custom_data={
                 "winner_name": self._team_manager.get_team_name(winner) if winner else None,
+                "winner_ids": winner_ids,
                 "final_scores": final_scores,
             },
         )

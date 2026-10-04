@@ -115,7 +115,12 @@ def show_confirmation_menu(
         *(choice.to_menu_item(user.locale) for choice in choices),
     ]
 
-    user.speak_l(prompt_key, buffer=buffer, **localized_kwargs)
+    user.speak_l(
+        prompt_key,
+        buffer=buffer,
+        history=False,
+        **localized_kwargs,
+    )
     user.show_menu(
         menu_id,
         items,

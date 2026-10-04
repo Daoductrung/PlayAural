@@ -48,7 +48,7 @@ milebymile-you-play-distance-individual = Você joga { $distance } milhas e agor
 milebymile-plays-distance-individual = { $player } joga { $distance } milhas e agora está a { $total } milhas.
 milebymile-you-play-distance-team = Você joga { $distance } milhas; sua equipe agora está a { $total } milhas.
 milebymile-teammate-plays-distance-team = { $player } joga { $distance } milhas; sua equipe agora está a { $total } milhas.
-milebymile-plays-distance-team = { $player } joga { $distance } milhas; a equipe dele agora está a { $total } milhas.
+milebymile-plays-distance-team = { $player } joga { $distance } milhas; a equipe { GENDER_TERM($player_gender, "possessive-determiner") } agora está a { $total } milhas.
 
 milebymile-you-complete-perfect-individual = Você completa a jornada com uma travessia perfeita!
 milebymile-journey-complete-perfect-individual = { $player } completou a jornada com uma travessia perfeita!
@@ -70,12 +70,12 @@ milebymile-you-play-card = Você joga { $card }.
 milebymile-plays-card = { $player } joga { $card }.
 milebymile-you-play-team-card = Você joga { $card } pela sua equipe.
 milebymile-teammate-plays-team-card = { $player } joga { $card } pela sua equipe.
-milebymile-opponent-plays-team-card = { $player } joga { $card } pela equipe dele.
+milebymile-opponent-plays-team-card = { $player } joga { $card } pela equipe { GENDER_TERM($player_gender, "possessive-determiner") }.
 milebymile-you-play-dirty-trick = Você usa { $card } em um contra-ataque!
 milebymile-plays-dirty-trick = { $player } usa { $card } em um contra-ataque!
 milebymile-you-play-dirty-trick-team = Você usa { $card } em um contra-ataque pela sua equipe!
 milebymile-teammate-plays-dirty-trick-team = { $player } usa { $card } em um contra-ataque pela sua equipe!
-milebymile-opponent-plays-dirty-trick-team = { $player } usa { $card } em um contra-ataque pela equipe adversária!
+milebymile-opponent-plays-dirty-trick-team = { $player } usa { $card } como Golpe Sujo pela equipe { GENDER_TERM($player_gender, "possessive-determiner") }!
 
 milebymile-deck-reshuffled = Pilha de descarte embaralhada de volta no baralho.
 
@@ -115,14 +115,14 @@ milebymile-karma-clash-target-team = Sua equipe e a Equipe { $team } estão amba
 milebymile-karma-clash-other-teams = A equipe { $attacker } e a equipe { $target } estão ambas isoladas! O ataque é neutralizado.
 
 milebymile-karma-shunned-you = Você foi isolado por sua agressão! Seu karma foi perdido.
-milebymile-karma-shunned-other = { $player } foi isolado por sua agressão!
+milebymile-karma-shunned-other = { $player } foi isolado pela agressão { GENDER_TERM($player_gender, "possessive-determiner") }!
 milebymile-karma-shunned-your-team = Sua equipe foi isolada por sua agressão! O karma da sua equipe foi perdido.
 milebymile-karma-shunned-other-team = A equipe { $team } foi isolada por sua agressão!
 
 milebymile-false-virtue-you = Você joga Falsa Virtude e recupera seu karma!
-milebymile-false-virtue-other = { $player } joga Falsa Virtude e recupera seu karma!
+milebymile-false-virtue-other = { $player } joga Falsa Virtude e recupera o karma { GENDER_TERM($player_gender, "possessive-determiner") }!
 milebymile-false-virtue-teammate = { $player } joga Falsa Virtude; sua equipe recupera o karma!
-milebymile-false-virtue-opponent = { $player } joga Falsa Virtude; a equipe dele recupera o karma!
+milebymile-false-virtue-opponent = { $player } joga Falsa Virtude; a equipe { GENDER_TERM($player_gender, "possessive-determiner") } recupera o karma!
 
 milebymile-none = nenhum
 

@@ -26,6 +26,8 @@ Al entrar a una mesa, normalmente puedes:
 \* Usar Quién está en la mesa para escuchar quién está presente.
 \* Chatear con las demás personas de la mesa o enviar mensajes privados.
 \* Unirte al chat de voz de la mesa en los clientes de PlayAural compatibles con reproducción de voz y acceso al micrófono.
+\* Si eres el anfitrión, abre Gestión del anfitrión y elige Cambiar a otro juego para llevar a todas las personas que sigan presentes a una nueva sala de espera de otro juego. Las funciones de jugador y espectador, los bots, el anfitrión, la privacidad, los baneos y el chat de voz permanecen en la mesa; después de confirmar, se descartan la partida anterior, sus opciones, los equipos, el estado de preparación y las invitaciones pendientes.
+\* Si eres el anfitrión durante una partida, abre Gestión del anfitrión para sustituir un asiento de jugador activo por un espectador. Si hay una persona en ese asiento, primero debe dar su consentimiento. El sustituto recibe el estado exacto de la partida para ese asiento, el tiempo de turno restante y la atribución del resultado final. Si cedes tu propio asiento, pasas a ser espectador, pero sigues siendo el anfitrión de la mesa.
 
 \*\*Chat y funciones sociales\*\*
 

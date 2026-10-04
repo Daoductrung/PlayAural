@@ -233,16 +233,6 @@ class ActionSetCreationMixin:
         )
         action_set.add(
             Action(
-                id="predict_outcomes",
-                label=Localization.get(locale, "predict-outcomes"),
-                handler="_action_predict_outcomes",
-                is_enabled="_is_predict_outcomes_enabled",
-                is_hidden="_is_predict_outcomes_hidden",
-                include_spectators=True,
-            )
-        )
-        action_set.add(
-            Action(
                 id="game_info",
                 label=Localization.get(locale, "game-info"),
                 handler="_action_game_info",
@@ -358,13 +348,6 @@ class ActionSetCreationMixin:
             "shift+s",
             "Detailed scores",
             ["check_scores_detailed"],
-            state=KeybindState.ACTIVE,
-            include_spectators=True,
-        )
-        self.define_keybind(
-            "ctrl+r",
-            "Predict outcomes",
-            ["predict_outcomes"],
             state=KeybindState.ACTIVE,
             include_spectators=True,
         )

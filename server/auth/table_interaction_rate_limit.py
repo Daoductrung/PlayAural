@@ -13,6 +13,7 @@ class TableInteractionScope(StrEnum):
     """Independent interaction classes with distinct UX and abuse costs."""
 
     ROLE_CHANGE = "role_change"
+    VOICE_MODERATION = "voice_moderation"
     INVITE_SENDER = "invite_sender"
     INVITE_PAIR = "invite_pair"
 
@@ -52,10 +53,15 @@ class TableInteractionRateLimiter:
     """
 
     ROLE_CHANGE_POLICY = TableInteractionPolicy(capacity=2, refill_seconds=15.0)
+    VOICE_MODERATION_POLICY = TableInteractionPolicy(
+        capacity=3,
+        refill_seconds=10.0,
+    )
     INVITE_SENDER_POLICY = TableInteractionPolicy(capacity=3, refill_seconds=20.0)
     INVITE_PAIR_POLICY = TableInteractionPolicy(capacity=1, refill_seconds=60.0)
     POLICIES: dict[TableInteractionScope, TableInteractionPolicy] = {
         TableInteractionScope.ROLE_CHANGE: ROLE_CHANGE_POLICY,
+        TableInteractionScope.VOICE_MODERATION: VOICE_MODERATION_POLICY,
         TableInteractionScope.INVITE_SENDER: INVITE_SENDER_POLICY,
         TableInteractionScope.INVITE_PAIR: INVITE_PAIR_POLICY,
     }
@@ -99,6 +105,18 @@ class TableInteractionRateLimiter:
         )
 
     @classmethod
+    def voice_moderation_key(
+        cls,
+        account_id: str,
+        table_id: str,
+    ) -> TableInteractionKey:
+        return TableInteractionKey(
+            account_id=account_id,
+            scope=TableInteractionScope.VOICE_MODERATION,
+            table_id=table_id,
+        )
+
+    @classmethod
     def _policy(cls, scope: TableInteractionScope) -> TableInteractionPolicy:
         try:
             return cls.POLICIES[scope]
@@ -112,8 +130,11 @@ class TableInteractionRateLimiter:
         related_account_id = str(key.related_account_id or "").strip()
         if not account_id:
             raise ValueError("Table interaction rate limiting requires an account ID")
-        if key.scope is TableInteractionScope.ROLE_CHANGE and not table_id:
-            raise ValueError("Role-change rate limiting requires a table ID")
+        if key.scope in {
+            TableInteractionScope.ROLE_CHANGE,
+            TableInteractionScope.VOICE_MODERATION,
+        } and not table_id:
+            raise ValueError("Table-scoped rate limiting requires a table ID")
         if key.scope is TableInteractionScope.INVITE_PAIR and not related_account_id:
             raise ValueError("Pair invitation rate limiting requires an invitee account ID")
         return TableInteractionKey(

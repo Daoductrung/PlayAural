@@ -82,10 +82,5 @@ threes-error-toggle-last-die = You cannot change the last unlocked die; the turn
 threes-error-rounds-out-of-range = Threes cannot start with { $rounds } rounds. Choose a value from { $min } to { $max }.
 threes-invalid-die-index = That die is not available in this Threes turn.
 
-threes-must-keep = You must keep at least one die before rolling again.
-threes-must-bank = You must bank now.
-threes-roll-first = You need to roll first.
 threes-keep-all-first = Keep all dice first to bank.
-threes-last-die = This is your last die.
-
 threes-line-format = { $rank }. { $player }: { $points }

@@ -27,6 +27,7 @@ export type GestureCallbacks = {
   onGesture?: (gesture: RecognizedGesture) => void;
   onSingleFingerSwipe: (direction: GestureDirection) => void;
   onSingleFingerSwipeHold?: (direction: GestureDirection) => void;
+  onThreeFingerTap: () => void;
   onThreeFingerSwipe: (direction: GestureDirection) => void;
   onThreeFingerTripleTap: () => void;
   onTwoFingerSwipe: (direction: GestureDirection) => void;
@@ -252,6 +253,7 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
     [],
   );
   const doubleTapHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const threeFingerTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const swipeHoldStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const swipeHoldRepeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const committedSwipeRef = useRef<RecognizedGesture | null>(null);
@@ -265,6 +267,13 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
     if (doubleTapHoldTimerRef.current) {
       clearTimeout(doubleTapHoldTimerRef.current);
       doubleTapHoldTimerRef.current = null;
+    }
+  };
+
+  const clearThreeFingerTap = () => {
+    if (threeFingerTapTimerRef.current !== null) {
+      clearTimeout(threeFingerTapTimerRef.current);
+      threeFingerTapTimerRef.current = null;
     }
   };
 
@@ -295,6 +304,7 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
   };
 
   const handleResponderCancellation = () => {
+    clearThreeFingerTap();
     if (usesNativeMultiTouchInput && nativeMultiTouchActiveRef.current) {
       resetResponderGesture(true);
     } else {
@@ -304,6 +314,7 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
 
   useEffect(
     () => () => {
+      clearThreeFingerTap();
       resetActiveGesture(true);
       nativeMultiTouchRecognizer.clear();
       nativeMultiTouchActiveRef.current = false;
@@ -319,13 +330,26 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
     current.onGesture?.(gesture);
 
     if (gesture.kind === "tap") {
-      if (
-        gesture.fingers === 3 &&
-        gesture.taps === 3 &&
-        current.globalToggleEnabled !== false
-      ) {
-        sourceRecognizer.resetTapSequence(gesture.fingers);
-        current.onThreeFingerTripleTap();
+      if (gesture.fingers === 3) {
+        if (
+          gesture.taps === 3 &&
+          current.globalToggleEnabled !== false
+        ) {
+          clearThreeFingerTap();
+          sourceRecognizer.resetTapSequence(gesture.fingers);
+          current.onThreeFingerTripleTap();
+          return;
+        }
+        if (gesture.taps === 1 && current.enabled) {
+          clearThreeFingerTap();
+          threeFingerTapTimerRef.current = setTimeout(() => {
+            threeFingerTapTimerRef.current = null;
+            sourceRecognizer.resetTapSequence(gesture.fingers);
+            if (callbacksRef.current.enabled) {
+              callbacksRef.current.onThreeFingerTap();
+            }
+          }, sourceRecognizer.config.multiFingerMultiTapTimeoutMs);
+        }
         return;
       }
       if (!current.enabled) {
@@ -516,6 +540,10 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
     event: GestureResponderEvent,
     gestureState?: PanResponderGestureState,
   ) => {
+    // A new chord means the preceding three-finger tap may be part of the
+    // global triple-tap toggle. Cancel its deferred single-tap action before
+    // the recognizer advances the tap sequence.
+    clearThreeFingerTap();
     const frame = toGestureFrame(event, "start", gestureState);
     const activeTouchCount = frame.activeTouchCount ?? frame.touches.length;
     if (
@@ -539,6 +567,7 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
     }
 
     const subscription = DeviceEventEmitter.addListener(nativeGestureEventName, (payload: unknown) => {
+      clearThreeFingerTap();
       const frames =
         payload && typeof payload === "object" && Array.isArray((payload as { frames?: unknown }).frames)
           ? (payload as { frames: unknown[] }).frames.map(toNativeGestureFrame)
@@ -604,6 +633,7 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
         handleGestureEnd(event, gestureState);
       },
       onPanResponderGrant: (event, gestureState) => {
+        clearThreeFingerTap();
         resetActiveGesture();
         const frame = toGestureFrame(event, "start", gestureState);
         if (

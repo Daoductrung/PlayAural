@@ -14,7 +14,7 @@ metalpipe-you-hit-other = Você balança o cano de metal e acerta { $bonked }. {
 metalpipe-player-hits-you = { $bonker } balança o cano de metal e acerta você. Você foi eliminado.
 metalpipe-player-hits-other = { $bonker } balança o cano de metal e acerta { $bonked }. { $bonked } foi eliminado.
 metalpipe-you-hit-self = Você de alguma forma acerta a si mesmo com o cano de metal e é eliminado.
-metalpipe-player-hits-self = { $bonker } de alguma forma acerta a si mesmo com o cano de metal e é eliminado.
+metalpipe-player-hits-self = { $bonker } de alguma forma acerta { GENDER_TERM($bonker_gender, "reflexive") } com o cano de metal e é eliminado.
 
 metalpipe-you-hit-other-brief = Você acerta { $bonked }. { $bonked } eliminado.
 metalpipe-player-hits-you-brief = { $bonker } acerta você. Você está fora.
@@ -36,7 +36,7 @@ metalpipe-status-mode = Modo: { $mode }; { $self_bonk }.
 metalpipe-status-progress = Batidas resolvidas: { $count }. Jogadores ainda de pé: { $alive } de { $total }.
 metalpipe-status-awaiting = O cano ainda não caiu.
 metalpipe-status-last-other = Última batida: { $bonker } acertou { $bonked }.
-metalpipe-status-last-self = Última batida: { $bonker } acertou a si mesmo.
+metalpipe-status-last-self = Última batida: { $bonker } acertou { GENDER_TERM($bonker_gender, "reflexive") }.
 metalpipe-status-player = { $player}: { $status }.
 metalpipe-status-alive = De pé
 metalpipe-status-eliminated = Eliminado

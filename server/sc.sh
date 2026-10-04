@@ -21,6 +21,19 @@ DATABASE_BACKUP_DIR="$SERVER_DIR/backups"
 SERVICE_RESTART_DELAY_SECONDS=10
 SERVICE_START_LIMIT_INTERVAL_SECONDS=300
 SERVICE_START_LIMIT_BURST=3
+DEFAULT_VOICE_TOKEN_TTL_SECONDS=60
+MIN_VOICE_TOKEN_TTL_SECONDS=60
+MAX_VOICE_TOKEN_TTL_SECONDS=86400
+MAX_NETWORK_PORT=65535
+DEFAULT_VOICE_PUBLIC_URL="wss://voice.example.com"
+DEFAULT_VOICE_ROOM_PREFIX="playaural"
+LIVEKIT_SIGNAL_PORT=7880
+LIVEKIT_RTC_TCP_PORT=7881
+LIVEKIT_RTC_UDP_PORT_START=50000
+LIVEKIT_RTC_UDP_PORT_END=50100
+LIVEKIT_TURN_TLS_PORT=5349
+LIVEKIT_TURN_UDP_PORT=443
+VOICE_SERVICE_RESTART_DELAY_SECONDS=5
 
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -239,15 +252,18 @@ extract_domain_from_url() {
 
 normalize_voice_url() {
     local raw="$1"
-    raw="${raw%% }"
-    raw="${raw## }"
+    raw="${raw#"${raw%%[![:space:]]*}"}"
+    raw="${raw%"${raw##*[![:space:]]}"}"
     if [ -z "$raw" ]; then
         echo ""
         return
     fi
-    if [[ "$raw" != ws://* && "$raw" != wss://* ]]; then
-        raw="wss://$raw"
-    fi
+    case "$raw" in
+        http://*) raw="ws://${raw#http://}" ;;
+        https://*) raw="wss://${raw#https://}" ;;
+        ws://*|wss://*) ;;
+        *) raw="wss://$raw" ;;
+    esac
     raw="${raw%/}"
     echo "$raw"
 }
@@ -261,10 +277,77 @@ load_voice_config() {
     PLAYAURAL_VOICE_ROOM_PREFIX=""
     PLAYAURAL_VOICE_TOKEN_TTL_SECONDS=""
     if [ -f "$VOICE_ENV_FILE" ]; then
-        set -a
-        # shellcheck disable=SC1090
-        . "$VOICE_ENV_FILE"
-        set +a
+        local key value
+        while IFS='=' read -r key value || [ -n "$key$value" ]; do
+            value="${value%$'\r'}"
+            case "$key" in
+                PLAYAURAL_VOICE_ENABLED|PLAYAURAL_VOICE_PROVIDER|PLAYAURAL_VOICE_URL|PLAYAURAL_VOICE_API_KEY|PLAYAURAL_VOICE_API_SECRET|PLAYAURAL_VOICE_ROOM_PREFIX|PLAYAURAL_VOICE_TOKEN_TTL_SECONDS)
+                    printf -v "$key" '%s' "$value"
+                    ;;
+                ''|'#'*) ;;
+                *) say_warn "Ignoring unsupported entry in $VOICE_ENV_FILE: $key" ;;
+            esac
+        done <"$VOICE_ENV_FILE"
+    fi
+}
+
+load_voice_config_with_defaults() {
+    load_voice_config
+    PLAYAURAL_VOICE_URL="${PLAYAURAL_VOICE_URL:-$DEFAULT_VOICE_PUBLIC_URL}"
+    PLAYAURAL_VOICE_ROOM_PREFIX="${PLAYAURAL_VOICE_ROOM_PREFIX:-$DEFAULT_VOICE_ROOM_PREFIX}"
+    PLAYAURAL_VOICE_TOKEN_TTL_SECONDS="${PLAYAURAL_VOICE_TOKEN_TTL_SECONDS:-$DEFAULT_VOICE_TOKEN_TTL_SECONDS}"
+    if [ -z "${PLAYAURAL_VOICE_API_KEY:-}" ] || \
+        [ "$PLAYAURAL_VOICE_API_KEY" = "PLAYAURAL_VOICE_API_KEY" ]; then
+        PLAYAURAL_VOICE_API_KEY="$(random_token)"
+    fi
+    if [ -z "${PLAYAURAL_VOICE_API_SECRET:-}" ] || \
+        [ "$PLAYAURAL_VOICE_API_SECRET" = "PLAYAURAL_VOICE_API_SECRET" ]; then
+        PLAYAURAL_VOICE_API_SECRET="$(random_token)"
+    fi
+}
+
+validate_voice_configuration() {
+    local public_url="$1"
+    local api_key="$2"
+    local api_secret="$3"
+    local room_prefix="$4"
+    local ttl="$5"
+    local domain authority port
+
+    domain="$(extract_domain_from_url "$public_url")"
+    if [[ ! "$public_url" =~ ^wss?://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~:@%+-]+)*$ ]] || \
+        [ -z "$domain" ] || [[ "$domain" == .* ]] || [[ "$domain" == *. ]] || \
+        [[ "$domain" == *..* ]]; then
+        say_error "Enter a Voice origin such as wss://voice.example.com (an optional port is allowed)."
+        return 1
+    fi
+    authority="${public_url#*://}"
+    authority="${authority%%/*}"
+    if [[ "$authority" == *:* ]]; then
+        port="${authority##*:}"
+        if [ "$port" -lt 1 ] || [ "$port" -gt "$MAX_NETWORK_PORT" ]; then
+            say_error "The optional Voice port must be between 1 and $MAX_NETWORK_PORT."
+            return 1
+        fi
+    fi
+    if [[ ! "$api_key" =~ ^[A-Za-z0-9_-]+$ ]]; then
+        say_error "The LiveKit API key must contain only letters, numbers, underscores, or hyphens."
+        return 1
+    fi
+    if [[ ! "$api_secret" =~ ^[A-Za-z0-9_-]+$ ]]; then
+        say_error "The LiveKit API secret must contain only letters, numbers, underscores, or hyphens."
+        return 1
+    fi
+    if [[ ! "$room_prefix" =~ ^[A-Za-z0-9_.:-]+$ ]] || \
+        [ "${#room_prefix}" -gt 96 ]; then
+        say_error "The room prefix must be 1-96 letters, numbers, dots, colons, underscores, or hyphens."
+        return 1
+    fi
+    if ! [[ "$ttl" =~ ^[0-9]+$ ]] || \
+        [ "$ttl" -lt "$MIN_VOICE_TOKEN_TTL_SECONDS" ] || \
+        [ "$ttl" -gt "$MAX_VOICE_TOKEN_TTL_SECONDS" ]; then
+        say_error "Token TTL must be between $MIN_VOICE_TOKEN_TTL_SECONDS and $MAX_VOICE_TOKEN_TTL_SECONDS seconds."
+        return 1
     fi
 }
 
@@ -275,7 +358,10 @@ write_voice_env() {
     local room_prefix="$4"
     local ttl="$5"
 
-    cat >"$VOICE_ENV_FILE" <<EOF
+    local temp_file
+
+    temp_file="$(mktemp "$CONFIG_DIR/.voice.env.XXXXXX")" || return 1
+    if ! cat >"$temp_file" <<EOF
 PLAYAURAL_VOICE_ENABLED=1
 PLAYAURAL_VOICE_PROVIDER=livekit
 PLAYAURAL_VOICE_URL=$public_url
@@ -284,7 +370,14 @@ PLAYAURAL_VOICE_API_SECRET=$api_secret
 PLAYAURAL_VOICE_ROOM_PREFIX=$room_prefix
 PLAYAURAL_VOICE_TOKEN_TTL_SECONDS=$ttl
 EOF
-    chmod 600 "$VOICE_ENV_FILE"
+    then
+        rm -f "$temp_file"
+        return 1
+    fi
+    if ! chmod 600 "$temp_file" || ! mv -f "$temp_file" "$VOICE_ENV_FILE"; then
+        rm -f "$temp_file"
+        return 1
+    fi
 }
 
 VOICE_TLS_CERT_FILE=""
@@ -420,7 +513,7 @@ write_livekit_config() {
     local public_url="$1"
     local api_key="$2"
     local api_secret="$3"
-    local domain turn_enabled turn_cert turn_key
+    local domain turn_enabled turn_cert turn_key temp_file
 
     domain="$(extract_domain_from_url "$public_url")"
     if [ -z "$domain" ]; then
@@ -444,47 +537,76 @@ write_livekit_config() {
         say_warn "No TLS certificate was found for $domain. TURN will be disabled so LiveKit can start safely."
     fi
 
-    cat >"$LIVEKIT_CONFIG_FILE" <<EOF
-port: 7880
+    temp_file="$(mktemp "$CONFIG_DIR/.livekit.yaml.XXXXXX")" || return 1
+    if ! cat >"$temp_file" <<EOF
+port: $LIVEKIT_SIGNAL_PORT
 bind_addresses:
   - ""
 log_level: info
 
 rtc:
-  tcp_port: 7881
-  port_range_start: 50000
-  port_range_end: 50100
+  tcp_port: $LIVEKIT_RTC_TCP_PORT
+  port_range_start: $LIVEKIT_RTC_UDP_PORT_START
+  port_range_end: $LIVEKIT_RTC_UDP_PORT_END
   use_external_ip: true
 
 turn:
   enabled: $turn_enabled
 EOF
+    then
+        rm -f "$temp_file"
+        return 1
+    fi
 
     if [ "$turn_enabled" = "true" ]; then
-        cat >>"$LIVEKIT_CONFIG_FILE" <<EOF
+        if ! cat >>"$temp_file" <<EOF
   domain: $domain
-  tls_port: 5349
-  udp_port: 443
+  tls_port: $LIVEKIT_TURN_TLS_PORT
+  udp_port: $LIVEKIT_TURN_UDP_PORT
   cert_file: $turn_cert
   key_file: $turn_key
 EOF
+        then
+            rm -f "$temp_file"
+            return 1
+        fi
     fi
 
-    cat >>"$LIVEKIT_CONFIG_FILE" <<EOF
+    if ! cat >>"$temp_file" <<EOF
 
 keys:
   $api_key: $api_secret
 EOF
-    chown "root:$VOICE_SERVICE_USER" "$LIVEKIT_CONFIG_FILE"
-    chmod 640 "$LIVEKIT_CONFIG_FILE"
+    then
+        rm -f "$temp_file"
+        return 1
+    fi
+    if ! chown "root:$VOICE_SERVICE_USER" "$temp_file" || \
+        ! chmod 640 "$temp_file" || \
+        ! mv -f "$temp_file" "$LIVEKIT_CONFIG_FILE"; then
+        rm -f "$temp_file"
+        return 1
+    fi
 }
 
 ensure_livekit_config_from_env() {
     load_voice_config
-    if [ -z "${PLAYAURAL_VOICE_URL:-}" ] || [ -z "${PLAYAURAL_VOICE_API_KEY:-}" ] || [ -z "${PLAYAURAL_VOICE_API_SECRET:-}" ]; then
+    if [ "${PLAYAURAL_VOICE_ENABLED:-}" != "1" ] || \
+        [ "${PLAYAURAL_VOICE_PROVIDER:-}" != "livekit" ] || \
+        [ -z "${PLAYAURAL_VOICE_URL:-}" ] || \
+        [ -z "${PLAYAURAL_VOICE_API_KEY:-}" ] || \
+        [ -z "${PLAYAURAL_VOICE_API_SECRET:-}" ] || \
+        [ -z "${PLAYAURAL_VOICE_ROOM_PREFIX:-}" ] || \
+        [ -z "${PLAYAURAL_VOICE_TOKEN_TTL_SECONDS:-}" ]; then
         say_error "Voice configuration is incomplete. Run the voice configuration step first."
         return 1
     fi
+    validate_voice_configuration \
+        "$PLAYAURAL_VOICE_URL" \
+        "$PLAYAURAL_VOICE_API_KEY" \
+        "$PLAYAURAL_VOICE_API_SECRET" \
+        "$PLAYAURAL_VOICE_ROOM_PREFIX" \
+        "$PLAYAURAL_VOICE_TOKEN_TTL_SECONDS" || return 1
     write_livekit_config "$PLAYAURAL_VOICE_URL" "$PLAYAURAL_VOICE_API_KEY" "$PLAYAURAL_VOICE_API_SECRET"
 }
 
@@ -641,7 +763,7 @@ User=$VOICE_SERVICE_USER
 Group=$VOICE_SERVICE_USER
 ExecStart=/usr/local/bin/livekit-server --config $LIVEKIT_CONFIG_FILE
 Restart=on-failure
-RestartSec=5
+RestartSec=$VOICE_SERVICE_RESTART_DELAY_SECONDS
 LimitNOFILE=1048576
 NoNewPrivileges=true
 AmbientCapabilities=CAP_NET_BIND_SERVICE
@@ -667,10 +789,10 @@ ensure_voice_firewall_rules() {
     fi
 
     say_info "Opening LiveKit media ports in firewalld..."
-    firewall-cmd --permanent --add-port=7881/tcp >/dev/null 2>&1 || true
-    firewall-cmd --permanent --add-port=5349/tcp >/dev/null 2>&1 || true
-    firewall-cmd --permanent --add-port=443/udp >/dev/null 2>&1 || true
-    firewall-cmd --permanent --add-port=50000-50100/udp >/dev/null 2>&1 || true
+    firewall-cmd --permanent --add-port="$LIVEKIT_RTC_TCP_PORT/tcp" >/dev/null 2>&1 || true
+    firewall-cmd --permanent --add-port="$LIVEKIT_TURN_TLS_PORT/tcp" >/dev/null 2>&1 || true
+    firewall-cmd --permanent --add-port="$LIVEKIT_TURN_UDP_PORT/udp" >/dev/null 2>&1 || true
+    firewall-cmd --permanent --add-port="$LIVEKIT_RTC_UDP_PORT_START-$LIVEKIT_RTC_UDP_PORT_END/udp" >/dev/null 2>&1 || true
     firewall-cmd --reload >/dev/null 2>&1 || true
 }
 
@@ -705,130 +827,144 @@ install_voice_server_binary() {
     say_ok "LiveKit server installed successfully."
 }
 
-configure_voice_server() {
-    local current_url current_key current_secret current_prefix current_ttl
-    local input_url input_key input_secret input_prefix input_ttl
-    local final_url final_domain
+apply_voice_configuration() {
+    local public_url="$1"
+    local api_key="$2"
+    local api_secret="$3"
+    local room_prefix="$4"
+    local ttl="$5"
+    local game_was_active=0 voice_was_active=0
+    local voice_env_backup="" had_voice_env=0
 
-    setup_voice_user
-    ensure_config_dir
-    load_voice_config
+    validate_voice_configuration \
+        "$public_url" "$api_key" "$api_secret" "$room_prefix" "$ttl" || return 1
+    systemctl is-active --quiet "$SERVICE_NAME" && game_was_active=1
+    systemctl is-active --quiet "$VOICE_SERVICE_NAME" && voice_was_active=1
 
-    current_url="${PLAYAURAL_VOICE_URL:-wss://voice.example.com}"
-    current_key="${PLAYAURAL_VOICE_API_KEY:-PLAYAURAL_VOICE_API_KEY}"
-    current_secret="${PLAYAURAL_VOICE_API_SECRET:-$(random_token)}"
-    current_prefix="${PLAYAURAL_VOICE_ROOM_PREFIX:-playaural}"
-    current_ttl="${PLAYAURAL_VOICE_TOKEN_TTL_SECONDS:-900}"
-
-    echo "--- Configure Voice Server ---"
-    read -rp "Public Voice URL [$current_url]: " input_url
-    read -rp "LiveKit API key [$current_key]: " input_key
-    read -rp "LiveKit API secret [$current_secret]: " input_secret
-    read -rp "Voice room prefix [$current_prefix]: " input_prefix
-    read -rp "Token TTL seconds [$current_ttl]: " input_ttl
-
-    final_url="$(normalize_voice_url "${input_url:-$current_url}")"
-    input_key="${input_key:-$current_key}"
-    input_secret="${input_secret:-$current_secret}"
-    input_prefix="${input_prefix:-$current_prefix}"
-    input_ttl="${input_ttl:-$current_ttl}"
-    final_domain="$(extract_domain_from_url "$final_url")"
-
-    if [ -z "$final_url" ] || [ -z "$final_domain" ]; then
-        say_error "A valid public Voice URL is required."
-        pause_screen
+    setup_voice_user || return 1
+    ensure_config_dir || return 1
+    if [ -f "$VOICE_ENV_FILE" ]; then
+        had_voice_env=1
+        voice_env_backup="$(mktemp "$CONFIG_DIR/.voice.env.backup.XXXXXX")" || return 1
+        if ! cp -p "$VOICE_ENV_FILE" "$voice_env_backup"; then
+            rm -f "$voice_env_backup"
+            return 1
+        fi
+    fi
+    if ! write_voice_env "$public_url" "$api_key" "$api_secret" "$room_prefix" "$ttl"; then
+        [ -z "$voice_env_backup" ] || rm -f "$voice_env_backup"
         return 1
     fi
-
-    if ! [[ "$input_ttl" =~ ^[0-9]+$ ]]; then
-        say_error "Token TTL must be a whole number of seconds."
-        pause_screen
+    if ! write_livekit_config "$public_url" "$api_key" "$api_secret"; then
+        # Keep the game and LiveKit credentials as one coherent pair when the
+        # second atomic file write fails.
+        if [ "$had_voice_env" -eq 1 ]; then
+            mv -f "$voice_env_backup" "$VOICE_ENV_FILE" || \
+                say_error "Could not restore the previous voice environment file."
+        else
+            rm -f "$VOICE_ENV_FILE"
+        fi
         return 1
     fi
-
-    write_voice_env "$final_url" "$input_key" "$input_secret" "$input_prefix" "$input_ttl"
-    write_livekit_config "$final_url" "$input_key" "$input_secret" || {
-        pause_screen
-        return 1
-    }
-    setup_voice_service
-    setup_service || {
-        pause_screen
-        return 1
-    }
+    [ -z "$voice_env_backup" ] || rm -f "$voice_env_backup"
+    setup_voice_service || return 1
+    setup_service || return 1
     ensure_voice_firewall_rules
 
-    say_ok "Voice server configuration saved."
-    echo "Public voice URL: $final_url"
-    echo "TURN domain:      $final_domain"
+    if [ "$voice_was_active" -eq 1 ]; then
+        say_info "Restarting the active voice service to apply the new configuration..."
+        systemctl restart "$VOICE_SERVICE_NAME" || return 1
+    fi
+    if [ "$game_was_active" -eq 1 ]; then
+        say_info "Restarting the active game service to apply the new voice credentials..."
+        systemctl restart "$SERVICE_NAME" || return 1
+    fi
+}
+
+show_voice_configuration_result() {
+    local public_url="$1"
+    local room_prefix="$2"
+    local ttl="$3"
+    local domain
+
+    domain="$(extract_domain_from_url "$public_url")"
+    say_ok "Voice server configuration saved and applied."
+    echo "Public voice URL: $public_url"
+    echo "TURN domain:      $domain"
     echo "TURN enabled:     $(awk '/^[[:space:]]*enabled:/ {print $2; exit}' "$LIVEKIT_CONFIG_FILE" 2>/dev/null)"
     if grep -q '^[[:space:]]*cert_file:' "$LIVEKIT_CONFIG_FILE" 2>/dev/null; then
         echo "TURN cert:        $(awk '/^[[:space:]]*cert_file:/ {print $2; exit}' "$LIVEKIT_CONFIG_FILE" 2>/dev/null)"
     else
         echo "TURN cert:        not found; TURN disabled"
     fi
-    echo "Room prefix:      $input_prefix"
-    echo "Token TTL:        $input_ttl seconds"
+    echo "Room prefix:      $room_prefix"
+    echo "Token TTL:        $ttl seconds"
     echo
     echo "Reminder:"
     echo "- Point your public voice hostname at this VPS in DNS."
     echo "- In Cloudflare, use DNS-only mode for the voice hostname unless you have a product that supports the required media transport."
-    echo "- In Webmin/Virtualmin, reverse proxy the voice hostname to http://127.0.0.1:7880 with WebSocket upgrade support."
+    echo "- In Webmin/Virtualmin, reverse proxy the voice hostname to http://127.0.0.1:$LIVEKIT_SIGNAL_PORT with WebSocket upgrade support."
 }
 
-change_voice_url() {
+configure_voice_server() {
     local current_url current_key current_secret current_prefix current_ttl
-    local input_url final_url final_domain
+    local input_url final_url
 
-    if [ ! -f "$VOICE_ENV_FILE" ]; then
-        say_warn "Voice configuration does not exist yet. Opening the full voice configuration wizard."
-        configure_voice_server
-        pause_screen
-        return
-    fi
+    load_voice_config_with_defaults
+    current_url="$PLAYAURAL_VOICE_URL"
+    current_key="$PLAYAURAL_VOICE_API_KEY"
+    current_secret="$PLAYAURAL_VOICE_API_SECRET"
+    current_prefix="$PLAYAURAL_VOICE_ROOM_PREFIX"
+    current_ttl="$PLAYAURAL_VOICE_TOKEN_TTL_SECONDS"
 
-    load_voice_config
-    current_url="${PLAYAURAL_VOICE_URL:-wss://voice.example.com}"
-    current_key="${PLAYAURAL_VOICE_API_KEY:-PLAYAURAL_VOICE_API_KEY}"
-    current_secret="${PLAYAURAL_VOICE_API_SECRET:-PLAYAURAL_VOICE_API_SECRET}"
-    current_prefix="${PLAYAURAL_VOICE_ROOM_PREFIX:-playaural}"
-    current_ttl="${PLAYAURAL_VOICE_TOKEN_TTL_SECONDS:-900}"
-
-    echo "--- Change Voice Server URL / Domain ---"
-    read -rp "New public Voice URL [$current_url]: " input_url
+    echo "--- Quick Voice Configuration ---"
+    echo "Existing credentials and advanced values will be preserved."
+    echo "Fresh secure credentials will be generated automatically on first setup."
+    read -rp "Public Voice URL or hostname [$current_url]: " input_url
     final_url="$(normalize_voice_url "${input_url:-$current_url}")"
-    final_domain="$(extract_domain_from_url "$final_url")"
 
-    if [ -z "$final_url" ] || [ -z "$final_domain" ]; then
-        say_error "A valid public Voice URL is required."
-        pause_screen
-        return 1
-    fi
+    apply_voice_configuration \
+        "$final_url" "$current_key" "$current_secret" "$current_prefix" "$current_ttl" || return 1
+    show_voice_configuration_result "$final_url" "$current_prefix" "$current_ttl"
+}
 
-    write_voice_env "$final_url" "$current_key" "$current_secret" "$current_prefix" "$current_ttl"
-    write_livekit_config "$final_url" "$current_key" "$current_secret" || {
-        pause_screen
-        return 1
-    }
+configure_voice_server_advanced() {
+    local current_url current_key current_secret current_prefix current_ttl
+    local input_url input_key input_secret input_prefix input_ttl final_url
 
-    if systemctl is-active --quiet "$SERVICE_NAME"; then
-        systemctl restart "$SERVICE_NAME"
-    fi
-    if systemctl is-active --quiet "$VOICE_SERVICE_NAME"; then
-        systemctl restart "$VOICE_SERVICE_NAME"
-    fi
+    load_voice_config_with_defaults
+    current_url="$PLAYAURAL_VOICE_URL"
+    current_key="$PLAYAURAL_VOICE_API_KEY"
+    current_secret="$PLAYAURAL_VOICE_API_SECRET"
+    current_prefix="$PLAYAURAL_VOICE_ROOM_PREFIX"
+    current_ttl="$PLAYAURAL_VOICE_TOKEN_TTL_SECONDS"
 
-    say_ok "Voice URL updated to $final_url"
-    echo "TURN domain updated to $final_domain"
+    echo "--- Advanced Voice Configuration ---"
+    read -rp "Public Voice URL or hostname [$current_url]: " input_url
+    read -rp "LiveKit API key [$current_key]: " input_key
+    read -rsp "LiveKit API secret [hidden; Enter keeps the current value]: " input_secret
+    echo
+    read -rp "Voice room prefix [$current_prefix]: " input_prefix
+    read -rp "Token TTL seconds [$current_ttl; $MIN_VOICE_TOKEN_TTL_SECONDS-$MAX_VOICE_TOKEN_TTL_SECONDS]: " input_ttl
+
+    final_url="$(normalize_voice_url "${input_url:-$current_url}")"
+    input_key="${input_key:-$current_key}"
+    input_secret="${input_secret:-$current_secret}"
+    input_prefix="${input_prefix:-$current_prefix}"
+    input_ttl="${input_ttl:-$current_ttl}"
+
+    apply_voice_configuration \
+        "$final_url" "$input_key" "$input_secret" "$input_prefix" "$input_ttl" || return 1
+    show_voice_configuration_result "$final_url" "$input_prefix" "$input_ttl"
 }
 
 show_voice_config() {
-    local secret_mask="(not set)"
+    local secret_mask="not configured"
 
     load_voice_config
 
     if [ -n "${PLAYAURAL_VOICE_API_SECRET:-}" ]; then
-        secret_mask="${PLAYAURAL_VOICE_API_SECRET:0:4}********"
+        secret_mask="configured (hidden)"
     fi
 
     echo "--- Voice Configuration ---"
@@ -837,8 +973,8 @@ show_voice_config() {
     echo "Public URL:   ${PLAYAURAL_VOICE_URL:-not configured}"
     echo "API key:      ${PLAYAURAL_VOICE_API_KEY:-not configured}"
     echo "API secret:   $secret_mask"
-    echo "Room prefix:  ${PLAYAURAL_VOICE_ROOM_PREFIX:-playaural}"
-    echo "Token TTL:    ${PLAYAURAL_VOICE_TOKEN_TTL_SECONDS:-900}"
+    echo "Room prefix:  ${PLAYAURAL_VOICE_ROOM_PREFIX:-$DEFAULT_VOICE_ROOM_PREFIX}"
+    echo "Token TTL:    ${PLAYAURAL_VOICE_TOKEN_TTL_SECONDS:-$DEFAULT_VOICE_TOKEN_TTL_SECONDS}"
     if [ -f "$LIVEKIT_CONFIG_FILE" ]; then
         echo "LiveKit YAML: $LIVEKIT_CONFIG_FILE"
         echo "TURN enabled: $(awk '/^[[:space:]]*enabled:/ {print $2; exit}' "$LIVEKIT_CONFIG_FILE" 2>/dev/null)"
@@ -1028,7 +1164,10 @@ start_voice_server() {
     }
     if [ ! -f "$VOICE_ENV_FILE" ]; then
         say_warn "Voice is not configured yet."
-        configure_voice_server || return 1
+        configure_voice_server || {
+            pause_screen
+            return 1
+        }
     fi
     ensure_livekit_config_from_env || {
         pause_screen
@@ -1057,7 +1196,10 @@ restart_voice_server() {
     }
     if [ ! -f "$VOICE_ENV_FILE" ]; then
         say_warn "Voice is not configured yet."
-        configure_voice_server || return 1
+        configure_voice_server || {
+            pause_screen
+            return 1
+        }
     fi
     ensure_livekit_config_from_env || {
         pause_screen
@@ -1323,6 +1465,44 @@ uninstall_service() {
     pause_screen
 }
 
+voice_server_menu() {
+    local voice_choice
+
+    while true; do
+        clear
+        echo "=================================================="
+        echo " PlayAural Voice Server Management"
+        echo "=================================================="
+        check_status
+        echo "=================================================="
+        echo " 1. Quick Configure (URL / domain)"
+        echo " 2. Advanced Configuration"
+        echo " 3. Install or Repair Voice Server"
+        echo " 4. Start Voice Server"
+        echo " 5. Stop Voice Server"
+        echo " 6. Restart Voice Server"
+        echo " 7. View Voice Logs"
+        echo " 8. Show Voice Configuration"
+        echo " 9. Uninstall Voice Service"
+        echo " 0. Back"
+        echo "=================================================="
+        read -rp "Choose a voice option: " voice_choice
+        case "${voice_choice:-}" in
+            1) configure_voice_server; pause_screen ;;
+            2) configure_voice_server_advanced; pause_screen ;;
+            3) install_voice_stack ;;
+            4) start_voice_server ;;
+            5) stop_voice_server ;;
+            6) restart_voice_server ;;
+            7) view_voice_logs ;;
+            8) show_voice_config; pause_screen ;;
+            9) uninstall_voice_service ;;
+            0) return ;;
+            *) say_error "Invalid option."; pause_screen ;;
+        esac
+    done
+}
+
 show_menu() {
     clear
     echo "=================================================="
@@ -1340,17 +1520,9 @@ show_menu() {
     echo " 6. Create User"
     echo " 7. Reset User Password"
     echo " 8. Install or Repair Game Environment"
-    echo " 9. Install or Update Voice Server"
-    echo "10. Configure Voice Server"
-    echo "11. Change Voice Server URL / Domain"
-    echo "12. Start Voice Server"
-    echo "13. Stop Voice Server"
-    echo "14. Restart Voice Server"
-    echo "15. View Voice Logs"
-    echo "16. Show Voice Configuration"
-    echo "17. Uninstall Voice Service"
-    echo "18. Uninstall Game Service"
-    echo "19. Manage User Role (stops game server; verified backup)"
+    echo " 9. Manage Voice Server"
+    echo "10. Uninstall Game Service"
+    echo "11. Manage User Role (stops game server; verified backup)"
     echo " 0. Exit"
     echo "=================================================="
     read -rp "Choose an option: " choice
@@ -1373,17 +1545,9 @@ while true; do
         6) create_user ;;
         7) reset_password ;;
         8) repair_game_environment; pause_screen ;;
-        9) install_voice_stack ;;
-        10) configure_voice_server; pause_screen ;;
-        11) change_voice_url; pause_screen ;;
-        12) start_voice_server ;;
-        13) stop_voice_server ;;
-        14) restart_voice_server ;;
-        15) view_voice_logs ;;
-        16) show_voice_config; pause_screen ;;
-        17) uninstall_voice_service ;;
-        18) uninstall_service ;;
-        19) manage_user_role ;;
+        9) voice_server_menu ;;
+        10) uninstall_service ;;
+        11) manage_user_role ;;
         0) exit 0 ;;
         *) say_error "Invalid option."; pause_screen ;;
     esac

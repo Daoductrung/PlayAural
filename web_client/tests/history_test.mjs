@@ -14,6 +14,7 @@ import {
   HISTORY_TOUCH_MEDIA_QUERY,
   createHistoryView,
 } from "../ui/history.js";
+import { createPacketValidator } from "../network.js";
 
 class FakeElement {
   constructor() {
@@ -179,6 +180,48 @@ test("history buffer names and muted preferences stay canonical", () => {
     ["all", "chat", "system"],
   );
   assert.deepEqual(normalizeMutedHistoryBuffers(null), []);
+});
+
+test("server speech can bypass history while still respecting mutes", async () => {
+  const source = await readFile(new URL("../app.js", import.meta.url), "utf8");
+  const handler = source.split('case "speak":', 2)[1].split('case "voice_join_info":', 1)[0];
+  assert.match(handler, /noHistory:\s*packet\.history === false/u);
+  assert.match(handler, /muted:\s*packet\.muted === true/u);
+
+  const speak = source.split("  speak(textOrKey, options = {}) {", 2)[1].split(
+    "\n  handlePacket(packet)",
+    1,
+  )[0];
+  assert.match(speak, /let outputAllowed = !this\.historyView\.isBufferMuted\(normalizedBuffer\)/u);
+  assert.match(speak, /if \(!noHistory\) \{/u);
+  assert.match(speak, /if \(muted \|\| !outputAllowed\) \{/u);
+});
+
+test("the packet validator accepts only boolean speech history controls", () => {
+  const validator = createPacketValidator({
+    server_to_client: {
+      discriminator: { mapping: { speak: "#/$defs/SpeakPacket" } },
+      $defs: {
+        SpeakPacket: {
+          additionalProperties: false,
+          required: ["type", "text"],
+          properties: {
+            type: { const: "speak" },
+            text: { type: "string" },
+          },
+        },
+      },
+    },
+  });
+
+  assert.equal(
+    validator.validateIncoming({ type: "speak", text: "prompt", history: false }).ok,
+    true,
+  );
+  assert.equal(
+    validator.validateIncoming({ type: "speak", text: "prompt", history: "false" }).ok,
+    false,
+  );
 });
 
 test("the Web selector renders Private Messages immediately after Chat", async () => {

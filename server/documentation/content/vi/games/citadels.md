@@ -6,13 +6,13 @@ Thành Phố Trung Cổ là trò chơi bài xây thành phố dành cho 4 đến
 
 Mỗi người chơi bắt đầu với 2 vàng và 4 lá công trình.
 
-Trong game này, \*\*hoàn thành một thành phố\*\* có nghĩa là bạn đã xây đủ 7 công trình trong thành phố của mình.
+Trong trò chơi này, \*\*hoàn thành một thành phố\*\* có nghĩa là bạn đã xây đủ 7 công trình trong thành phố của mình.
 
 Mỗi vòng chơi diễn ra theo các bước sau:
 
 1\. \*\*Chọn nhân vật:\*\* Người đang giữ vương miện chọn trước, sau đó quyền chọn được chuyền quanh bàn. Tùy theo số người chơi, một vài lá nhân vật sẽ bị loại ra trước khi chọn, vì vậy không phải vòng nào cũng có đủ mọi nhân vật.
 
-2\. \*\*Gọi nhân vật theo thứ hạng:\*\* Sau khi mọi người chọn xong, game sẽ gọi các nhân vật từ hạng 1 trở lên. Nếu bạn đang giữ nhân vật được gọi và nhân vật đó không bị ám sát, bạn lật nhân vật ra và đi lượt của mình.
+2\. \*\*Gọi nhân vật theo thứ hạng:\*\* Sau khi mọi người chọn xong, trò chơi sẽ gọi các nhân vật từ hạng 1 trở lên. Nếu bạn đang giữ nhân vật được gọi và nhân vật đó không bị ám sát, bạn lật nhân vật ra và đi lượt của mình.
 
 3\. \*\*Lấy tài nguyên:\*\* Trong lượt của mình, bạn phải chọn đúng một trong hai cách sau:
 
@@ -30,11 +30,11 @@ Mỗi vòng chơi diễn ra theo các bước sau:
 
 \* Nếu bạn có Mỏ đá, bạn được phép xây công trình trùng tên.
 
-Sau đó game sẽ gọi nhân vật tiếp theo, và vòng chơi tiếp tục cho đến khi kết thúc.
+Sau đó trò chơi sẽ gọi nhân vật tiếp theo, và vòng chơi tiếp tục cho đến khi kết thúc.
 
 \*\*Cơ Chế Đặc Biệt\*\*
 
-\* \*\*Các nhân vật trong game:\*\* Sát thủ, Kẻ trộm, Pháp sư, Nhà vua, Giám mục, Thương nhân, Kiến trúc sư và Lãnh chúa luôn được dùng. Nếu bàn có 8 người chơi, Nữ hoàng cũng được thêm vào.
+\* \*\*Các nhân vật trong trò chơi:\*\* Sát thủ, Kẻ trộm, Pháp sư, Nhà vua, Giám mục, Thương nhân, Kiến trúc sư và Lãnh chúa luôn được dùng. Nếu bàn có 8 người chơi, Nữ hoàng cũng được thêm vào.
 
 \* \*\*Sát thủ:\*\* Chỉ định một hạng nhân vật. Khi hạng đó được gọi ở cuối vòng, nhân vật đó mất toàn bộ lượt chơi.
 
@@ -54,7 +54,7 @@ Sau đó game sẽ gọi nhân vật tiếp theo, và vòng chơi tiếp tục c
 
 \* \*\*Nữ hoàng:\*\* Chỉ xuất hiện trong ván 8 người. Nếu Nữ hoàng ngồi cạnh Nhà vua, Nữ hoàng nhận 3 vàng.
 
-\* \*\*Các công trình đặc biệt trong game:\*\*
+\* \*\*Các công trình đặc biệt trong trò chơi:\*\*
 
 \* \*\*Cổng Rồng:\*\* Được cộng thêm 2 điểm khi kết thúc ván.
 
@@ -104,7 +104,7 @@ Nếu nhiều người chơi hòa điểm, người đã lật ra nhân vật c�
 
 \*\*Tùy Chọn\*\*
 
-Thành Phố Trung Cổ không dùng bất kỳ tùy chọn thiết lập riêng nào cho bàn chơi. Màn hình tùy chọn của game này được để trống có chủ ý.
+Thành Phố Trung Cổ không dùng bất kỳ tùy chọn thiết lập riêng nào cho bàn chơi. Màn hình tùy chọn của trò chơi này được để trống có chủ ý.
 
 \*\*Phím Tắt\*\*
 

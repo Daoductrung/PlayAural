@@ -551,7 +551,6 @@ def test_blackjack_keybinds_avoid_reserved_keys_and_match_spectator_visibility()
         "ctrl+q",
         "ctrl+u",
         "ctrl+s",
-        "ctrl+r",
         "ctrl+i",
         "ctrl+f1",
     }

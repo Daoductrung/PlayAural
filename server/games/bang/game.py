@@ -11,6 +11,10 @@ from typing import Any
 from ...game_utils.actions import Action, ActionSet, Visibility
 from ...game_utils.bot_helper import BotHelper
 from ...game_utils.game_result import GameResult, PlayerResult
+from ...game_utils.stats_helpers import (
+    RATING_COMPETITORS_KEY,
+    rating_competitors_from_scores,
+)
 from ...game_utils.menu_management_mixin import StatusBoxBuild
 from ...game_utils.options import BoolOption, MenuOption, option_field
 from ...game_utils.sequence_runner_mixin import SequenceBeat, SequenceOperation
@@ -8670,22 +8674,43 @@ class BangGame(Game):
             ),
             reverse=True,
         )
+        law_ids = [
+            player.id
+            for player in active
+            if player.role in {ROLE_SHERIFF, ROLE_DEPUTY}
+        ]
+        outlaw_ids = [
+            player.id for player in active if player.role == ROLE_OUTLAW
+        ]
+        rating_sides = [side for side in (law_ids, outlaw_ids) if side]
+        rating_sides.extend(
+            [player.id]
+            for player in active
+            if player.role == ROLE_RENEGADE
+        )
+        rating_sides.sort(
+            key=lambda side: any(player_id in winners for player_id in side),
+            reverse=True,
+        )
+        rating_competitors = rating_competitors_from_scores(
+            (
+                (side, int(any(player_id in winners for player_id in side)))
+                for side in rating_sides
+            )
+        )
         return GameResult(
             game_type=self.get_type(),
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=player.id,
-                    player_name=player.name,
-                    is_bot=player.is_bot and not player.replaced_human,
-                )
+                PlayerResult.from_player(player)
                 for player in active
             ],
             custom_data={
                 "winner_ids": list(self.winner_ids),
                 "winner_score": 1,
                 "winning_side": self.winning_side,
+                RATING_COMPETITORS_KEY: rating_competitors,
                 "rankings": [
                     {
                         "name": player.name,

@@ -1,5 +1,6 @@
 """Tests for Dead Man's Poker."""
 
+import json
 from pathlib import Path
 import random
 
@@ -241,7 +242,7 @@ def test_bot_game_completes_without_deadlock() -> None:
     assert advance_until(game, lambda: game.status == "finished", max_ticks=60000)
 
 
-def test_bot_waits_for_community_before_switching(monkeypatch) -> None:
+def test_bot_can_spend_switch_preflop_to_rescue_weak_private_cards(monkeypatch) -> None:
     game = make_bot_game(2)
     player = game.players[0]
     game.status = "playing"
@@ -255,6 +256,25 @@ def test_bot_waits_for_community_before_switching(monkeypatch) -> None:
         hand_player.active_in_hand = True
         hand_player.committed_bullets = 1
     player.acted_this_hand = True
+    game.set_turn_players([player])
+    monkeypatch.setattr(random, "random", lambda: 0.0)
+
+    assert game.bot_think(player) == "switch_card"
+
+
+def test_bot_preserves_switch_preflop_with_a_premium_pair(monkeypatch) -> None:
+    game = make_bot_game(2)
+    player = game.players[0]
+    game.status = "playing"
+    game.game_active = True
+    game.phase = PHASE_DECISION
+    game.round_stage = 1
+    game.community = []
+    game.revealed_community_count = 0
+    player.hand = [Card(id=1, rank=1, suit=1), Card(id=2, rank=1, suit=2)]
+    for hand_player in game.players:
+        hand_player.active_in_hand = True
+        hand_player.committed_bullets = 1
     game.set_turn_players([player])
     monkeypatch.setattr(random, "random", lambda: 0.0)
 
@@ -335,8 +355,6 @@ def test_bot_records_missed_draw_after_switch_choice() -> None:
         Card(id=7, rank=5, suit=1),
         Card(id=8, rank=7, suit=4),
     ]
-    game.pending_switch_previous_phase = PHASE_DECISION
-
     game._action_choose_switch(player, "choose_switch_0")
 
     assert player.used_switch
@@ -499,7 +517,6 @@ def test_keybinds_use_active_state_and_do_not_collide_with_reserved_keys() -> No
         "ctrl+q",
         "ctrl+u",
         "ctrl+s",
-        "ctrl+r",
         "ctrl+i",
         "ctrl+f1",
     }
@@ -734,7 +751,7 @@ def test_switch_replacement_flow_keeps_turn_available() -> None:
     game.execute_action(player, "switch_card", input_value="0")
     game.flush_menus()
     assert game.phase == PHASE_SWITCH
-    assert len(game.pending_switch_candidates) == 3
+    assert len(game.pending_switch_candidates) == 4
     assert turn_menu_updates(other_user) == []
 
     player_user.clear_messages()
@@ -751,6 +768,7 @@ def test_switch_replacement_flow_keeps_turn_available() -> None:
     assert game.phase == PHASE_DECISION
     assert game.current_player == player
     assert player.used_switch
+    assert player.switched_this_turn
     assert len(player.hand) == 2
     assert player.hand != old_hand
     # The focus jump to "call" fired exactly once; the delayed sequence
@@ -900,10 +918,11 @@ def test_touch_switch_menu_keeps_primary_anchors_and_focuses_first_choice() -> N
         "switch_card",
         "all_in",
     ]
-    assert item_ids[4:7] == [
+    assert item_ids[4:8] == [
         "choose_switch_0",
         "choose_switch_1",
         "choose_switch_2",
+        "choose_switch_3",
     ]
     assert [
         message.data.get("selection_id")
@@ -963,7 +982,7 @@ def test_touch_switch_refreshes_do_not_send_redundant_non_actor_packets() -> Non
     assert network_current_menu_item_ids(other_user) == baseline_ids
 
 
-def test_switch_card_resets_each_hand() -> None:
+def test_switch_card_remains_spent_for_the_entire_match() -> None:
     game = make_game(2)
     start_to_decision(game)
     for player in game.players:
@@ -971,7 +990,137 @@ def test_switch_card_resets_each_hand() -> None:
 
     game._start_new_hand()
 
-    assert all(not player.used_switch for player in game.players)
+    assert all(player.used_switch for player in game.players)
+    assert all(not player.switched_this_turn for player in game.players)
+    assert all(not player.known_dead_cards for player in game.players)
+
+
+def test_switch_choices_shrink_as_community_cards_are_revealed() -> None:
+    for revealed_count, round_stage, expected_choices in ((0, 1, 4), (3, 2, 3), (4, 3, 2)):
+        game = make_game(2)
+        start_to_decision(game)
+        player = game.current_player
+        assert player is not None
+        game.revealed_community_count = revealed_count
+        game.round_stage = round_stage
+
+        assert game.switch_candidate_count == expected_choices
+        game.execute_action(player, "switch_card", input_value="0")
+
+        assert len(game.pending_switch_candidates) == expected_choices
+
+
+def test_switch_records_only_cards_visible_to_each_seat() -> None:
+    game = make_game(3)
+    start_to_decision(game)
+    actor = game.current_player
+    assert actor is not None
+    observers = [player for player in game.players if player != actor]
+    discarded = actor.hand[0]
+
+    game.execute_action(actor, "switch_card", input_value="0")
+    offered = list(game.pending_switch_candidates)
+    chosen = offered[1]
+    game.execute_action(actor, "choose_switch_1")
+
+    actor_known = {(card.rank, card.suit) for card in actor.known_dead_cards}
+    expected_actor_known = {(discarded.rank, discarded.suit)}
+    expected_actor_known.update(
+        (card.rank, card.suit) for card in offered if card != chosen
+    )
+    assert actor_known == expected_actor_known
+    for observer in observers:
+        assert [(card.rank, card.suit) for card in observer.known_dead_cards] == [
+            (discarded.rank, discarded.suit)
+        ]
+
+
+def test_all_in_is_blocked_on_the_same_turn_as_switch() -> None:
+    game = make_game(2)
+    start_to_decision(game)
+    advance_to_flop(game)
+    player = game.current_player
+    assert player is not None
+
+    game.execute_action(player, "switch_card", input_value="0")
+    game.execute_action(player, "choose_switch_0")
+    assert advance_until(game, lambda: not game.active_sequences)
+
+    assert game._is_all_in_enabled(player) == "deadmanspoker-all-in-after-switch"
+    finish_decision_round(game)
+    assert game.round_stage == 3
+    assert not player.switched_this_turn
+    assert game.current_player == player
+    assert game._is_all_in_enabled(player) is None
+
+
+def test_prior_switch_does_not_block_matching_an_opponents_all_in() -> None:
+    game = make_game(2)
+    start_to_decision(game)
+    player = game.current_player
+    assert player is not None
+    player.switched_this_turn = True
+    game.phase = PHASE_ALL_IN_RESPONSE
+
+    assert game._is_all_in_enabled(player) is None
+
+
+def test_hand_opener_rotation_uses_stable_ids_after_elimination(monkeypatch) -> None:
+    game = make_game(4)
+    game.status = "playing"
+    game.game_active = True
+    monkeypatch.setattr(random, "randrange", lambda _stop: 1)
+
+    game._start_new_hand()
+    assert game.turn_player_ids == ["p2", "p3", "p4", "p1"]
+    game.cancel_all_sequences()
+    game.players[1].eliminated = True
+
+    game._start_new_hand()
+
+    assert game.turn_player_ids == ["p3", "p4", "p1"]
+
+
+def test_hand_opener_rotation_skips_an_eliminated_next_starter(monkeypatch) -> None:
+    game = make_game(4)
+    game.status = "playing"
+    game.game_active = True
+    monkeypatch.setattr(random, "randrange", lambda _stop: 1)
+
+    game._start_new_hand()
+    game.cancel_all_sequences()
+    game.players[2].eliminated = True
+
+    game._start_new_hand()
+
+    assert game.turn_player_ids == ["p4", "p1", "p2"]
+
+
+def test_legacy_saved_match_recovers_id_based_hand_rotation() -> None:
+    game = make_game(3)
+    game.status = "playing"
+    game.game_active = True
+    game.hand_number = 1
+    game.turn_player_ids = ["p2", "p3", "p1"]
+    game.players[1].eliminated = True
+    payload = json.loads(game.to_json())
+    payload.pop("hand_order_ids")
+    payload.pop("next_hand_starter_id")
+    payload["first_actor_index"] = 2
+    for player_payload in payload["players"]:
+        player_payload.pop("switched_this_turn")
+        player_payload.pop("known_dead_cards")
+
+    restored = DeadMansPokerGame.from_json(json.dumps(payload))
+    assert not restored.hand_order_ids
+    assert not restored.next_hand_starter_id
+    assert all(not player.switched_this_turn for player in restored.players)
+    assert all(not player.known_dead_cards for player in restored.players)
+
+    restored._start_new_hand()
+
+    assert restored.hand_order_ids == ["p3", "p1"]
+    assert restored.turn_player_ids == ["p3", "p1"]
 
 
 def test_fold_button_becomes_coward_fold_on_first_decision() -> None:
@@ -1312,6 +1461,22 @@ def test_roulette_uses_eight_bullet_god_save_rule(monkeypatch) -> None:
     assert game._roulette_is_lethal(MAX_BULLETS)
     monkeypatch.setattr(random, "random", lambda: EIGHT_BULLET_DEATH_CHANCE + 0.01)
     assert not game._roulette_is_lethal(MAX_BULLETS)
+
+
+def test_elimination_clears_private_switch_memory() -> None:
+    game = make_game(2)
+    player = game.players[0]
+    player.active_in_hand = True
+    player.committed_bullets = 2
+    player.switched_this_turn = True
+    player.known_dead_cards = [Card(id=50, rank=10, suit=2)]
+
+    game._announce_roulette_death(player.id)
+
+    assert player.eliminated
+    assert not player.active_in_hand
+    assert not player.switched_this_turn
+    assert player.known_dead_cards == []
 
 
 def test_multi_player_roulette_uses_panning_and_single_death_signal(monkeypatch) -> None:

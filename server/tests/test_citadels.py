@@ -38,6 +38,7 @@ from ..games.citadels.game import (
     THIEF_LAUGH_SOUNDS,
 )
 from ..games.registry import GameRegistry
+from ..game_utils.stats_helpers import RATING_COMPETITORS_KEY
 from ..messages.localization import Localization
 from ..users.bot import Bot
 from ..users.base import MenuItem
@@ -138,6 +139,17 @@ def test_game_registered_and_defaults() -> None:
         "rating",
         "games_played",
     ]
+
+
+def test_rating_placement_uses_complete_result_tiebreak_order() -> None:
+    game = make_game()
+    game.players[1].gold = 1
+
+    result = game.build_game_result()
+
+    competitors = result.custom_data[RATING_COMPETITORS_KEY]
+    assert competitors[0] == {"player_ids": ["p2"], "rank": 0}
+    assert [entry["rank"] for entry in competitors[1:]] == [1, 1, 1]
 
 
 def test_prestart_validation_enforces_four_to_eight_players() -> None:

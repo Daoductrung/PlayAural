@@ -80,7 +80,9 @@ class WeaponProfile:
     hold_action_point_cost: int
     reaction_damage_percent: int
     purchase_role: str
+    recovery_priority: int
     kill_reward: int
+    preferred_over_weapon_ids: tuple[str, ...] = ()
 
     def hits_at_range(self, distance: int) -> int:
         """Return deterministic on-target rounds at a validated graph distance."""
@@ -233,6 +235,7 @@ GLOCK = WeaponProfile(
     hold_action_point_cost=1,
     reaction_damage_percent=75,
     purchase_role=PURCHASE_ROLE_STANDARD,
+    recovery_priority=10,
     kill_reward=300,
 )
 
@@ -267,6 +270,7 @@ USP_S = WeaponProfile(
     hold_action_point_cost=1,
     reaction_damage_percent=75,
     purchase_role=PURCHASE_ROLE_STANDARD,
+    recovery_priority=10,
     kill_reward=300,
 )
 
@@ -301,7 +305,9 @@ DESERT_EAGLE = WeaponProfile(
     hold_action_point_cost=1,
     reaction_damage_percent=100,
     purchase_role=PURCHASE_ROLE_STANDARD,
+    recovery_priority=20,
     kill_reward=300,
+    preferred_over_weapon_ids=("glock", "usp_s"),
 )
 
 MAC10 = WeaponProfile(
@@ -335,6 +341,7 @@ MAC10 = WeaponProfile(
     hold_action_point_cost=1,
     reaction_damage_percent=50,
     purchase_role=PURCHASE_ROLE_ANTI_ECO,
+    recovery_priority=30,
     kill_reward=600,
 )
 
@@ -369,6 +376,7 @@ MP9 = WeaponProfile(
     hold_action_point_cost=1,
     reaction_damage_percent=65,
     purchase_role=PURCHASE_ROLE_ANTI_ECO,
+    recovery_priority=32,
     kill_reward=600,
 )
 
@@ -403,6 +411,7 @@ NOVA = WeaponProfile(
     hold_action_point_cost=1,
     reaction_damage_percent=50,
     purchase_role=PURCHASE_ROLE_ANTI_ECO,
+    recovery_priority=31,
     kill_reward=900,
 )
 
@@ -437,6 +446,7 @@ GALIL_AR = WeaponProfile(
     hold_action_point_cost=1,
     reaction_damage_percent=65,
     purchase_role=PURCHASE_ROLE_BUDGET,
+    recovery_priority=40,
     kill_reward=300,
 )
 
@@ -471,6 +481,7 @@ FAMAS = WeaponProfile(
     hold_action_point_cost=1,
     reaction_damage_percent=65,
     purchase_role=PURCHASE_ROLE_BUDGET,
+    recovery_priority=40,
     kill_reward=300,
 )
 
@@ -505,6 +516,7 @@ SSG08 = WeaponProfile(
     hold_action_point_cost=1,
     reaction_damage_percent=100,
     purchase_role=PURCHASE_ROLE_PRECISION,
+    recovery_priority=45,
     kill_reward=300,
 )
 
@@ -539,7 +551,9 @@ AK47 = WeaponProfile(
     hold_action_point_cost=1,
     reaction_damage_percent=75,
     purchase_role=PURCHASE_ROLE_STANDARD,
+    recovery_priority=55,
     kill_reward=300,
+    preferred_over_weapon_ids=("m4",),
 )
 
 M4 = WeaponProfile(
@@ -573,6 +587,7 @@ M4 = WeaponProfile(
     hold_action_point_cost=1,
     reaction_damage_percent=75,
     purchase_role=PURCHASE_ROLE_STANDARD,
+    recovery_priority=50,
     kill_reward=300,
 )
 
@@ -607,6 +622,7 @@ AWP = WeaponProfile(
     hold_action_point_cost=1,
     reaction_damage_percent=100,
     purchase_role=PURCHASE_ROLE_PRECISION,
+    recovery_priority=60,
     kill_reward=100,
 )
 
@@ -775,6 +791,7 @@ def _validate_weapon(weapon: WeaponProfile) -> None:
         weapon.cost < 0
         or weapon.max_range < 0
         or weapon.hold_action_point_cost < 0
+        or weapon.recovery_priority <= 0
         or len(weapon.hits_by_range) != range_value_count
         or len(weapon.damage_by_range) != range_value_count
         or weapon.minimum_hits_after_evasion < 0
@@ -827,6 +844,21 @@ def _validate_weapon(weapon: WeaponProfile) -> None:
         raise ValueError(f"Weapon {weapon.id} damage must not rise with range")
     if weapon.requires_aim and weapon.hold_action_point_cost <= 0:
         raise ValueError(f"Weapon {weapon.id} cannot satisfy its aim requirement")
+    if (
+        len(set(weapon.preferred_over_weapon_ids))
+        != len(weapon.preferred_over_weapon_ids)
+        or weapon.id in weapon.preferred_over_weapon_ids
+        or any(
+            preferred_id not in WEAPONS
+            for preferred_id in weapon.preferred_over_weapon_ids
+        )
+    ):
+        raise ValueError(f"Weapon {weapon.id} has invalid recovery preferences")
+    if any(
+        weapon.recovery_priority <= WEAPONS[preferred_id].recovery_priority
+        for preferred_id in weapon.preferred_over_weapon_ids
+    ):
+        raise ValueError(f"Weapon {weapon.id} has an invalid recovery hierarchy")
 
 
 def _validate_utility(utility: UtilityProfile) -> None:

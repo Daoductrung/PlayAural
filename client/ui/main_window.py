@@ -76,6 +76,7 @@ DOWNLOAD_PROGRESS_INTERVAL_SECONDS = 0.1
 DOWNLOAD_PROGRESS_UI_TIMEOUT_SECONDS = 5.0
 DOWNLOAD_SPEECH_PERCENT_STEP = 10
 LOGOUT_RESPONSE_TIMEOUT_MS = 5000
+MENU_DESCRIPTION_KEY_CODE = wx.WXK_F1
 
 
 @dataclass(slots=True)
@@ -177,6 +178,7 @@ class MainWindow(wx.Frame):
         self.voice_context = {"scope": "table", "context_id": ""}
         self.voice_state = "disconnected"
         self.voice_mic_enabled = False
+        self.voice_host_muted = False
         self.voice_mic_toggle_pending = None
         self.voice_presence_registered = False
         self._pending_voice_volume: float | None = None
@@ -185,6 +187,7 @@ class MainWindow(wx.Frame):
             on_state=lambda state: wx.CallAfter(self.on_voice_state_change, state),
             on_mic_state=lambda enabled: wx.CallAfter(self.on_voice_mic_state_change, enabled),
             on_disconnect=lambda reason: wx.CallAfter(self.on_voice_transport_disconnect, reason),
+            on_join_failed=lambda: wx.CallAfter(self.on_voice_join_failed),
         )
         self.available_audio_input_devices = []
 
@@ -871,7 +874,9 @@ class MainWindow(wx.Frame):
         self.voice_leave_button.Show(connected)
         self.voice_mic_checkbox.SetLabel(Localization.get("voice-chat-mic"))
         self.voice_mic_checkbox.SetValue(self.voice_mic_enabled)
-        self.voice_mic_checkbox.Enable(connected and not mic_busy)
+        self.voice_mic_checkbox.Enable(
+            connected and not mic_busy and not self.voice_host_muted
+        )
         self.voice_mic_checkbox.Show(connected)
         self._apply_accessibility_labels()
         self._layout_main_panel()
@@ -936,6 +941,10 @@ class MainWindow(wx.Frame):
             self.on_voice_status("voice-chat-not-connected", True)
             self.voice_mic_checkbox.SetValue(self.voice_mic_enabled)
             return
+        if target_state and self.voice_host_muted:
+            self.voice_mic_checkbox.SetValue(False)
+            self.on_voice_status("voice-chat-host-muted", True)
+            return
         if self.voice_mic_toggle_pending is not None:
             self.voice_mic_checkbox.SetValue(self.voice_mic_enabled)
             return
@@ -998,6 +1007,9 @@ class MainWindow(wx.Frame):
             "scope": packet_scope,
             "context_id": packet_context_id,
         }
+        settings = packet.get("settings")
+        if isinstance(settings, dict):
+            self._apply_voice_settings(settings)
         self.voice_manager.join(packet)
         # Apply any pending voice volume that arrived before voice connected
         if self._pending_voice_volume is not None:
@@ -1051,6 +1063,9 @@ class MainWindow(wx.Frame):
         """Track the current table context for exact voice join requests."""
         previous_context_id = self.current_table_context_id
         self.current_table_context_id = packet.get("table_id", "") or ""
+        if previous_context_id != self.current_table_context_id:
+            self.voice_host_muted = False
+            self.voice_manager.clear_voice_settings()
         if (
             previous_context_id
             and self.current_table_context_id
@@ -1075,6 +1090,24 @@ class MainWindow(wx.Frame):
                 "context_id": self.voice_context.get("context_id", ""),
             }
         )
+
+    def on_voice_join_failed(self):
+        """Revoke a server grant when the media transport cannot connect."""
+        context_id = (
+            self.voice_context.get("context_id", "")
+            or self.voice_requested_context_id
+        )
+        scope = self.voice_context.get("scope", "table")
+        if self.connected and context_id:
+            self.network.send_packet(
+                {
+                    "type": "voice_leave",
+                    "scope": scope,
+                    "context_id": context_id,
+                }
+            )
+        self.voice_presence_registered = False
+        self.voice_context = {"scope": "table", "context_id": ""}
 
     def on_voice_status(self, message_key, speak_aloud=True):
         """Display and optionally speak a localized Voice Chat status message."""
@@ -1558,6 +1591,26 @@ class MainWindow(wx.Frame):
     def _is_message_muted_for_history(self, buffer_name):
         return self.buffer_system.is_effectively_muted(buffer_name)
 
+    def _request_focused_menu_description(self):
+        """Request help for the focused row without dispatching a game key."""
+        if not self.connected or not self.current_menu_id:
+            return
+        selection = self.menu_list.GetSelection()
+        if selection == wx.NOT_FOUND or not (
+            0 <= selection < len(self.current_menu_item_ids)
+        ):
+            return
+        menu_item_id = self.current_menu_item_ids[selection]
+        if not isinstance(menu_item_id, str) or not menu_item_id:
+            return
+        self.network.send_packet(
+            {
+                "type": "menu_description",
+                "menu_id": self.current_menu_id,
+                "menu_item_id": menu_item_id,
+            }
+        )
+
     def on_char_hook(self, event):
         """Handle character input for game keypresses."""
         focused = wx.Window.FindFocus()
@@ -1621,7 +1674,15 @@ class MainWindow(wx.Frame):
                 event.Skip()
                 return
         # Handle function keys
-        elif key_code == wx.WXK_F1:
+        elif key_code == MENU_DESCRIPTION_KEY_CODE:
+            if (
+                not event.ControlDown()
+                and not event.ShiftDown()
+                and not event.AltDown()
+                and not event.MetaDown()
+            ):
+                self._request_focused_menu_description()
+                return
             key_name = "f1"
         elif key_code == wx.WXK_F2:
             # F2 is handled by accelerator table for online list
@@ -1969,7 +2030,13 @@ class MainWindow(wx.Frame):
     # Legacy language methods removed
     # get_language_name, get_language_code, send_table_chat, send_global_chat removed/replaced
 
-    def add_history(self, text, buffer_name="misc", speak_aloud=True):
+    def add_history(
+        self,
+        text,
+        buffer_name="misc",
+        speak_aloud=True,
+        store_in_history=True,
+    ):
         """
         Add text to the history window and optionally speak it.
 
@@ -1977,43 +2044,45 @@ class MainWindow(wx.Frame):
             text: The message to add
             buffer_name: Which buffer to add to (default: "misc")
             speak_aloud: Whether to speak the text aloud (default: True)
+            store_in_history: Whether to retain and display the text in history.
         """
-        current_buffer_name = self.buffer_system.get_current_buffer_name()
-        current_buffer_was_full = (
-            len(self.buffer_system.buffers.get(current_buffer_name, []))
-            >= self.buffer_system.max_items_per_buffer
-        )
+        if store_in_history:
+            current_buffer_name = self.buffer_system.get_current_buffer_name()
+            current_buffer_was_full = (
+                len(self.buffer_system.buffers.get(current_buffer_name, []))
+                >= self.buffer_system.max_items_per_buffer
+            )
 
-        # Add to buffer system (automatically adds to "all" as well)
-        self.buffer_system.add_item(buffer_name, text)
+            # Add to buffer system (automatically adds to "all" as well)
+            self.buffer_system.add_item(buffer_name, text)
 
-        should_show_in_history = (
-            not self._is_message_muted_for_history(buffer_name)
-            and not self.buffer_system.is_effectively_muted(current_buffer_name)
-            and self.buffer_system.should_show_message(current_buffer_name, buffer_name)
-        )
+            should_show_in_history = (
+                not self._is_message_muted_for_history(buffer_name)
+                and not self.buffer_system.is_effectively_muted(current_buffer_name)
+                and self.buffer_system.should_show_message(current_buffer_name, buffer_name)
+            )
 
-        if should_show_in_history:
-            if current_buffer_was_full:
-                caret_distance_from_end = (
-                    self.history_text.GetLastPosition()
-                    - self.history_text.GetInsertionPoint()
-                )
-                self._refresh_history_text_from_current_buffer(
-                    caret_distance_from_end=caret_distance_from_end
-                )
-            else:
-                current = self.history_text.GetValue()
-                history_text = text
-                if current and not current.endswith("\n"):
-                    history_text = "\n" + text
+            if should_show_in_history:
+                if current_buffer_was_full:
+                    caret_distance_from_end = (
+                        self.history_text.GetLastPosition()
+                        - self.history_text.GetInsertionPoint()
+                    )
+                    self._refresh_history_text_from_current_buffer(
+                        caret_distance_from_end=caret_distance_from_end
+                    )
+                else:
+                    current = self.history_text.GetValue()
+                    history_text = text
+                    if current and not current.endswith("\n"):
+                        history_text = "\n" + text
 
-                # Preserve the reader's caret while keeping the newest line visible.
-                old_insertion_point = self.history_text.GetInsertionPoint()
+                    # Preserve the reader's caret while keeping the newest line visible.
+                    old_insertion_point = self.history_text.GetInsertionPoint()
 
-                self.history_text.AppendText(history_text + "\n")
-                self.history_text.SetInsertionPoint(old_insertion_point)
-                self._scroll_history_to_latest()
+                    self.history_text.AppendText(history_text + "\n")
+                    self.history_text.SetInsertionPoint(old_insertion_point)
+                    self._scroll_history_to_latest()
 
         if speak_aloud and not self._is_message_muted_for_history(buffer_name):
             try:
@@ -2583,7 +2652,7 @@ class MainWindow(wx.Frame):
         if packet.get("reset_ui", False):
             # Reset stale menus, editboxes, voice, and managed game audio
             # before ordered session UI/audio packets are released by the server.
-            self.on_server_clear_ui({})
+            self.reset_runtime_for_session()
 
         # Reset reconnect flags on success instead of restarting
         if self.is_reconnecting or self.expecting_reconnect:
@@ -3082,10 +3151,15 @@ class MainWindow(wx.Frame):
         is_muted = packet.get(
             "muted", False
         )  # Check if message should be muted (no TTS)
+        store_in_history = packet.get("history", True) is not False
 
         if text:
-            # Add to history regardless of mute status
-            self.add_history(text, buffer_name, speak_aloud=(not is_muted))
+            self.add_history(
+                text,
+                buffer_name,
+                speak_aloud=(not is_muted),
+                store_in_history=store_in_history,
+            )
 
     def on_receive_chat(self, packet):
         """Handle chat packet from server."""
@@ -3530,9 +3604,7 @@ class MainWindow(wx.Frame):
         self.switch_to_list_mode()
 
     def on_server_clear_ui(self, packet):
-        """Handle clear_ui packet from server."""
-        self.cleanup_voice_chat(send_leave=False, announce=False)
-        self.current_table_context_id = ""
+        """Clear server-owned menus and inputs without leaving their context."""
         # Clear menu
         self.menu_list.Clear()
         self.current_menu_id = None
@@ -3545,7 +3617,33 @@ class MainWindow(wx.Frame):
         # Switch to list mode if in edit mode
         if self.current_mode == "edit":
             self.switch_to_list_mode()
+
+    def reset_runtime_for_session(self):
+        """Retire all device-local state before accepting a new session."""
+        self.cleanup_voice_chat(send_leave=False, announce=False)
+        self.voice_host_muted = False
+        self.voice_manager.clear_voice_settings()
+        self.current_table_context_id = ""
         self.sound_manager.stop_all(fade_ms=800)
+        self.on_server_clear_ui({})
+
+    def on_voice_settings(self, packet):
+        """Apply one full server-owned voice settings snapshot."""
+        if str(packet.get("context_id") or "") != self.current_table_context_id:
+            return
+        self._apply_voice_settings(packet)
+
+    def _apply_voice_settings(self, settings):
+        if str(settings.get("context_id") or "") != self.current_table_context_id:
+            return
+        host_muted = self.voice_manager.apply_voice_settings(settings)
+        if host_muted is None:
+            return
+        self.voice_host_muted = host_muted
+        if host_muted:
+            self.voice_mic_toggle_pending = None
+            self.voice_mic_enabled = False
+        self.update_voice_ui()
 
     def on_server_game_list(self, packet):
         """Handle game_list packet from server."""

@@ -9,6 +9,23 @@ import {
 import type { AppleAudioConfiguration } from "@livekit/react-native";
 import type { VoiceJoinInfoPacket } from "../network/packets";
 
+const VOICE_SETTINGS_PROTOCOL_VERSION = 1;
+const VOICE_PERSONAL_VOLUME_MIN = 10;
+const VOICE_PERSONAL_VOLUME_MAX = 100;
+const VOICE_PERSONAL_VOLUME_STEP = 10;
+const MAX_VOICE_SETTINGS_IDENTITIES = 256;
+const MAX_VOICE_IDENTITY_LENGTH = 128;
+
+type ParticipantVoiceSetting = {
+  muted: boolean;
+  volume: number;
+};
+
+type WebRemoteAudio = {
+  element: HTMLAudioElement;
+  participantId: string;
+};
+
 type NativeLiveKitModule = typeof import("@livekit/react-native");
 type VoiceBootstrapGlobal = typeof globalThis & {
   __PLAYAURAL_NATIVE_VOICE_BOOTSTRAP_ERROR__?: string;
@@ -19,6 +36,7 @@ export type MobileVoiceConnectionState = "connected" | "connecting" | "disconnec
 type VoiceCallbacks = {
   onConnected?: () => void;
   onDisconnect?: (reason: "connection_lost") => void;
+  onJoinFailed?: () => void;
   onMicBusy?: (busy: boolean) => void;
   onMicState?: (enabled: boolean) => void;
   onState?: (state: MobileVoiceConnectionState) => void;
@@ -36,10 +54,12 @@ export class MobileVoiceManager {
   private nativeAudioSessionStarted = false;
   private lifecycleTail: Promise<void> = Promise.resolve();
   private expectedDisconnectRooms = new WeakSet<Room>();
-  private remoteAudioElements = new Map<string, HTMLAudioElement>();
+  private remoteAudioElements = new Map<string, WebRemoteAudio>();
   private webAudioContainer: HTMLDivElement | null = null;
   // Voice volume: 0.1-1.0, applied to all remote audio elements
   private _voiceVolume = 0.8;
+  private hostMuted = false;
+  private participantSettings = new Map<string, ParticipantVoiceSetting>();
 
   setCallbacks(callbacks: VoiceCallbacks): void {
     this.callbacks = callbacks;
@@ -74,6 +94,10 @@ export class MobileVoiceManager {
     if (this.micBusy) {
       return;
     }
+    if (enabled && this.hostMuted) {
+      this.callbacks.onStatus?.("voice-chat-host-muted", true);
+      return;
+    }
     this.setMicBusy(true);
     const intent = this.intent;
     this.queueLifecycle(() => this.setMicrophoneEnabledInternal(enabled, intent));
@@ -97,9 +121,109 @@ export class MobileVoiceManager {
     const clamped = Number.isFinite(volume) ? Math.max(0.1, Math.min(1.0, volume)) : 0.8;
     this._voiceVolume = clamped;
     // Apply to all currently playing remote audio elements
-    this.remoteAudioElements.forEach((element) => {
-      element.volume = clamped;
+    this.applyAllParticipantVolumes();
+  }
+
+  applyVoiceSettings(payload: unknown, expectedContextId: string): boolean | null {
+    const parsed = this.parseVoiceSettings(payload);
+    if (!parsed || parsed.contextId !== expectedContextId) {
+      return null;
+    }
+    this.hostMuted = parsed.hostMuted;
+    this.participantSettings = parsed.participants;
+    this.applyAllParticipantVolumes();
+    if (this.hostMuted) {
+      this.queueLifecycle(() => this.enforceHostMute());
+    }
+    return this.hostMuted;
+  }
+
+  clearVoiceSettings(): void {
+    this.hostMuted = false;
+    this.participantSettings = new Map();
+    this.applyAllParticipantVolumes();
+  }
+
+  private parseVoiceSettings(payload: unknown): {
+    contextId: string;
+    hostMuted: boolean;
+    participants: Map<string, ParticipantVoiceSetting>;
+  } | null {
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      return null;
+    }
+    const raw = payload as Record<string, unknown>;
+    if (Object.keys(raw).sort().join(",") !== "context_id,host_muted,participants,type,version"
+        || raw.type !== "voice_settings"
+        || raw.version !== VOICE_SETTINGS_PROTOCOL_VERSION
+        || typeof raw.context_id !== "string"
+        || !raw.context_id.trim()
+        || raw.context_id !== raw.context_id.trim()
+        || raw.context_id.length > MAX_VOICE_IDENTITY_LENGTH
+        || typeof raw.host_muted !== "boolean"
+        || !Array.isArray(raw.participants)
+        || raw.participants.length > MAX_VOICE_SETTINGS_IDENTITIES) {
+      return null;
+    }
+    const participants = new Map<string, ParticipantVoiceSetting>();
+    for (const value of raw.participants) {
+      if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return null;
+      }
+      const entry = value as Record<string, unknown>;
+      const participantId = typeof entry.participant_id === "string"
+        ? entry.participant_id.trim()
+        : "";
+      const volume = entry.volume;
+      if (Object.keys(entry).sort().join(",") !== "muted,participant_id,volume"
+          || !participantId
+          || participantId !== entry.participant_id
+          || participantId.length > MAX_VOICE_IDENTITY_LENGTH
+          || participants.has(participantId)
+          || !Number.isInteger(volume)
+          || (volume as number) < VOICE_PERSONAL_VOLUME_MIN
+          || (volume as number) > VOICE_PERSONAL_VOLUME_MAX
+          || ((volume as number) - VOICE_PERSONAL_VOLUME_MIN) % VOICE_PERSONAL_VOLUME_STEP !== 0
+          || typeof entry.muted !== "boolean") {
+        return null;
+      }
+      participants.set(participantId, {
+        muted: entry.muted,
+        volume: (volume as number) / 100,
+      });
+    }
+    return {
+      contextId: raw.context_id,
+      hostMuted: raw.host_muted,
+      participants,
+    };
+  }
+
+  private effectiveParticipantVolume(participantId: string): number {
+    const setting = this.participantSettings.get(participantId);
+    return setting?.muted ? 0 : this._voiceVolume * (setting?.volume ?? 1);
+  }
+
+  private applyAllParticipantVolumes(): void {
+    this.room?.remoteParticipants.forEach((participant) => {
+      participant.setVolume(
+        this.effectiveParticipantVolume(participant.identity),
+        Track.Source.Microphone,
+      );
     });
+    this.remoteAudioElements.forEach(({ element, participantId }) => {
+      element.volume = this.effectiveParticipantVolume(participantId);
+    });
+  }
+
+  private async enforceHostMute(): Promise<void> {
+    const room = this.room;
+    this.setMicBusy(false);
+    this.setMicState(false);
+    if (room) {
+      await room.localParticipant.setMicrophoneEnabled(false).catch(() => undefined);
+    }
+    await this.applyNativeMediaAudioProfile(false).catch(() => undefined);
   }
 
   private nextIntent(): number {
@@ -138,6 +262,7 @@ export class MobileVoiceManager {
     if (!this.supported) {
       this.callbacks.onStatus?.("voice-chat-sdk-missing", true);
       this.setState("disconnected");
+      this.callbacks.onJoinFailed?.();
       return;
     }
 
@@ -169,15 +294,20 @@ export class MobileVoiceManager {
       }
 
       this.connected = true;
+      this.applyAllParticipantVolumes();
       this.setMicState(false);
       this.setState("connected");
       this.callbacks.onConnected?.();
-      this.callbacks.onStatus?.("voice-chat-listen-only", true);
+      this.callbacks.onStatus?.(
+        this.hostMuted ? "voice-chat-host-muted" : "voice-chat-listen-only",
+        true,
+      );
     } catch {
       await this.leaveInternal(false);
       if (this.isCurrentIntent(intent)) {
         this.callbacks.onStatus?.("voice-chat-connect-failed", true);
         this.setState("disconnected");
+        this.callbacks.onJoinFailed?.();
       }
     }
   }
@@ -190,6 +320,7 @@ export class MobileVoiceManager {
       if (Platform.OS === "web" && track.kind === Track.Kind.Audio) {
         this.attachWebTrack(track as Track, publication, participant);
       }
+      this.applyParticipantVolume(participant);
     });
 
     room.on(RoomEvent.TrackUnsubscribed, (track, publication) => {
@@ -249,6 +380,10 @@ export class MobileVoiceManager {
       if (enabled === this.micEnabled) {
         return;
       }
+      if (enabled && this.hostMuted) {
+        this.callbacks.onStatus?.("voice-chat-host-muted", true);
+        return;
+      }
 
       const room = this.room;
       if (enabled) {
@@ -260,6 +395,12 @@ export class MobileVoiceManager {
       }
 
       await room.localParticipant.setMicrophoneEnabled(enabled);
+      if (enabled && this.hostMuted) {
+        await room.localParticipant.setMicrophoneEnabled(false).catch(() => undefined);
+        await this.applyNativeMediaAudioProfile(false);
+        this.callbacks.onStatus?.("voice-chat-host-muted", true);
+        return;
+      }
       if (!this.isCurrentIntent(intent) || this.room !== room || !this.connected) {
         if (enabled) {
           await room.localParticipant.setMicrophoneEnabled(false).catch(() => undefined);
@@ -346,13 +487,14 @@ export class MobileVoiceManager {
     element.controls = false;
     element.hidden = true;
     element.setAttribute("aria-hidden", "true");
-    element.volume = this._voiceVolume;
+    const participantId = participant.identity;
+    element.volume = this.effectiveParticipantVolume(participantId);
     this.ensureWebAudioContainer().appendChild(element);
     const playResult = element.play();
     if (playResult && typeof playResult.catch === "function") {
       playResult.catch(() => undefined);
     }
-    this.remoteAudioElements.set(key, element);
+    this.remoteAudioElements.set(key, { element, participantId });
   }
 
   private detachWebTrack(publication: RemoteTrackPublication): void {
@@ -360,15 +502,15 @@ export class MobileVoiceManager {
     if (!key) {
       return;
     }
-    const element = this.remoteAudioElements.get(key);
-    if (element?.parentNode) {
-      element.parentNode.removeChild(element);
+    const entry = this.remoteAudioElements.get(key);
+    if (entry?.element.parentNode) {
+      entry.element.parentNode.removeChild(entry.element);
     }
     this.remoteAudioElements.delete(key);
   }
 
   private cleanupWebAudioElements(): void {
-    this.remoteAudioElements.forEach((element) => {
+    this.remoteAudioElements.forEach(({ element }) => {
       if (element.parentNode) {
         element.parentNode.removeChild(element);
       }
@@ -390,6 +532,13 @@ export class MobileVoiceManager {
     document.body.appendChild(container);
     this.webAudioContainer = container;
     return container;
+  }
+
+  private applyParticipantVolume(participant: RemoteParticipant): void {
+    participant.setVolume(
+      this.effectiveParticipantVolume(participant.identity),
+      Track.Source.Microphone,
+    );
   }
 
   private getNativeLiveKitModule(): NativeLiveKitModule | null {

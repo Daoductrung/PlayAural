@@ -60,7 +60,7 @@ ageofheroes-war-conquest = Chinh phục
 ageofheroes-war-plunder = Cướp đoạt
 ageofheroes-war-destruction = Hủy diệt kỳ quan
 
-# Tùy chọn game
+# Tùy chọn trò chơi
 ageofheroes-set-victory-cities = Số thành phố để thắng: { $cities }
 ageofheroes-enter-victory-cities = Nhập số thành phố cần để thắng (3-7)
 ageofheroes-set-victory-monument = Tiến độ kỳ quan để thắng: { $progress }%
@@ -74,7 +74,6 @@ ageofheroes-option-changed-max-hand = Số bài tối đa trên tay đã đặt 
 
 # Giai đoạn Thiết lập
 ageofheroes-setup-start = Bạn trở thành thủ lĩnh của bộ tộc { $tribe }. Tài nguyên thiêng để dựng kỳ quan của bạn là { $special }. Hãy gieo xúc xắc để định đoạt thứ tự xuất chinh.
-ageofheroes-setup-viewer = Các thủ lĩnh đang gieo xúc xắc để định đoạt thứ tự xuất chinh.
 ageofheroes-roll-dice = Gieo xúc xắc
 ageofheroes-war-roll-dice = Gieo xúc xắc
 ageofheroes-dice-result = Bạn gieo được { $total } ({ $die1 } + { $die2 }).
@@ -100,8 +99,6 @@ ageofheroes-prepare-your-turn = Bạn có { $count } { $count ->
     [one] lá bài
    *[other] lá bài
 } cần đánh hoặc bỏ.
-ageofheroes-prepare-done = Giai đoạn chuẩn bị đã hoàn tất.
-
 # Đánh/Bỏ sự kiện
 ageofheroes-population-growth = { $player } khơi dậy Gia tăng dân số và dựng thêm một thành phố.
 ageofheroes-population-growth-you = Bạn khơi dậy Gia tăng dân số và dựng thêm một thành phố.
@@ -115,7 +112,6 @@ ageofheroes-eruption-you = Núi lửa phẫn nộ thiêu rụi một thành ph�
 # Hiệu ứng thảm họa
 ageofheroes-hunger-strikes = Nạn đói phủ bóng lên các bộ tộc.
 ageofheroes-lose-card-hunger = Bạn mất lá { $card }.
-ageofheroes-barbarians-pillage = Man tộc tràn vào cướp phá kho tài nguyên của { $player }.
 ageofheroes-barbarians-attack = Man tộc tràn vào cướp phá kho tài nguyên của { $player }.
 ageofheroes-barbarians-attack-you = Man tộc tràn vào cướp phá kho tài nguyên của bạn.
 ageofheroes-lose-card-barbarians = Bạn mất lá { $card }.
@@ -152,7 +148,6 @@ ageofheroes-fair-draw-other = { $player } rút { $count } { $count ->
 
 # Giao dịch/Đấu giá
 ageofheroes-auction-start = Phiên giao thương bắt đầu.
-ageofheroes-offer-trade = Đề nghị trao đổi
 ageofheroes-offer-made = { $player } đề nghị đổi { $card } lấy { $wanted }.
 ageofheroes-offer-made-you = Bạn đề nghị đổi { $card } lấy { $wanted }.
 ageofheroes-trade-accepted = { $player } chấp nhận lời đề nghị của { $other } và đổi { $give } lấy { $receive }.
@@ -222,8 +217,6 @@ ageofheroes-road-built = { $tribe1 } và { $tribe2 } nay được nối liền b
 ageofheroes-road-no-target = Không có bộ tộc láng giềng nào để mở đường.
 ageofheroes-approve = Chấp thuận
 ageofheroes-deny = Từ chối
-ageofheroes-supply-exhausted = Không còn { $building } để xây nữa.
-
 # Không làm gì
 ageofheroes-do-nothing = { $player } án binh.
 ageofheroes-do-nothing-you = Bạn án binh...
@@ -341,16 +334,7 @@ ageofheroes-you-win-battle-as-defender = Bạn phòng thủ thành công trướ
 ageofheroes-battle-victory-defender = { $defender } phòng thủ thành công trước { $attacker }.
 ageofheroes-you-draw-battle = Bạn và { $opponent } đều mất toàn bộ lực lượng tham chiến.
 ageofheroes-battle-mutual-defeat = Cả { $attacker } và { $defender } đều mất toàn bộ lực lượng tham chiến.
-ageofheroes-general-bonus = +{ $count } từ { $count ->
-    [one] tướng
-   *[other] tướng
-}
-ageofheroes-fortress-bonus = +{ $count } phòng thủ từ pháo đài
-ageofheroes-battle-winner = { $winner } thắng trận.
-ageofheroes-battle-draw = Trận chiến kết thúc hòa...
 ageofheroes-battle-continue = Tiếp tục trận chiến.
-ageofheroes-battle-end = Trận chiến kết thúc.
-
 # Kết quả chiến tranh
 ageofheroes-conquest-success = { $attacker } chinh phục { $count } { $count ->
     [one] thành phố
@@ -453,12 +437,6 @@ ageofheroes-status = { $player } ({ $tribe }): { $cities } { $cities ->
    *[other] quân đoàn
 }, kỳ quan { $monument }/5
 ageofheroes-status-detailed-header = { $player } ({ $tribe })
-ageofheroes-status-cities = Thành phố: { $count }
-ageofheroes-status-armies = Quân đoàn: { $count }
-ageofheroes-status-generals = Tướng lĩnh: { $count }
-ageofheroes-status-fortresses = Pháo đài: { $count }
-ageofheroes-status-monument = Kỳ quan: { $count }/5
-ageofheroes-status-roads = Đường xá: { $left }{ $right }
 ageofheroes-status-road-left = trái
 ageofheroes-status-road-right = phải
 ageofheroes-status-none = không có
@@ -471,8 +449,6 @@ ageofheroes-status-detail-returning-armies = { $count } quân đang trở về
 ageofheroes-status-detail-returning-generals = { $count } tướng đang trở về
 
 # Thông tin bộ bài
-ageofheroes-deck-empty = Không còn lá { $card } trong bộ.
-ageofheroes-deck-count = Số bài còn lại: { $count }
 ageofheroes-deck-reshuffled = Chồng bài bỏ đã được xào lại vào bộ bài.
 
 # Đầu hàng
@@ -480,16 +456,9 @@ ageofheroes-give-up-confirm = Bạn có chắc muốn bỏ cuộc không?
 ageofheroes-gave-up = { $player } đã bỏ cuộc!
 ageofheroes-gave-up-you = Bạn đã bỏ cuộc!
 
-# Lá bài Anh hùng
-ageofheroes-hero-use = Dùng như Quân đoàn hay Tướng lĩnh?
-ageofheroes-hero-army = Quân đoàn
-ageofheroes-hero-general = Tướng lĩnh
-
 # Lá bài Vận may
 ageofheroes-you-use-fortune = Bạn dùng lá Vận may để gieo lại xúc xắc chiến đấu.
 ageofheroes-player-uses-fortune = { $player } dùng lá Vận may để gieo lại xúc xắc chiến đấu.
-ageofheroes-fortune-prompt = Bạn đã thua lượt gieo này. Dùng Vận may để gieo lại không?
-
 # Lý do hành động bị vô hiệu hóa
 ageofheroes-not-your-turn = Chưa đến lượt bạn.
 ageofheroes-game-not-started = Trò chơi chưa bắt đầu.
@@ -509,10 +478,3 @@ ageofheroes-offered-card-unavailable = Lá bài được đề nghị không cò
 ageofheroes-trade-card-type-mismatch = Lá bạn chọn không đúng loại bài đang được yêu cầu.
 ageofheroes-trade-card-subtype-mismatch = Lá bạn chọn không đúng lá bài đang được yêu cầu.
 ageofheroes-trade-offer-label = { $player }: { $offered } đổi lấy { $wanted }
-
-# Chi phí xây dựng (để hiển thị)
-ageofheroes-cost-army = 2 Ngũ cốc, Sắt
-ageofheroes-cost-fortress = Sắt, Gỗ, Đá
-ageofheroes-cost-general = Sắt, Vàng
-ageofheroes-cost-road = 2 Đá
-ageofheroes-cost-city = 2 Gỗ, Đá

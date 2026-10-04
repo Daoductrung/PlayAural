@@ -213,13 +213,7 @@ explodingkittens-table-player = { $player }: { $cards ->
 explodingkittens-status-alive = sigue jugando
 explodingkittens-status-eliminated = eliminado
 explodingkittens-phase-normal = Esperando una jugada o robo.
-explodingkittens-phase-combo = Se está seleccionando un combo.
-explodingkittens-phase-target = Se está seleccionando un objetivo.
-explodingkittens-phase-request = Se está pidiendo una carta.
-explodingkittens-phase-nope = Hay una ventana de Nope abierta.
 explodingkittens-phase-favor-give = Se está entregando una carta de Favor.
-explodingkittens-phase-defuse = Un Gatito Explosivo está esperando una decisión de Desactivar.
-explodingkittens-phase-reinsert = Se está devolviendo un Gatito Explosivo al mazo.
 explodingkittens-phase-game-over = La partida ha terminado.
 
 explodingkittens-results-winner = Ganador: { $player }.

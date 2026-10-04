@@ -56,6 +56,8 @@
   "voice-chat-left-table": "Você saiu da mesa e do bate-papo por voz.",
   "voice-chat-mic-on": "Microfone ligado.",
   "voice-chat-mic-off": "Microfone desligado.",
+  "voice-chat-host-muted": "O host da mesa desativou seu microfone. Você ainda pode ouvir.",
+  "voice-chat-host-unmuted": "O host da mesa permitiu novamente o uso do seu microfone. Ele permanece desligado até que você o ligue.",
   "voice-chat-mic-denied": "O acesso ao microfone foi negado. Permita o uso do microfone para falar no bate-papo por voz.",
   "voice-chat-mic-unsupported": "Este dispositivo não consegue ativar o microfone para o bate-papo por voz.",
   "voice-chat-mic-permission-denied": "A permissão do microfone foi negada. Você ainda pode ouvir o bate-papo por voz, mas só poderá falar depois que o acesso ao microfone for permitido.",
@@ -184,7 +186,7 @@
   "auth-reset-failed": "Falha ao redefinir a senha.",
   "auth-username-password-required": "Nome de usuário e senha são obrigatórios.",
   "auth-username-taken": "Este nome de usuário já está em uso. Escolha outro nome de usuário.",
-  "auth-username-reserved-bot": "Este nome é reservado para bots do PlayAural. Escolha outro nome de usuário.",
+  "auth-username-reserved": "Este nome é reservado pelo PlayAural. Escolha outro nome de usuário.",
   "auth-registration-error": "O cadastro falhou devido a um erro do servidor. Tente novamente.",
   "auth-error-wrong-password": "Senha incorreta.",
   "auth-error-user-not-found": "O usuário não existe.",
@@ -225,10 +227,11 @@
   "logout-confirm": "Sair",
   "logout-cancel": "Cancelar",
   "logout-complete": "Sessão encerrada.",
+  "logout-in-progress": "Saindo da atividade atual e encerrando a sessão.",
   "session-kicked": "Você foi expulso do servidor.",
   "session-banned": "Esta conta foi banida.",
   "current-music-track": "Música: {value}",
   "current-ambience-track": "Som ambiente: {value}",
   "footer-gestures-line-1": "A narração automática usa gestos no estilo dos leitores de tela. Desative o TalkBack após conectar se quiser que o PlayAural controle a fala diretamente.",
-  "footer-gestures-line-2": "Deslizes com 1 dedo movem entre os itens; deslize e segure por meio segundo para continuar se movendo. O toque duplo ativa; toque duplo e segurar envia a ação modificada. Deslizes com 2 dedos abrem Voltar, Chat, Histórico ou Atalhos. Um toque com 2 dedos interrompe a fala. Deslizar com 3 dedos para cima ou para baixo pula para o primeiro ou o último item. Toque triplo com 3 dedos alterna a narração automática."
+  "footer-gestures-line-2": "Deslizes com 1 dedo movem entre os itens; deslize e segure por meio segundo para continuar se movendo. O toque duplo ativa; toque duplo e segurar envia a ação modificada. Deslizes com 2 dedos abrem Voltar, Chat, Histórico ou Atalhos. Um toque com 2 dedos interrompe a fala. Um toque com 3 dedos lê a descrição do item de menu em foco. Deslizar com 3 dedos para cima ou para baixo pula para o primeiro ou o último item. Toque triplo com 3 dedos alterna a narração automática."
 }

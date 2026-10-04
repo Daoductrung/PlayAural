@@ -33,9 +33,9 @@ En este manual, un jugador "actualmente en juego" es un jugador activo normal o 
 
 Cada jugador recibe un personaje principal público, un personaje alternativo público, y un rol. Tu personaje principal determina tu habilidad y tu vida máxima. El Sheriff gana una vida máxima adicional. Tu mano inicial contiene una carta por cada punto de vida inicial.
 
-El ambiente del Oeste comienza con la introducción, y el primer turno empieza diez segundos después de que esa introducción inicia. El discurso de apertura te dice tu propio rol, personaje, vida, y objetivo de rol, y luego identifica todos los roles que son públicos desde el inicio. No lee la mano inicial de nadie ni enumera a todos los personajes de la mesa; usa Leer mano o Ver la mesa cuando quieras esos detalles.
+Con entre 4 y 8 jugadores, el Sheriff tiene el primer turno. Con 3 jugadores, comienza el Alguacil. El anuncio inicial te dice en privado tu rol, personaje, vida y objetivo, y después identifica los roles que son públicos. Usa Leer tu mano y cartas en juego siempre que quieras revisar tus propias cartas.
 
-El Sheriff toma el primer turno en mesas de 4 a 8 jugadores. El personaje alternativo no tiene efecto a menos que aparezca Nueva Identidad. El estado del jugador siempre muestra la vida actual, la cantidad de cartas en mano, el personaje, el rol revelado, las cartas en juego, y el arma actual. Un jugador sin arma equipada siempre tiene el Colt .45 permanente con alcance 1. Las dos opciones de sala de espera del anfitrión controlan las Cartas y personajes expandidos y los Eventos de cambio de turno; ambas se explican en Opciones.
+El personaje alternativo no tiene ninguna habilidad a menos que aparezca Nueva Identidad. Quien no tenga un Arma equipada usa el Colt .45 permanente con alcance 1. El anfitrión elige si se incluyen las cartas y personajes expandidos y qué conjunto de eventos se usa; ambas opciones se explican más adelante en este manual.
 
 \*\*Un turno, paso a paso\*\*
 
@@ -43,9 +43,9 @@ El Sheriff toma el primer turno en mesas de 4 a 8 jugadores. El personaje altern
 2. Completa el paso de robo. Normalmente robas dos cartas, pero un personaje o evento puede reemplazar o alterar ese robo.
 3. Elige una carta o una habilidad de personaje disponible. PlayAural muestra solo las respuestas, costos, y objetivos legales. Puedes seguir jugando mientras el menú indique que es tu fase de juego.
 4. Elige Terminar turno. Si tu mano tiene más cartas que tu vida actual, selecciona exactamente la cantidad indicada de cartas y confirma el descarte. Sean Mallory tiene en cambio un límite de mano de 10.
-5. El turno pasa al siguiente jugador activo. Tus propias cartas siguen siendo visibles pero no disponibles en el menú mientras otro jugador actúa, así que revisarlas no puede cambiar el juego. También puedes presionar H para una lectura privada y concisa de tu mano.
+5. El turno pasa al siguiente jugador activo. Tus propias cartas siguen siendo visibles pero no disponibles en el menú mientras otro jugador actúa, así que revisarlas no puede cambiar el juego. Presiona H para escuchar en privado una lectura concisa de tu mano y de tus propias cartas boca arriba.
 
-Si un efecto le pide a alguien responder o elegir, la acción actual se pausa. Ningún jugador puede iniciar una acción sin relación hasta que esa respuesta o elección termine. Intentar una acción no disponible te dice quién está decidiendo y el paso específico aún pendiente, sin revelar cartas privadas.
+Si un efecto le pide a alguien responder o elegir, la acción actual se pausa. Ningún jugador puede iniciar una acción sin relación hasta que esa respuesta o elección termine. Intentar una acción no disponible te dice quién está decidiendo y el paso específico aún pendiente, sin revelar cartas privadas. Consultar de quién es el turno también indica qué jugador tiene la decisión pendiente y qué acción debe realizar, incluso cuando responde fuera de su propio turno.
 
 \*\*Cartas, palos, y verificaciones de robo\*\*
 
@@ -79,37 +79,33 @@ Solo se puede tener equipada una carta de Arma. Equipar una nunca dispara: cubre
 \* \*\*Winchester:\*\* Rifle de palanca, alcance 5.
 \* \*\*Volcánica:\*\* Pistola de repetición, alcance 1; elimina el límite normal de una carta ¡BANG! durante tu turno.
 
-\*\*Disparos, daño, recuperación, y eliminación\*\*
+\*\*Ataques, defensa, recuperación y eliminación\*\*
 
-Un ¡BANG! normal le pide a su objetivo un efecto ¡Fallaste!. Las cartas ¡BANG! de Slab the Killer requieren dos. ¡Fallaste!, Esquivar, un Barril exitoso, y las cartas verdes defensivas listas pueden aportar estos efectos. Esquivar también roba una carta. La habilidad de Slab no refuerza a Gatling, Obús, Duelo, u otros ataques que no sean ¡BANG!.
+Todo ataque que muestre el símbolo ¡BANG! pide a su objetivo un efecto ¡Fallaste!, salvo que la carta indique lo contrario. Esto incluye ataques como ¡BANG!, Puñetazo y Cuchillo. ¡Fallaste!, Esquivar, un Barril exitoso y las cartas verdes defensivas listas pueden aportar ese efecto. Esquivar roba después una carta. Las cartas ¡BANG! de Slab the Killer requieren dos efectos ¡Fallaste!, pero su habilidad no refuerza Puñetazo, Cuchillo, Gatling, Obús, Duelo ni otras cartas que no sean cartas ¡BANG!.
+
+Resuelve todas las verificaciones de Barril disponibles antes de elegir una carta de la mano. Cada verificación fallida deja el ataque pendiente; no te obliga a usar ¡Fallaste! hasta que hayas usado u omitido todas las verificaciones de Barril restantes. Por lo tanto, Jourdonnais con un Barril real tiene dos verificaciones separadas. Cada verificación exitosa aporta un efecto ¡Fallaste!.
 
 Si el objetivo aporta muy pocos efectos ¡Fallaste!, pierde una vida. El Duelo en cambio alterna respuestas ¡BANG!, y el primer jugador que no pueda o no quiera responder pierde una vida. ¡Indios! le pide a todos los demás jugadores ¡BANG! en lugar de ¡Fallaste!.
 
 En cero o menos vidas, juega suficientes Cervezas de tu mano o usa la habilidad de Sid Ketchum las veces necesarias para volver por encima de cero. La Cerveza puede jugarse con la vida al máximo pero se descarta sin curar. La Cerveza tampoco tiene efecto de curación cuando solo quedan dos jugadores. Saloon y Tequila siguen funcionando con dos jugadores. La vida nunca supera la vida máxima.
 
-Un jugador eliminado revela su rol y descarta todas sus cartas, a menos que Vulture Sam las recoja. Cuando se descartan las cartas, el jugador eliminado elige su orden exacto tanto en la mano como en las cartas en juego, una carta a la vez; Finalizar usa el orden restante del menú. El jugador responsable de eliminar a un Forajido roba tres cartas. Si el Sheriff elimina a un Alguacil, el Sheriff descarta toda su mano y todas sus cartas en juego; un Sheriff que también es Vulture Sam recoge primero, y luego paga la penalización. El daño autoinfligido en un Duelo no tiene un oponente responsable.
+Un jugador eliminado revela su rol y descarta todas sus cartas, a menos que Vulture Sam las recoja. Si están activos tanto Vulture Sam como Vera Custer copiando a Vulture Sam, se reparten las cartas: el recolector más cercano en sentido horario al jugador eliminado elige primero y después los dos alternan hasta que no quede ninguna. Cuando las cartas se descartan normalmente, el jugador eliminado elige su orden exacto entre la mano y las cartas en juego, una carta a la vez; Finalizar usa el orden restante del menú.
 
-\*\*Cómo se resuelve el sonido del combate\*\*
+El jugador responsable de eliminar a un Forajido roba tres cartas. Si el Sheriff elimina a un Alguacil, el Sheriff descarta toda su mano y todas sus cartas en juego; un Sheriff que también sea Vulture Sam recoge primero y después paga la penalización. El daño causado por el propio Duelo de un jugador no concede al oponente una recompensa por eliminación.
 
-PlayAural resuelve cada ataque en un orden estable, incluso cuando un bot responde de inmediato:
+\*\*Reglas especiales de los ataques\*\*
 
-1. El ataque se anuncia y su sonido de ataque comienza. Un arma de fuego usa el sonido del Arma actualmente activa del tirador; sin ninguna carta de Arma activa, usa el Colt .45.
-2. Si hay una verificación de Barril disponible, el objetivo elige si usarla. Una verificación exitosa detiene un efecto ¡Fallaste! requerido; una verificación fallida continúa con la respuesta normal sin ocultar el sonido de impacto posterior.
-3. El objetivo aporta la defensa requerida o acepta el impacto. El menú nombra el requisito actual y muestra solo las respuestas legales en ese estado exacto.
-4. Si se pierde vida, suena el impacto correspondiente y se anuncia el nuevo total de vida. Si el golpe es letal, la Cerveza y la recuperación de Sid Ketchum se resuelven antes de la eliminación.
-5. En una eliminación real, la caída comienza aproximadamente a un tercio del impacto letal, de modo que ambas señales se superponen con naturalidad. La caída nunca retrasa la recolección o el descarte de cartas, las recompensas de Forajido, las penalizaciones del Sheriff, el flujo del turno, ni la verificación de victoria. Las caídas de eliminaciones resueltas juntas se espacian ligeramente. Un fantasma de Pueblo Fantasma que abandona el juego al final del turno no es un nuevo golpe letal y no tiene señal de caída.
+Durante un Duelo, la distancia, el Barril y ¡Fallaste! no se aplican. El jugador desafiado responde primero y ambos jugadores alternan el descarte de cartas ¡BANG!. El primero que no pueda o no quiera responder pierde una vida.
 
-Durante el Duelo, la distancia, el Barril, y ¡Fallaste! no aplican. El jugador desafiado responde primero. Cada ¡BANG! descartado usa el sonido del Arma activa de quien responde. Si un jugador pierde antes de que se descarte ningún ¡BANG!, el Arma del oponente dispara antes del impacto corporal. Si un ¡BANG! acaba de descartarse, ese disparo es el disparo decisivo y no se reproduce dos veces.
-
-Durante ¡Indios!, todos los demás jugadores se resuelven en sentido horario. Un disparo confirma que el defensor actual descartó ¡BANG! con éxito; el impacto de daño genérico significa que ese defensor falló o eligió no defenderse y perdió una vida. Estas señales complementan el resultado hablado y nunca revelan una mano privada.
+Durante ¡Indios!, todos los demás jugadores responden en sentido horario. Cada uno debe descartar una carta ¡BANG! o perder una vida. Durante Gatling y Obús, cada uno necesita en cambio un efecto ¡Fallaste!. PlayAural anuncia el resultado de cada persona antes de pasar a la siguiente respuesta.
 
 \*\*Referencia completa de cartas\*\*
 
 \*\*Ataques y defensas inmediatas\*\*
 
 \* \*\*BANG!:\*\* Dispara a un jugador dentro del alcance del arma actual. Normalmente solo una carta ¡BANG! por turno.
-\* \*\*¡Fallaste!:\*\* Aporta un efecto ¡Fallaste! cuando un disparo lo pide.
-\* \*\*Esquivar:\*\* Aporta un efecto ¡Fallaste!, luego roba una carta.
+\* \*\*¡Fallaste!:\*\* Aporta un efecto ¡Fallaste! contra un ataque que muestre el símbolo ¡BANG!.
+\* \*\*Esquivar:\*\* Aporta un efecto ¡Fallaste! contra un ataque que muestre el símbolo ¡BANG! y después roba una carta.
 \* \*\*Puñetazo:\*\* Ataca a un jugador a distancia 1; un efecto ¡Fallaste! evita el daño.
 \* \*\*Springfield:\*\* Descarta una carta de mano adicional para dispararle a cualquier otro jugador a cualquier distancia.
 \* \*\*Duelo:\*\* Desafía a cualquier otro jugador. El objetivo responde primero, y los dos jugadores alternan cartas ¡BANG! hasta que uno se detiene y pierde una vida.
@@ -135,7 +131,7 @@ Durante ¡Indios!, todos los demás jugadores se resuelven en sentido horario. U
 
 \*\*Cartas azules en juego\*\*
 
-\* \*\*Barril:\*\* Cuando un disparo te tiene como objetivo, haz una verificación de robo; Corazones te otorga un efecto ¡Fallaste!. Jourdonnais puede verificar una vez por el Barril virtual y otra por un Barril real.
+\* \*\*Barril:\*\* Cuando un ataque que muestra el símbolo ¡BANG! te tiene como objetivo, haz una verificación de robo; Corazones te otorga un efecto ¡Fallaste!. Usa u omite todas las verificaciones de Barril antes de elegir una carta de defensa.
 \* \*\*Catalejo y Prismáticos:\*\* Cada uno reduce en 1 la distancia a la que ves a todos los demás jugadores.
 \* \*\*Mustang y Escondite:\*\* Cada uno aumenta en 1 la distancia a la que todos los demás jugadores te ven.
 \* \*\*Cárcel:\*\* Colócala sobre otro jugador legal. Al inicio del turno de ese jugador, Corazones la elimina sin consecuencias; cualquier otro palo hace que pierda el turno. El Sheriff no puede ser encarcelado excepto en una mesa de 3 jugadores.
@@ -144,7 +140,7 @@ Durante ¡Indios!, todos los demás jugadores se resuelven en sentido horario. U
 
 \*\*Cartas verdes de uso diferido\*\*
 
-\* \*\*Biblia:\*\* Descártala como un efecto ¡Fallaste!, luego roba una carta. Si ese mismo disparo todavía necesita otro efecto ¡Fallaste!, una carta elegible recién robada por la Biblia puede usarse de inmediato.
+\* \*\*Biblia:\*\* Descártala como un efecto ¡Fallaste! y después roba una carta. Si ese mismo ataque todavía necesita otro efecto ¡Fallaste!, una carta válida recién robada con la Biblia puede usarse de inmediato.
 \* \*\*Placa de Hierro, Sombrero, y Sombrero de Diez Galones:\*\* Descártala como un efecto ¡Fallaste!.
 \* \*\*Rifle de Búfalo:\*\* Elige y dispara a cualquier otro jugador, sin importar la distancia.
 \* \*\*Can Can:\*\* Elige a otro jugador para que pierda una carta elegida en juego o una carta de mano al azar.
@@ -165,7 +161,7 @@ La vida indicada abajo es el máximo normal del personaje antes del bono del She
 \* \*\*Calamity Janet — 4 vidas:\*\* Usa ¡BANG! como ¡Fallaste! y ¡Fallaste! como ¡BANG!. Un ¡Fallaste! convertido obedece el límite normal de ¡BANG!.
 \* \*\*El Gringo — 3 vidas:\*\* Después de sobrevivir a un daño causado por la carta de otro jugador, toma una carta de mano al azar de ese jugador por cada vida perdida. El Duelo y la Dinamita autoinfligidos no activan esto.
 \* \*\*Jesse Jones — 4 vidas:\*\* El primer robo normal puede tomarse al azar de la mano de otro jugador.
-\* \*\*Jourdonnais — 4 vidas:\*\* Siempre tiene un Barril virtual, que se acumula con un Barril real.
+\* \*\*Jourdonnais — 4 vidas:\*\* Siempre tiene un Barril virtual, que se acumula con un Barril real. Ambas verificaciones se realizan antes de usar cartas como ¡Fallaste! o Esquivar.
 \* \*\*Kit Carlson — 4 vidas:\*\* Mira las tres cartas superiores, conserva la cantidad de robo requerida, y devuelve el resto a la cima sin cambiar su orden relativo.
 \* \*\*Lucky Duke — 4 vidas:\*\* Revela dos cartas en cada verificación de robo y elige cuál resultado cuenta.
 \* \*\*Paul Regret — 3 vidas:\*\* Todos los demás jugadores ven a Paul a distancia +1.
@@ -174,7 +170,7 @@ La vida indicada abajo es el máximo normal del personaje antes del bono del She
 \* \*\*Sid Ketchum — 4 vidas:\*\* Entre efectos de carta ya resueltos, incluso fuera de su turno, descarta exactamente dos cartas de mano para recuperar una vida. También puede hacerlo durante su propia recuperación letal, pero no puede interrumpir una carta o elección sin resolver.
 \* \*\*Slab the Killer — 4 vidas:\*\* Cada carta ¡BANG! requiere dos efectos ¡Fallaste!.
 \* \*\*Suzy Lafayette — 4 vidas:\*\* Cuando su mano queda vacía, roba una carta después de que el efecto actual termine.
-\* \*\*Vulture Sam — 4 vidas:\*\* Recoge cada carta de mano y carta en juego que pertenezca a un jugador eliminado.
+\* \*\*Vulture Sam — 4 vidas:\*\* Recoge todas las cartas de la mano y en juego que pertenezcan a un jugador eliminado. Si Vera Custer está copiando esta habilidad, los dos recolectores alternan sus elecciones, comenzando por el más cercano al jugador eliminado en sentido horario.
 \* \*\*Willy the Kid — 4 vidas:\*\* Puede jugar cualquier número de cartas ¡BANG! durante su turno.
 \* \*\*Apache Kid — 3 vidas:\*\* Las cartas de Diamantes jugadas por otros jugadores no le afectan, excepto durante el Duelo.
 \* \*\*Belle Star — 4 vidas:\*\* Durante su turno, las cartas frente a los demás jugadores no tienen efecto.
@@ -251,11 +247,15 @@ Las dos opciones de la sala de espera son independientes: cambiar las Cartas y p
 
 Usa Leer evento actual o presiona E cada vez que un evento cambie; PlayAural lee la regla activa exacta.
 
-\*\*Información y audio\*\*
+\*\*Información y juego accesible\*\*
 
-Leer mano ofrece una lista privada y breve por texto a voz que contiene solo el nombre, rango, y palo de cada carta. Sigue disponible fuera de tu turno, incluso mientras otro jugador está eligiendo. Recorre las filas deshabilitadas de tu mano para inspeccionar con seguridad las descripciones visuales completas de las cartas. Leer vida informa solo tu vida actual y máxima. Leer rol y personaje da el resumen más largo de identidad, habilidad, alternativo, vida, y arma. Leer distancias informa cada distancia de asiento legal y el alcance del arma actual. Leer pilas de cartas informa las cantidades de robo, descarte, y eventos. Leer evento actual explica su regla activa.
+Leer tu mano y cartas en juego anuncia en privado primero tu mano y después tus propias cartas boca arriba. Estas listas breves incluyen nombres, rangos y palos, pero no las descripciones de las reglas. La acción sigue disponible fuera de tu turno, incluso mientras otro jugador está eligiendo. Cuando están activadas las \*\*Indicaciones de menú\*\*, las filas de cartas donde decides qué jugar o usar también incluyen la descripción completa de las reglas de cada carta. Al desactivar las Indicaciones de menú, se conservan el contexto de la acción, el nombre de la carta, el rango y el palo, pero se oculta ese texto adicional sobre las reglas.
 
-Ver la mesa abre un panel de estado público en vivo con turno, fase, evento, vida, cantidad de cartas en mano, personajes, roles revelados, armas, y cartas en juego. Las respuestas urgentes en el tiempo están presentes en el menú actual en clientes táctiles. El habla siempre informa el resultado relevante según las reglas. El audio dedicado refuerza ataques, defensas, impactos, curación, caídas por eliminación, y victoria; las revelaciones de evento, las revelaciones de rol, las recompensas, las penalizaciones, el Emporio, y otros efectos sin una señal dedicada dependen del habla concisa y de los sonidos estándar de cartas. El chat de voz de la mesa es una función de la plataforma en el área de Chat; BANG! no le asigna un atajo propio del juego.
+Leer distancias abre un panel de estado en vivo. La primera fila muestra tu Arma actual y su alcance; las demás filas estables muestran tu distancia a cada jugador que siga en juego. Leer la mesa abre otro panel público en vivo con el turno activo, el evento actual, la vida, las cantidades de cartas en mano, los personajes, los roles revelados, las armas y solo los nombres de las cartas en juego. Ambos paneles se actualizan mientras están abiertos, sin obligarte a recordar una lista hablada larga.
+
+Leer vida indica tu vida actual y máxima. Leer rol y personaje indica tu rol, habilidad, personaje alternativo, vida y Arma. Leer pilas de cartas indica el tamaño de la pila de robo, el tamaño de la pila de descarte y la carta superior del descarte. Leer evento actual explica el evento activo. Consultar de quién es el turno indica tanto el turno activo como cualquier decisión pendiente fuera del turno. Quién está en la mesa abre la lista actual de integrantes de la mesa.
+
+Las respuestas urgentes aparecen en el menú actual de los clientes táctiles. El habla anuncia todos los resultados relevantes para las reglas, mientras que sonidos distintos refuerzan los ataques, la defensa, el daño, la curación, la eliminación y la victoria sin reemplazar la información hablada.
 
 \*\*Resultados\*\*
 
@@ -263,10 +263,10 @@ Ver la mesa abre un panel de estado público en vivo con turno, fase, evento, vi
 
 \*\*Atajos de teclado\*\*
 
-\* \*\*H:\*\* Leer tu mano de forma concisa.
+\* \*\*H:\*\* Leer tu mano y tus propias cartas boca arriba de forma concisa.
 \* \*\*R:\*\* Leer tu rol, personaje, habilidad, personaje alternativo, vida, y arma.
 \* \*\*L:\*\* Leer tu vida actual y máxima.
-\* \*\*D:\*\* Leer distancias y el alcance del arma.
+\* \*\*D:\*\* Abrir el panel en vivo de distancias y Arma.
 \* \*\*P:\*\* Leer el estado del robo, el descarte, y el mazo de eventos.
 \* \*\*E:\*\* Leer el evento actual.
 \* \*\*V:\*\* Abrir el estado en vivo de la mesa.

@@ -82,10 +82,5 @@ threes-error-toggle-last-die = نمی‌توانید آخرین تاس باز ر
 threes-error-rounds-out-of-range = سه‌ها نمی‌تواند با { $rounds } دور شروع شود. مقداری از { $min } تا { $max } انتخاب کنید.
 threes-invalid-die-index = آن تاس در این نوبت سه‌ها در دسترس نیست.
 
-threes-must-keep = قبل از پرتاب مجدد باید حداقل یک تاس نگه دارید.
-threes-must-bank = اکنون باید ذخیره کنید.
-threes-roll-first = ابتدا باید پرتاب کنید.
 threes-keep-all-first = برای ذخیره، ابتدا همه‌ی تاس‌ها را نگه دارید.
-threes-last-die = این آخرین تاس شماست.
-
 threes-line-format = { $rank }. { $player }: { $points }

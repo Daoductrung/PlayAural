@@ -37,6 +37,7 @@ voice-chat-listen-only = Joined Voice Chat. You are listening only.
 voice-chat-left = Left Voice Chat.
 voice-chat-mic-on = Microphone is on.
 voice-chat-mic-off = Microphone is off.
+voice-chat-host-muted = Your microphone is disabled by the table host. You can still listen.
 voice-chat-not-connected = Voice Chat is not connected.
 voice-chat-unavailable = Voice Chat is not available right now.
 voice-chat-sdk-missing = Voice Chat support is not installed in this client.
@@ -76,7 +77,6 @@ auth-error-user-not-found = User does not exist.
 auth-error-username-ambiguous = More than one legacy account matches this spelling. Enter the exact registered spelling.
 auth-registration-success = Registration successful! You can now log in with your credentials.
 auth-username-taken = Username already taken. Please choose a different username.
-auth-username-reserved-bot = This name is reserved for PlayAural bots. Please choose a different username.
 auth-username-reserved = This name is reserved by PlayAural. Please choose a different username.
 
 login-welcome-title = Welcome to PlayAural

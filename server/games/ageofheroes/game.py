@@ -2753,7 +2753,11 @@ class AgeOfHeroesGame(Game):
             self.sub_phase = PlaySubPhase.ROAD_TARGET
             user = self.get_user(player)
             if user:
-                user.speak_l("ageofheroes-road-select-neighbor", buffer="game")
+                user.speak_l(
+                    "ageofheroes-road-select-neighbor",
+                    buffer="game",
+                    history=False,
+                )
             self._request_first_visible_focus(player, self._road_target_focus_candidates(player))
             self.refresh_menus()
             return
@@ -2777,7 +2781,11 @@ class AgeOfHeroesGame(Game):
             self.refresh_menus()
             user = self.get_user(player)
             if user:
-                user.speak_l("ageofheroes-construction-menu", buffer="game")
+                user.speak_l(
+                    "ageofheroes-construction-menu",
+                    buffer="game",
+                    history=False,
+                )
         else:
             # No more buildings available - end action
             self.sub_phase = PlaySubPhase.SELECT_ACTION
@@ -2859,7 +2867,11 @@ class AgeOfHeroesGame(Game):
         self.sub_phase = PlaySubPhase.CONSTRUCTION
         user = self.get_user(player)
         if user:
-            user.speak_l("ageofheroes-construction-menu", buffer="game")
+            user.speak_l(
+                "ageofheroes-construction-menu",
+                buffer="game",
+                history=False,
+            )
         self._request_first_visible_focus(player, self._construction_focus_candidates())
         self.refresh_menus()
 
@@ -2928,7 +2940,11 @@ class AgeOfHeroesGame(Game):
                 self.refresh_menus()
                 builder_user = self.get_user(builder)
                 if builder_user:
-                    builder_user.speak_l("ageofheroes-construction-menu", buffer="game")
+                    builder_user.speak_l(
+                        "ageofheroes-construction-menu",
+                        buffer="game",
+                        history=False,
+                    )
             else:
                 # No more buildings available - end action
                 self._end_action(builder)
@@ -2989,7 +3005,11 @@ class AgeOfHeroesGame(Game):
                 self.sub_phase = PlaySubPhase.CONSTRUCTION
                 self.refresh_menus()
                 if builder_user:
-                    builder_user.speak_l("ageofheroes-construction-menu", buffer="game")
+                    builder_user.speak_l(
+                        "ageofheroes-construction-menu",
+                        buffer="game",
+                        history=False,
+                    )
             else:
                 # No more resources
                 self._end_action(builder)
@@ -3033,7 +3053,11 @@ class AgeOfHeroesGame(Game):
         # Show goal selection menu
         user = self.get_user(player)
         if user:
-            user.speak_l("ageofheroes-war-select-goal", buffer="game")
+            user.speak_l(
+                "ageofheroes-war-select-goal",
+                buffer="game",
+                history=False,
+            )
         self._request_first_visible_focus(player, self._war_goal_focus_candidates(player))
         self.refresh_menus()
 
@@ -3124,7 +3148,11 @@ class AgeOfHeroesGame(Game):
 
         user = self.get_user(player)
         if user:
-            user.speak_l("ageofheroes-war-select-target", buffer="game")
+            user.speak_l(
+                "ageofheroes-war-select-target",
+                buffer="game",
+                history=False,
+            )
         self._request_first_visible_focus(player, self._war_target_focus_candidates(player))
         self.refresh_menus()
 
@@ -3193,7 +3221,12 @@ class AgeOfHeroesGame(Game):
         self.sub_phase = PlaySubPhase.WAR_OLYMPICS
         user = self.get_user(defender)
         if user:
-            user.speak_l("ageofheroes-olympics-prompt", attacker=attacker.name, buffer="game")
+            user.speak_l(
+                "ageofheroes-olympics-prompt",
+                attacker=attacker.name,
+                buffer="game",
+                history=False,
+            )
         self._request_first_visible_focus(defender, ("use_olympics", "decline_olympics"))
         self.refresh_menus()
         return True
@@ -3471,7 +3504,12 @@ class AgeOfHeroesGame(Game):
         if user:
             card = player.hand[card_index]
             card_name = get_card_name(card, user.locale)
-            user.speak_l("ageofheroes-select-request", card=card_name, buffer="game")
+            user.speak_l(
+                "ageofheroes-select-request",
+                card=card_name,
+                buffer="game",
+                history=False,
+            )
 
         self._request_first_visible_focus(player, self._request_focus_candidates())
         self.refresh_menus()
@@ -3666,7 +3704,12 @@ class AgeOfHeroesGame(Game):
         user = self.get_user(player)
         if user:
             card_name = get_card_name(card, user.locale)
-            user.speak_l("ageofheroes-select-disaster-target", card=card_name, buffer="game")
+            user.speak_l(
+                "ageofheroes-select-disaster-target",
+                card=card_name,
+                buffer="game",
+                history=False,
+            )
 
         self._request_first_visible_focus(player, self._disaster_target_focus_candidates(player))
         self.refresh_menus()
@@ -3936,7 +3979,11 @@ class AgeOfHeroesGame(Game):
 
             user = self.get_user(player)
             if user:
-                user.speak_l("ageofheroes-war-select-target", buffer="game")
+                user.speak_l(
+                    "ageofheroes-war-select-target",
+                    buffer="game",
+                    history=False,
+                )
             self._request_first_visible_focus(player, self._war_target_focus_candidates(player))
             self.refresh_menus()
 
@@ -4225,15 +4272,12 @@ class AgeOfHeroesGame(Game):
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=p.id,
-                    player_name=p.name,
-                    is_bot=p.is_bot,
-                )
+                PlayerResult.from_player(p)
                 for p in active_players
             ],
             custom_data={
                 "winner_name": winner.name if winner else None,
+                "winner_ids": [winner.id] if winner else [],
                 "days_played": self.current_day,
             },
         )

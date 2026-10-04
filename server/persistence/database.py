@@ -2421,7 +2421,7 @@ class Database:
             ON game_result_players(player_id)
         """)
 
-        # Player ratings (for skill-based matchmaking)
+        # Internal per-game skill model state.
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS player_ratings (
                 player_id TEXT NOT NULL,
@@ -3331,17 +3331,29 @@ class Database:
 
         cursor.execute(
             """
-            SELECT DISTINCT game_type
+            SELECT player_id, game_type, mu, sigma
             FROM player_ratings
-            ORDER BY game_type
+            ORDER BY game_type, player_id
             """
         )
-        unsupported_rating_types = [
-            row["game_type"]
-            for row in cursor.fetchall()
-            if row["game_type"] in supported
-            and row["game_type"] not in rating_supported
-        ]
+        unsupported_rating_types: set[str] = set()
+        invalid_rating_pairs: list[tuple[str, str]] = []
+        for row in cursor.fetchall():
+            game_type = row["game_type"]
+            if game_type not in supported:
+                continue
+            if game_type not in rating_supported:
+                unsupported_rating_types.add(game_type)
+                continue
+            try:
+                self._validate_rating_values(
+                    row["player_id"],
+                    game_type,
+                    row["mu"],
+                    row["sigma"],
+                )
+            except ValueError:
+                invalid_rating_pairs.append((row["player_id"], game_type))
 
         if unsupported_stat_pairs:
             stat_label = ", ".join(
@@ -3351,8 +3363,16 @@ class Database:
         else:
             stat_label = "none"
         rating_label = (
-            ", ".join(unsupported_rating_types)
+            ", ".join(sorted(unsupported_rating_types))
             if unsupported_rating_types
+            else "none"
+        )
+        invalid_rating_label = (
+            ", ".join(
+                f"{game_type}:{player_id}"
+                for player_id, game_type in invalid_rating_pairs
+            )
+            if invalid_rating_pairs
             else "none"
         )
         logger.info(
@@ -3363,8 +3383,13 @@ class Database:
             "Database Pruning: Unsupported rating game types detected: %s",
             rating_label,
         )
+        logger.info(
+            "Database Pruning: Invalid rating records detected: %s",
+            invalid_rating_label,
+        )
         print(f"Database Pruning: Unsupported leaderboard stat keys detected: {stat_label}.")
         print(f"Database Pruning: Unsupported rating game types detected: {rating_label}.")
+        print(f"Database Pruning: Invalid rating records detected: {invalid_rating_label}.")
 
         with self._transaction(immediate=True) as cursor:
             for game_type, stat_key in unsupported_stat_pairs:
@@ -3377,10 +3402,20 @@ class Database:
                 )
                 counts["player_game_stats"] += cursor.rowcount
 
-            for game_type in unsupported_rating_types:
+            for game_type in sorted(unsupported_rating_types):
                 cursor.execute(
                     "DELETE FROM player_ratings WHERE game_type = ?",
                     (game_type,),
+                )
+                counts["player_ratings"] += cursor.rowcount
+
+            for player_id, game_type in invalid_rating_pairs:
+                cursor.execute(
+                    """
+                    DELETE FROM player_ratings
+                    WHERE player_id = ? AND game_type = ?
+                    """,
+                    (player_id, game_type),
                 )
                 counts["player_ratings"] += cursor.rowcount
 
@@ -4864,9 +4899,15 @@ class Database:
     def _delete_table_checkpoints_for_user(
         self, cursor: sqlite3.Cursor, user: UserRecord
     ) -> int:
-        """Delete transient table checkpoints that reference an account."""
-        cursor.execute("SELECT table_id, host, members_json FROM tables")
+        """Delete account-owned checkpoints and scrub retained voice references."""
+        from ..tables.table import Table
+
+        cursor.execute(
+            "SELECT table_id, host, members_json, game_json, table_state_json "
+            "FROM tables"
+        )
         table_ids: list[str] = []
+        voice_state_updates: list[tuple[str, str]] = []
         for row in cursor.fetchall():
             host = self.get_user(str(row["host"]))
             if host and host.uuid == user.uuid:
@@ -4882,10 +4923,60 @@ class Database:
             )
             if any(record and record.uuid == user.uuid for record in member_records):
                 table_ids.append(row["table_id"])
+                continue
+            try:
+                game_state = (
+                    json.loads(row["game_json"])
+                    if row["game_json"]
+                    else None
+                )
+            except (TypeError, json.JSONDecodeError):
+                game_state = None
+            if self._json_contains_exact_string(game_state, user.uuid):
+                # A reversibly kicked account can own a replacement seat while
+                # no longer appearing in members_json. The live table will
+                # rekey that seat to a dedicated bot; discard its older durable
+                # snapshot so a crash cannot restore the deleted UUID.
+                table_ids.append(row["table_id"])
+                continue
+            try:
+                updated_state = Table.discard_voice_account_from_checkpoint(
+                    row["table_state_json"],
+                    user.uuid,
+                )
+            except (TypeError, ValueError):
+                # Loading owns corruption reporting. Account deletion must not
+                # rewrite an unrecognized checkpoint into a partial format.
+                continue
+            if updated_state != row["table_state_json"]:
+                voice_state_updates.append((updated_state, row["table_id"]))
 
         for table_id in table_ids:
             cursor.execute("DELETE FROM tables WHERE table_id = ?", (table_id,))
+        for table_state_json, table_id in voice_state_updates:
+            cursor.execute(
+                "UPDATE tables SET table_state_json = ? WHERE table_id = ?",
+                (table_state_json, table_id),
+            )
         return len(table_ids)
+
+    @staticmethod
+    def _json_contains_exact_string(value: object, target: str) -> bool:
+        """Return whether decoded JSON contains an exact string key or value."""
+        if isinstance(value, str):
+            return value == target
+        if isinstance(value, list):
+            return any(
+                Database._json_contains_exact_string(item, target)
+                for item in value
+            )
+        if isinstance(value, dict):
+            return any(
+                Database._json_contains_exact_string(key, target)
+                or Database._json_contains_exact_string(item, target)
+                for key, item in value.items()
+            )
+        return False
 
     def get_non_admin_users(self) -> list[UserRecord]:
         """Get all approved users below the administrator role."""
@@ -5537,7 +5628,7 @@ class Database:
                 # Keep the legacy scalar populated during the compatibility
                 # window; table_state_json is the canonical extensible state.
                 int(table.is_private),
-                table.serialize_saved_state(),
+                table.serialize_saved_state(include_checkpoint_state=True),
                 self._serialize_active_human_offline_elapsed(table, saved_at),
                 "manual",
                 datetime.fromtimestamp(saved_at).isoformat(),
@@ -5573,7 +5664,10 @@ class Database:
             is_private=bool(row["is_private"]),
         )
         table.restore_saved_state(
-            Table.deserialize_saved_state(row["table_state_json"])
+            Table.deserialize_saved_state(
+                row["table_state_json"],
+                include_checkpoint_state=True,
+            )
         )
         table._checkpoint_kind = (
             row["checkpoint_kind"]
@@ -5640,7 +5734,10 @@ class Database:
                     is_private=bool(row["is_private"]),
                 )
                 table.restore_saved_state(
-                    Table.deserialize_saved_state(row["table_state_json"])
+                    Table.deserialize_saved_state(
+                        row["table_state_json"],
+                        include_checkpoint_state=True,
+                    )
                 )
                 table._checkpoint_kind = row["checkpoint_kind"] or "legacy"
                 table._checkpoint_created_at = row["checkpoint_created_at"] or ""
@@ -5738,7 +5835,7 @@ class Database:
                         table.game_json,
                         table.status,
                         int(table.is_private),
-                        table.serialize_saved_state(),
+                        table.serialize_saved_state(include_checkpoint_state=True),
                         self._serialize_active_human_offline_elapsed(
                             table,
                             checkpoint_saved_at,
@@ -5900,6 +5997,7 @@ class Database:
         duration_ticks: int,
         players: list[tuple[str, str, bool]],  # (player_id, player_name, is_bot)
         custom_data: dict | None = None,
+        rating_updates: dict[str, tuple[float, float]] | None = None,
     ) -> int:
         """
         Save a game result to the database.
@@ -5910,6 +6008,7 @@ class Database:
             duration_ticks: Game duration in ticks
             players: List of (player_id, player_name, is_bot) tuples
             custom_data: Game-specific result data
+            rating_updates: New skill values keyed by immutable account id.
 
         Returns:
             The result ID
@@ -5922,6 +6021,7 @@ class Database:
                 duration_ticks,
                 players,
                 custom_data,
+                rating_updates,
             )
 
     def _save_game_result_in_transaction(
@@ -5932,8 +6032,36 @@ class Database:
         duration_ticks: int,
         players: list[tuple[str, str, bool]],
         custom_data: dict | None,
+        rating_updates: dict[str, tuple[float, float]] | None,
     ) -> int:
         """Persist one result and its derived records atomically."""
+
+        player_ids = [player_id for player_id, _player_name, _is_bot in players]
+        if any(not isinstance(player_id, str) or not player_id for player_id in player_ids):
+            raise ValueError("game results require non-empty player ids")
+        if len(set(player_ids)) != len(player_ids):
+            raise ValueError("game results cannot contain duplicate player ids")
+        if any(
+            not isinstance(player_name, str) or not player_name
+            for _player_id, player_name, _is_bot in players
+        ):
+            raise ValueError("game results require non-empty player names")
+        if any(
+            not isinstance(is_bot, bool)
+            for _player_id, _player_name, is_bot in players
+        ):
+            raise ValueError("game result bot flags must be booleans")
+
+        if rating_updates:
+            human_player_ids = {
+                player_id for player_id, _player_name, is_bot in players if not is_bot
+            }
+            if set(rating_updates) != human_player_ids:
+                raise ValueError(
+                    "rating updates must cover every human result participant"
+                )
+            for player_id, (mu, sigma) in rating_updates.items():
+                self._validate_rating_values(player_id, game_type, mu, sigma)
 
         # Insert the main result record
         cursor.execute(
@@ -5967,10 +6095,17 @@ class Database:
         # We temporarily build a GameResult just for the extractor
         gr = GameResult(
             game_type=game_type,
-            timestamp=datetime.now().isoformat(),
+            timestamp=timestamp,
             duration_ticks=duration_ticks,
-            player_results=[PlayerResult(player_id=pid, player_name=name, is_bot=is_bot) for pid, name, is_bot in players],
-            custom_data=custom_data or {}
+            player_results=[
+                PlayerResult(
+                    player_id=pid,
+                    player_name=name,
+                    is_bot=is_bot,
+                )
+                for pid, name, is_bot in players
+            ],
+            custom_data=custom_data or {},
         )
 
         if gr.has_human_players():
@@ -5996,6 +6131,16 @@ class Database:
                             ON CONFLICT(player_id, game_type, stat_key)
                             DO UPDATE SET stat_value = stat_value + excluded.stat_value
                         """, (p_id, game_type, stat_key, float(stat_value)))
+
+        if rating_updates:
+            for player_id, (mu, sigma) in rating_updates.items():
+                self._set_player_rating_in_transaction(
+                    cursor,
+                    player_id,
+                    game_type,
+                    mu,
+                    sigma,
+                )
 
         return result_id
 
@@ -6113,70 +6258,6 @@ class Database:
             (row["id"], row["game_type"], row["timestamp"], row["duration_ticks"], row["custom_data"])
             for row in cursor.fetchall()
         ]
-
-    def get_game_stats_aggregate(self, game_type: str) -> dict:
-        """
-        Get aggregate statistics for a game type.
-
-        Returns:
-            Dictionary with total_games, total_duration_ticks, etc.
-        """
-        cursor = self._conn.cursor()
-        cursor.execute(
-            """
-            SELECT
-                COUNT(*) as total_games,
-                SUM(duration_ticks) as total_duration,
-                AVG(duration_ticks) as avg_duration
-            FROM game_results
-            WHERE game_type = ?
-            """,
-            (game_type,),
-        )
-        row = cursor.fetchone()
-        return {
-            "total_games": row["total_games"] or 0,
-            "total_duration_ticks": row["total_duration"] or 0,
-            "avg_duration_ticks": row["avg_duration"] or 0,
-        }
-
-    def get_player_stats(self, player_id: str, game_type: str | None = None) -> dict:
-        """
-        Get statistics for a player.
-
-        Args:
-            player_id: The player ID
-            game_type: Optional filter by game type
-
-        Returns:
-            Dictionary with games_played, etc.
-        """
-        cursor = self._conn.cursor()
-
-        if game_type:
-            cursor.execute(
-                """
-                SELECT COUNT(*) as games_played
-                FROM game_result_players grp
-                INNER JOIN game_results gr ON grp.result_id = gr.id
-                WHERE grp.player_id = ? AND gr.game_type = ?
-                """,
-                (player_id, game_type),
-            )
-        else:
-            cursor.execute(
-                """
-                SELECT COUNT(*) as games_played
-                FROM game_result_players
-                WHERE player_id = ?
-                """,
-                (player_id,),
-            )
-
-        row = cursor.fetchone()
-        return {
-            "games_played": row["games_played"] or 0,
-        }
 
     def get_top_player_game_stats(self, game_type: str, stat_key: str, limit: int = 10) -> list[tuple[str, str, float]]:
         """
@@ -6984,6 +7065,52 @@ class Database:
 
     # Player rating operations
 
+    @staticmethod
+    def _validate_rating_values(
+        player_id: str,
+        game_type: str,
+        mu: float,
+        sigma: float,
+    ) -> None:
+        """Reject identity or numeric values that could corrupt rating order."""
+        if not isinstance(player_id, str) or not player_id:
+            raise ValueError("rating player id must be a non-empty string")
+        if not isinstance(game_type, str) or not game_type:
+            raise ValueError("rating game type must be a non-empty string")
+        if (
+            isinstance(mu, bool)
+            or not isinstance(mu, (int, float))
+            or not math.isfinite(mu)
+        ):
+            raise ValueError("rating mu must be finite")
+        if (
+            isinstance(sigma, bool)
+            or not isinstance(sigma, (int, float))
+            or not math.isfinite(sigma)
+            or sigma <= 0
+        ):
+            raise ValueError("rating sigma must be finite and positive")
+
+    @classmethod
+    def _set_player_rating_in_transaction(
+        cls,
+        cursor: sqlite3.Cursor,
+        player_id: str,
+        game_type: str,
+        mu: float,
+        sigma: float,
+    ) -> None:
+        """Upsert one already-validated rating with the caller's transaction."""
+        cursor.execute(
+            """
+            INSERT INTO player_ratings (player_id, game_type, mu, sigma)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(player_id, game_type)
+            DO UPDATE SET mu = excluded.mu, sigma = excluded.sigma
+            """,
+            (player_id, game_type, float(mu), float(sigma)),
+        )
+
     def get_player_rating(
         self, player_id: str, game_type: str
     ) -> tuple[float, float] | None:
@@ -7003,42 +7130,105 @@ class Database:
         )
         row = cursor.fetchone()
         if row:
-            return (row["mu"], row["sigma"])
+            mu, sigma = row["mu"], row["sigma"]
+            try:
+                self._validate_rating_values(player_id, game_type, mu, sigma)
+            except ValueError:
+                logging.getLogger("playaural.ratings").error(
+                    "Ignoring invalid stored rating for player %s in game %s",
+                    player_id,
+                    game_type,
+                )
+                return None
+            return (mu, sigma)
         return None
 
     def set_player_rating(
         self, player_id: str, game_type: str, mu: float, sigma: float
     ) -> None:
         """Set or update a player's rating for a game type."""
+        self._validate_rating_values(player_id, game_type, mu, sigma)
         cursor = self._conn.cursor()
-        cursor.execute(
-            """
-            INSERT OR REPLACE INTO player_ratings (player_id, game_type, mu, sigma)
-            VALUES (?, ?, ?, ?)
-            """,
-            (player_id, game_type, mu, sigma),
+        self._set_player_rating_in_transaction(
+            cursor,
+            player_id,
+            game_type,
+            mu,
+            sigma,
         )
 
     def get_rating_leaderboard(
-        self, game_type: str, limit: int = 10
+        self,
+        game_type: str,
+        limit: int,
+        *,
+        confidence_z: float,
     ) -> list[tuple[str, str, float, float]]:
         """
         Get the rating leaderboard for a game type.
 
         Returns:
-            List of (player_id, player_name, mu, sigma) tuples sorted by ordinal descending
+            Entries sorted by the requested conservative skill score.
         """
+        if (
+            isinstance(confidence_z, bool)
+            or not isinstance(confidence_z, (int, float))
+            or not math.isfinite(confidence_z)
+            or confidence_z <= 0
+        ):
+            raise ValueError("rating confidence z must be finite and positive")
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+            raise ValueError("rating leaderboard limit must be a positive integer")
         cursor = self._conn.cursor()
-        cursor.execute(
-            """
-            SELECT pr.player_id, u.username as player_name, pr.mu, pr.sigma,
-                   (pr.mu - 3 * pr.sigma) as ordinal
-            FROM player_ratings pr
-            LEFT JOIN users u ON pr.player_id = u.uuid
-            WHERE pr.game_type = ?
-            ORDER BY ordinal DESC
-            LIMIT ?
-            """,
-            (game_type, limit),
-        )
-        return [(row["player_id"], row["player_name"] or row["player_id"], row["mu"], row["sigma"]) for row in cursor.fetchall()]
+        entries = []
+        offset = 0
+        rating_logger = logging.getLogger("playaural.ratings")
+        while len(entries) < limit:
+            cursor.execute(
+                """
+                SELECT pr.player_id, u.username as player_name, pr.mu, pr.sigma,
+                       (pr.mu - ? * pr.sigma) as skill_score
+                FROM player_ratings pr
+                LEFT JOIN users u ON pr.player_id = u.uuid
+                WHERE pr.game_type = ?
+                ORDER BY
+                    skill_score DESC,
+                    USERNAME_KEY_V3(COALESCE(u.username, pr.player_id)) ASC,
+                    COALESCE(u.username, pr.player_id) COLLATE BINARY ASC,
+                    pr.player_id ASC
+                LIMIT ? OFFSET ?
+                """,
+                (float(confidence_z), game_type, limit, offset),
+            )
+            rows = cursor.fetchall()
+            if not rows:
+                break
+            offset += len(rows)
+
+            for row in rows:
+                player_id = row["player_id"]
+                mu, sigma = row["mu"], row["sigma"]
+                try:
+                    self._validate_rating_values(player_id, game_type, mu, sigma)
+                except ValueError:
+                    rating_logger.error(
+                        "Ignoring invalid stored rating for player %s in game %s",
+                        player_id,
+                        game_type,
+                    )
+                    continue
+                entries.append(
+                    (
+                        player_id,
+                        row["player_name"] or player_id,
+                        mu,
+                        sigma,
+                    )
+                )
+                if len(entries) == limit:
+                    break
+
+            if len(rows) < limit:
+                break
+
+        return entries

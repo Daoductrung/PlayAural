@@ -53,7 +53,7 @@ lrc-you-keep-all = Todos tus dados son puntos, así que conservas las { $count }
     [one] ficha
    *[other] fichas
 }.
-lrc-player-keeps-all = Todos los dados de { $player } son puntos, así que conserva las { $count } { $count ->
+lrc-player-keeps-all = Todos los dados de { $player } son puntos, así que { GENDER_TERM($player_gender, "subject") }conserva las { $count } { $count ->
     [one] ficha
    *[other] fichas
 }.
@@ -67,7 +67,7 @@ lrc-player-keeps-all-brief = { $player }: sin traspasos; { $count } { $count ->
 }.
 
 lrc-you-skip-no-chips = No tienes fichas, así que se salta tu turno. Sigues en la partida y puedes recibir fichas de cualquiera de tus vecinos.
-lrc-player-skips-no-chips = { $player } no tiene fichas, así que se salta su turno. Sigue en la partida y puede recibir fichas de cualquiera de sus vecinos.
+lrc-player-skips-no-chips = { $player } no tiene fichas, así que se salta { GENDER_TERM($player_gender, "possessive-determiner") } turno. Sigue en la partida y puede recibir fichas de cualquiera de sus vecinos.
 lrc-you-skip-no-chips-brief = Tú: sin fichas; turno saltado.
 lrc-player-skips-no-chips-brief = { $player }: sin fichas; turno saltado.
 

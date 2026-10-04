@@ -1,7 +1,6 @@
 game-name-midnight = 1-4-24
 
 midnight-roll = Lanzar los dados
-midnight-keep-die = Guardar { $value }
 midnight-bank = Guardar puntuación
 midnight-check-dice = Leer dados actuales
 midnight-check-round-status = Ver estado de la ronda
@@ -83,7 +82,7 @@ midnight-your-dice-status =
 midnight-player-dice-status =
     { $qualified ->
         [yes] Dados de { $player }: { $dice }. Bloqueados: { $locked }; guardados para la siguiente tirada: { $kept }; dados aún en juego: { $remaining }. La puntuación calificada actual sería { $score } con { $scoring_dice }.
-       *[no] Dados de { $player }: { $dice }. Bloqueados: { $locked }; guardados para la siguiente tirada: { $kept }; dados aún en juego: { $remaining }. Todavía necesita { $missing } para calificar.
+       *[no] Dados de { $player }: { $dice }. Bloqueados: { $locked }; guardados para la siguiente tirada: { $kept }; dados aún en juego: { $remaining }. Todavía le falta { $missing } para calificar.
     }
 
 midnight-status-round = Ronda { $round } de { $total }

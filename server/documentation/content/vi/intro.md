@@ -1,6 +1,6 @@
 \*\*Chào mừng đến với PlayAural\*\*
 
-PlayAural là nền tảng trò chơi trực tuyến được xây dựng xoay quanh âm thanh, lời đọc và cách điều khiển dễ tiếp cận. Menu, diễn biến trong trò chơi, phần trò chuyện, thông báo trạng thái và các tính năng thoại được hỗ trợ đều được trình bày theo cách mà bạn có thể theo dõi mà không cần phụ thuộc vào hình ảnh trên màn hình.
+PlayAural là nền tảng trò chơi trực tuyến được xây dựng xoay quanh âm thanh, lời đọc và cách điều khiển dễ tiếp cận. Trình đơn, diễn biến trong trò chơi, phần trò chuyện, thông báo trạng thái và các tính năng thoại được hỗ trợ đều được trình bày theo cách mà bạn có thể theo dõi mà không cần phụ thuộc vào hình ảnh trên màn hình.
 
 \*\*Bạn có thể chơi bằng cách nào\*\*
 
@@ -10,7 +10,7 @@ PlayAural là nền tảng trò chơi trực tuyến được xây dựng xoay q
 
 \*\*Bắt đầu chơi\*\*
 
-1\. \*\*Mở mục Chơi:\*\* Chọn Chơi từ menu chính để xem danh sách trò chơi.
+1\. \*\*Mở mục Chơi:\*\* Chọn Chơi từ trình đơn chính để xem danh sách trò chơi.
 2\. \*\*Xem Bàn đang hoạt động:\*\* Dùng mục này để tìm nhanh những bàn đã mở và có thể tham gia ngay.
 3\. \*\*Mở mục Bạn bè:\*\* Dùng để quản lý danh sách bạn bè, gửi lời mời kết bạn và gửi tin nhắn riêng.
 4\. \*\*Mở mục Tùy chỉnh:\*\* Dùng để đổi ngôn ngữ, lời đọc, âm lượng và các thiết lập cá nhân khác.
@@ -26,6 +26,7 @@ Khi đã vào bàn, thông thường bạn có thể:
 \* Mở phần Ai đang ở bàn để biết hiện có những ai.
 \* Trò chuyện với người cùng bàn hoặc gửi tin nhắn riêng.
 \* Tham gia trò chuyện thoại của bàn trên các ứng dụng được hỗ trợ.
+\* Nếu bạn là chủ bàn, hãy mở Quản lý bàn rồi chọn Chuyển sang trò chơi khác để đưa tất cả mọi người vẫn còn ở bàn vào phòng chờ mới của một trò chơi khác. Vai trò người chơi hoặc khán giả, các bot, quyền chủ bàn, chế độ riêng tư, danh sách cấm và trò chuyện thoại vẫn đi cùng bàn; ván cũ, tùy chọn, đội, trạng thái sẵn sàng và các lời mời đang chờ sẽ bị hủy sau khi bạn xác nhận.
 \* Nếu bạn là chủ bàn trong khi ván đang diễn ra, hãy mở Quản lý bàn để đưa một khán giả vào chỗ của người chơi đang hoạt động. Nếu chỗ đó đang do một người điều khiển, họ phải đồng ý trước. Người thay thế nhận nguyên trạng thái ván, thời gian lượt còn lại và quyền được ghi nhận kết quả cuối cùng của chỗ. Nếu bạn nhường chỗ của chính mình, bạn trở thành khán giả nhưng vẫn giữ quyền chủ bàn.
 
 \*\*Trò chuyện và các tính năng giao tiếp\*\*

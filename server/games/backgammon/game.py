@@ -656,7 +656,11 @@ class BackgammonGame(Game):
         user = self.get_user(player)
         if self._clear_selection(player):
             if user:
-                user.speak_l("backgammon-selection-cleared", buffer="game")
+                user.speak_l(
+                    "backgammon-selection-cleared",
+                    buffer="game",
+                    history=False,
+                )
         elif user:
             user.speak_l("backgammon-no-selection", buffer="game")
 
@@ -1176,7 +1180,11 @@ class BackgammonGame(Game):
             return
         user = self.get_user(player)
         if user:
-            user.speak_l("backgammon-selection-cleared", buffer="game")
+            user.speak_l(
+                "backgammon-selection-cleared",
+                buffer="game",
+                history=False,
+            )
 
     def _legal_turn_moves(self) -> list[BackgammonMove]:
         """Return rule-compliant next moves for the entire remaining roll."""
@@ -2081,15 +2089,12 @@ class BackgammonGame(Game):
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=p.id,
-                    player_name=p.name,
-                    is_bot=p.is_bot and not p.replaced_human,
-                )
+                PlayerResult.from_player(p)
                 for p in self.get_active_players()
             ],
             custom_data={
                 "winner_name": winner.name if winner else None,
+                "winner_ids": [winner.id] if winner else [],
                 "score_red": gs.score_red,
                 "score_white": gs.score_white,
                 "match_length": gs.match_length,

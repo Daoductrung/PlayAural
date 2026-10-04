@@ -6,7 +6,7 @@ game-name-backgammon = Cờ thỏ cáo
 backgammon-color-red = đỏ
 backgammon-color-white = trắng
 
-# Game start
+# Bắt đầu ván
 backgammon-game-started = { $red } chơi Đỏ, { $white } chơi Trắng.
 backgammon-game-started-you-red = Bạn chơi Đỏ. { $opponent } chơi Trắng.
 backgammon-game-started-you-white = Bạn chơi Trắng. { $opponent } chơi Đỏ.

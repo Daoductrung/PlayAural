@@ -146,6 +146,14 @@ active screen reader therefore owns voice, rate, queueing, and interruption;
 focus or activation clears the app's pending live-region content. Screen-reader
 detection never changes the saved self-voicing preference.
 
+All editable surfaces use the shared `NativeTextInput` bridge. Android keeps
+live edits in the native field and reports them to React state without writing
+the same value back on every keystroke; this preserves normal TalkBack typing
+feedback on affected TalkBack releases. Intentional application changes such
+as clearing chat, restoring credentials, and opening a server edit box still
+synchronize through the component's `value` prop. Do not bypass this component
+with a controlled React Native `TextInput`.
+
 The `postinstall` script applies a guarded Android Expo Speech lifecycle repair.
 Android must build `expo-speech` from source, as configured in `package.json`;
 its precompiled artifact does not contain the repair. See
@@ -204,7 +212,8 @@ every buffer until All is unmuted. Unmuting an individual source merges its
 retained messages back into All in their original arrival order without
 duplicating entries that were already there.
 
-Run the language-menu, landing navigation, and focus visibility checks with:
+Run the language-menu, landing navigation, focus visibility, and native
+text-input ownership checks with:
 
 ```bash
 cmd /c npm run test:navigation

@@ -1420,7 +1420,11 @@ class NinetyNineGame(Game):
                 player.draw_timeout_ticks = DRAW_TIMEOUT_TICKS
                 user = self.get_user(player)
                 if user:
-                    user.speak_l("ninetynine-draw-prompt", buffer="game")
+                    user.speak_l(
+                        "ninetynine-draw-prompt",
+                        buffer="game",
+                        history=False,
+                    )
             self._update_all_turn_actions()
             self._advance_turn()
 
@@ -1652,21 +1656,23 @@ class NinetyNineGame(Game):
 
         winner = sorted_players[0] if sorted_players else None
         winner_nn: NinetyNinePlayer = winner  # type: ignore
+        winner_ids = [
+            player.id
+            for player in sorted_players
+            if winner_nn and player.tokens == winner_nn.tokens  # type: ignore
+        ]
 
         return GameResult(
             game_type=self.get_type(),
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=p.id,
-                    player_name=p.name,
-                    is_bot=p.is_bot and not p.replaced_human,
-                )
+                PlayerResult.from_player(p)
                 for p in self.get_active_players()
             ],
             custom_data={
                 "winner_name": winner.name if winner else None,
+                "winner_ids": winner_ids,
                 "winner_tokens": winner_nn.tokens if winner_nn else 0,
                 "final_tokens": final_tokens,
                 "rounds_played": self.round,

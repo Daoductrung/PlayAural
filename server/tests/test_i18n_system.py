@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from server.documentation.manager import DocumentationManager
 from server.messages.localization import (
     DEFAULT_LOCALE,
@@ -44,6 +46,39 @@ hello = Bonjour, { $name }.
     assert Localization.has_message("fr", "missing-key") is False
     assert Localization.resolve_locale("fr-CA") == "fr"
     assert Localization.resolve_locale("zz") == DEFAULT_LOCALE
+
+
+def test_attribute_collection_uses_stable_per_attribute_fallback(tmp_path):
+    locales_dir = tmp_path / "locales"
+    _write(
+        locales_dir / "en" / "main.ftl",
+        """
+names =
+    .name-001 = First English
+    .name-002 = Second English
+""".strip(),
+    )
+    _write(
+        locales_dir / "vi" / "main.ftl",
+        """
+names =
+    .name-001 = Tên thứ nhất
+    .name-003 = Tên bổ sung
+""".strip(),
+    )
+
+    Localization.init(locales_dir)
+
+    assert Localization.get_message_attribute_values("vi", "names") == (
+        "Tên thứ nhất",
+        "Second English",
+        "Tên bổ sung",
+    )
+    assert Localization.get_message_attribute_values("unknown", "names") == (
+        "First English",
+        "Second English",
+    )
+    assert Localization.get_message_attribute_values("vi", "names.bad") == ()
 
 
 def test_available_languages_uses_installed_dirs_and_safe_fallbacks(tmp_path):
@@ -180,6 +215,9 @@ def test_compare_locales_reports_missing_obsolete_and_structural_drift(tmp_path)
         """
 keep = Keep { $count }
 duplicate = Keep one definition
+gender-optional = { $player } ends { GENDER_TERM($player_gender, "possessive-determiner") } turn.
+gender-renamed = { $player } ends { GENDER_TERM($player_gender, "possessive-determiner") } turn.
+formatted-number = { NUMBER($value, maximumFractionDigits: 1) } MiB
 choice =
     { $count ->
         [one] One point
@@ -196,6 +234,9 @@ attrs =
 keep = Giu
 duplicate = Giu mot
 duplicate = Giu hai
+gender-optional = { $player } ket thuc luot.
+gender-renamed = { $player } ket thuc luot { GENDER_TERM($wrong_gender, "possessive-determiner") }.
+formatted-number = MiB
 choice =
     { $count ->
        *[other] { $count } diem
@@ -226,7 +267,15 @@ old-key = Old
         (label, key) for label, key, _lines in file_report.duplicate_keys
     }
     assert file_report.obsolete_keys == ["old-key"]
-    assert file_report.variable_mismatches == [("keep", ["count"], [])]
+    assert file_report.variable_mismatches == [
+        ("formatted-number", ["value"], []),
+        (
+            "gender-renamed",
+            ["player", "player_gender"],
+            ["player", "wrong_gender"],
+        ),
+        ("keep", ["count"], []),
+    ]
     assert file_report.variant_mismatches == [("choice", ["one", "other"], ["other"])]
     assert file_report.attribute_mismatches == [("attrs", ["label"], [])]
 
@@ -280,3 +329,184 @@ def test_language_menu_pins_defaults_and_displays_translator_metadata():
     assert rows["lang_vi"].startswith("Vietnamese (Tiếng Việt).")
     assert "Translators: Trung and PlayAural core team" in rows["lang_vi"]
     assert ids[-1] == "back"
+
+
+@pytest.mark.asyncio
+async def test_language_change_rebuilds_active_game_ui_and_restores_focus():
+    from server.core.server import Server
+    from server.games.pig.game import PigGame
+    from server.users.network_user import NetworkUser
+    from server.users.test_user import MockUser
+
+    class Connection:
+        def __init__(self):
+            self.sent_messages = []
+
+        async def send(self, packet):
+            self.sent_messages.append(packet)
+
+    server = Server(db_path=":memory:")
+    server._db.connect()
+    record = server._db.create_user(
+        "Reader",
+        "hash",
+        locale="en",
+        approved=True,
+        email="reader@example.com",
+    )
+    assert record is not None
+    connection = Connection()
+    reader = NetworkUser(
+        record.username,
+        "en",
+        connection,
+        uuid=record.uuid,
+        approved=True,
+    )
+    observer = MockUser("Observer", locale="en", uuid="observer-id")
+    server._users = {reader.username: reader, observer.username: observer}
+
+    table = server._tables.create_table("pig", reader.username, reader)
+    game = PigGame()
+    table.game = game
+    game._table = table
+    game.initialize_lobby(reader.username, reader)
+    assert table.add_member(observer.username, observer)
+    observer_player = game.add_player(observer.username, observer)
+    reader_player = game.get_player_by_id(reader.uuid)
+    assert reader_player is not None
+    assert game.find_action(reader_player, "leave_game").label == "Leave table"
+    assert game.find_action(observer_player, "leave_game").label == "Leave table"
+
+    server._user_states[reader.username] = {
+        "menu": "language_menu",
+        "_stack": [
+            {
+                "menu": "in_game",
+                "table_id": table.table_id,
+                "_game_return_focus_id": "start_game",
+            }
+        ],
+    }
+
+    await server._handle_language_selection(reader, "lang_vi")
+
+    assert reader.locale == "vi"
+    assert server._db.get_user(reader.username).locale == "vi"
+    assert connection.sent_messages == [
+        {"type": "update_locale", "locale": "vi"}
+    ]
+    assert game.find_action(reader_player, "leave_game").label == "Rời bàn"
+    assert game.find_action(observer_player, "leave_game").label == "Leave table"
+    assert server._user_states[reader.username] == {
+        "menu": "in_game",
+        "table_id": table.table_id,
+    }
+    turn_menu = reader._current_menus["turn_menu"]
+    assert any(
+        item["id"] == "start_game"
+        and item["text"] == Localization.get("vi", "start-game")
+        for item in turn_menu["items"]
+    )
+    assert any(
+        packet.get("type") == "menu"
+        and packet.get("menu_id") == "turn_menu"
+        and packet.get("selection_id") == "start_game"
+        for packet in reader._message_queue
+    )
+
+
+@pytest.mark.asyncio
+async def test_language_change_rejects_unavailable_locale_without_mutation():
+    from server.core.server import Server
+    from server.users.network_user import NetworkUser
+
+    class Connection:
+        def __init__(self):
+            self.sent_messages = []
+
+        async def send(self, packet):
+            self.sent_messages.append(packet)
+
+    server = Server(db_path=":memory:")
+    server._db.connect()
+    record = server._db.create_user(
+        "Reader",
+        "hash",
+        locale="en",
+        approved=True,
+        email="reader@example.com",
+    )
+    assert record is not None
+    connection = Connection()
+    reader = NetworkUser(
+        record.username,
+        "en",
+        connection,
+        uuid=record.uuid,
+        approved=True,
+    )
+    server._users[reader.username] = reader
+    server._user_states[reader.username] = {
+        "menu": "language_menu",
+        "_stack": [{"menu": "main_menu"}],
+    }
+
+    await server._handle_language_selection(reader, "lang_not-installed")
+
+    assert reader.locale == "en"
+    assert server._db.get_user(reader.username).locale == "en"
+    assert connection.sent_messages == []
+
+
+@pytest.mark.asyncio
+async def test_language_change_keeps_live_locale_when_persistence_fails(monkeypatch):
+    from server.core.server import Server
+    from server.users.network_user import NetworkUser
+
+    class Connection:
+        def __init__(self):
+            self.sent_messages = []
+
+        async def send(self, packet):
+            self.sent_messages.append(packet)
+
+    server = Server(db_path=":memory:")
+    server._db.connect()
+    record = server._db.create_user(
+        "Reader",
+        "hash",
+        locale="en",
+        approved=True,
+        email="reader@example.com",
+    )
+    assert record is not None
+    connection = Connection()
+    reader = NetworkUser(
+        record.username,
+        "en",
+        connection,
+        uuid=record.uuid,
+        approved=True,
+    )
+    server._users[reader.username] = reader
+    server._user_states[reader.username] = {
+        "menu": "language_menu",
+        "_stack": [{"menu": "main_menu"}],
+    }
+
+    def fail_update(_username, _locale):
+        raise RuntimeError("storage unavailable")
+
+    monkeypatch.setattr(server._db, "update_user_locale", fail_update)
+
+    await server._handle_language_selection(reader, "lang_vi")
+
+    assert reader.locale == "en"
+    assert server._db.get_user(reader.username).locale == "en"
+    assert connection.sent_messages == []
+    assert Localization.get("en", "server-error-changing-language") in [
+        message["text"]
+        for message in reader._message_queue
+        if message.get("type") == "speak"
+    ]

@@ -1,6 +1,7 @@
 """Table management for games."""
 
 import json
+import logging
 import math
 import time
 import types
@@ -12,6 +13,12 @@ from mashumaro.mixins.json import DataClassJSONMixin
 from ..game_utils.bot_names import bot_name_key, normalize_bot_name
 from ..games.registry import get_game_class
 from ..users.bot import Bot
+from ..voice.settings import (
+    MAX_VOICE_SETTINGS_IDENTITIES,
+    VOICE_PERSONAL_VOLUME_DEFAULT,
+    normalize_personal_voice_volume,
+    normalize_voice_identity,
+)
 
 if TYPE_CHECKING:
     from ..games.base import Game
@@ -22,6 +29,7 @@ ABANDONED_ACTIVE_TABLE_TIMEOUT_SECONDS = 15 * 60
 WAITING_MEMBER_DISCONNECT_TIMEOUT_SECONDS = 15
 TABLE_STATE_SCHEMA_VERSION = 1
 SAVED_TABLE_PROPERTY = "saved_table_property"
+CHECKPOINT_TABLE_PROPERTY = "checkpoint_table_property"
 
 
 def _encode_saved_table_value(value: Any) -> Any:
@@ -149,6 +157,18 @@ class TableMember:
     is_spectator: bool = False
 
 
+@dataclass(frozen=True)
+class _GameTransitionSeat:
+    """One participant reconstructed in a fresh game activity."""
+
+    player_id: str
+    name: str
+    user: "User"
+    is_bot: bool
+    is_spectator: bool
+    bot_name_base: str = ""
+
+
 @dataclass
 class Table(DataClassJSONMixin):
     """
@@ -179,6 +199,28 @@ class Table(DataClassJSONMixin):
         metadata={SAVED_TABLE_PROPERTY: "banned_uuids"},
     )
 
+    # Voice preferences are part of one live table, not a manually saved game.
+    # They survive a game switch and durable server checkpoint, but are omitted
+    # from user-owned saves because saving destroys the current table.
+    _voice_host_muted_account_ids: set[str] = field(
+        default_factory=set,
+        init=False,
+        repr=False,
+        metadata={CHECKPOINT_TABLE_PROPERTY: "voice_host_muted_account_ids"},
+    )
+    _voice_personal_mutes: dict[str, set[str]] = field(
+        default_factory=dict,
+        init=False,
+        repr=False,
+        metadata={CHECKPOINT_TABLE_PROPERTY: "voice_personal_mutes"},
+    )
+    _voice_personal_volumes: dict[str, dict[str, int]] = field(
+        default_factory=dict,
+        init=False,
+        repr=False,
+        metadata={CHECKPOINT_TABLE_PROPERTY: "voice_personal_volumes"},
+    )
+
     # Not serialized
     _game: "Game | None" = field(default=None, repr=False)
     _users: dict[str, "User"] = field(default_factory=dict, repr=False)
@@ -205,11 +247,19 @@ class Table(DataClassJSONMixin):
         self._power_restore_processed: bool = False
 
     @classmethod
-    def _saved_property_fields(cls) -> dict[str, Any]:
+    def _saved_property_fields(
+        cls,
+        *,
+        include_checkpoint_state: bool = True,
+    ) -> dict[str, Any]:
         """Return the single declarative registry of persisted table fields."""
         registered: dict[str, Any] = {}
         for declared_field in fields(cls):
             property_name = declared_field.metadata.get(SAVED_TABLE_PROPERTY)
+            if property_name is None and include_checkpoint_state:
+                property_name = declared_field.metadata.get(
+                    CHECKPOINT_TABLE_PROPERTY
+                )
             if property_name is None:
                 continue
             if not isinstance(property_name, str) or not property_name:
@@ -223,10 +273,16 @@ class Table(DataClassJSONMixin):
             registered[property_name] = declared_field
         return registered
 
-    def serialize_saved_state(self) -> str:
+    def serialize_saved_state(
+        self,
+        *,
+        include_checkpoint_state: bool = False,
+    ) -> str:
         """Serialize every declaratively persisted table property."""
         properties: dict[str, Any] = {}
-        for property_name, declared_field in self._saved_property_fields().items():
+        for property_name, declared_field in self._saved_property_fields(
+            include_checkpoint_state=include_checkpoint_state,
+        ).items():
             encoded_value = _encode_saved_table_value(
                 getattr(self, declared_field.name)
             )
@@ -248,7 +304,12 @@ class Table(DataClassJSONMixin):
         )
 
     @classmethod
-    def deserialize_saved_state(cls, state_json: str | None) -> dict[str, Any]:
+    def deserialize_saved_state(
+        cls,
+        state_json: str | None,
+        *,
+        include_checkpoint_state: bool = False,
+    ) -> dict[str, Any]:
         """Validate persisted state without mutating or exposing a table.
 
         Empty objects are legacy records created before table properties were
@@ -274,7 +335,9 @@ class Table(DataClassJSONMixin):
         if not isinstance(properties, dict):
             raise ValueError("saved table properties must be an object")
 
-        registered = cls._saved_property_fields()
+        registered = cls._saved_property_fields(
+            include_checkpoint_state=include_checkpoint_state,
+        )
         unknown = set(properties) - set(registered)
         if unknown:
             raise ValueError(
@@ -282,7 +345,7 @@ class Table(DataClassJSONMixin):
                 + ", ".join(sorted(str(name) for name in unknown))
             )
 
-        return {
+        decoded = {
             declared_field.name: _decode_saved_table_value(
                 properties[property_name],
                 declared_field.type,
@@ -291,17 +354,258 @@ class Table(DataClassJSONMixin):
             for property_name, declared_field in registered.items()
             if property_name in properties
         }
+        cls._validate_voice_checkpoint_state(decoded)
+        return decoded
 
     def restore_saved_state(self, state: dict[str, Any]) -> None:
         """Apply state returned by :meth:`deserialize_saved_state`."""
         allowed_fields = {
             declared_field.name
-            for declared_field in self._saved_property_fields().values()
+            for declared_field in self._saved_property_fields(
+                include_checkpoint_state=True,
+            ).values()
         }
         if not isinstance(state, dict) or not set(state) <= allowed_fields:
             raise ValueError("saved table state was not validated")
         for field_name, value in state.items():
             setattr(self, field_name, value)
+
+    @classmethod
+    def _validate_voice_checkpoint_state(cls, state: dict[str, Any]) -> None:
+        """Reject unbounded or malformed voice state before table exposure."""
+        host_muted = state.get("_voice_host_muted_account_ids", set())
+        personal_mutes = state.get("_voice_personal_mutes", {})
+        personal_volumes = state.get("_voice_personal_volumes", {})
+
+        all_identities: set[str] = set()
+
+        def require_identity(value: str, path: str) -> None:
+            if normalize_voice_identity(value) != value:
+                raise ValueError(f"{path} contains an invalid identity")
+            all_identities.add(value)
+
+        for account_id in host_muted:
+            require_identity(account_id, "voice_host_muted_account_ids")
+        for listener_id, target_ids in personal_mutes.items():
+            require_identity(listener_id, "voice_personal_mutes")
+            if len(target_ids) > MAX_VOICE_SETTINGS_IDENTITIES:
+                raise ValueError("voice_personal_mutes contains too many targets")
+            for target_id in target_ids:
+                require_identity(target_id, "voice_personal_mutes")
+        for listener_id, target_volumes in personal_volumes.items():
+            require_identity(listener_id, "voice_personal_volumes")
+            if len(target_volumes) > MAX_VOICE_SETTINGS_IDENTITIES:
+                raise ValueError("voice_personal_volumes contains too many targets")
+            for target_id, volume in target_volumes.items():
+                require_identity(target_id, "voice_personal_volumes")
+                if (
+                    normalize_personal_voice_volume(volume) is None
+                    or volume == VOICE_PERSONAL_VOLUME_DEFAULT
+                ):
+                    raise ValueError("voice_personal_volumes contains an invalid value")
+        if len(all_identities) > MAX_VOICE_SETTINGS_IDENTITIES:
+            raise ValueError("table voice settings contain too many identities")
+
+    def _voice_setting_identity_count(self, *extra: str) -> int:
+        identities = set(self._voice_host_muted_account_ids)
+        for listener_id, target_ids in self._voice_personal_mutes.items():
+            identities.add(listener_id)
+            identities.update(target_ids)
+        for listener_id, target_volumes in self._voice_personal_volumes.items():
+            identities.add(listener_id)
+            identities.update(target_volumes)
+        identities.update(identity for identity in extra if identity)
+        return len(identities)
+
+    def _can_retain_voice_identities(self, *identities: str) -> bool:
+        normalized = [normalize_voice_identity(value) for value in identities]
+        return bool(normalized) and all(normalized) and (
+            self._voice_setting_identity_count(*normalized)
+            <= MAX_VOICE_SETTINGS_IDENTITIES
+        )
+
+    def is_voice_host_muted(self, account_id: str) -> bool:
+        return normalize_voice_identity(account_id) in self._voice_host_muted_account_ids
+
+    def can_set_voice_host_muted(self, account_id: str, muted: bool) -> bool:
+        """Return whether one host policy change fits the bounded table state."""
+        account_id = normalize_voice_identity(account_id)
+        if not account_id or type(muted) is not bool:
+            return False
+        return (
+            not muted
+            or account_id in self._voice_host_muted_account_ids
+            or self._can_retain_voice_identities(account_id)
+        )
+
+    def set_voice_host_muted(self, account_id: str, muted: bool) -> bool:
+        account_id = normalize_voice_identity(account_id)
+        if not self.can_set_voice_host_muted(account_id, muted):
+            return False
+        if muted:
+            self._voice_host_muted_account_ids.add(account_id)
+        else:
+            self._voice_host_muted_account_ids.discard(account_id)
+        return True
+
+    def get_personal_voice_settings(
+        self,
+        listener_id: str,
+        target_id: str,
+    ) -> tuple[int, bool]:
+        listener_id = normalize_voice_identity(listener_id)
+        target_id = normalize_voice_identity(target_id)
+        if not listener_id or not target_id:
+            return VOICE_PERSONAL_VOLUME_DEFAULT, False
+        volume = self._voice_personal_volumes.get(listener_id, {}).get(
+            target_id,
+            VOICE_PERSONAL_VOLUME_DEFAULT,
+        )
+        muted = target_id in self._voice_personal_mutes.get(listener_id, set())
+        return volume, muted
+
+    def set_personal_voice_muted(
+        self,
+        listener_id: str,
+        target_id: str,
+        muted: bool,
+    ) -> bool:
+        listener_id = normalize_voice_identity(listener_id)
+        target_id = normalize_voice_identity(target_id)
+        if (
+            not listener_id
+            or not target_id
+            or listener_id == target_id
+            or type(muted) is not bool
+        ):
+            return False
+        if muted:
+            if not self._can_retain_voice_identities(listener_id, target_id):
+                return False
+            self._voice_personal_mutes.setdefault(listener_id, set()).add(target_id)
+        else:
+            targets = self._voice_personal_mutes.get(listener_id)
+            if targets is not None:
+                targets.discard(target_id)
+                if not targets:
+                    self._voice_personal_mutes.pop(listener_id, None)
+        return True
+
+    def set_personal_voice_volume(
+        self,
+        listener_id: str,
+        target_id: str,
+        volume: int,
+    ) -> bool:
+        listener_id = normalize_voice_identity(listener_id)
+        target_id = normalize_voice_identity(target_id)
+        volume = normalize_personal_voice_volume(volume)
+        if (
+            not listener_id
+            or not target_id
+            or listener_id == target_id
+            or volume is None
+        ):
+            return False
+        if volume == VOICE_PERSONAL_VOLUME_DEFAULT:
+            target_volumes = self._voice_personal_volumes.get(listener_id)
+            if target_volumes is not None:
+                target_volumes.pop(target_id, None)
+                if not target_volumes:
+                    self._voice_personal_volumes.pop(listener_id, None)
+            return True
+        if not self._can_retain_voice_identities(listener_id, target_id):
+            return False
+        self._voice_personal_volumes.setdefault(listener_id, {})[target_id] = volume
+        return True
+
+    def reset_personal_voice_settings(
+        self,
+        listener_id: str,
+        target_id: str,
+    ) -> bool:
+        volume_changed = self.set_personal_voice_volume(
+            listener_id,
+            target_id,
+            VOICE_PERSONAL_VOLUME_DEFAULT,
+        )
+        mute_changed = self.set_personal_voice_muted(
+            listener_id,
+            target_id,
+            False,
+        )
+        return volume_changed and mute_changed
+
+    def personal_voice_settings_snapshot(
+        self,
+        listener_id: str,
+    ) -> list[dict[str, Any]]:
+        """Return only non-default per-participant settings for one listener."""
+        listener_id = normalize_voice_identity(listener_id)
+        if not listener_id:
+            return []
+        muted_targets = self._voice_personal_mutes.get(listener_id, set())
+        target_volumes = self._voice_personal_volumes.get(listener_id, {})
+        return [
+            {
+                "participant_id": target_id,
+                "volume": target_volumes.get(
+                    target_id,
+                    VOICE_PERSONAL_VOLUME_DEFAULT,
+                ),
+                "muted": target_id in muted_targets,
+            }
+            for target_id in sorted(set(muted_targets) | set(target_volumes))
+        ]
+
+    def clear_voice_listener_settings(self, listener_id: str) -> None:
+        """Forget private controls owned by a member who left this table."""
+        listener_id = normalize_voice_identity(listener_id)
+        if not listener_id:
+            return
+        self._voice_personal_mutes.pop(listener_id, None)
+        self._voice_personal_volumes.pop(listener_id, None)
+
+    def discard_voice_account_settings(self, account_id: str) -> None:
+        """Remove every retained reference when an account is deleted."""
+        account_id = normalize_voice_identity(account_id)
+        if not account_id:
+            return
+        self._voice_host_muted_account_ids.discard(account_id)
+        self.clear_voice_listener_settings(account_id)
+        for listener_id, target_ids in list(self._voice_personal_mutes.items()):
+            target_ids.discard(account_id)
+            if not target_ids:
+                self._voice_personal_mutes.pop(listener_id, None)
+        for listener_id, target_volumes in list(self._voice_personal_volumes.items()):
+            target_volumes.pop(account_id, None)
+            if not target_volumes:
+                self._voice_personal_volumes.pop(listener_id, None)
+
+    def clear_all_voice_settings(self) -> None:
+        self._voice_host_muted_account_ids.clear()
+        self._voice_personal_mutes.clear()
+        self._voice_personal_volumes.clear()
+
+    @classmethod
+    def discard_voice_account_from_checkpoint(
+        cls,
+        state_json: str | None,
+        account_id: str,
+    ) -> str:
+        """Remove one deleted identity from an otherwise valid checkpoint."""
+        state = cls.deserialize_saved_state(
+            state_json,
+            include_checkpoint_state=True,
+        )
+        holder = cls(table_id="checkpoint", game_type="checkpoint", host="")
+        holder.restore_saved_state(state)
+        before = holder.serialize_saved_state(include_checkpoint_state=True)
+        holder.discard_voice_account_settings(account_id)
+        after = holder.serialize_saved_state(include_checkpoint_state=True)
+        if before == after and isinstance(state_json, str):
+            return state_json
+        return after
 
     @property
     def game(self) -> "Game | None":
@@ -419,12 +723,20 @@ class Table(DataClassJSONMixin):
             for player in self._game.players:
                 if allowed_user_uuid and getattr(player, "id", None) == allowed_user_uuid:
                     continue
-                player_names = [player.name]
                 replaced_name = getattr(player, "replaced_human_name", "")
-                if replaced_name:
-                    player_names.append(replaced_name)
-                if any(bot_name_key(name) == username_key for name in player_names):
+                if replaced_name and bot_name_key(replaced_name) == username_key:
                     return True
+                if bot_name_key(player.name) != username_key:
+                    continue
+                if getattr(player, "is_bot", False):
+                    base_name = normalize_bot_name(
+                        getattr(player, "bot_name_base", "") or player.name
+                    )
+                    if bot_name_key(base_name) == username_key:
+                        # The game will conditionally mark this bot before the
+                        # human is appended. Bot identity is never name-based.
+                        continue
+                return True
 
         return False
 
@@ -438,6 +750,8 @@ class Table(DataClassJSONMixin):
         if not any(member.username == username for member in self.members):
             return False
 
+        removed_account_id = self._member_account_id(username)
+
         if self._game and hasattr(self._game, "_discard_end_screen_player_id"):
             for player in list(self._game.players):
                 replaced_name = getattr(player, "replaced_human_name", "")
@@ -447,6 +761,7 @@ class Table(DataClassJSONMixin):
 
         self.members = [m for m in self.members if m.username != username]
         self._users.pop(username, None)
+        self.clear_voice_listener_settings(removed_account_id)
         if self._manager and hasattr(self._manager, "_username_to_table"):
             self._manager._username_to_table.pop(username, None)
         if self._server and hasattr(self._server, "on_table_member_removed"):
@@ -475,6 +790,27 @@ class Table(DataClassJSONMixin):
             self._server.on_tables_changed()
         return True
 
+    def _member_account_id(self, username: str) -> str:
+        """Resolve a current human member without treating names as identity."""
+        attached_user = self._users.get(username)
+        account_id = normalize_voice_identity(
+            getattr(attached_user, "uuid", "")
+        )
+        if account_id:
+            return account_id
+        if self._game:
+            for player in self._game.players:
+                if player.is_bot and not getattr(player, "replaced_human", False):
+                    continue
+                if player.name == username or (
+                    getattr(player, "replaced_human_name", "") == username
+                ):
+                    return normalize_voice_identity(player.id)
+        if self._db:
+            account = self._db.get_user(username)
+            return normalize_voice_identity(getattr(account, "uuid", ""))
+        return ""
+
     def apply_player_substitution(
         self,
         incoming_username: str,
@@ -501,7 +837,9 @@ class Table(DataClassJSONMixin):
             return False
 
         outgoing_member = None
+        outgoing_account_id = ""
         if outgoing_username and outgoing_username != incoming_username:
+            outgoing_account_id = self._member_account_id(outgoing_username)
             outgoing_member = next(
                 (
                     member
@@ -529,6 +867,7 @@ class Table(DataClassJSONMixin):
                     if member.username != outgoing_username
                 ]
                 self._users.pop(outgoing_username, None)
+                self.clear_voice_listener_settings(outgoing_account_id)
                 self._member_offline_since.pop(outgoing_username, None)
                 if self._manager and hasattr(self._manager, "_username_to_table"):
                     self._manager._username_to_table.pop(outgoing_username, None)
@@ -1037,22 +1376,6 @@ class Table(DataClassJSONMixin):
             if should_destroy:
                 self.destroy()
 
-    def handle_event(self, username: str, event: dict) -> None:
-        """Handle an event from a member."""
-        if self._game:
-            user = self._users.get(username)
-            if user:
-                player = self._game.get_player_by_id(user.uuid)
-                if player:
-                    self._game.handle_event(player, event)
-                    return
-
-            # Fall back to display-name lookup for legacy callers.
-            for player in self._game.players:
-                if player.name == username:
-                    self._game.handle_event(player, event)
-                    break
-
     def save_game_state(self) -> None:
         """Save the current game state to game_json."""
         if self._game:
@@ -1069,8 +1392,379 @@ class Table(DataClassJSONMixin):
         if self._game and hasattr(self._game, "destroy") and not getattr(self._game, "_destroyed", False):
              self._game.destroy()
 
+        self.clear_all_voice_settings()
         if self._manager:
             self._manager.on_table_destroy(self)
+
+    def _live_members_for_game_transition(
+        self,
+    ) -> tuple[list[TableMember], dict[str, "User"]]:
+        """Return current human members backed by the authoritative session.
+
+        A game change is a live table operation, not saved-table restoration.
+        Disconnected reservations therefore end with the old match. Replacement
+        bots are retained separately as ordinary bots, matching normal reset
+        behavior without carrying another account's reclaim rights into a new
+        game.
+        """
+        live_members: list[TableMember] = []
+        live_users: dict[str, User] = {}
+        server_users = getattr(self._server, "_users", None)
+
+        for member in self.members:
+            attached_user = self._users.get(member.username)
+            expected_uuid = str(getattr(attached_user, "uuid", ""))
+            if not expected_uuid and self._db:
+                account = self._db.get_user(member.username)
+                expected_uuid = str(getattr(account, "uuid", ""))
+            if server_users is None:
+                current_user = attached_user
+            else:
+                current_user = server_users.get(member.username)
+            if current_user is None or getattr(current_user, "is_bot", False):
+                continue
+            if (
+                not expected_uuid
+                or str(getattr(current_user, "uuid", "")) != expected_uuid
+            ):
+                continue
+            live_members.append(member)
+            live_users[member.username] = current_user
+
+        return live_members, live_users
+
+    def _game_transition_seats(
+        self,
+    ) -> tuple[list[TableMember], dict[str, "User"], list[_GameTransitionSeat]]:
+        """Snapshot the ordered roster that can enter a fresh game lobby."""
+        if not self._game:
+            return [], {}, []
+
+        live_members, live_users = self._live_members_for_game_transition()
+        member_by_uuid: dict[str, TableMember] = {}
+        for member in live_members:
+            user = live_users[member.username]
+            user_uuid = str(getattr(user, "uuid", ""))
+            if not user_uuid or user_uuid in member_by_uuid:
+                raise ValueError("Table members must have unique account identifiers")
+            member_by_uuid[user_uuid] = member
+
+        seats: list[_GameTransitionSeat] = []
+        seat_ids: set[str] = set()
+        included_humans: set[str] = set()
+
+        def add_seat(seat: _GameTransitionSeat) -> None:
+            if not seat.player_id or seat.player_id in seat_ids:
+                raise ValueError("Game transition seats must have unique identifiers")
+            seat_ids.add(seat.player_id)
+            seats.append(seat)
+
+        for old_player in self._game.players:
+            player_id = str(getattr(old_player, "id", ""))
+            live_member = member_by_uuid.get(player_id)
+
+            # A replacement seat belongs to its returning live account if the
+            # authoritative session has already reappeared. This prevents a
+            # narrow reconnect/switch race from duplicating that account and
+            # its temporary bot in the new lobby.
+            if old_player.is_bot and old_player.replaced_human and live_member:
+                user = live_users[live_member.username]
+                add_seat(
+                    _GameTransitionSeat(
+                        player_id=str(user.uuid),
+                        name=live_member.username,
+                        user=user,
+                        is_bot=False,
+                        is_spectator=live_member.is_spectator,
+                    )
+                )
+                included_humans.add(live_member.username)
+                continue
+
+            if old_player.is_bot:
+                base_name = normalize_bot_name(
+                    old_player.bot_name_base or old_player.name
+                )
+                old_bot_user = self._game._users.get(player_id)
+                if old_player.replaced_human:
+                    bot_user = Bot(old_player.name)
+                elif isinstance(old_bot_user, Bot):
+                    # Clone the runtime facade so target-name reconciliation
+                    # cannot mutate the current game before the atomic commit.
+                    bot_user = Bot(
+                        old_player.name,
+                        locale=old_bot_user.locale,
+                        uuid=player_id,
+                        gender=old_bot_user.gender,
+                    )
+                else:
+                    bot_user = Bot(old_player.name, uuid=player_id)
+                add_seat(
+                    _GameTransitionSeat(
+                        player_id=str(bot_user.uuid),
+                        name=old_player.name,
+                        user=bot_user,
+                        is_bot=True,
+                        is_spectator=old_player.is_spectator,
+                        bot_name_base=base_name,
+                    )
+                )
+                continue
+
+            if live_member and live_member.username not in included_humans:
+                user = live_users[live_member.username]
+                add_seat(
+                    _GameTransitionSeat(
+                        player_id=str(user.uuid),
+                        name=live_member.username,
+                        user=user,
+                        is_bot=False,
+                        is_spectator=live_member.is_spectator,
+                    )
+                )
+                included_humans.add(live_member.username)
+
+        missing_members = [
+            member.username
+            for member in live_members
+            if member.username not in included_humans
+        ]
+        if missing_members:
+            raise ValueError(
+                "Every live table member must have a matching game participant"
+            )
+
+        return live_members, live_users, seats
+
+    def game_transition_active_seat_count(self) -> int:
+        """Return the seats a target game's maximum must accommodate."""
+        _members, _users, seats = self._game_transition_seats()
+        return sum(1 for seat in seats if not seat.is_spectator)
+
+    @staticmethod
+    def _retire_game_runtime(
+        game: "Game",
+        *,
+        stop_audio: bool = False,
+        audio_audience: Any = None,
+    ) -> None:
+        """Detach every runtime-only path from a replaced game instance."""
+        game._destroyed = True
+        logger = logging.getLogger("playaural")
+        game_type = type(game).__name__
+        try:
+            game_type = game.get_type()
+        except Exception:
+            logger.exception("Could not identify a game while retiring it")
+        if stop_audio:
+            # A hard activity change suppresses callbacks queued earlier in
+            # this event-loop turn. Letting one dispatch during on_discard()
+            # would briefly resurrect an old one-shot immediately before the
+            # stop command intended to fence off that activity.
+            table_audio_batcher = getattr(
+                game,
+                "_table_presence_audio_batcher",
+                None,
+            )
+            if table_audio_batcher is not None:
+                try:
+                    table_audio_batcher.cancel()
+                except Exception:
+                    logger.exception(
+                        "Pending audio cleanup failed while replacing %s",
+                        game_type,
+                    )
+        try:
+            game.on_discard()
+        except Exception:
+            logger.exception(
+                "Game cleanup failed while replacing %s",
+                game_type,
+            )
+        if stop_audio:
+            try:
+                # Stop every source, including already-started one-shots, so
+                # nothing owned by the retired activity reaches the new lobby.
+                game.stop_all_audio(fade_ms=0, audience=audio_audience)
+            except Exception:
+                logger.exception(
+                    "Audio cleanup failed while replacing %s",
+                    game_type,
+                )
+        # Keep retirement fail-closed even when delivery to one broken client
+        # raises: no reconnectable audio ownership from this activity may
+        # survive in server memory.
+        game.active_audio.clear()
+        game.current_music = ""
+        game.current_ambience = ""
+        game.current_ambience_outro = ""
+        try:
+            game.clear_scheduled_sounds()
+        except Exception:
+            logger.exception(
+                "Scheduled audio cleanup failed while replacing %s",
+                game_type,
+            )
+        try:
+            game.cancel_all_sequences()
+        except Exception:
+            logger.exception(
+                "Sequence cleanup failed while replacing %s",
+                game_type,
+            )
+        for container_name in (
+            "_keybinds",
+            "_pending_actions",
+            "_action_context",
+            "_actions_menu_open",
+            "_actions_menu_return_focus",
+            "_pending_action_return_focus",
+            "_status_box_open",
+            "_live_status_boxes",
+            "_status_box_return_focus",
+            "_menu_dirty",
+            "_pending_menu_focus",
+            "_options_path",
+            "_end_screen_open_player_ids",
+            "_transcripts",
+            "player_action_sets",
+        ):
+            container = getattr(game, container_name, None)
+            if container is not None:
+                container.clear()
+        game._menu_dirty_all = False
+        game._last_game_result = None
+        game._users.clear()
+        game._table = None
+
+    def transition_to_game(self, game_type: str) -> bool:
+        """Atomically replace the current match with a fresh game lobby.
+
+        The table is the durable social/voice session. Its identity, owner,
+        privacy, bans, and live human roles remain intact while match-owned
+        state is replaced. Nothing is mutated until the complete target roster
+        and its serialized state have been validated.
+        """
+        old_game = self._game
+        if not old_game or not isinstance(game_type, str):
+            return False
+        target_class = get_game_class(game_type)
+        if not target_class or game_type == self.game_type:
+            return False
+
+        new_game = None
+        try:
+            live_members, live_users, seats = self._game_transition_seats()
+            if not any(member.username == self.host for member in live_members):
+                return False
+            active_seats = sum(1 for seat in seats if not seat.is_spectator)
+            if active_seats > target_class.get_max_players():
+                return False
+
+            new_game = target_class()
+            new_game.host = self.host
+            new_game.status = "waiting"
+            new_game.game_active = False
+            new_game._table = self
+            new_game.setup_keybinds()
+
+            for seat in seats:
+                player = new_game.create_player(
+                    seat.player_id,
+                    seat.name,
+                    is_bot=seat.is_bot,
+                )
+                player.is_spectator = seat.is_spectator
+                if seat.is_bot:
+                    player.bot_name_base = seat.bot_name_base
+                new_game.players.append(player)
+                new_game.attach_user(player.id, seat.user)
+                new_game.setup_player_actions(player)
+
+            host_user = live_users[self.host]
+            new_game.ensure_bot_display_names(host_user.locale)
+            serialized_game = new_game.to_json()
+        except Exception:
+            logging.getLogger("playaural").exception(
+                "Failed to prepare table %s transition from %s to %s",
+                self.table_id,
+                self.game_type,
+                game_type,
+            )
+            if new_game is not None:
+                self._retire_game_runtime(new_game)
+            return False
+
+        old_member_names = {member.username for member in self.members}
+        live_member_names = {member.username for member in live_members}
+        removed_member_names = old_member_names - live_member_names
+
+        removed_member_ids = {
+            username: self._member_account_id(username)
+            for username in removed_member_names
+        }
+
+        self.members = live_members
+        self._users = live_users
+        for username in removed_member_names:
+            self.clear_voice_listener_settings(removed_member_ids[username])
+            if (
+                self._manager
+                and hasattr(self._manager, "_username_to_table")
+                and self._manager._username_to_table.get(username) == self.table_id
+            ):
+                self._manager._username_to_table.pop(username, None)
+            if self._server:
+                self._server.discard_voice_context_state(
+                    username,
+                    scope="table",
+                    context_id=self.table_id,
+                )
+        if self._manager and hasattr(self._manager, "_username_to_table"):
+            for member in live_members:
+                self._manager._username_to_table[member.username] = self.table_id
+
+        self.game_type = game_type
+        self._game = new_game
+        self.game_json = serialized_game
+        self.status = "waiting"
+        self._last_menu_state_hash = None
+        self._member_offline_since.clear()
+        self._offline_since = None
+        self.clear_power_restore_grace()
+
+        # A game change is a hard activity boundary. Retirement flushes any
+        # final batched table cue, then stops every source (including one-shots)
+        # so nothing from the old activity overlaps the fresh waiting lobby.
+        # Table voice remains a separate, unchanged LiveKit context.
+        # Put authoritative sessions first: audio recipient deduplication by
+        # account UUID must favor a replacement device over its stale facade.
+        retirement_audio_audience = (
+            *live_users.values(),
+            *old_game._users.values(),
+        )
+        self._retire_game_runtime(
+            old_game,
+            stop_audio=True,
+            audio_audience=retirement_audio_audience,
+        )
+        if self._server and hasattr(self._server, "on_table_game_transition"):
+            try:
+                self._server.on_table_game_transition(self)
+            except Exception:
+                logging.getLogger("playaural").exception(
+                    "Post-transition consent cleanup failed for table %s",
+                    self.table_id,
+                )
+        if self._server and hasattr(self._server, "on_tables_changed"):
+            try:
+                self._server.on_tables_changed()
+            except Exception:
+                logging.getLogger("playaural").exception(
+                    "Post-transition table notification failed for table %s",
+                    self.table_id,
+                )
+        return True
 
     def reset_game(self, *, preserve_scheduled_sounds: bool = True) -> bool:
         """Reset the table to the lobby state with a completely fresh Game instance."""
@@ -1117,13 +1811,17 @@ class Table(DataClassJSONMixin):
             invalid_usernames.append(member.username)
 
         for username in invalid_usernames:
+            removed_account_id = self._member_account_id(username)
             self._users.pop(username, None)
+            self.clear_voice_listener_settings(removed_account_id)
             if self._manager and hasattr(self._manager, "_username_to_table"):
                 self._manager._username_to_table.pop(username, None)
-            if self._server and hasattr(self._server, "_clear_voice_join_authorization"):
-                self._server._clear_voice_join_authorization(username)
-            if self._server and hasattr(self._server, "_voice_presence_by_user"):
-                self._server._voice_presence_by_user.pop(username, None)
+            if self._server:
+                self._server.discard_voice_context_state(
+                    username,
+                    scope="table",
+                    context_id=self.table_id,
+                )
         self.members = valid_members
 
         # 3. Track humans, bots, and spectators
@@ -1149,7 +1847,14 @@ class Table(DataClassJSONMixin):
                 if user:
                     if getattr(player, "replaced_human", False):
                         user = Bot(player.name)
-                    active_bots.append((user.uuid, player.name, user))
+                    active_bots.append(
+                        (
+                            user.uuid,
+                            player.name,
+                            player.bot_name_base,
+                            user,
+                        )
+                    )
 
         # 4. Re-evaluate host
         # If the old host left, they won't be in active_players or active_spectators
@@ -1206,12 +1911,15 @@ class Table(DataClassJSONMixin):
         for uuid_str, name, user in active_spectators:
              _restore_member(uuid_str, name, user, is_spectator=True)
 
-        for uuid_str, name, user in active_bots:
+        for uuid_str, name, base_name, user in active_bots:
              # Use the raw create_player/append logic for bots to perfectly match LobbyActionsMixin
              bot_player = new_game.create_player(uuid_str, name, is_bot=True)
+             bot_player.bot_name_base = base_name
              new_game.players.append(bot_player)
              new_game.attach_user(bot_player.id, user)
              new_game.setup_player_actions(bot_player)
+
+        new_game.ensure_bot_display_names()
 
         # 10. Announce new host if changed
         if old_host != self.host:
@@ -1228,21 +1936,7 @@ class Table(DataClassJSONMixin):
             new_game._import_end_screen_state(end_screen_state)
 
         # 13. Mark and detach old runtime state so ticks or stale callbacks cannot affect the table.
-        old_game._destroyed = True
-        old_game.on_discard()
-        if hasattr(old_game, "clear_scheduled_sounds"):
-            old_game.clear_scheduled_sounds()
-        if hasattr(old_game, "cancel_all_sequences"):
-            old_game.cancel_all_sequences()
-        if hasattr(old_game, "_pending_actions"):
-            old_game._pending_actions.clear()
-        if hasattr(old_game, "_actions_menu_open"):
-            old_game._actions_menu_open.clear()
-        if hasattr(old_game, "_status_box_open"):
-            old_game._status_box_open.clear()
-        if hasattr(old_game, "_users"):
-            old_game._users.clear()
-        old_game._table = None
+        self._retire_game_runtime(old_game)
 
         # 14. Sync status
         self.status = "waiting"
@@ -1259,7 +1953,12 @@ class Table(DataClassJSONMixin):
         if self._server:
             self._server.on_table_save(self, username)
 
-    def save_game_result(self, result: Any) -> None:
+    def save_game_result(
+        self,
+        result: Any,
+        *,
+        rating_updates: dict[str, tuple[float, float]] | None = None,
+    ) -> None:
         """Save a game result to the database. Called by game when it finishes."""
         if self._server:
-            self._server.on_game_result(result)
+            self._server.on_game_result(result, rating_updates=rating_updates)

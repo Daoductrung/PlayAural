@@ -27,13 +27,16 @@ from ..audio import AudioPlaybackState
 from ..game_utils.game_communication_mixin import GameCommunicationMixin
 from ..game_utils.game_result_mixin import GameResultMixin
 from ..game_utils.game_scores_mixin import GameScoresMixin
-from ..game_utils.game_prediction_mixin import GamePredictionMixin
 from ..game_utils.sequence_runner_mixin import SequenceRunnerMixin, SequenceState
 from ..game_utils.turn_management_mixin import TurnManagementMixin
 from ..game_utils.menu_management_mixin import MenuManagementMixin
 from ..game_utils.action_visibility_mixin import ActionVisibilityMixin
 from ..game_utils.lobby_actions_mixin import LobbyActionsMixin
-from ..game_utils.bot_names import get_valid_bot_name_pool
+from ..game_utils.bot_names import (
+    bot_name_key,
+    normalize_bot_name,
+    plan_bot_display_names,
+)
 from ..game_utils.event_handling_mixin import EventHandlingMixin
 from ..game_utils.action_set_creation_mixin import ActionSetCreationMixin
 from ..game_utils.action_execution_mixin import ActionExecutionMixin
@@ -44,12 +47,10 @@ from ..game_utils.client_types import (
     is_touch_client_type,
 )
 from ..game_utils.player import Player
+from ..messages.localization import DEFAULT_LOCALE, Localization
 from ..ui.keybinds import Keybind
 from ..users.bot import Bot
 from .categories import CATEGORY_MISC, normalize_category
-
-BOT_NAMES = get_valid_bot_name_pool()
-
 
 def _replace_exact_state_value(value: Any, old_value: str, new_value: str) -> Any:
     """Replace one exact player identity value inside Mashumaro-safe state.
@@ -155,7 +156,6 @@ class Game(
     GameCommunicationMixin,
     GameResultMixin,
     GameScoresMixin,
-    GamePredictionMixin,
     SequenceRunnerMixin,
     TurnManagementMixin,
     MenuManagementMixin,
@@ -292,10 +292,11 @@ class Game(
     def on_discard(self) -> None:
         """Release game-specific memory before this instance is abandoned.
 
-        Table closure and table restart both call this idempotent lifecycle hook.
-        Persistent fields that exist only to inform the current match may be
-        cleared here so stale references cannot retain them while the discarded
-        game instance awaits garbage collection.
+        The framework calls this idempotent lifecycle hook whenever an instance
+        is abandoned, including table closure, restart, game switching, and
+        failed replacement preparation. Persistent fields that exist only to
+        inform the current match may be cleared here so stale references cannot
+        retain them while the discarded game instance awaits garbage collection.
         """
         table_audio_batcher = getattr(self, "_table_presence_audio_batcher", None)
         if table_audio_batcher is not None:
@@ -303,7 +304,13 @@ class Game(
             # that queued a legitimate final departure cue. Flush it before
             # detaching the game's users so the event is not lost or replayed
             # later in an unrelated menu.
-            table_audio_batcher.flush()
+            try:
+                table_audio_batcher.flush()
+            finally:
+                # ``flush`` consumes callbacks but deliberately retains its
+                # event-loop affinity for ordinary reuse. A discarded game
+                # will never reuse it, so release that final runtime reference.
+                table_audio_batcher.cancel()
 
     def _reset_transcripts(self) -> None:
         """Initialize transcript storage for seated players."""
@@ -614,6 +621,8 @@ class Game(
         discard_end_screen = getattr(self, "_discard_end_screen_player_id", None)
         if discard_end_screen:
             discard_end_screen(player_id)
+
+        self.ensure_bot_display_names()
         
         # Notify others
         self.broadcast_l("spectator-left", buffer="system", player=player.name)
@@ -644,6 +653,8 @@ class Game(
         discard_end_screen = getattr(self, "_discard_end_screen_player_id", None)
         if discard_end_screen:
             discard_end_screen(player_id)
+
+        self.ensure_bot_display_names()
         
         # Notify others
         self.broadcast_l("table-left", buffer="system", player=player.name)
@@ -663,13 +674,21 @@ class Game(
         if player.is_bot:
             return False
 
+        naming_locale = self._bot_naming_locale(player)
         human_name = player.replaced_human_name or player.name
-        existing_names = self._reserved_table_names(exclude_player_id=player.id)
-        existing_names.append(human_name)
-        bot_name = self._generate_available_bot_name(existing_names)
+        bot_base_name = self._generate_available_bot_base_name(
+            player=player,
+            exclude_player_id=player.id,
+        )
+        bot_name = self._allocate_bot_display_name(
+            bot_base_name,
+            player=player,
+            exclude_player_id=player.id,
+        )
 
         player.replaced_human = True
         player.is_bot = True
+        player.bot_name_base = bot_base_name
         player.replaced_human_name = human_name
         player.replacement_bot_name = bot_name
         player.name = bot_name
@@ -680,6 +699,8 @@ class Game(
         # Use same UUID so user can reclaim it
         bot_user = Bot(bot_name, uuid=player.id)
         self.attach_user(player.id, bot_user)
+        self.ensure_bot_display_names(naming_locale)
+        bot_name = player.name
         
         self.broadcast_l(
             "player-replaced-by-bot",
@@ -698,6 +719,60 @@ class Game(
         asynchronous bot work may override this hook, cancel only work owned by
         ``player``, and then call ``super()``.
         """
+
+    def permanently_release_player_seat(self, player: "Player") -> str:
+        """Convert a human-owned active seat into a dedicated bot.
+
+        Ordinary disconnects retain the immutable account id so the player can
+        reclaim the seat and cannot evade the eventual result. A permanent
+        removal first creates a replacement when the human is still live, then
+        ends that reservation: the live game state stays in place, but every
+        identity reference moves to a fresh bot UUID so no later result,
+        statistic, or rating is attributed to the departed account.
+        """
+        if (
+            not any(current is player for current in self.players)
+            or self.status != "playing"
+            or player.is_spectator
+        ):
+            raise ValueError("The requested player does not own an active seat")
+        if not player.is_bot and not self._replace_with_bot(player):
+            raise RuntimeError("The active human seat could not be preserved")
+        if not player.replaced_human:
+            raise ValueError("The requested seat is not owned by a human account")
+
+        old_id = str(player.id)
+        old_user = self._users.get(old_id)
+        bot_user = Bot(
+            player.name,
+            locale=getattr(old_user, "locale", DEFAULT_LOCALE),
+            gender=getattr(old_user, "gender", Gender.UNSPECIFIED),
+        )
+        new_id = bot_user.uuid
+        if any(current.id == new_id for current in self.players):
+            raise RuntimeError("Generated bot identity collides with the roster")
+
+        self._prepare_seat_substitution(player)
+        self._clear_player_ui_runtime_state(old_id, player=player)
+        self._users.pop(old_id, None)
+        self.prune_audio_recipient(old_id)
+        self._transcripts.pop(old_id, None)
+        discard_end_screen = getattr(self, "_discard_end_screen_player_id", None)
+        if discard_end_screen:
+            discard_end_screen(old_id)
+
+        self._rekey_game_state_value(old_id, new_id)
+        self._reindex_active_audio()
+        player.replaced_human = False
+        player.replaced_human_name = ""
+        player.replacement_bot_name = ""
+        player.bot_pending_action = None
+        player.bot_think_ticks = 0
+        player.reconnect_grace_ticks = 0
+        self.attach_user(new_id, bot_user)
+        self.refresh_menus()
+        self._notify_table_presence_changed()
+        return new_id
 
     def _rekey_game_state_value(self, old_value: str, new_value: str) -> None:
         """Move one exact UUID or legacy display-name reference everywhere."""
@@ -820,6 +895,7 @@ class Game(
         self.host = retained_host
 
         seat_player.is_bot = False
+        seat_player.bot_name_base = ""
         seat_player.replaced_human = False
         seat_player.replaced_human_name = ""
         seat_player.replacement_bot_name = ""
@@ -852,6 +928,8 @@ class Game(
             self.players.append(outgoing_spectator)
             self.attach_user(old_id, outgoing_user)
             self.setup_player_actions(outgoing_spectator)
+
+        self.ensure_bot_display_names()
 
         self.refresh_menus()
         return SeatSubstitutionResult(
@@ -896,6 +974,103 @@ class Game(
                 if existing_player.replaced_human_name:
                     names.append(existing_player.replaced_human_name)
         return names
+
+    def ensure_bot_display_names(
+        self,
+        locale: str | None = None,
+        *,
+        additional_human_names: tuple[str, ...] = (),
+    ) -> None:
+        """Reconcile conditional bot labels across the complete game state.
+
+        Current saves carry ``bot_name_base``. Pre-feature saves carry only a
+        bare ``name`` and acquire that base during this pass. Display-name
+        changes are rekeyed through serialized and bounded runtime state using
+        temporary values so duplicate-base bots cannot overwrite one another.
+        """
+        occupied: dict[str, str] = {}
+        for current_player in self.players:
+            key = bot_name_key(current_player.name)
+            if not key:
+                raise ValueError("A player has an empty display name")
+            if key in occupied:
+                raise ValueError("Player display names must be unique")
+            occupied[key] = current_player.id
+
+        bots: list[Player] = []
+        bot_bases: list[str] = []
+        human_names = [
+            current_player.name
+            for current_player in self.players
+            if not current_player.is_bot
+        ]
+        human_names.extend(additional_human_names)
+
+        for current_player in self.players:
+            if not current_player.is_bot:
+                if current_player.bot_name_base:
+                    raise ValueError("A human player cannot own a bot base name")
+                continue
+
+            base_name = normalize_bot_name(current_player.bot_name_base)
+            if not base_name:
+                base_name = normalize_bot_name(current_player.name)
+            if not base_name:
+                raise ValueError("A bot has an empty legacy display name")
+            current_player.bot_name_base = base_name
+            bots.append(current_player)
+            bot_bases.append(base_name)
+            if current_player.replaced_human_name:
+                human_names.append(current_player.replaced_human_name)
+
+        naming_locale = Localization.resolve_locale(
+            locale or self._bot_naming_locale()
+        )
+        planned_names = plan_bot_display_names(
+            bot_bases,
+            human_names,
+            naming_locale,
+        )
+        renames = [
+            (bot, bot.name, planned_name)
+            for bot, planned_name in zip(bots, planned_names, strict=True)
+            if bot.name != planned_name
+        ]
+
+        # All current display labels are unique, so a two-phase rekey safely
+        # handles swaps and chains. Bot bases and reclaim identities are
+        # presentation metadata, not live name references, and are restored
+        # after the shared legacy-state walker has done its work.
+        protected_metadata = [
+            (bot, bot.bot_name_base, bot.replaced_human_name)
+            for bot in bots
+        ]
+        temporary_names: list[tuple[str, str]] = []
+        for index, (_bot, old_name, _new_name) in enumerate(renames):
+            temporary_name = f"\x00bot-label:{index}:{old_name}"
+            self._rekey_game_state_value(old_name, temporary_name)
+            temporary_names.append((temporary_name, _new_name))
+        for temporary_name, new_name in temporary_names:
+            self._rekey_game_state_value(temporary_name, new_name)
+
+        for bot, base_name, replaced_human_name in protected_metadata:
+            bot.bot_name_base = base_name
+            bot.replaced_human_name = replaced_human_name
+            bot.replacement_bot_name = bot.name if bot.replaced_human else ""
+            bot_user = self._users.get(bot.id)
+            if isinstance(bot_user, Bot) and bot_user.username != bot.name:
+                bot_user.set_display_name(bot.name)
+
+        final_keys = [bot_name_key(player.name) for player in self.players]
+        if len(final_keys) != len(set(final_keys)):
+            raise ValueError("Bot display-name reconciliation produced a collision")
+
+    def prepare_human_name_for_roster(self, name: str) -> None:
+        """Disambiguate any matching bots before a human joins the roster."""
+        normalized = normalize_bot_name(name)
+        if not normalized:
+            raise ValueError("A human player cannot have an empty display name")
+        self.ensure_bot_display_names(additional_human_names=(normalized,))
 
     # Player management
 
@@ -970,6 +1145,21 @@ class Game(
                 # at the next flush (within the current tick).
                 self.refresh_menus(player)
 
+    def on_player_locale_changed(self, player: Player) -> None:
+        """Rebuild locale-bound actions and repaint one player's live UI.
+
+        Action ids and runtime input intent are semantic and remain stable;
+        labels are presentation data captured when action sets are created.
+        Replacing only this player's declarative sets updates turn menus,
+        actions menus, and live selectors without disturbing game state or
+        another participant's focus.
+        """
+        if player.is_bot or not self.get_user(player):
+            return
+        self.player_action_sets.pop(player.id, None)
+        self.setup_player_actions(player)
+        self.refresh_menus(player)
+
     def get_user(self, player: Player) -> User | None:
         """Get the user for a player."""
         return self._users.get(player.id)
@@ -1034,7 +1224,12 @@ class Game(
         return None
 
     def get_player_by_name(self, name: str) -> Player | None:
-        """Get a player by display name. Note: Names may not be unique."""
+        """Get a player by the table-unique full display label.
+
+        Bot base names may repeat or match a human username; the full bot
+        label is marked and ordinal-disambiguated whenever a collision exists.
+        Identity-sensitive code should still prefer ``get_player_by_id``.
+        """
         for player in self.players:
             if player.name == name:
                 return player

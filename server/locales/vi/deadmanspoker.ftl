@@ -22,15 +22,15 @@ deadmanspoker-already-matched-all-in = Bạn đã theo mức tất tay rồi.
 deadmanspoker-coward-used = Bạn đã dùng Bỏ non trong trận này.
 deadmanspoker-coward-first-decision-only = Bỏ non chỉ dùng được ở quyết định đầu tiên của một ván bài.
 deadmanspoker-all-in-too-early = Tất tay chỉ dùng được từ vòng cược 2, sau khi ba lá bài chung đầu tiên đã được lật.
+deadmanspoker-all-in-after-switch = Bạn không thể Tất tay trong cùng lượt vừa Đổi bài. Hãy Theo hoặc Bỏ bài để kết thúc lượt này.
 deadmanspoker-switch-not-now = Lúc này bạn không thể đổi bài.
-deadmanspoker-switch-used = Bạn đã đổi bài trong ván này rồi.
+deadmanspoker-switch-used = Bạn đã dùng Đổi bài trong trận này rồi.
 deadmanspoker-switch-too-late = Đã quá muộn để đổi bài.
 deadmanspoker-switch-no-cards = Bạn không có lá bài riêng nào để đổi.
 deadmanspoker-switch-no-deck = Bộ bài không còn đủ lá thay thế.
 deadmanspoker-switch-choice-missing = Lá thay thế đó không còn khả dụng.
 
 deadmanspoker-match-start = Poker Tử Thần bắt đầu. Mỗi viên đạn trên bàn là một lời cược bằng mạng sống.
-deadmanspoker-hand-start = Ván { $hand }. Mỗi người còn tham gia đặt viên đạn đầu tiên.
 deadmanspoker-hand-start-all-alive = Ván { $hand }. Tất cả người chơi đặt viên đạn đầu tiên.
 deadmanspoker-hand-start-survivors = Ván { $hand }. Mỗi người còn sống đặt viên đạn đầu tiên.
 deadmanspoker-community-arrives = Năm lá bài chung được đặt úp trên bàn.

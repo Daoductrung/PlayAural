@@ -200,6 +200,58 @@ test("touch-rendered menu cells retain hardware-keyboard navigation", () => {
   assert.equal(prevented, true);
 });
 
+test("F1 requests focused menu help while Ctrl+F1 remains How to Play", () => {
+  const menuButton = { tagName: "BUTTON" };
+  const menuElement = { contains: (element) => element === menuButton };
+  const descriptions = [];
+  const keybinds = [];
+  let keydown = null;
+  globalThis.document = {
+    activeElement: menuButton,
+    addEventListener(type, listener) {
+      if (type === "keydown") {
+        keydown = listener;
+      }
+    },
+  };
+  installKeybinds({
+    store: {
+      state: {
+        connection: { authenticated: true },
+        currentMenu: {
+          gridEnabled: false,
+          gridWidth: 1,
+          items: [{ id: "status_row", read_only: true, text: "Status" }],
+          menuId: "turn_menu",
+          selection: 0,
+        },
+      },
+    },
+    menuView: { getElement: () => menuElement },
+    sendKeybind: (packet) => keybinds.push(packet),
+    sendMenuDescription: (...args) => descriptions.push(args),
+  });
+
+  const pressF1 = (control = false) => keydown({
+    key: "F1",
+    altKey: false,
+    ctrlKey: control,
+    shiftKey: false,
+    metaKey: false,
+    preventDefault() {},
+  });
+
+  pressF1();
+  assert.deepEqual(descriptions, [["turn_menu", "status_row"]]);
+  assert.deepEqual(keybinds, []);
+
+  pressF1(true);
+  assert.equal(keybinds.length, 1);
+  assert.equal(keybinds[0].key, "f1");
+  assert.equal(keybinds[0].control, true);
+  assert.equal(keybinds[0].menu_item_id, null);
+});
+
 test("message-history punctuation shortcuts keep their established dispatch", () => {
   const menuElement = { contains: () => false };
   const calls = [];
@@ -285,11 +337,61 @@ test("locale metadata identifies Persian as right-to-left", async () => {
   );
 });
 
+test("locale bundle changes preserve packet order and authentication chrome", async () => {
+  const source = await readFile(new URL("../app.js", import.meta.url), "utf8");
+  const packetHandler = source.split("  handlePacket(packet) {", 2)[1].split(
+    "\n  beginLocaleUpdate(locale)",
+    1,
+  )[0];
+  assert.match(
+    packetHandler,
+    /this\.localeUpdateBarrier && packet\.type !== "update_locale"/u,
+  );
+  assert.match(packetHandler, /this\.localeUpdateGeneration === generation/u);
+  assert.match(packetHandler, /this\.handlePacket\(packet\)/u);
+  assert.match(packetHandler, /this\.beginLocaleUpdate\(packet\.locale\)/u);
+
+  const updater = source.split("  beginLocaleUpdate(locale) {", 2)[1].split(
+    "\n  handleLoginFailed(packet)",
+    1,
+  )[0];
+  assert.match(updater, /const previous = this\.localeUpdateBarrier \|\| Promise\.resolve\(\)/u);
+  assert.match(updater, /Localization\.load\(locale/u);
+  assert.match(updater, /shouldApply:/u);
+  assert.match(updater, /this\.localeUpdateGeneration === generation/u);
+  assert.match(updater, /this\.applyLocalization\(\)/u);
+
+  const authorization = source.split("  handleAuthorizeSuccess(packet) {", 2)[1].split(
+    "\n  retireLocalSession(",
+    1,
+  )[0];
+  assert.match(
+    authorization,
+    /this\.beginLocaleUpdate\(packet\.locale\)\.then\(\(applied\)/u,
+  );
+  assert.match(authorization, /if \(applied\)/u);
+
+  const cleanup = source.split("  cleanupRuntime(full = false) {", 2)[1].split(
+    "\n  clearSessionHistory()",
+    1,
+  )[0];
+  assert.match(cleanup, /this\.localeUpdateGeneration \+= 1/u);
+  assert.match(cleanup, /this\.localeUpdateBarrier = null/u);
+});
+
 test("the offline shell precaches the updated UI modules", async () => {
-  const serviceWorker = await readFile(new URL("../sw.js", import.meta.url), "utf8");
+  const [serviceWorker, gameEntry] = await Promise.all([
+    readFile(new URL("../sw.js", import.meta.url), "utf8"),
+    readFile(new URL("../game.js", import.meta.url), "utf8"),
+  ]);
+  const version = gameEntry.match(/PLAYAURAL_WEB_VERSION = "([^"]+)"/u)?.[1];
+  assert.ok(version, "the Web entry point must declare its release version");
+  const escapedVersion = version.replace(/\./gu, "\\.");
+  assert.match(serviceWorker, new RegExp(`playaural-web-v${escapedVersion}-shell-\\d+`, "u"));
   for (const asset of [
     "store.js",
     "spatial_audio.js",
+    "voice_settings.js",
     "ui/history.js",
     "ui/collapsiblePanels.js",
     "vendor/stb-vorbis.js",

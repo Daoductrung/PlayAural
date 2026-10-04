@@ -33,6 +33,7 @@ def test_save_game_result_updates_stats(db):
     # Note: save_game_result internally uses StatsExtractor, so it will extract wins, scores, etc.
     custom_data = {
         "winner_name": "Alice",
+        "winner_ids": [alice.uuid],
         "final_scores": {
             "Alice": 100,
             "Bob": 50
@@ -61,6 +62,7 @@ def test_save_game_result_updates_stats(db):
     # Save a second game where Bob wins and gets a new high score
     custom_data_2 = {
         "winner_name": "Bob",
+        "winner_ids": [bob.uuid],
         "final_scores": {
             "Alice": 80,
             "Bob": 120
@@ -93,6 +95,7 @@ def test_get_top_player_game_stats(db):
 
     custom_data = {
         "winner_name": "Alice",
+        "winner_ids": [alice.uuid],
         "final_scores": {
             "Alice": 100,
             "Bob": 50
@@ -148,6 +151,7 @@ def test_get_top_wins_with_losses(db):
 
     custom_data = {
         "winner_name": "Alice",
+        "winner_ids": [alice.uuid],
         "final_scores": {
             "Alice": 100,
             "Bob": 50
@@ -163,6 +167,143 @@ def test_get_top_wins_with_losses(db):
     assert top_wins[0][1] == "Alice"
     assert top_wins[0][2] == 1.0 # wins
     assert top_wins[0][3] == 0.0 # losses
+
+
+def test_result_and_rating_updates_roll_back_together(db):
+    database, alice, bob = db
+    players = [
+        (alice.uuid, "Alice", False),
+        (bob.uuid, "Bob", False),
+    ]
+
+    with pytest.raises(ValueError, match="every human result participant"):
+        database.save_game_result(
+            "pig",
+            datetime.now().isoformat(),
+            100,
+            players,
+            {"winner_ids": [alice.uuid]},
+            rating_updates={"not-a-participant": (30.0, 7.0)},
+        )
+
+    assert database.get_game_stats("pig") == []
+    assert database.get_all_player_game_stats(alice.uuid, "pig") == {}
+    assert database.get_player_rating("not-a-participant", "pig") is None
+
+
+def test_partial_rating_settlement_rolls_back_entire_result(db):
+    database, alice, bob = db
+    players = [
+        (alice.uuid, "Alice", False),
+        (bob.uuid, "Bob", False),
+    ]
+
+    with pytest.raises(ValueError, match="every human result participant"):
+        database.save_game_result(
+            "pig",
+            datetime.now().isoformat(),
+            100,
+            players,
+            {"winner_ids": [alice.uuid]},
+            rating_updates={alice.uuid: (30.0, 7.0)},
+        )
+
+    assert database.get_game_stats("pig") == []
+    assert database.get_all_player_game_stats(alice.uuid, "pig") == {}
+    assert database.get_player_rating(alice.uuid, "pig") is None
+
+
+def test_duplicate_result_identity_is_rejected_before_persistence(db):
+    database, alice, _bob = db
+    players = [
+        (alice.uuid, "Alice", False),
+        (alice.uuid, "Alice duplicate", False),
+    ]
+
+    with pytest.raises(ValueError, match="duplicate player ids"):
+        database.save_game_result(
+            "pig",
+            datetime.now().isoformat(),
+            100,
+            players,
+            {"winner_ids": [alice.uuid]},
+        )
+
+    assert database.get_game_stats("pig") == []
+    assert database.get_all_player_game_stats(alice.uuid, "pig") == {}
+
+
+@pytest.mark.parametrize(
+    ("mu", "sigma"),
+    [
+        (float("nan"), 1.0),
+        (float("inf"), 1.0),
+        (25.0, 0.0),
+        (25.0, float("inf")),
+    ],
+)
+def test_rating_writes_reject_invalid_numeric_values(db, mu, sigma):
+    database, alice, _bob = db
+
+    with pytest.raises(ValueError):
+        database.set_player_rating(alice.uuid, "pig", mu, sigma)
+
+    assert database.get_player_rating(alice.uuid, "pig") is None
+
+
+def test_invalid_legacy_rating_is_not_exposed_or_ranked(db, caplog):
+    database, alice, bob = db
+    database._conn.execute(
+        """
+        INSERT INTO player_ratings (player_id, game_type, mu, sigma)
+        VALUES (?, ?, ?, ?)
+        """,
+        (alice.uuid, "pig", float("inf"), 1.0),
+    )
+    database.set_player_rating(bob.uuid, "pig", 25.0, 8.0)
+
+    assert database.get_player_rating(alice.uuid, "pig") is None
+    leaderboard = database.get_rating_leaderboard("pig", 1, confidence_z=3.0)
+    assert [entry[0] for entry in leaderboard] == [bob.uuid]
+    assert "Ignoring invalid stored rating" in caplog.text
+
+
+def test_rating_leaderboard_uses_conservative_skill_score(db):
+    database, alice, bob = db
+    database.set_player_rating(alice.uuid, "pig", 30.0, 8.0)
+    database.set_player_rating(bob.uuid, "pig", 28.0, 2.0)
+
+    leaderboard = database.get_rating_leaderboard(
+        "pig",
+        10,
+        confidence_z=3.0,
+    )
+
+    assert [entry[0] for entry in leaderboard] == [bob.uuid, alice.uuid]
+
+
+def test_zero_score_replaces_a_negative_personal_high_score(db):
+    database, alice, _bob = db
+    players = [(alice.uuid, "Alice", False)]
+
+    database.save_game_result(
+        "pig",
+        datetime.now().isoformat(),
+        100,
+        players,
+        {"winner_ids": [], "final_scores": {"Alice": -4}},
+    )
+    database.save_game_result(
+        "pig",
+        datetime.now().isoformat(),
+        100,
+        players,
+        {"winner_ids": [], "final_scores": {"Alice": 0}},
+    )
+
+    stats = database.get_all_player_game_stats(alice.uuid, "pig")
+    assert stats["total_score"] == -4.0
+    assert stats["high_score"] == 0.0
 
 
 def test_battle_custom_max_stats_persist_with_correct_keys(db):

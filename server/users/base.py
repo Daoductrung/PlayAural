@@ -296,27 +296,42 @@ class User(ABC):
         return UserPreferences()
 
     @abstractmethod
-    def speak(self, text: str, buffer: str = "misc") -> None:
+    def speak(
+        self,
+        text: str,
+        buffer: str = "misc",
+        *,
+        history: bool = True,
+    ) -> None:
         """
         Send a text message to be displayed and spoken via TTS.
 
         Args:
             text: The message text.
             buffer: Which buffer to route the message to (chat, private, game, system, misc).
+            history: Whether clients should retain the message in their history buffer.
         """
         ...
 
-    def speak_l(self, message_id: str, buffer: str = "misc", **kwargs) -> None:
+    def speak_l(
+        self,
+        message_id: str,
+        buffer: str = "misc",
+        *,
+        history: bool = True,
+        **kwargs,
+    ) -> None:
         """
         Send a localized message to be displayed and spoken via TTS.
 
         Args:
             message_id: The message ID from the .ftl file.
             buffer: Which buffer to route the message to (chat, private, game, system, misc).
+            history: Whether clients should retain the message in their history buffer.
             **kwargs: Variables to substitute into the message.
         """
         text = Localization.get(self.locale, message_id, **kwargs)
-        self.speak(text, buffer=buffer)
+        self.speak(text, buffer=buffer, history=history)
 
     @abstractmethod
     def send_audio_command(self, command: AudioCommand) -> None:

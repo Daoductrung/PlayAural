@@ -206,7 +206,9 @@ def test_house_of_horus_auto_scores_when_first_row_is_clear() -> None:
     assert game._score_horus_if_ready(player) is True
 
     assert game.status == "finished"
+    assert game.winner_id == player.id
     assert game.winner_name == player.name
+    assert game._last_game_result.custom_data["winner_ids"] == [player.id]
     assert game.game_state.board[HOUSE_HORUS] == 0
     assert game.game_state.off[pnum] == 5
     assert any("House of Horus" in message for message in user.get_spoken_messages())

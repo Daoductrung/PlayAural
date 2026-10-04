@@ -67,7 +67,7 @@ Bàn chơi có thể dùng một trong hai bộ luật:
 
 \*\*Cách Tính Thắng Thua\*\*
 
-Sorry! không dùng điểm hiệp hay điểm trận. Phần điểm số trong game chỉ để theo dõi mỗi người đã đưa được bao nhiêu quân về nhà. Người chiến thắng là người đầu tiên đưa toàn bộ quân của mình về nhà.
+Sorry! không dùng điểm hiệp hay điểm trận. Phần điểm số trong trò chơi chỉ để theo dõi mỗi người đã đưa được bao nhiêu quân về nhà. Người chiến thắng là người đầu tiên đưa toàn bộ quân của mình về nhà.
 
 \*\*Tùy Chỉnh Tại Bàn Chơi\*\*
 

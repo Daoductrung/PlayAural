@@ -128,7 +128,7 @@ def own_group(game: MonopolyGame, owner_id: str, group_id: str) -> None:
         game.property_states[space.id].owner_id = owner_id
 
 
-def test_registration_metadata_and_catalog_count() -> None:
+def test_registration_metadata() -> None:
     assert GameRegistry.get("monopoly") is MonopolyGame
     assert MonopolyGame.get_name() == "Monopoly"
     assert MonopolyGame.get_type() == "monopoly"
@@ -3812,7 +3812,6 @@ def test_desktop_actions_menu_preserves_framework_and_native_game_order() -> Non
         "whos_at_table",
         "check_scores",
         "check_scores_detailed",
-        "predict_outcomes",
         "game_info",
         "game_rules",
         "read_cash",
@@ -3838,7 +3837,6 @@ def test_desktop_actions_menu_preserves_framework_and_native_game_order() -> Non
         "save_table",
         "whose_turn",
         "whos_at_table",
-        "predict_outcomes",
         "game_info",
         "game_rules",
         "read_cash",

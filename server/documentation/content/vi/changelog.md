@@ -1,25 +1,69 @@
 Nhật ký thay đổi
 
+Thứ Sáu 2 Tháng Mười 2026
+
+Tính năng mới:
+
+* Trò chuyện thoại giờ có các quyền quản lý và nghe riêng cho từng bàn. Chủ bàn có thể chọn Quản lý bàn > Quản lý trò chuyện thoại để tắt mic hoặc cho phép một thành viên khác dùng lại mic. Từ Ai đang ở trong bàn, bạn có thể mở Cài đặt thoại cá nhân của một thành viên khác để riêng mình không nghe người đó, đặt âm lượng riêng cho người đó hoặc đặt lại các lựa chọn này. Các cài đặt vẫn được giữ trong bàn khi chuyển trò chơi hoặc khởi động lại máy chủ theo lịch.
+
+Cải thiện:
+
+* Trò chuyện thoại giờ giữ nguyên kết nối khi chủ bàn chuyển sang trò chơi khác hoặc khi phiên đang hoạt động được chuyển sang thiết bị khác. Thiết bị thay thế chỉ kết nối để nghe, còn mic luôn tắt cho đến khi người chơi chủ động bật lên.
+* Bảng xếp hạng và Thống kê của tôi giờ hiển thị Xếp hạng kỹ năng dưới dạng một con số rõ ràng hơn. Kết quả ván, thống kê, bảng xếp hạng và xếp hạng giờ chính xác hơn trong ván theo đội và ván hòa, cũng như khi người chơi mất kết nối, trở lại chỗ cũ, được bot thay thế hoặc bị đưa hẳn khỏi ván.
+* Hành động Dự đoán kết quả không đáng tin cậy đã được gỡ khỏi các trình đơn trong bàn.
+
+Sửa lỗi:
+
+* Quản lý bàn không còn đưa ra mục Chuyển quyền chủ bàn cho chỗ đã mất kết nối hoặc đang do bot điều khiển. Nếu người đang được chọn rời bàn, trình đơn hành động thành viên giờ trở về Ai đang ở trong bàn thay vì giữ nội dung cũ.
+* Trên Android, TalkBack giờ đọc nội dung đang nhập bình thường trong phần đăng nhập, trò chuyện, khôi phục mật khẩu và các ô nhập của trò chơi, thay vì liên tục đọc lại toàn bộ ô.
+
+Thứ Năm 1 Tháng Mười 2026
+
+Tính năng mới:
+
+* Đã thêm Bingo, trò chơi nghe và đánh dấu số dành cho 2 đến 12 người. Mọi người cùng chơi trên thẻ năm hàng, năm cột dễ sử dụng với công cụ hỗ trợ tiếp cận. Trò chơi có bot, khán giả, thao tác bằng bàn phím và cảm ứng, Nhịp xướng số tùy chọn cùng bốn Mẫu thắng: Một đường bất kỳ, Bốn góc, Hình chữ X và Phủ kín thẻ.
+* Quản lý bàn giờ có mục Thay người chơi. Khi những người liên quan đều đồng ý, một khán giả có thể tiếp quản chỗ của người chơi, bot hoặc chỗ dành riêng ngay giữa ván, đồng thời nhận nguyên trạng thái, thông tin riêng, thời gian và kết quả của chỗ đó.
+* Chủ bàn giờ có thể chọn Quản lý bàn > Chuyển sang trò chơi khác mà không phải tạo lại bàn. Chủ bàn, chế độ riêng tư, danh sách cấm, người chơi, khán giả, bot và phòng trò chuyện thoại vẫn được giữ nguyên; trò chơi mới sẽ mở tại một phòng chờ hoàn toàn mới.
+* Hồ sơ giờ có mục Giới tính với các lựa chọn Nam, Nữ, Phi nhị giới và Chưa đặt. Thông báo sẽ dựa vào lựa chọn này để nhắc đến người dùng và người chơi tự nhiên hơn.
+
+Cải thiện:
+
+* Bạn bè giờ có mục Lời mời đã gửi để bạn xem lại hoặc hủy lời mời đang chờ. Với bạn bè đang Ngoại tuyến, danh sách cũng cho biết lần cuối họ trực tuyến.
+* Báo cáo người dùng giờ có ngay trong mục Ai đang ở trong bàn, áp dụng cả với khán giả và chỗ của người chơi bị mất kết nối; không thể báo cáo bot.
+* Tùy chỉnh chung giờ đặt Ngôn ngữ trò chuyện chung ngay dưới Ngôn ngữ và chứa Tùy chỉnh trò chơi dưới dạng trình đơn con. Con trỏ sẽ trở về đúng mục đã dùng để mở mỗi trình đơn con.
+* Nhấn F1 trên máy tính hoặc Web để nghe mô tả của mục trình đơn đang được chọn. Trong chế độ tự đọc trên điện thoại, hãy chạm một lần bằng ba ngón. Câu hỏi xác nhận giờ vừa hiển thị vừa được đọc, còn phản hồi ngắn khi dùng trình đơn không còn làm đầy lịch sử tin nhắn.
+* Khi đăng nhập từ một máy tính, trình duyệt Web hoặc điện thoại khác, phiên đang hoạt động giờ được chuyển giao gọn gàng mà vẫn giữ nguyên bàn, chỗ ngồi, lượt và kết nối trò chuyện thoại. Việc đóng hoặc đăng xuất khỏi ứng dụng cũng rời bàn và phòng thoại ổn định hơn.
+* Chủ bàn đang làm khán giả giờ có thể giữ cho bàn đang chơi tiếp tục hoạt động và quản lý phòng chờ. Lời mời và thay đổi vai trò cũng được xử lý ổn định hơn khi một người mất kết nối, đổi vai trò hoặc trả lời muộn.
+* Tên bot giờ thay đổi theo ngôn ngữ bạn chọn, luôn dễ phân biệt và được giữ nhất quán khi kết nối lại, thay người hoặc khôi phục bàn đã lưu.
+* Điểm Đột Phá giờ có giai đoạn mua diễn ra đồng thời, số vòng chiến thuật thay đổi theo quân số, sát thương từ vụ nổ bom, quyền nhặt bom miễn phí sau khi T đến đúng khu vực và khả năng che giấu chặt chẽ hơn đối với hành động hoặc âm thanh mua đồ mà đối thủ không thể quan sát.
+* Bot trong Điểm Đột Phá giờ biết lắng nghe hoạt động của đối thủ, phối hợp kiểm soát bản đồ và thực hiện mục tiêu, thích nghi qua từng vòng, sử dụng trang bị và tiền hợp lý hơn, đồng thời đánh giá súng cùng vật phẩm nhặt được thực tế hơn. Người chơi cũng được nghe nhiều câu liên lạc chỉ dành cho đồng đội, phát ra từ đúng vị trí của từng đặc vụ nam hoặc nữ riêng biệt.
+
+Sửa lỗi:
+
+* Ứng dụng máy tính giờ khởi động bình thường trên những máy Windows cũ từng tự đóng trước khi tới màn hình đăng nhập.
+* Đăng nhập và các thao tác giao lưu giờ xử lý nhất quán tên đăng nhập có ký tự quốc tế hoặc khác nhau về chữ hoa, chữ thường, đồng thời ngăn tạo nhiều tài khoản có tên trông giống hệt nhau.
+* Khi đổi ngôn ngữ trong lúc đang kết nối, trình đơn và nội dung của ứng dụng giờ cập nhật ngay mà không còn xen lẫn ngôn ngữ cũ trong chốc lát.
+
 Thứ Bảy 26 Tháng Chín 2026
 
 Tính năng mới:
 
 * Trò chuyện chung giờ được chia thành các kênh ngôn ngữ. Mặc định chưa chọn kênh nào; hãy chọn Cá nhân và Tùy chỉnh > Tùy chỉnh chung > Ngôn ngữ trò chuyện chung trước khi gửi hoặc nhận tin nhắn chung. Khi chưa tham gia bàn, tin nhắn thông thường sẽ được gửi vào kênh đã chọn; khi đang ở trong bàn, tin nhắn thông thường chỉ được gửi trong bàn, còn `/g` sẽ gửi vào kênh chung.
 * Báo cáo người dùng giờ cho phép bạn báo cáo hành vi nghiêm trọng hoặc lặp lại. Báo cáo ghi lại lý do, kênh ngôn ngữ và chính xác thời điểm gửi để xem xét thủ công; người dùng bị báo cáo không nhận được thông báo và không tự động bị xử phạt. Tin nhắn trò chuyện chung được lưu cùng người gửi và thời điểm cho đến khi Nhà phát triển xóa lịch sử, nhờ đó báo cáo có thể được xem xét theo đúng ngữ cảnh; bạn có thể chặn người dùng đó ngay trong lúc chờ xem xét.
-* Điểm Đột Phá giờ đã có đầy đủ bằng Tiếng Tây Ban Nha và Tiếng Bồ Đào Nha, gồm toàn bộ nội dung trong game và tài liệu cho người mới.
+* Điểm Đột Phá giờ đã có đầy đủ bằng Tiếng Tây Ban Nha và Tiếng Bồ Đào Nha, gồm toàn bộ nội dung trong trò chơi và tài liệu cho người mới.
 
 Cải thiện:
 
-* Các dòng chỉ cung cấp thông tin trong menu giờ luôn là nội dung chỉ đọc. Việc chọn những dòng này không còn thực hiện thao tác hoặc bất ngờ đưa bạn trở lại menu trước.
+* Các dòng chỉ cung cấp thông tin trong trình đơn giờ luôn là nội dung chỉ đọc. Việc chọn những dòng này không còn thực hiện thao tác hoặc bất ngờ đưa bạn trở lại trình đơn trước.
 * Hệ thống chống spam giờ kiểm soát trò chuyện chung chặt hơn nhưng nới lỏng hơn trong trò chuyện tại bàn. Hệ thống chỉ từ chối tin nhắn có dấu hiệu spam thay vì tự động tắt tiếng tài khoản; hành vi lặp lại có thể được chuyển đi xem xét thủ công.
-* Khi phải tạm dừng ván chơi và thay đổi tài khoản để bảo trì máy chủ, hệ thống giờ thông báo rõ lúc bắt đầu và hoàn tất. Menu hiện tại vẫn hiển thị cho đến khi dịch vụ hoạt động bình thường trở lại.
+* Khi phải tạm dừng ván chơi và thay đổi tài khoản để bảo trì máy chủ, hệ thống giờ thông báo rõ lúc bắt đầu và hoàn tất. Trình đơn hiện tại vẫn hiển thị cho đến khi dịch vụ hoạt động bình thường trở lại.
 
 Sửa lỗi:
 
 * Hiệu ứng trò chơi, nhạc và âm thanh môi trường trên web giờ hoạt động ổn định trên các trình duyệt của Apple và khôi phục đúng sau khi trình duyệt trở lại từ chế độ nền.
 * Trên di động, một âm thanh tải chậm hoặc gặp lỗi không còn chặn tiếng bước chân, tiếng súng hay các âm thanh trò chơi phát sau đó; các trận kéo dài cũng không còn dần mất âm thanh không gian.
 * Điểm Đột Phá giờ giữ đúng đội, phe, quyền mang bom và điểm số qua giờ nghỉ giữa trận, hiệp phụ, thay người chơi mất kết nối bằng bot, trở lại chỗ đã được giữ và khôi phục bàn đã lưu. Thao tác bị chặn không còn làm lộ bước di chuyển hay vật dụng của đối thủ; khán giả nhận trạng thái bom trung lập trước khi bom được đặt; tiếng súng trên di động cũng nhỏ hơn để giảm rè và giật âm thanh.
-* Nhịp game không còn tăng tốc để bù lại sau khi máy chủ tạm thời bị chậm.
+* Nhịp trò chơi không còn tăng tốc để bù lại sau khi máy chủ tạm thời bị chậm.
 
 Thứ Tư 23 Tháng Chín 2026
 
@@ -42,7 +86,7 @@ Thứ Sáu 11 Tháng Chín 2026
 Tính năng mới:
 
 * Nhật ký giờ có sáu bộ đệm tin nhắn trên phần mềm máy tính, web và di động, theo đúng thứ tự: Tất cả, Trò chuyện, Tin nhắn riêng, Trò chơi, Hệ thống và Linh tinh. Bạn có thể xem và tắt tiếng riêng từng bộ đệm. Tắt tiếng Tất cả sẽ tắt tiếng mọi bộ đệm; khi bật tiếng lại một bộ đệm riêng, các tin đã nhận trong lúc bộ đệm đó bị tắt tiếng sẽ trở về Tất cả theo đúng thứ tự ban đầu. Tắt tiếng Trò chuyện hoặc Tin nhắn riêng cũng tắt âm thanh thông báo tương ứng. Nhật ký tin nhắn chỉ được giữ trong phiên hiện tại.
-* Phiên bản web giờ cho phép thu gọn hoặc mở rộng Trò chuyện và Trò chuyện thoại, Âm lượng và Phím tắt; riêng Âm lượng mặc định được thu gọn. Thứ tự Tab quen thuộc trong game vẫn giữ nguyên.
+* Phiên bản web giờ cho phép thu gọn hoặc mở rộng Trò chuyện và Trò chuyện thoại, Âm lượng và Phím tắt; riêng Âm lượng mặc định được thu gọn. Thứ tự Tab quen thuộc trong trò chơi vẫn giữ nguyên.
 * Nút Ngôn ngữ trên di động giờ mở danh sách đầy đủ các ngôn ngữ hiện có, đánh dấu lựa chọn hiện tại, giữ nguyên nội dung đã nhập trên màn hình đăng nhập hoặc đăng ký, rồi đưa tiêu điểm về nút Ngôn ngữ sau khi bạn chọn một ngôn ngữ hoặc Quay lại.
 
 Cải thiện:
@@ -51,11 +95,11 @@ Cải thiện:
 * Các bàn cờ lớn như Tàu Chiến giờ giữ kích thước chạm dễ dùng và cuộn mượt theo mọi hướng trên web lẫn di động, gồm cả thao tác kéo bằng hai ngón với TalkBack. Ô đang được chọn sẽ tự hiện vào vùng nhìn mà không làm chậm con trỏ hoặc lời đọc.
 * Đọc người dùng trực tuyến giờ đọc tổng số trước, rồi đến nhà phát triển, quản trị viên và những người dùng khác. Mở danh sách người dùng trực tuyến cũng dùng thứ tự này, giữ nguyên trang hiện tại khi tự làm mới và luôn cho phép mở các thao tác tài khoản phù hợp khi có người trực tuyến, ngoại tuyến hoặc thay đổi vai trò.
 * Văn bản trong các ngôn ngữ viết từ phải sang trái giờ hiển thị đúng chiều trên phần mềm máy tính, web và di động, trong khi bố cục cùng thứ tự điều hướng quen thuộc vẫn giữ nguyên.
-* Bản dịch Tiếng Bồ Đào Nha đã được cập nhật toàn diện về tên trò chơi, thuật ngữ, menu, thông báo và tài liệu người chơi, gồm tên đấu sĩ và chiêu trong Đấu Trường Chiến Kỹ cùng cách diễn đạt Cờ thỏ cáo đã được làm mới.
+* Bản dịch Tiếng Bồ Đào Nha đã được cập nhật toàn diện về tên trò chơi, thuật ngữ, trình đơn, thông báo và tài liệu người chơi, gồm tên đấu sĩ và chiêu trong Đấu Trường Chiến Kỹ cùng cách diễn đạt Cờ thỏ cáo đã được làm mới.
 
 Sửa lỗi:
 
-* Khi một ván kết thúc trong nền, màn hình kết quả không còn thay thế menu chung, đóng ô nhập hoặc làm gián đoạn tin nhắn riêng bạn đang viết. Kết quả sẽ hiện khi bạn trở lại bàn.
+* Khi một ván kết thúc trong nền, màn hình kết quả không còn thay thế trình đơn chung, đóng ô nhập hoặc làm gián đoạn tin nhắn riêng bạn đang viết. Kết quả sẽ hiện khi bạn trở lại bàn.
 * Hệ thống giờ từ chối tin nhắn riêng gửi cho chính tài khoản của bạn với lời giải thích rõ ràng, đồng thời không còn gửi tin nhắn riêng không có nội dung.
 
 Thứ Năm 27 Tháng Tám 2026
@@ -73,14 +117,14 @@ Cải thiện:
 
 Sửa lỗi:
 
-* Nếu bàn chỉ có bot mà không có người chơi thật đang ngồi chơi, Bắt đầu game giờ bị từ chối trước khi ván bắt đầu. Bàn vẫn mở và giải thích rằng một người thật phải trở lại vị trí người chơi, thay vì bắt đầu rồi bị hủy.
+* Nếu bàn chỉ có bot mà không có người chơi thật đang ngồi chơi, Bắt đầu chơi giờ bị từ chối trước khi ván bắt đầu. Bàn vẫn mở và giải thích rằng một người thật phải trở lại vị trí người chơi, thay vì bắt đầu rồi bị hủy.
 * Cờ thỏ cáo giờ tính đúng điểm khi lời nhân đôi được Chấp nhận hoặc Bỏ, quyền giữ khối, ván Crawford, thắng thường, Gammon và Backgammon. Trò chơi cũng ngăn một lần nhân đôi không cần thiết khi giá trị khối hiện tại đã đủ để thắng trận; Hoàn tác một nước đá quân sẽ đưa quân bị đá trở lại và báo rõ cho mọi người trong bàn.
 
 Thứ Ba 25 Tháng Tám 2026
 
 Tính năng mới:
 
-* Tính năng chặn người dùng giờ có trong menu lời mời kết bạn, hồ sơ, người dùng trực tuyến, thành viên trong bàn, hoặc tại Cá nhân và Tùy chỉnh > Bạn bè > Chặn một người dùng. Việc chặn sẽ xóa quan hệ bạn bè và lời mời đang chờ giữa hai tài khoản; ngăn lời mời kết bạn, tin nhắn riêng, lời mời vào bàn và tin nhắn trò chuyện thông thường theo cả hai chiều; đồng thời ngăn mỗi người vào một bàn mới do người kia làm chủ. Người dùng bị chặn cho phép bạn xem danh sách và bỏ chặn sau này. Việc chặn không đưa ai ra khỏi bàn chung, không tắt tiếng Trò chuyện thoại trong bàn và không cản trở việc trở lại chỗ đã được giữ; bàn đã lưu có cả hai người vẫn được giữ an toàn nhưng phải bỏ chặn trước khi khôi phục.
+* Tính năng chặn người dùng giờ có trong trình đơn lời mời kết bạn, hồ sơ, người dùng trực tuyến, thành viên trong bàn, hoặc tại Cá nhân và Tùy chỉnh > Bạn bè > Chặn một người dùng. Việc chặn sẽ xóa quan hệ bạn bè và lời mời đang chờ giữa hai tài khoản; ngăn lời mời kết bạn, tin nhắn riêng, lời mời vào bàn và tin nhắn trò chuyện thông thường theo cả hai chiều; đồng thời ngăn mỗi người vào một bàn mới do người kia làm chủ. Người dùng bị chặn cho phép bạn xem danh sách và bỏ chặn sau này. Việc chặn không đưa ai ra khỏi bàn chung, không tắt tiếng Trò chuyện thoại trong bàn và không cản trở việc trở lại chỗ đã được giữ; bàn đã lưu có cả hai người vẫn được giữ an toàn nhưng phải bỏ chặn trước khi khôi phục.
 
 Cải thiện:
 
@@ -89,7 +133,7 @@ Cải thiện:
 * Tóm tắt Ai đang ở trong bàn giờ bỏ các nhóm không có ai. Danh sách bàn đang chơi nêu tên tất cả người chơi thật, chỉ báo tổng số bot, đọc gọn một số tên khán giả kèm số người còn lại, và ghi rõ chủ bàn khi chủ bàn đang xem.
 * Phần đưa quân ra khỏi bàn trong Cờ thỏ cáo giờ nhanh và rõ hơn. Khi đưa ra là đích hợp lệ duy nhất, kích hoạt quân sẽ đưa nó ra ngay; nếu còn một nước đi trên bàn, quân vẫn được chọn để bạn có thể kích hoạt lần nữa và đưa ra. Lần thử không hợp lệ sẽ giải thích cụ thể nếu còn quân ngoài bảng nhà hoặc trên thanh giữa, xúc xắc không phù hợp hay một điểm cao hơn vẫn còn quân. Trạng thái giờ đọc cả số quân của mỗi màu còn ngoài bảng nhà, còn các giới hạn của khối nhân đôi có lời giải thích riêng.
 * Tham gia bàn, tự rời bàn, bị đuổi, mất kết nối mạng và trở lại chỗ đã được giữ giờ có âm thanh riêng biệt. Những thay đổi của bàn và Trò chuyện thoại xảy ra đồng thời không còn làm nhiều âm thanh trùng nhau phát chồng, còn các sự kiện xảy ra riêng vẫn được nghe riêng. Thông báo hệ thống cũng dùng bộ âm thanh đa dạng hơn; phản hồi trò chuyện, tin nhắn riêng, lời mời, gõ chữ và Trò chuyện thoại đã được làm mới.
-* Trò chuyện thoại trên di động giờ bảo toàn chắc chắn hơn âm thanh game nổi chất lượng cao và đúng tai nghe có dây, thiết bị Bluetooth hoặc loa do hệ thống chọn. Nhạc nền, âm thanh môi trường, hiệu ứng thông thường và hiệu ứng lặp vẫn chạy độc lập khi Trò chuyện thoại đang hoạt động; mic chỉ bật sau thao tác chủ động của người dùng.
+* Trò chuyện thoại trên di động giờ bảo toàn chắc chắn hơn âm thanh trò chơi nổi chất lượng cao và đúng tai nghe có dây, thiết bị Bluetooth hoặc loa do hệ thống chọn. Nhạc nền, âm thanh môi trường, hiệu ứng thông thường và hiệu ứng lặp vẫn chạy độc lập khi Trò chuyện thoại đang hoạt động; mic chỉ bật sau thao tác chủ động của người dùng.
 * Trò chuyện giờ báo rõ khi kênh không khả dụng hoặc tin nhắn có định dạng không hợp lệ hay quá dài, thay vì im lặng thất bại hoặc gửi nhầm sang cuộc trò chuyện khác.
 
 Sửa lỗi:
@@ -100,9 +144,9 @@ Thứ Ba 18 Tháng Tám 2026
 
 Cải thiện:
 
-* Cờ tỷ phú giờ có bản dịch tiếng Tây Ban Nha đầy đủ, gồm bàn cờ, menu, thông báo và tài liệu cho người mới, nhờ đóng góp của dịch giả cộng đồng UnDuende (Storm Demoner).
+* Cờ tỷ phú giờ có bản dịch tiếng Tây Ban Nha đầy đủ, gồm bàn cờ, trình đơn, thông báo và tài liệu cho người mới, nhờ đóng góp của dịch giả cộng đồng UnDuende (Storm Demoner).
 * Các màn hình tài khoản bằng tiếng Tây Ban Nha giờ hướng dẫn ký tự được phép dùng khi đăng ký và giải thích rõ cách nhập tên của tài khoản cũ khi nhiều cách viết hoa, viết thường cùng khớp.
-* Menu lựa chọn giờ có thể tự cập nhật ngay khi đang mở mà không làm mất tiêu điểm trình đọc màn hình. Lựa chọn, tên mục, mô tả và số tiền luôn theo trạng thái hiện tại; sau khi xác nhận hoặc hủy, tiêu điểm trở về nút đã mở lời nhắc; ô nhập văn bản không bị đặt lại bởi cập nhật nền; lời đọc hoặc âm thanh mở menu không lặp lại trong các lần cập nhật ấy. Nhờ đó, các lựa chọn Xem tài sản của mọi người, Quản lý bất động sản và Đề nghị trao đổi trong Cờ tỷ phú, chọn hướng triển khai thủ công trong Tàu Chiến, lời nhắc lá không đánh được trong Đường Đua Ngàn Dặm và chọn Lá Biến trong 21 (Luật Sinh Tồn) vẫn ổn định khi ván cập nhật hoặc kết nối lại.
+* Trình đơn lựa chọn giờ có thể tự cập nhật ngay khi đang mở mà không làm mất tiêu điểm trình đọc màn hình. Lựa chọn, tên mục, mô tả và số tiền luôn theo trạng thái hiện tại; sau khi xác nhận hoặc hủy, tiêu điểm trở về nút đã mở lời nhắc; ô nhập văn bản không bị đặt lại bởi cập nhật nền; lời đọc hoặc âm thanh mở trình đơn không lặp lại trong các lần cập nhật ấy. Nhờ đó, các lựa chọn Xem tài sản của mọi người, Quản lý bất động sản và Đề nghị trao đổi trong Cờ tỷ phú, chọn hướng triển khai thủ công trong Tàu Chiến, lời nhắc lá không đánh được trong Đường Đua Ngàn Dặm và chọn Lá Biến trong 21 (Luật Sinh Tồn) vẫn ổn định khi ván cập nhật hoặc kết nối lại.
 * Các nút đấu giá trong Cờ tỷ phú giờ luôn hiện với mọi người còn tham gia, tự cập nhật mức giá tối thiểu hiện tại và tạm thời không dùng được trong lúc người khác đặt giá. Chúng chỉ đóng khi bạn rời cuộc đấu giá hoặc cuộc đấu giá kết thúc.
 * Khi thanh toán tiền thuê trong Cờ tỷ phú, chủ bất động sản, người trả tiền và những người còn lại giờ mỗi bên chỉ nghe một thông báo ngắn gọn đúng theo góc nhìn của mình. Thông báo ngắn gọn vẫn súc tích hơn và các lời báo tiền thuê trùng lặp đã được loại bỏ.
 * Khi bạn chủ động chọn Kết thúc lượt trong Cờ tỷ phú, chỉ tiêu điểm của bạn trở về Tung xúc xắc; lượt hoặc hành động của người khác không làm con trỏ của bạn nhảy vị trí. Tài liệu cũng nói rõ rằng không còn tiền mặt và bất động sản chưa phải là phá sản, trừ khi về sau bạn mắc một khoản nợ không thể thanh toán.
@@ -110,7 +154,7 @@ Cải thiện:
 Sửa lỗi:
 
 * Nhấn Space để dùng Tung xúc xắc trong Cờ tỷ phú giờ chỉ thực hiện đúng một lần tung. Trong lúc thiết lập mở đầu, Lượt của ai báo rằng chưa ai có lượt và các hành động làm thay đổi ván sẽ yêu cầu bạn chờ; trong khi lần tung, bước di chuyển quân cờ, lần tung tính tiền thuê hoặc hiệu ứng thẻ đang được xử lý, các nút làm thay đổi ván sẽ tạm thời không dùng được nhưng các bảng thông tin vẫn truy cập được.
-* Khi chọn Đề nghị trao đổi, các hành động làm thay đổi ván khác giờ tạm dừng cho đến khi bạn chọn người để trao đổi hoặc hủy, nên lần tung của người khác không còn đóng menu lựa chọn này.
+* Khi chọn Đề nghị trao đổi, các hành động làm thay đổi ván khác giờ tạm dừng cho đến khi bạn chọn người để trao đổi hoặc hủy, nên lần tung của người khác không còn đóng trình đơn lựa chọn này.
 * Tiền thuê của công ty tiện ích và địa danh Hà Nội đã có chủ giờ luôn dùng một lần tung mới và được tính như nhau dù chủ sở hữu là người hay bot. Trên bàn cờ Hà Nội, Chùa Một Cột và Cầu Long Biên thu 4.000 đồng cho mỗi điểm xúc xắc khi chủ sở hữu có một địa danh hoặc 10.000 đồng cho mỗi điểm khi có cả hai; thẻ đưa bạn đến công ty tiện ích gần nhất dùng đúng mức của trọn nhóm.
 * Màn hình kết quả Cờ tỷ phú đã hoàn tất giờ giữ nguyên đơn vị tiền của bàn cờ vừa chơi, kể cả khi chủ bàn chọn một bàn khác cho ván tiếp theo.
 
@@ -128,14 +172,14 @@ Cải thiện:
 Sửa lỗi:
 
 * Đăng ký tài khoản không còn thỉnh thoảng thất bại với lỗi máy chủ khi hệ thống đang cập nhật dữ liệu tài khoản hoặc ván chơi khác.
-* Menu lựa chọn và ô nhập liệu giờ luôn gắn với trạng thái hiện tại của bàn. Phản hồi gửi từ menu cũ bị bỏ qua, còn lời nhắc không còn hợp lệ sẽ đóng an toàn thay vì mang một quyết định trước đó sang giai đoạn sau của ván.
+* Trình đơn lựa chọn và ô nhập liệu giờ luôn gắn với trạng thái hiện tại của bàn. Phản hồi gửi từ trình đơn cũ bị bỏ qua, còn lời nhắc không còn hợp lệ sẽ đóng an toàn thay vì mang một quyết định trước đó sang giai đoạn sau của ván.
 
 Thứ Tư 5 Tháng Tám 2026
 
 Tính năng mới:
 
 * Tiếng Tây Ban Nha hiện đã có trên máy chủ, phần mềm máy tính, web, di động, và tài liệu người chơi dưới dạng bản dịch cộng đồng của UnDuende (Storm Demoner). Nội dung chưa được dịch sang tiếng Tây Ban Nha sẽ dùng bản tiếng Anh.
-* Gợi ý trong menu giờ mặc định đưa phần mô tả có sẵn vào ngay từng lựa chọn trên mọi máy khách. Nếu muốn dòng ngắn hơn, hãy tắt tại Cá nhân và Tùy chỉnh > Tùy chỉnh chung > Hỗ trợ tiếp cận > Gợi ý trong menu; trên máy tính, bạn vẫn có thể nhấn Space để nghe trợ giúp tại các mục hệ thống và tùy chọn trước ván có hỗ trợ.
+* Gợi ý trong trình đơn giờ mặc định đưa phần mô tả có sẵn vào ngay từng lựa chọn trên mọi máy khách. Nếu muốn dòng ngắn hơn, hãy tắt tại Cá nhân và Tùy chỉnh > Tùy chỉnh chung > Hỗ trợ tiếp cận > Gợi ý trong trình đơn; trên máy tính, bạn vẫn có thể nhấn Space để nghe trợ giúp tại các mục hệ thống và tùy chọn trước ván có hỗ trợ.
 * Tên đăng nhập mới giờ có thể dùng chữ cái của mọi ngôn ngữ, chữ số, cùng dấu cách đơn, nên bạn có thể dùng họ tên tiếng Việt đầy đủ trong giới hạn từ 3 đến 30 ký tự.
 
 Cải thiện:
@@ -161,12 +205,12 @@ Thứ Sáu 31 Tháng Bảy 2026
 
 Tính năng mới:
 
-* BANG! Miền Tây Khói Lửa đã được thêm cho 3 đến 8 người chơi. Chủ bàn có thể tắt Bài và nhân vật mở rộng để dùng bộ 80 lá với 19 nhân vật dành cho 4 đến 7 người hoặc để bật tùy chọn này cho bộ 120 lá với 34 nhân vật dành cho 3 đến 8 người, đồng thời có thể bật Nhóm Giữa trưa, Nhóm Một nắm bài, hoặc Trộn hai nhóm. Trò chơi bám sát luật cơ bản và luật mở rộng, có màn đấu súng giấu thân phận, luật ba người công khai thân phận, lựa chọn bài kín có hướng dẫn và chỉ lật công khai khi luật yêu cầu, menu thông tin và đối phó dễ dùng bằng bàn phím lẫn cảm ứng, bot có chiến thuật, âm thanh miền Tây riêng, cùng tài liệu cho người mới bằng tiếng Anh và tiếng Việt.
+* BANG! Miền Tây Khói Lửa đã được thêm cho 3 đến 8 người chơi. Chủ bàn có thể tắt Bài và nhân vật mở rộng để dùng bộ 80 lá với 19 nhân vật dành cho 4 đến 7 người hoặc để bật tùy chọn này cho bộ 120 lá với 34 nhân vật dành cho 3 đến 8 người, đồng thời có thể bật Nhóm Giữa trưa, Nhóm Một nắm bài, hoặc Trộn hai nhóm. Trò chơi bám sát luật cơ bản và luật mở rộng, có màn đấu súng giấu thân phận, luật ba người công khai thân phận, lựa chọn bài kín có hướng dẫn và chỉ lật công khai khi luật yêu cầu, trình đơn thông tin và đối phó dễ dùng bằng bàn phím lẫn cảm ứng, bot có chiến thuật, âm thanh miền Tây riêng, cùng tài liệu cho người mới bằng tiếng Anh và tiếng Việt.
 
 Cải thiện:
 
-* Hiệu ứng âm thanh, nhạc nền và âm thanh môi trường giờ hoạt động nhất quán trên phần mềm máy tính, web, và di động. Hiệu ứng lặp dừng cùng sự kiện đang dùng chúng, nhạc và môi trường chuyển đổi mượt mà, còn âm thanh môi trường có thể chạy liền mạch qua đoạn mở đầu, vòng lặp, và đoạn kết. Khi kết nối lại, bạn nghe đúng không gian âm thanh đang diễn ra mà không phát lại đoạn mở đầu; khi rời hoặc kết thúc bàn, đoạn kết đã được soạn vẫn có thể phát xong mà âm thanh không theo bạn về menu.
-* Nhạc menu chính giờ tiếp tục phát khi bạn đi qua Chơi, Cá nhân và Tùy chỉnh, cùng các menu con. Phòng chờ luôn yên lặng, mọi máy khách đều có âm thanh báo kết nối, và đoạn mở ván bắt đầu mà không bị nhạc menu hoặc phòng chờ phát chồng lên.
+* Hiệu ứng âm thanh, nhạc nền và âm thanh môi trường giờ hoạt động nhất quán trên phần mềm máy tính, web, và di động. Hiệu ứng lặp dừng cùng sự kiện đang dùng chúng, nhạc và môi trường chuyển đổi mượt mà, còn âm thanh môi trường có thể chạy liền mạch qua đoạn mở đầu, vòng lặp, và đoạn kết. Khi kết nối lại, bạn nghe đúng không gian âm thanh đang diễn ra mà không phát lại đoạn mở đầu; khi rời hoặc kết thúc bàn, đoạn kết đã được soạn vẫn có thể phát xong mà âm thanh không theo bạn về trình đơn.
+* Nhạc trình đơn chính giờ tiếp tục phát khi bạn đi qua Chơi, Cá nhân và Tùy chỉnh, cùng các trình đơn con. Phòng chờ luôn yên lặng, mọi máy khách đều có âm thanh báo kết nối, và đoạn mở ván bắt đầu mà không bị nhạc trình đơn hoặc phòng chờ phát chồng lên.
 * Khi cùng một tài khoản chuyển sang thiết bị khác, bàn hiện tại, thời gian lượt, sự kiện đang diễn ra, và âm thanh đang phát vẫn được giữ nguyên; các nút điều khiển được dựng lại đúng cho phần mềm máy tính, web, hoặc di động mới. Thiết bị cũ ngắt kết nối an toàn mà người chơi không bị bot chơi thay tạm thời.
 * Thông báo trực tuyến và ngoại tuyến giờ chặn các lần lặp dồn dập cùng những lần kết nối lại rất nhanh, tôn trọng Tùy chỉnh thông báo của từng người kể cả khi Quản trị viên hoặc Nhà phát triển xuất hiện, và ưu tiên âm thanh Quản trị viên hoặc Nhà phát triển thay cho âm thanh bạn bè thông thường nếu người đó là bạn.
 * Lời nhắc cập nhật giờ dùng đúng bản tải xuống cho Windows hoặc Android thay vì mở gói của nền tảng khác. Nếu chưa có bản tải xuống cho nền tảng hiện tại, máy khách sẽ giải thích rõ ràng.
@@ -203,8 +247,8 @@ Tính năng mới:
 
 Cải thiện:
 
-* Tiêu điểm menu trên phần mềm máy tính, web, và di động ổn định hơn: khi dòng đang được chọn biến mất, tiêu điểm chuyển tới mục hữu ích kế tiếp thay vì nhảy theo vị trí cũ.
-* Khi trận đấu bắt đầu, tiêu điểm giờ chuyển từ menu phòng chờ tới mục đầu tiên của ván, giúp bài và hành động trong lượt xuất hiện ngay.
+* Tiêu điểm trình đơn trên phần mềm máy tính, web, và di động ổn định hơn: khi dòng đang được chọn biến mất, tiêu điểm chuyển tới mục hữu ích kế tiếp thay vì nhảy theo vị trí cũ.
+* Khi trận đấu bắt đầu, tiêu điểm giờ chuyển từ trình đơn phòng chờ tới mục đầu tiên của ván, giúp bài và hành động trong lượt xuất hiện ngay.
 
 Sửa lỗi:
 
@@ -218,14 +262,14 @@ Tính năng mới:
 
 Cải thiện:
 
-* UNO gọn hơn trên từng thiết bị: trên máy tính dùng phím U, trên thiết bị cảm ứng nút UNO được ghim ở đầu menu lượt, và sau khi chọn màu của lá Đổi màu, tiêu điểm chuyển tới lá phù hợp hoặc mục menu hữu ích.
+* UNO gọn hơn trên từng thiết bị: trên máy tính dùng phím U, trên thiết bị cảm ứng nút UNO được ghim ở đầu trình đơn lượt, và sau khi chọn màu của lá Đổi màu, tiêu điểm chuyển tới lá phù hợp hoặc mục trình đơn hữu ích.
 * Điểm phạt Cướp lượt, kiểm tra điểm, thông báo lá mở đầu, chọn màu, và đọc số lá trong UNO giờ ngắn gọn và rõ hơn.
 * Người máy trong Đấu Trường Chiến Kỹ giờ chọn đấu sĩ và chiêu mạnh đa dạng hơn nhưng vẫn biết tấn công và hỗ trợ chiến thuật.
 * Luồng ván trong Tiến Lên giờ có thông báo gọn hơn theo hướng ưu tiên âm thanh.
 
 Sửa lỗi:
 
-* Menu trong bàn giờ phục hồi ổn định hơn sau màn hình trạng thái, xác nhận rời bàn, thao tác cũ, kết nối lại, khôi phục bàn, và chấp nhận lời mời bàn, nên ít gặp menu trống hoặc bị kẹt hơn.
+* Trình đơn trong bàn giờ phục hồi ổn định hơn sau màn hình trạng thái, xác nhận rời bàn, thao tác cũ, kết nối lại, khôi phục bàn, và chấp nhận lời mời bàn, nên ít gặp trình đơn trống hoặc bị kẹt hơn.
 * UNO giờ áp dụng hiệu ứng lá mở đầu chính thức cho Mất lượt, Đảo chiều, Rút Hai, và Đổi màu; Đổi màu Rút Bốn được trả lại vào bộ bài trước khi lật lá mở đầu mới.
 * UNO giờ cho phép bắt lỗi quên hô UNO trước khi người kế tiếp đánh hoặc rút bài, và các lượt hô hoặc bắt lỗi UNO không hợp lệ có phản hồi rõ hơn.
 * Đường Đua Ngàn Dặm giờ cho lá bảo vệ dọn đúng các Sự cố đang có, và kết quả cuối ván hiển thị đúng điểm thắng cùng cự ly chặng đua.
@@ -238,17 +282,17 @@ Thứ Sáu 3 Tháng Bảy 2026
 Tính năng mới:
 
 * Chín mươi chín giờ đây có các nút tạm dừng và bắt đầu ngay trong khoảng chờ ngắn giữa các vòng giống Scopa, để chủ bàn có thể tạm dừng đồng hồ đếm ngược hoặc bắt đầu vòng tiếp theo ngay.
-* Các tùy chọn thiết lập trò chơi giờ có phần trợ giúp rõ hơn bằng tiếng Anh và tiếng Việt, với cách viết thống nhất cho giá trị mặc định, phạm vi, và lựa chọn trong cả tài liệu lẫn menu tùy chọn.
-* Menu chọn ngôn ngữ giờ hiển thị thông tin ngôn ngữ được hỗ trợ rõ hơn, gồm ghi công người dịch và trạng thái bản dịch chính thức/cộng đồng khi có.
+* Các tùy chọn thiết lập trò chơi giờ có phần trợ giúp rõ hơn bằng tiếng Anh và tiếng Việt, với cách viết thống nhất cho giá trị mặc định, phạm vi, và lựa chọn trong cả tài liệu lẫn trình đơn tùy chọn.
+* Trình đơn chọn ngôn ngữ giờ hiển thị thông tin ngôn ngữ được hỗ trợ rõ hơn, gồm ghi công người dịch và trạng thái bản dịch chính thức/cộng đồng khi có.
 
 Sửa lỗi:
 
-* Ai đang ở trong bàn và các menu hành động thành viên không còn cần bấm Quay lại thêm sau thao tác bị chặn hoặc menu cũ; các dòng thay thế người ngoại tuyến và xóa bot cũng ổn định hơn.
+* Ai đang ở trong bàn và các trình đơn hành động thành viên không còn cần bấm Quay lại thêm sau thao tác bị chặn hoặc trình đơn cũ; các dòng thay thế người ngoại tuyến và xóa bot cũng ổn định hơn.
 * Cơ chế dự phòng ngôn ngữ và tài liệu trên máy chủ, web, và di động an toàn hơn, nên bản dịch còn thiếu vẫn đọc được và tài liệu thiếu sẽ trở về tiếng Anh thay vì hiện khóa thô hoặc trang trống.
-* Trợ giúp tùy chọn và tùy chỉnh giờ chỉ đọc đúng dòng bạn đang đặt tiêu điểm, và bỏ qua nút Quay lại hoặc gói menu cũ không còn hợp lệ.
+* Trợ giúp tùy chọn và tùy chỉnh giờ chỉ đọc đúng dòng bạn đang đặt tiêu điểm, và bỏ qua nút Quay lại hoặc gói trình đơn cũ không còn hợp lệ.
 * Scopa giờ xử lý chính xác hơn bố cục bài mở đầu không hợp lệ, các lần quét bàn của Asso piglia tutto, tình huống nhiều bên hòa tại mốc điểm mục tiêu, bài đã ăn của người chơi đang hoạt động, và các tổ hợp tùy chọn thiết lập xung đột.
 * Chín mươi chín giờ đây giữ lại lá trên cùng của chồng bài bỏ khi xào lại bộ bài, báo rõ khi không còn lá để rút thủ công, giữ các nút bài ngoài lượt ổn định cho người chơi cảm ứng, và tài liệu đã nói rõ phạt mốc 33/66 chỉ áp dụng khi tổng điểm được nâng lên các mốc đó.
-* Crazy Eights giờ đưa tiêu điểm tới lá bài phù hợp nhất tiếp theo trên tay sau khi bạn chọn chất cho một lá 8 Đổi màu; nếu không có lá phù hợp, tiêu điểm trở về mục đầu tiên trong menu hành động chính.
+* Crazy Eights giờ đưa tiêu điểm tới lá bài phù hợp nhất tiếp theo trên tay sau khi bạn chọn chất cho một lá 8 Đổi màu; nếu không có lá phù hợp, tiêu điểm trở về mục đầu tiên trong trình đơn hành động chính.
 * Điểm khi Crazy Eights bị chặn giờ chỉ tính phần chênh lệch so với tay ít điểm nhất, và thông báo rút bắt buộc giờ khớp số lá thật sự được rút.
 
 Thứ Hai 29 Tháng Sáu 2026
@@ -257,14 +301,14 @@ Tính năng mới:
 
 * Hai Mươi Mốt (Luật Sinh Tồn) giờ hỗ trợ từ hai đến bốn người chơi, với kết quả sinh tồn cho mọi người còn sống và lựa chọn mục tiêu cho các Lá Biến tác động lên đối thủ.
 * Quản trị giờ có Quản lý nguồn máy chủ để lên lịch khởi động lại máy chủ hoặc tắt máy chủ với lý do rõ ràng, lý do tùy chỉnh đa ngôn ngữ, cảnh báo đếm ngược, và các lần khởi động lại theo lịch giữ nguyên bàn đang chơi trong khi máy khách tự kết nối lại.
-* Các menu máy chủ có danh sách lớn giờ hỗ trợ tìm kiếm và chia trang 100 mục, kèm thông tin phạm vi trang và các nút Trang đầu, Trang trước, Trang sau, và Trang cuối.
+* Các trình đơn máy chủ có danh sách lớn giờ hỗ trợ tìm kiếm và chia trang 100 mục, kèm thông tin phạm vi trang và các nút Trang đầu, Trang trước, Trang sau, và Trang cuối.
 
 Sửa lỗi:
 
 * Ai đang ở trong bàn giờ xếp người chơi đang hoạt động trước khán giả và báo rõ trạng thái Trực tuyến, Ngoại tuyến, đang trong trò chuyện thoại, và bot đang chơi thay.
-* Ai đang ở trong bàn và các menu danh sách bàn liên quan giờ luôn giữ được nút Quay lại, tránh trạng thái menu bị trùng hoặc trống, và giữ tiêu điểm ổn định khi làm mới.
+* Ai đang ở trong bàn và các trình đơn danh sách bàn liên quan giờ luôn giữ được nút Quay lại, tránh trạng thái trình đơn bị trùng hoặc trống, và giữ tiêu điểm ổn định khi làm mới.
 * Chế độ TalkBack trên di động giờ đọc thông báo máy chủ nhạy hơn, ngắt lời đọc cũ khi bạn di chuyển tiêu điểm, và tránh đọc trễ hoặc lặp lại thông báo.
-* Xúc xắc màu giờ giữ xác nhận Tất tay trong đúng menu cược của màu đã chọn để bạn có thể chọn lại đúng mục Tất tay đó để xác nhận.
+* Xúc xắc màu giờ giữ xác nhận Tất tay trong đúng trình đơn cược của màu đã chọn để bạn có thể chọn lại đúng mục Tất tay đó để xác nhận.
 * Cờ cá ngựa giờ giải thích rằng bạn phải đi một quân trước khi gieo tiếp nếu lượt gieo trước đã tạo ra nước đi hợp lệ.
 * Sorry! giờ giải thích rằng bạn phải chọn một nước đi hợp lệ trước khi rút tiếp sau khi đã rút thẻ.
 
@@ -273,17 +317,17 @@ Thứ Sáu 26 Tháng Sáu 2026
 Tính năng mới:
 
 * Ai đang ở trong bàn giờ là danh sách tương tác có tóm tắt bàn, vai trò của từng người, hành động của chủ bàn, hành động bạn bè, và nút xóa Bot khi có thể.
-* Mở danh sách người dùng trực tuyến giờ mở thẳng menu hành động bạn bè đầy đủ khi bạn chọn một người đã là bạn.
+* Mở danh sách người dùng trực tuyến giờ mở thẳng trình đơn hành động bạn bè đầy đủ khi bạn chọn một người đã là bạn.
 * Hải Tặc: Những Vùng Biển Thất Lạc giờ hiển thị Kiểm tra vị trí cho người chơi cảm ứng trong lúc ván đang diễn ra.
 * Trò chuyện thoại trên phần mềm máy tính và web giờ dùng Alt+V để tham gia hoặc rời, và Alt+Shift+V để bật hoặc tắt mic.
-* Âm thanh bấm và kích hoạt menu trên di động đã được làm mới.
+* Âm thanh bấm và kích hoạt trình đơn trên di động đã được làm mới.
 
 Sửa lỗi:
 
 * Các danh sách Chuyển quyền chủ bàn, Đuổi người chơi, và Đuổi và cấm người chơi trong Quản lý bàn giờ tự làm mới khi có người vào hoặc rời bàn.
 * Phần mềm trên máy tính giờ áp dụng thay đổi ngôn ngữ từ máy chủ ngay lập tức mà không cần khởi động lại.
 * Khi chỉnh âm lượng hiệu ứng âm thanh trên phần mềm máy tính, âm lượng mới giờ tác động cả hiệu ứng đang phát.
-* Menu chọn giọng đọc TTS trên di động giờ chọn đúng giọng hệ thống và giữ an toàn giọng đã lưu khi Android tạm thời trả về danh sách giọng trống.
+* Trình đơn chọn giọng đọc TTS trên di động giờ chọn đúng giọng hệ thống và giữ an toàn giọng đã lưu khi Android tạm thời trả về danh sách giọng trống.
 * Thông báo phiên bản không khớp trên web giờ được dịch đúng thay vì hiện dòng tiếng Anh thô từ máy chủ.
 
 Thứ Năm 25 Tháng Sáu 2026
@@ -297,24 +341,24 @@ Tính năng mới:
 
 Sửa lỗi:
 
-* Poker Rút năm lá giờ đưa bạn về menu cược chính ngay sau khi đổi bài hoặc giữ nguyên bài.
+* Poker Rút năm lá giờ đưa bạn về trình đơn cược chính ngay sau khi đổi bài hoặc giữ nguyên bài.
 * Poker Texas Hold'em và Poker Rút năm lá không còn hiển thị hành động ván bài cho người chơi đã hết chip.
 * Poker Tử Thần giờ cho phép cả Theo và Tất tay gọi đúng số tiền tất tay của đối thủ.
-* Danh sách bạn bè và danh sách người chơi giờ phân biệt người ở menu chính với người đang chờ tại bàn.
+* Danh sách bạn bè và danh sách người chơi giờ phân biệt người ở trình đơn chính với người đang chờ tại bàn.
 * Màn hình kết quả cuối ván giờ là riêng của từng người, nên bạn đóng màn hình của mình sẽ không đóng màn hình của người khác.
 * Màn hình kết quả cuối ván không còn biến mất khi có người vào hoặc rời bàn.
 * Các luồng mời bạn bè, chuyển chủ bàn, đuổi, và đuổi/cấm trong Quản lý bàn giờ vẫn mở sau khi thao tác để chủ bàn tiếp tục quản lý.
-* Kết nối game trên di động giờ vẫn được giữ khi bạn thu nhỏ ứng dụng hoặc tắt màn hình.
+* Kết nối trò chơi trên di động giờ vẫn được giữ khi bạn thu nhỏ ứng dụng hoặc tắt màn hình.
 * Mic trong Trò chuyện thoại trên di động giờ tiếp tục truyền âm trong nền trên các thiết bị trước đây thường dừng sau vài giây.
 * Trò chuyện thoại trên di động không còn ép âm thanh trò chơi thành mono.
 * Cử chỉ tự đọc trên di động giờ phản hồi đáng tin cậy hơn trong lúc chơi.
 * Ô nhập liệu trên di động giờ đọc nội dung đáng tin cậy hơn trong chế độ tự đọc.
 * Thay đổi giọng đọc TTS trên di động giờ áp dụng đáng tin cậy hơn mà không cần khởi động lại.
 * Thay đổi tốc độ đọc TTS trên di động giờ áp dụng đáng tin cậy hơn mà không cần khởi động lại.
-* Phím Tab trên web giờ chuyển vòng giữa menu, nhật ký, và trò chuyện trong lúc chơi.
-* Phím Escape trên web giờ hoạt động trong nhiều menu máy chủ hơn, bao gồm danh sách người dùng trực tuyến.
+* Phím Tab trên web giờ chuyển vòng giữa trình đơn, nhật ký, và trò chuyện trong lúc chơi.
+* Phím Escape trên web giờ hoạt động trong nhiều trình đơn máy chủ hơn, bao gồm danh sách người dùng trực tuyến.
 * Lời nhắc nhập liệu trên web giờ dùng ô một dòng hoặc nhiều dòng theo đúng loại yêu cầu từ máy chủ, và ô một dòng có thể gửi bằng Enter.
-* Âm thanh menu trên web giờ bám sát phản hồi điều hướng của phần mềm máy tính hơn.
+* Âm thanh trình đơn trên web giờ bám sát phản hồi điều hướng của phần mềm máy tính hơn.
 * Âm thanh gõ chữ trên web giờ phát trong các lời nhắc nhập liệu.
 * F4 trên web giờ tắt tiếng đúng bộ đệm đang hoạt động.
 * Phím chỉnh âm lượng nhạc và môi trường trên web giờ điều chỉnh âm thanh trình duyệt đang phát.
@@ -343,8 +387,8 @@ Sửa lỗi:
 * Sorry! giờ tách lời nhắc cá nhân và công khai cho thông báo người thắng cuối cùng.
 * UNO giờ tách lời nhắc cá nhân và công khai cho thông báo bị loại, ghi điểm, và người thắng cuối cùng.
 * Kỷ Nguyên Anh Hùng giờ tách lời nhắc riêng cho bên tấn công, bên phòng thủ, và người quan sát trong tóm tắt giao chiến.
-* Tiêu điểm menu giờ khôi phục ổn định hơn khi quay lại từ Quản trị, Quản lý bàn, Tùy chỉnh, menu bàn, màn hình trạng thái, và lời nhắc hành động.
-* Nút Bắt đầu game giờ luôn hiện trong phòng chờ và giải thích lỗi thiết lập khi được chọn.
+* Tiêu điểm trình đơn giờ khôi phục ổn định hơn khi quay lại từ Quản trị, Quản lý bàn, Tùy chỉnh, trình đơn bàn, màn hình trạng thái, và lời nhắc hành động.
+* Nút Bắt đầu chơi giờ luôn hiện trong phòng chờ và giải thích lỗi thiết lập khi được chọn.
 * Tùy chọn giữ xúc xắc giờ giải thích Theo vị trí và Theo giá trị rõ hơn, và chỉ hiện trong trò chơi thật sự dùng chúng.
 * Kiểm tra điểm chuẩn của Yahtzee giờ hiển thị đúng tổng điểm Yahtzee.
 * Khi ghi điểm trong Yahtzee, tiêu điểm cảm ứng giờ quay lại Gieo xúc xắc.
@@ -363,13 +407,13 @@ Sửa lỗi:
 * Ba điểm giờ giữ tiêu điểm kết quả xúc xắc, Gieo, và ghi điểm ổn định hơn cho người chơi cảm ứng.
 * Toss Up giờ đưa tiêu điểm cảm ứng về đúng chỗ sau khi chốt điểm mà không giành tiêu điểm khi bạn đang tự điều hướng.
 * Pig giờ đưa tiêu điểm cảm ứng về đúng chỗ sau khi Giữ điểm mà không giành tiêu điểm khi bạn đang tự điều hướng.
-* Tradeoff giờ giữ menu Gieo, đổi xúc xắc, và điểm số ổn định hơn cho người chơi cảm ứng.
-* Bunko giờ giữ menu Gieo và trạng thái ổn định hơn cho người chơi cảm ứng.
-* Farkle giờ giữ menu chọn xúc xắc và Gieo ổn định hơn cho người chơi cảm ứng.
-* Xúc xắc màu giờ giữ menu cược và trạng thái ổn định hơn cho người chơi cảm ứng.
-* Tháp Pháo Quang Năng giờ giữ menu bắn, nâng cấp, và trạng thái ổn định hơn cho người chơi cảm ứng.
-* Trái, Giữa, Phải giờ giữ menu Gieo và trạng thái chip ổn định hơn cho người chơi cảm ứng.
-* Ống Sắt giờ giữ menu hành động và trạng thái ổn định hơn cho người chơi cảm ứng.
+* Tradeoff giờ giữ trình đơn Gieo, đổi xúc xắc, và điểm số ổn định hơn cho người chơi cảm ứng.
+* Bunko giờ giữ trình đơn Gieo và trạng thái ổn định hơn cho người chơi cảm ứng.
+* Farkle giờ giữ trình đơn chọn xúc xắc và Gieo ổn định hơn cho người chơi cảm ứng.
+* Xúc xắc màu giờ giữ trình đơn cược và trạng thái ổn định hơn cho người chơi cảm ứng.
+* Tháp Pháo Quang Năng giờ giữ trình đơn bắn, nâng cấp, và trạng thái ổn định hơn cho người chơi cảm ứng.
+* Trái, Giữa, Phải giờ giữ trình đơn Gieo và trạng thái chip ổn định hơn cho người chơi cảm ứng.
+* Ống Sắt giờ giữ trình đơn hành động và trạng thái ổn định hơn cho người chơi cảm ứng.
 * Người máy trong Farkle giờ cân nhắc rủi ro và phần thưởng tốt hơn.
 * Người máy trong Bóng Lăn giờ ra quyết định tốt hơn.
 * Người máy trong Tradeoff giờ ra quyết định tốt hơn.
@@ -386,29 +430,29 @@ Tính năng mới:
 * Cờ vua giờ hỗ trợ Nhập nước cờ bằng ký pháp cờ vua phổ biến và tọa độ ô cờ.
 * Cờ vua giờ có người máy mạnh hơn nhưng vẫn được giới hạn để máy chủ ổn định.
 * Đấu Trường Chiến Kỹ giờ hỗ trợ Đấu đội qua luồng sắp xếp đội chuẩn.
-* Kỹ năng đấu sĩ trong Đấu Trường Chiến Kỹ đã được hoàn thiện, cân bằng lại, và giải thích trong game.
+* Kỹ năng đấu sĩ trong Đấu Trường Chiến Kỹ đã được hoàn thiện, cân bằng lại, và giải thích trong trò chơi.
 * Màn hình trạng thái trực tiếp giờ cho phép bảng điểm, bàn cờ, bảng xếp hạng, danh sách người trong bàn, và các màn hình trạng thái khác mở sẵn và tự cập nhật khi ván thay đổi.
 
 Sửa lỗi:
 
-* Đảo Chính giờ có thông báo rõ hơn và menu ổn định hơn cho trình đọc màn hình.
+* Đảo Chính giờ có thông báo rõ hơn và trình đơn ổn định hơn cho trình đọc màn hình.
 * Thành Phố Trung Cổ giờ có thông báo rõ hơn và phản hồi thiết lập an toàn hơn.
-* Cờ thỏ cáo giờ có thông báo rõ hơn và menu ổn định hơn cho trình đọc màn hình.
+* Cờ thỏ cáo giờ có thông báo rõ hơn và trình đơn ổn định hơn cho trình đọc màn hình.
 * Đấu Trường Chiến Kỹ giờ có thông báo rõ hơn và phản hồi kỹ năng an toàn hơn.
-* Tàu Chiến giờ có thông báo rõ hơn và menu triển khai ổn định hơn.
-* Cờ vua giờ có thông báo rõ hơn và menu nhập nước đi ổn định hơn.
-* Crazy Eights giờ có thông báo rõ hơn và menu chọn chất ổn định hơn.
-* Gấu Cuồng Loạn giờ có thông báo rõ hơn và menu ổn định hơn cho trình đọc màn hình.
-* Bộ Bài Tử Thần giờ có thông báo rõ hơn và menu hành động ổn định hơn.
-* Poker Tử Thần giờ có thông báo rõ hơn và menu cược ổn định hơn.
-* Senet giờ có thông báo rõ hơn và menu bàn cờ ổn định hơn.
-* Cờ cá ngựa giờ có thông báo rõ hơn và menu chọn quân ổn định hơn.
-* Sorry! giờ có thông báo rõ hơn và menu chọn quân ổn định hơn.
-* Ba điểm giờ có thông báo rõ hơn và menu xúc xắc ổn định hơn.
+* Tàu Chiến giờ có thông báo rõ hơn và trình đơn triển khai ổn định hơn.
+* Cờ vua giờ có thông báo rõ hơn và trình đơn nhập nước đi ổn định hơn.
+* Crazy Eights giờ có thông báo rõ hơn và trình đơn chọn chất ổn định hơn.
+* Gấu Cuồng Loạn giờ có thông báo rõ hơn và trình đơn ổn định hơn cho trình đọc màn hình.
+* Bộ Bài Tử Thần giờ có thông báo rõ hơn và trình đơn hành động ổn định hơn.
+* Poker Tử Thần giờ có thông báo rõ hơn và trình đơn cược ổn định hơn.
+* Senet giờ có thông báo rõ hơn và trình đơn bàn cờ ổn định hơn.
+* Cờ cá ngựa giờ có thông báo rõ hơn và trình đơn chọn quân ổn định hơn.
+* Sorry! giờ có thông báo rõ hơn và trình đơn chọn quân ổn định hơn.
+* Ba điểm giờ có thông báo rõ hơn và trình đơn xúc xắc ổn định hơn.
 * 21 (Luật Sinh Tồn) giờ có thông báo rõ hơn và phản hồi hành động an toàn hơn.
 * Cờ vua giờ tính số nước theo chuẩn nước trọn vẹn và đọc ngắn hơn khi bật Thông báo ngắn gọn.
 * Tàu Chiến giờ phản hồi rõ hơn trong giai đoạn triển khai và khi khai hỏa.
-* Đặt tàu thủ công trong Tàu Chiến giờ dùng lại menu đặt tàu riêng.
+* Đặt tàu thủ công trong Tàu Chiến giờ dùng lại trình đơn đặt tàu riêng.
 * Khi kiểm tra lượt trong giai đoạn triển khai của Tàu Chiến, trò chơi giờ đọc trạng thái sẵn sàng của từng người.
 * Crazy Eights giờ xử lý chọn chất sau Lá 8 Tự do gần giống UNO hơn và tránh lỗi Chưa đến lượt của bạn không liên quan khi bấm phím chọn chất.
 * Poker Tử Thần giữ các nút hành động cảm ứng ổn định hơn trong lúc đổi bài và khi có sự kiện bàn.
@@ -416,10 +460,10 @@ Sửa lỗi:
 * Người máy trong Poker Tử Thần giờ chơi táo bạo và thông minh hơn.
 * Bộ Bài Tử Thần giờ có phản hồi luật, thông tin trạng thái, và tường thuật lừa phỉnh, vạch mặt, sinh tồn rõ hơn.
 * Đảo Chính giờ áp dụng đúng luật người đầu tiên chỉ có 1 xu trong ván hai người, kể cả khi người đầu tiên là bot.
-* Menu Trao đổi bài trong Đảo Chính giờ giữ lá đã chọn trong danh sách và đánh dấu lá đã trao đổi.
+* Trình đơn Trao đổi bài trong Đảo Chính giờ giữ lá đã chọn trong danh sách và đánh dấu lá đã trao đổi.
 * Thành Phố Trung Cổ giờ có phản hồi xây công trình, nhân vật, và tính điểm rõ hơn.
 * Senet giờ xử lý khán giả đúng hơn và dùng phím S / Shift+S chuẩn để đọc điểm.
-* Senet không còn ghi đè menu khác đang mở khi bàn cờ làm mới.
+* Senet không còn ghi đè trình đơn khác đang mở khi bàn cờ làm mới.
 * Cờ thỏ cáo giờ làm Thông báo ngắn gọn thật sự ngắn gọn.
 * Cờ cá ngựa giờ làm Thông báo ngắn gọn thật sự ngắn gọn.
 * Sorry! giờ làm Thông báo ngắn gọn thật sự ngắn gọn.
@@ -433,28 +477,28 @@ Sửa lỗi:
 * Kỷ Nguyên Anh Hùng giờ xử lý an toàn hơn khi yêu cầu xây đường bị từ chối hoặc không còn hợp lệ.
 * Kiểm tra điểm cơ bản giờ đọc riêng từng người chơi hoặc từng đội.
 * Kiểm tra điểm chi tiết giờ dùng màn hình trạng thái từng dòng khi phù hợp.
-* Menu Bảng xếp hạng giờ ẩn những trò không hỗ trợ Bảng xếp hạng.
+* Trình đơn Bảng xếp hạng giờ ẩn những trò không hỗ trợ Bảng xếp hạng.
 * Dữ liệu Bảng xếp hạng cũ không còn phù hợp giờ được dọn an toàn.
 * Lời mời bàn không còn bị từ chối khi bấm vào tiêu đề.
 * Lời mời bàn đến trong lúc bạn nhập văn bản giờ chờ bạn nhập xong rồi mới hiện.
-* Bộ lọc thể loại trong menu Chơi không còn ảnh hưởng nhầm sang Tài liệu, Bảng xếp hạng, hoặc Thống kê của tôi.
+* Bộ lọc thể loại trong trình đơn Chơi không còn ảnh hưởng nhầm sang Tài liệu, Bảng xếp hạng, hoặc Thống kê của tôi.
 * Trang tài liệu giờ hiển thị Markdown đã thoát ký tự ổn định hơn.
-* Trên phần mềm máy tính, Ctrl+F1 mở Cách chơi rồi đóng lại không còn làm menu hành động bị trống.
+* Trên phần mềm máy tính, Ctrl+F1 mở Cách chơi rồi đóng lại không còn làm trình đơn hành động bị trống.
 
 Thứ Ba 9 Tháng Sáu 2026
 
 Tính năng mới:
 
-* Kỷ Nguyên Anh Hùng đã được thêm với menu và tài liệu được dịch.
-* Ống Sắt đã được thêm với menu và tài liệu được dịch.
-* Nine đã được thêm với menu và tài liệu được dịch.
-* Senet đã được thêm với menu và tài liệu được dịch.
-* Cards Against Humanity đã được thêm với menu và tài liệu được dịch, hiệu ứng âm thanh riêng, còn nội dung trên lá bài dùng tiếng Anh.
-* 21 (Luật Sinh Tồn) đã được thêm với menu và tài liệu được dịch.
+* Kỷ Nguyên Anh Hùng đã được thêm với trình đơn và tài liệu được dịch.
+* Ống Sắt đã được thêm với trình đơn và tài liệu được dịch.
+* Nine đã được thêm với trình đơn và tài liệu được dịch.
+* Senet đã được thêm với trình đơn và tài liệu được dịch.
+* Cards Against Humanity đã được thêm với trình đơn và tài liệu được dịch, hiệu ứng âm thanh riêng, còn nội dung trên lá bài dùng tiếng Anh.
+* 21 (Luật Sinh Tồn) đã được thêm với trình đơn và tài liệu được dịch.
 * UNO đã được thêm để thay thế Last Card.
-* Menu Chơi giờ có bộ lọc thể loại để duyệt trò chơi dễ hơn.
-* Tùy chỉnh giờ được chia thành Tùy chỉnh chung và Tùy chỉnh game rõ ràng hơn.
-* Tùy chỉnh game giờ hỗ trợ ghi đè tùy chọn riêng cho từng trò.
+* Trình đơn Chơi giờ có bộ lọc thể loại để duyệt trò chơi dễ hơn.
+* Tùy chỉnh giờ được chia thành Tùy chỉnh chung và Tùy chỉnh trò chơi rõ ràng hơn.
+* Tùy chỉnh trò chơi giờ hỗ trợ ghi đè tùy chọn riêng cho từng trò.
 * Xác nhận hành động rủi ro và Thông báo ngắn gọn đã được thêm làm tùy chọn cá nhân cho các trò cần chúng.
 * Âm lượng hiệu ứng âm thanh đã được thêm bên cạnh âm lượng nhạc, môi trường, và Trò chuyện thoại.
 * Khi tắt chế độ tự đọc, ứng dụng di động giờ có các thẻ trên cùng gồm Chính, Trò chuyện, Nhật ký, và Phím tắt.
@@ -479,7 +523,7 @@ Sửa lỗi:
 * Blackjack giờ bỏ qua người chơi phá sản, dùng chip nhất quán, khóa tiền cược khi xác nhận, và giãn cách lượt rút bài của nhà cái.
 * Chín mươi chín giờ đây loại người chơi đã bị loại khỏi các lượt chia bài sau.
 * Chín mươi chín giờ đây bắt đầu vòng mới với người đi đầu ngẫu nhiên và có nhịp nghỉ ngắn giữa các vòng.
-* Chín mươi chín giờ đây khôi phục menu đã dịch đúng hơn sau khi kết nối lại.
+* Chín mươi chín giờ đây khôi phục trình đơn đã dịch đúng hơn sau khi kết nối lại.
 * Chín mươi chín đã sửa lỗi hiếm khiến tổng điểm tăng vượt mức hợp lệ.
 * Poker Tử Thần giờ theo dõi số vòng thắng lúc so bài chính xác hơn và đọc các ván hòa rõ hơn.
 * Poker Tử Thần giờ cho đổi bài một lần mỗi ván và chặn Tất tay ở vòng đầu.
@@ -513,7 +557,7 @@ Thứ Ba 5 Tháng Năm 2026
 Tính năng mới:
 
 * Poker Tử Thần đã được thêm với tài liệu cho người mới và bản dịch tiếng Anh/tiếng Việt đầy đủ.
-* Tùy chỉnh đã được sắp xếp lại thành các menu con theo nhóm.
+* Tùy chỉnh đã được sắp xếp lại thành các trình đơn con theo nhóm.
 * Âm lượng Trò chuyện thoại đã được thêm vào Tùy chỉnh.
 * Phần mềm máy tính giờ hỗ trợ Âm lượng Trò chuyện thoại.
 * Phiên bản web giờ hỗ trợ Âm lượng Trò chuyện thoại.
@@ -522,7 +566,7 @@ Tính năng mới:
 Sửa lỗi:
 
 * Đoạn mở đầu bằng âm thanh của Bộ Bài Tử Thần đã được canh thời gian mượt hơn và giàu không khí hơn.
-* Đường quay lại từ menu con Tùy chỉnh và ô nhập giá trị giờ ổn định hơn.
+* Đường quay lại từ trình đơn con Tùy chỉnh và ô nhập giá trị giờ ổn định hơn.
 
 Thứ Bảy 2 Tháng Năm 2026
 
@@ -569,7 +613,7 @@ Sửa lỗi:
 * Lời mời bàn đến khi bạn đang nhập trong ô văn bản giờ chờ an toàn đến khi bạn nhập xong.
 * Khi lấy lại chỗ từ bot thay thế, cả bàn giờ nghe thông báo rõ ràng.
 * Lệnh gạch chéo không hợp lệ không còn bị gửi thành tin nhắn trò chuyện thường.
-* Hủy ô nhập liệu trên di động không còn làm treo menu.
+* Hủy ô nhập liệu trên di động không còn làm treo trình đơn.
 * Cử chỉ tự đọc trên di động mượt hơn và ổn định hơn.
 
 Thứ Năm 23 Tháng Tư 2026
@@ -602,9 +646,9 @@ Sửa lỗi:
 
 * Âm thanh môi trường và nhạc nền của bàn trước không còn tiếp tục phát sau khi bạn chuyển bàn.
 * Ô trò chuyện trên phần mềm máy tính hoạt động tốt hơn với bộ gõ tiếng Việt.
-* Người chơi di động có thể quay lại từ menu hành động trong game ổn định hơn.
+* Người chơi di động có thể quay lại từ trình đơn hành động trong trò chơi ổn định hơn.
 * Âm thanh môi trường và nhạc nền trên di động không còn bị cắt khi tham gia Trò chuyện thoại.
-* Thông báo trong game trên di động giờ đến trình đọc màn hình hệ thống khi tắt chế độ tự đọc.
+* Thông báo trong trò chơi trên di động giờ đến trình đọc màn hình hệ thống khi tắt chế độ tự đọc.
 * Tiêu điểm trình đọc màn hình trên di động ổn định hơn khi dùng trình đọc màn hình hệ thống.
 * Các bàn cờ dạng lưới trên di động như Tàu Chiến và Cờ vua hiển thị và điều hướng ổn định hơn.
 
@@ -622,7 +666,7 @@ Thứ Ba 14 Tháng Tư 2026
 
 Tính năng mới:
 
-* Mô tả kỹ năng của Đấu Trường Chiến Kỹ đã được thêm ngay trong menu kỹ năng.
+* Mô tả kỹ năng của Đấu Trường Chiến Kỹ đã được thêm ngay trong trình đơn kỹ năng.
 * Âm thanh thông báo khi có bàn mới đã được thêm.
 * Âm thanh thông báo khi có lời mời bàn đã được thêm.
 
@@ -692,7 +736,7 @@ Thứ Năm 2 Tháng Tư 2026
 
 Tính năng mới:
 
-* Người chơi được bot thay thế có thể lấy lại chỗ ngồi cũ qua lời mời hoặc menu tham gia.
+* Người chơi được bot thay thế có thể lấy lại chỗ ngồi cũ qua lời mời hoặc trình đơn tham gia.
 * Khi bạn vào bàn mới trong lúc đang ở ván khác, hệ thống giờ rời ván hiện tại an toàn trước.
 
 Sửa lỗi:
@@ -733,7 +777,7 @@ Sửa lỗi:
 * Người chơi Đảo Chính giờ bị loại đúng khi mất hết thẻ ảnh hưởng.
 * Số lá Trao đổi trong Đảo Chính giờ xử lý đúng khi bộ bài sắp hết.
 * Tiêu điểm trên phần mềm máy tính ổn định hơn trong các danh sách tự làm mới như Bạn bè.
-* Phím Escape trên phần mềm máy tính hoạt động ổn định hơn sau khi menu làm mới nền.
+* Phím Escape trên phần mềm máy tính hoạt động ổn định hơn sau khi trình đơn làm mới nền.
 * Quản lý con trỏ trên web giờ giữ điều hướng danh sách ổn định khi danh sách tự làm mới.
 
 Thứ Sáu 27 Tháng Ba 2026
@@ -751,13 +795,13 @@ Sửa lỗi:
 * Giới hạn cược poker giờ cho phép người chơi Tất tay toàn bộ số tiền.
 * Thông báo poker giờ dùng ngữ pháp rõ hơn và chỉ đọc đúng tiền lời thật khi thắng pot không ai theo.
 * Poker Rút năm lá giờ đọc giai đoạn cược trước khi đọc người đến lượt.
-* Thông báo người thắng poker giờ phát đúng kênh âm thanh của game.
+* Thông báo người thắng poker giờ phát đúng kênh âm thanh của trò chơi.
 
 Thứ Tư 25 Tháng Ba 2026
 
 Tính năng mới:
 
-* PlayAural ra mắt như một nền tảng game trực tuyến ưu tiên âm thanh dành cho người mù.
+* PlayAural ra mắt như một nền tảng trò chơi trực tuyến ưu tiên âm thanh dành cho người mù.
 * Bản đầu tiên có 25 trò chơi thuộc nhiều nhóm bài, xúc xắc, chiến thuật, và xã hội.
 * Phần mềm máy tính ra mắt với hỗ trợ trình đọc màn hình gốc và độ trễ thấp.
 * Phiên bản web ra mắt với bố cục thân thiện cho thiết bị di động.

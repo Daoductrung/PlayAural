@@ -37,6 +37,17 @@ const { BUFFER_NAMES, BufferStore, normalizeBufferName } = compile(
   readFileSync(new URL("../src/state/BufferStore.ts", import.meta.url), "utf8"),
 );
 
+test("a server voice close preserves the table context needed to rejoin", () => {
+  const source = readFileSync(appUrl, "utf8");
+  const closedHandler = source.match(
+    /if \(packet\.type === "voice_context_closed"\) \{[\s\S]*?\n\s*return;\n\s*\}/u,
+  )?.[0] || "";
+
+  assert.match(closedHandler, /leaveVoiceChat\(\{[\s\S]*?clearContext: false,/u);
+  assert.match(closedHandler, /sendLeave: false,/u);
+  assert.match(closedHandler, /statusKey: "voice-chat-not-connected",/u);
+});
+
 function languageHarness(locale = "vi", overrides = {}) {
   const localization = new MobileLocalization();
   localization.setLocale(locale);
@@ -296,11 +307,14 @@ test("server speech is retained but never voiced through a muted or malformed bu
   handleSpeakPacket({ buffer: "chat", text: "quiet chat" });
   handleSpeakPacket({ buffer: "unknown", text: "fallback output" });
   handleSpeakPacket({ buffer: "system", muted: true, text: "server-muted" });
+  handleSpeakPacket({ buffer: "game", history: false, text: "transient prompt" });
+  handleSpeakPacket({ buffer: "chat", history: false, text: "muted transient prompt" });
 
-  assert.deepEqual(spoken, ["game update", "fallback output"]);
+  assert.deepEqual(spoken, ["game update", "fallback output", "transient prompt"]);
   assert.deepEqual(buffers.getMessages("chat").map((item) => item.text), ["quiet chat"]);
   assert.deepEqual(buffers.getMessages("misc").map((item) => item.text), ["fallback output"]);
   assert.equal(buffers.getMessages("all").some((item) => item.text === "quiet chat"), false);
+  assert.equal(buffers.getMessages("game").some((item) => item.text === "transient prompt"), false);
   assert.equal(revision, 4);
 });
 
@@ -370,7 +384,13 @@ test("empty History keeps both controls and a stable spoken empty row", () => {
 test("self-voicing auth order follows the displayed controls and never includes hidden fields", () => {
   const localization = new MobileLocalization();
   for (const authMode of ["login", "register", "forgot", "reset"]) {
-    const items = handler("authFocusableItems", { connected: false, localization, appLocale: "en", authMode, username: "", password: "" });
+    const items = handler("authFocusableItems", {
+      connected: false,
+      localization,
+      appLocale: "en",
+      authMode,
+      hasAuthInput: false,
+    });
     const ids = items.map((item) => item.id);
     assert.deepEqual(ids.slice(0, 4), ["locale", "tab-login", "tab-register", "tab-forgot"]);
     assert.equal(ids.includes("field-username"), authMode === "login" || authMode === "register");

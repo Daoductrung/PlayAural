@@ -1,7 +1,6 @@
 game-name-midnight = 1-4-24
 
 midnight-roll = Gieo xúc xắc
-midnight-keep-die = Giữ { $value }
 midnight-bank = Chốt điểm
 midnight-check-dice = Đọc xúc xắc hiện tại
 midnight-check-round-status = Xem trạng thái vòng

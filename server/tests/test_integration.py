@@ -344,6 +344,7 @@ class TestGameRegistryIntegration:
             "bingo": "misc",
             "scopa": "cards",
             "senet": "board",
+            "skipbo": "cards",
             "snakesandladders": "board",
             "sorry": "board",
             "threes": "dice",

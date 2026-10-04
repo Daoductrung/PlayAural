@@ -163,6 +163,65 @@ def test_select_team_member_menu_uses_localized_member_labels() -> None:
     assert "Player2, Team 2, not selected" in labels
 
 
+@pytest.mark.parametrize("roster_change", ["join", "leave"])
+def test_open_team_member_selector_closes_after_active_roster_change(
+    roster_change: str,
+) -> None:
+    game = make_game(DominosGame, DominosOptions(team_mode="2v2"))
+    host = game.players[0]
+    host_user = game.get_user(host)
+    assert host_user is not None
+    game.execute_action(host, "start_game")
+    game.execute_action(host, "select_team_member")
+    assert game._pending_actions[host.id] == "select_team_member"
+
+    if roster_change == "join":
+        game.add_player("Late", MockUser("Late", uuid="late"))
+    else:
+        game.remove_player(game.players[-1].id)
+    game.flush_menus()
+
+    assert game.team_arrangement_active is False
+    assert host.id not in game._pending_actions
+    assert "action_input_menu" not in host_user.menus
+    assert host_user.get_current_menu_items("turn_menu") is not None
+
+
+def test_open_team_member_selector_survives_spectator_roster_churn() -> None:
+    game = make_game(DominosGame, DominosOptions(team_mode="2v2"))
+    host = game.players[0]
+    host_user = game.get_user(host)
+    assert host_user is not None
+    game.execute_action(host, "start_game")
+    game.execute_action(host, "select_team_member")
+
+    spectator = game.add_spectator(
+        "Spectator",
+        MockUser("Spectator", uuid="spectator"),
+    )
+    game.flush_menus()
+    game.remove_spectator(spectator.id)
+    game.flush_menus()
+
+    assert game._pending_actions[host.id] == "select_team_member"
+    item_ids = [
+        item.id
+        for item in (host_user.get_current_menu_items("action_input_menu") or [])
+    ]
+    assert item_ids == ["p1", "p2", "p3", "p4", "_cancel"]
+
+    game.handle_event(
+        host,
+        {
+            "type": "menu",
+            "menu_id": "action_input_menu",
+            "selection_id": "p1",
+        },
+    )
+    assert host.id not in game._pending_actions
+    assert game.team_arrangement_selected_player_id == "p1"
+
+
 def test_team_arrangement_read_includes_balanced_turn_order() -> None:
     game = make_game(DominosGame, DominosOptions(team_mode="2v2"))
     host = game.players[0]

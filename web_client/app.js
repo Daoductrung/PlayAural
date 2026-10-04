@@ -4,6 +4,7 @@ import { executeCopyDirective } from "./copy_directive.js";
 import { installKeybinds } from "./keybinds.js";
 import { createNetworkClient, loadPacketValidator } from "./network.js";
 import { createStore, normalizeHistoryBuffer } from "./store.js";
+import { parseVoiceSettings } from "./voice_settings.js";
 import {
   AVAILABLE_LOCALES,
   DEFAULT_LOCALE,
@@ -258,14 +259,18 @@ const Localization = {
     return MESSAGE_ALIASES[key] || key;
   },
 
-  async load(locale) {
+  async load(locale, { shouldApply = null } = {}) {
     const bundle = await loadLocaleBundle(locale);
+    if (shouldApply && !shouldApply()) {
+      return false;
+    }
     this.locale = bundle.locale;
     this.strings = bundle.messages;
     this.fallback = bundle.fallback;
     document.documentElement.lang = bundle.locale;
     document.documentElement.dir = LOCALE_METADATA[bundle.locale]?.direction || "ltr";
     storageSet(LANG_KEY, bundle.locale);
+    return true;
   },
 
   has(key) {
@@ -671,6 +676,8 @@ class VoiceChatManager {
     this.pendingJoin = false;
     this.micEnabled = false;
     this.micTogglePending = null;
+    this.hostMuted = false;
+    this.participantSettings = new Map();
     this.remoteAudio = new Map();
     this.volume = 0.8;
     this.statusKeyOrText = "voice-chat-not-connected";
@@ -684,14 +691,60 @@ class VoiceChatManager {
 
   setVolume(percent) {
     this.volume = clampNumber(percent, 0, 100, 80) / 100;
-    for (const element of this.remoteAudio.values()) {
-      element.volume = this.volume;
+    for (const entry of this.remoteAudio.values()) {
+      entry.element.volume = this.effectiveParticipantVolume(entry.participantId);
+    }
+  }
+
+  effectiveParticipantVolume(participantId) {
+    const setting = this.participantSettings.get(participantId);
+    return setting?.muted ? 0 : this.volume * (setting?.volume ?? 1);
+  }
+
+  clearSettings() {
+    this.hostMuted = false;
+    this.participantSettings = new Map();
+  }
+
+  applySettings(payload) {
+    const parsed = parseVoiceSettings(payload);
+    if (!parsed || parsed.contextId !== this.currentTableContextId) {
+      return false;
+    }
+    const wasHostMuted = this.hostMuted;
+    this.hostMuted = parsed.hostMuted;
+    this.participantSettings = parsed.participants;
+    this.setVolume(this.volume * 100);
+    if (this.hostMuted) {
+      void this.enforceHostMute();
+    }
+    if (wasHostMuted !== this.hostMuted && this.state === "connected") {
+      this.statusKeyOrText = this.hostMuted
+        ? "voice-chat-host-muted"
+        : "voice-chat-host-unmuted";
+      this.statusParams = {};
+    }
+    this.updateUI();
+    return true;
+  }
+
+  async enforceHostMute() {
+    const room = this.room;
+    this.micTogglePending = null;
+    this.micEnabled = false;
+    this.app.audio.setMicrophoneActive(false);
+    this.updateUI();
+    if (room) {
+      await room.localParticipant.setMicrophoneEnabled(false).catch(() => undefined);
     }
   }
 
   setTableContext(tableId) {
     const previous = this.currentTableContextId || "";
     this.currentTableContextId = tableId || "";
+    if (previous !== this.currentTableContextId) {
+      this.clearSettings();
+    }
     if (previous && this.currentTableContextId && previous !== this.currentTableContextId) {
       this.app.audio.stopAll(800);
     }
@@ -761,9 +814,15 @@ class VoiceChatManager {
       voiceLeaveBtn.hidden = !connected;
     }
     if (voiceMicBtn) {
-      voiceMicBtn.textContent = Localization.get(this.micEnabled ? "voice-chat-turn-off-mic" : "voice-chat-turn-on-mic");
+      voiceMicBtn.textContent = Localization.get(
+        this.hostMuted
+          ? "voice-chat-host-muted"
+          : this.micEnabled
+            ? "voice-chat-turn-off-mic"
+            : "voice-chat-turn-on-mic",
+      );
       voiceMicBtn.setAttribute("aria-pressed", this.micEnabled ? "true" : "false");
-      voiceMicBtn.disabled = !connected || micBusy;
+      voiceMicBtn.disabled = !connected || micBusy || this.hostMuted;
       voiceMicBtn.hidden = !connected;
     }
     if (voiceStatus) {
@@ -845,6 +904,11 @@ class VoiceChatManager {
     }
     const LK = window.LivekitClient;
     if (!LK || !LK.Room) {
+      this.app.send({
+        type: "voice_leave",
+        scope: packet.scope || "table",
+        context_id: packet.context_id || "",
+      });
       this.pendingJoin = false;
       this.state = "disconnected";
       this.requestedContextId = "";
@@ -864,6 +928,9 @@ class VoiceChatManager {
       scope: packet.scope || "table",
       contextId: packet.context_id || "",
     };
+    if (packet.settings) {
+      this.applySettings(packet.settings);
+    }
     this.updateUI();
 
     room.on("trackSubscribed", (track, publication, participant) => {
@@ -883,6 +950,8 @@ class VoiceChatManager {
         return;
       }
       const wasConnected = this.state === "connected";
+      const wasConnecting = this.state === "connecting" || this.pendingJoin;
+      const failedContext = { ...this.context };
       this.cleanupElements();
       this.room = null;
       this.pendingJoin = false;
@@ -893,10 +962,23 @@ class VoiceChatManager {
       if (wasConnected && !expected && this.presenceRegistered) {
         this.sendPresence("connection_lost");
         this.presenceRegistered = false;
+      } else if (
+        wasConnecting
+        && !expected
+        && failedContext.contextId
+        && this.app.isConnected()
+      ) {
+        this.app.send({
+          type: "voice_leave",
+          scope: failedContext.scope || "table",
+          context_id: failedContext.contextId,
+        });
       }
       this.updateUI();
       if (wasConnected) {
         this.setStatus("voice-chat-left", false);
+      } else if (wasConnecting && !expected) {
+        this.setStatus("voice-chat-connect-failed", true);
       }
     });
 
@@ -916,7 +998,10 @@ class VoiceChatManager {
       this.attachExistingTracks(room);
       this.presenceRegistered = this.sendPresence("connected");
       this.requestedContextId = "";
-      this.setStatus("voice-chat-listen-only", true);
+      this.setStatus(
+        this.hostMuted ? "voice-chat-host-muted" : "voice-chat-listen-only",
+        true,
+      );
       this.updateUI();
     } catch (error) {
       if (!this.ownsRoomAttempt(room, joinGeneration)) {
@@ -927,7 +1012,15 @@ class VoiceChatManager {
         return;
       }
       console.warn("Voice Chat connection failed:", error);
+      const failedContext = { ...this.context };
       await this.cleanup(false, false);
+      if (failedContext.contextId && this.app.isConnected()) {
+        this.app.send({
+          type: "voice_leave",
+          scope: failedContext.scope || "table",
+          context_id: failedContext.contextId,
+        });
+      }
       this.setStatus("voice-chat-connect-failed", true);
       this.updateUI();
     }
@@ -959,8 +1052,9 @@ class VoiceChatManager {
     element.controls = false;
     element.dataset.voiceTrack = key;
     element.setAttribute("aria-hidden", "true");
-    element.volume = this.volume;
-    this.remoteAudio.set(key, element);
+    const participantId = String(participant?.identity || "");
+    element.volume = this.effectiveParticipantVolume(participantId);
+    this.remoteAudio.set(key, { element, participantId });
     this.app.elements.voiceAudioContainer?.appendChild(element);
     const result = element.play();
     if (result && typeof result.catch === "function") {
@@ -973,14 +1067,14 @@ class VoiceChatManager {
     if (!key || !this.remoteAudio.has(key)) {
       return;
     }
-    const element = this.remoteAudio.get(key);
-    element?.parentNode?.removeChild(element);
+    const entry = this.remoteAudio.get(key);
+    entry?.element?.parentNode?.removeChild(entry.element);
     this.remoteAudio.delete(key);
   }
 
   cleanupElements() {
-    for (const element of this.remoteAudio.values()) {
-      element?.parentNode?.removeChild(element);
+    for (const entry of this.remoteAudio.values()) {
+      entry.element?.parentNode?.removeChild(entry.element);
     }
     this.remoteAudio.clear();
     this.app.elements.voiceAudioContainer?.replaceChildren();
@@ -1048,6 +1142,10 @@ class VoiceChatManager {
     }
     const room = this.room;
     const enable = !this.micEnabled;
+    if (enable && this.hostMuted) {
+      this.setStatus("voice-chat-host-muted", true);
+      return;
+    }
     const previousMicEnabled = this.micEnabled;
     if (enable && (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)) {
       this.app.audio.playSound({ asset: "voice_mic_error.ogg" });
@@ -1069,6 +1167,13 @@ class VoiceChatManager {
             // The stale room may already be disconnected.
           }
         }
+        return;
+      }
+      if (enable && this.hostMuted) {
+        await room.localParticipant.setMicrophoneEnabled(false).catch(() => undefined);
+        this.micEnabled = false;
+        this.app.audio.setMicrophoneActive(false);
+        this.setStatus("voice-chat-host-muted", true);
         return;
       }
       this.micEnabled = enable;
@@ -1151,6 +1256,8 @@ class PlayAuralWebApp {
     this.webActionsMenuId = "";
     this.focusMenuOnNextPacket = false;
     this.pendingInput = null;
+    this.localeUpdateBarrier = null;
+    this.localeUpdateGeneration = 0;
     this.pingStart = null;
     this.connectionStatusMessage = "status-disconnected";
     this.connectionStatusParams = {};
@@ -1375,6 +1482,9 @@ class PlayAuralWebApp {
         const item = this.store.state.currentMenu.items[index];
         this.activateMenuItem(item, index);
       },
+      sendMenuDescription: (menuId, menuItemId) => (
+        this.sendMenuDescription(menuId, menuItemId)
+      ),
       historyView: this.historyView,
       sendKeybind: (key, menuItemId, modifiers) => this.sendKeybind(key, menuItemId, modifiers),
       sendEscape: () => this.sendEscape(),
@@ -1907,7 +2017,6 @@ class PlayAuralWebApp {
       captcha_missing: "auth-error-captcha-unavailable",
       captcha_failed: "auth-error-captcha-execute-failed",
       username_taken: "auth-username-taken",
-      username_reserved_bot: "auth-username-reserved-bot",
       username_reserved: "auth-username-reserved",
       username_length: "auth-error-username-length",
       password_weak: "auth-error-password-weak",
@@ -2307,15 +2416,21 @@ class PlayAuralWebApp {
   }
 
   cleanupRuntime(full = false) {
+    this.localeUpdateGeneration += 1;
+    this.localeUpdateBarrier = null;
     this.voice.cleanup(false, false);
     this.connectionAudioActive = false;
     this.audio.stopAll(800);
     this.webSpeech.cancel();
+    this.currentTableContextId = "";
+    this.clearUi(full);
+  }
+
+  clearUi(clearRenderedUi = true) {
     this.hideInlineInput();
     this.webActionsItem = null;
     this.webActionsMenuId = "";
-    this.currentTableContextId = "";
-    if (full) {
+    if (clearRenderedUi) {
       this.menuFocusContexts?.clear();
       this.store.clearUi();
     }
@@ -2385,6 +2500,19 @@ class PlayAuralWebApp {
   }
 
   handlePacket(packet) {
+    // Locale bundles are loaded asynchronously in the browser. Preserve
+    // WebSocket order across that one boundary so translated server menus and
+    // speech cannot overtake the document language/voice update.
+    if (this.localeUpdateBarrier && packet.type !== "update_locale") {
+      const barrier = this.localeUpdateBarrier;
+      const generation = this.localeUpdateGeneration;
+      void barrier.then(() => {
+        if (this.localeUpdateGeneration === generation) {
+          this.handlePacket(packet);
+        }
+      });
+      return;
+    }
     switch (packet.type) {
       case "login_failed":
         this.handleLoginFailed(packet);
@@ -2399,6 +2527,7 @@ class PlayAuralWebApp {
         this.speak(packet.text || "", {
           buffer: normalizeHistoryBuffer(packet.buffer || "misc"),
           assertive: packet.buffer === "system",
+          noHistory: packet.history === false,
           muted: packet.muted === true,
         });
         break;
@@ -2421,6 +2550,9 @@ class PlayAuralWebApp {
       case "voice_context_closed":
         this.handleVoiceContextClosed(packet);
         break;
+      case "voice_settings":
+        this.voice.applySettings(packet);
+        break;
       case "disconnect":
         this.handleServerDisconnect(packet);
         break;
@@ -2436,7 +2568,7 @@ class PlayAuralWebApp {
         }
         break;
       case "clear_ui":
-        this.cleanupRuntime(true);
+        this.clearUi();
         break;
       case "chat":
         this.handleChatPacket(packet);
@@ -2461,7 +2593,7 @@ class PlayAuralWebApp {
         break;
       case "update_locale":
         if (packet.locale) {
-          Localization.load(packet.locale).then(() => this.applyLocalization());
+          this.beginLocaleUpdate(packet.locale);
         }
         break;
       case "update_preference":
@@ -2480,6 +2612,35 @@ class PlayAuralWebApp {
         console.warn("Unhandled packet:", packet);
         break;
     }
+  }
+
+  beginLocaleUpdate(locale) {
+    // Chain rapid updates instead of letting independently loaded bundles race
+    // and leave the document language, client chrome, and speech voice out of
+    // sync with the server-rendered menu that follows them.
+    const generation = this.localeUpdateGeneration;
+    const previous = this.localeUpdateBarrier || Promise.resolve();
+    const update = previous
+      .then(() => Localization.load(locale, {
+        shouldApply: () => this.localeUpdateGeneration === generation,
+      }))
+      .then((applied) => {
+        if (applied) {
+          this.applyLocalization();
+        }
+        return applied;
+      })
+      .catch((error) => {
+        console.error("Unable to apply locale update", error);
+        return false;
+      });
+    this.localeUpdateBarrier = update;
+    void update.finally(() => {
+      if (this.localeUpdateBarrier === update) {
+        this.localeUpdateBarrier = null;
+      }
+    });
+    return update;
   }
 
   handleLoginFailed(packet) {
@@ -2535,21 +2696,29 @@ class PlayAuralWebApp {
     if (packet.sounds_info?.version) {
       this.audio.setSoundVersion(packet.sounds_info.version);
     }
+    const finishAuthorization = () => {
+      if (packet.preferences) {
+        this.handlePreferenceUpdate(packet);
+      } else {
+        this.applyPreferences();
+      }
+      this.saveLocalConfig();
+      this.updateConnectionStatus("status-connected");
+      this.showGame();
+      this.speak("welcome", {
+        params: { username: this.lastUser },
+        buffer: "system",
+      });
+    };
     if (packet.locale && packet.locale !== Localization.locale) {
-      Localization.load(packet.locale).then(() => this.applyLocalization());
-    }
-    if (packet.preferences) {
-      this.handlePreferenceUpdate(packet);
+      void this.beginLocaleUpdate(packet.locale).then((applied) => {
+        if (applied) {
+          finishAuthorization();
+        }
+      });
     } else {
-      this.applyPreferences();
+      finishAuthorization();
     }
-    this.saveLocalConfig();
-    this.updateConnectionStatus("status-connected");
-    this.showGame();
-    this.speak("welcome", {
-      params: { username: this.lastUser },
-      buffer: "system",
-    });
   }
 
   retireLocalSession(reason, { announce = true, error = true } = {}) {
@@ -3024,6 +3193,23 @@ class PlayAuralWebApp {
       control: Boolean(modifiers.ctrl || modifiers.control),
       alt: Boolean(modifiers.alt),
       meta: Boolean(modifiers.meta),
+    });
+  }
+
+  sendMenuDescription(menuId, menuItemId) {
+    if (
+      !this.isConnected()
+      || typeof menuId !== "string"
+      || !menuId
+      || typeof menuItemId !== "string"
+      || !menuItemId
+    ) {
+      return false;
+    }
+    return this.send({
+      type: "menu_description",
+      menu_id: menuId,
+      menu_item_id: menuItemId,
     });
   }
 

@@ -355,22 +355,6 @@ class ActionVisibilityMixin:
         """Check scores detailed is always hidden (keybind only)."""
         return Visibility.HIDDEN
 
-    def _is_predict_outcomes_enabled(self, player: "Player") -> str | None:
-        """Check if predict_outcomes action is enabled."""
-        if self.status != "playing":
-            return "action-not-playing"
-        if "rating" not in self.get_supported_leaderboards():
-            return "action-not-available"
-        # Need at least 2 human players for meaningful predictions
-        human_count = self.get_active_human_player_count()
-        if human_count < 2:
-            return "action-need-more-humans"
-        return None
-
-    def _is_predict_outcomes_hidden(self, player: "Player") -> Visibility:
-        """Predict outcomes is always hidden (keybind only)."""
-        return Visibility.HIDDEN
-
     def _is_game_info_enabled(self, player: "Player") -> str | None:
         """Game info is always enabled."""
         return None

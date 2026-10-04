@@ -62,7 +62,7 @@ hc-submission-progress = { $submitted } de { $total } jogadores enviaram.
 hc-waiting-for-submissions = Aguardando envios...
 hc-already-submitted = Você já enviou suas cartas.
 hc-you-submitted = Você enviou suas cartas.
-hc-player-submitted = { $player } enviou suas cartas.
+hc-player-submitted = { $player } enviou as cartas { GENDER_TERM($player_gender, "possessive-determiner") }.
 hc-judge-cannot-submit = Você é o Czar das Cartas nesta rodada, então não pode enviar uma resposta.
 hc-not-submission-phase = Você só pode selecionar e enviar cartas brancas durante a fase de envio.
 hc-card-not-in-hand = Esse espaço de carta não está na sua mão.
@@ -80,7 +80,6 @@ hc-choose-best-card-for = Escolha a melhor carta que combine com: { $prompt }
 hc-select-winner-prompt = Selecione o envio vencedor
 hc-card-number = Carta { $number }
 hc-submission-number = Envio { $number }
-hc-submission-option = { $text }
 hc-only-judges-pick = Apenas o Czar das Cartas pode escolher o envio vencedor.
 hc-not-judging-phase = Você só pode escolher um envio vencedor durante a fase de julgamento.
 hc-submission-not-available = Esse envio não está mais disponível.
@@ -88,7 +87,6 @@ hc-submission-not-available = Esse envio não está mais disponível.
 # Results
 hc-you-win-round = Você venceu a rodada! Sua pontuação agora é { $score }.
 hc-player-wins-round = { $player } venceu a rodada! Pontuação: { $score }.
-hc-round-scores = Pontuações após a rodada { $round }:
 hc-score-line = { $player }: { $score } { $score ->
     [one] ponto
    *[other] pontos
@@ -126,13 +124,8 @@ hc-error-not-enough-white-cards = { $players } jogadores com um tamanho de mão 
 hc-error-pick-exceeds-hand-size = Os pacotes selecionados incluem uma pergunta que exige { $pick } respostas, mas o tamanho da mão é de apenas { $hand_size }. Aumente o tamanho da mão ou escolha pacotes diferentes.
 
 # Hand management
-hc-view-hand = Ver mão
 hc-toggle-card-keybind = Alternar carta { $number }
 hc-submit-cards-keybind = Enviar cartas
-
-# Scores
-hc-view-scores = Ver pontuações
-hc-no-scores = Nenhuma pontuação ainda.
 
 # Whose turn / whose judge
 hc-whose-judge = Quem está julgando

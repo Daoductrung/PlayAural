@@ -200,7 +200,6 @@ twentyone-you-avoid-damage-with-effect = You use { $effect } and avoid damage.
 twentyone-player-avoids-damage-with-effect = { $player } uses { $effect } and avoids damage.
 twentyone-you-take-damage = You take { $damage } damage and now have { $hp } HP.
 twentyone-player-takes-damage = { $player } takes { $damage } damage and now has { $hp } HP.
-twentyone-game-win = { $player } wins the game with { $hp } HP remaining.
 twentyone-you-win-game = You win the game with { $hp } HP remaining.
 twentyone-player-wins-game = { $player } wins the game with { $hp } HP remaining.
 twentyone-final-hp-line = { $rank }. { $player }: { $hp } HP

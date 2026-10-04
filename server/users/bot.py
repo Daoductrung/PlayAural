@@ -33,6 +33,12 @@ class Bot(User):
     def username(self) -> str:
         return self._username
 
+    def set_display_name(self, name: str) -> None:
+        """Keep the runtime bot facade aligned with its roster presentation."""
+        if not isinstance(name, str) or not name:
+            raise ValueError("Bot display name must be a non-empty string")
+        self._username = name
+
     @property
     def locale(self) -> str:
         return self._locale
@@ -47,10 +53,23 @@ class Bot(User):
 
     # All UI methods are no-ops for bots
 
-    def speak(self, text: str, buffer: str = "misc") -> None:
+    def speak(
+        self,
+        text: str,
+        buffer: str = "misc",
+        *,
+        history: bool = True,
+    ) -> None:
         pass
 
-    def speak_l(self, message_id: str, buffer: str = "misc", **kwargs) -> None:
+    def speak_l(
+        self,
+        message_id: str,
+        buffer: str = "misc",
+        *,
+        history: bool = True,
+        **kwargs,
+    ) -> None:
         # Bots discard all UI, so skip the Fluent render entirely rather than
         # formatting a localized string only for the no-op speak() to drop it.
         # Action resolution in a bot-heavy game calls this thousands of times

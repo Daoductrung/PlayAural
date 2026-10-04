@@ -41,3 +41,15 @@ def test_network_user_speak_l_serializes_misc_buffer_explicitly() -> None:
 
     packet = user.get_queued_messages()[-1]
     assert packet["buffer"] == "misc"
+
+
+def test_network_user_serializes_history_bypass_only_when_requested() -> None:
+    user = NetworkUser("alice", "en", connection=object())
+
+    user.speak("ordinary", buffer="system")
+    user.speak_l("context-menu", buffer="game", history=False)
+
+    ordinary, transient = user.get_queued_messages()
+    assert "history" not in ordinary
+    assert transient["history"] is False
+    assert transient["buffer"] == "game"

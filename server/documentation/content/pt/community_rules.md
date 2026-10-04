@@ -5,13 +5,14 @@ O PlayAural foi feito para ser amigável, justo e acolhedor. Estas regras explic
 # **1. Respeite as Outras Pessoas**
 
 * Fale com os outros educadamente, mesmo durante jogos competitivos.
-* Não assedie, insulte, ameace ou humilhe deliberadamente outros jogadores.
+* Não assedie, insulte, ameace nem humilhe deliberadamente outros usuários.
 * Discurso de ódio, discriminação e ataques pessoais não são permitidos.
 
 # **2. Mantenha o Chat Razoável**
 
-* Você pode falar seu próprio idioma no chat global.
-* Se o chat global estiver distraindo, desative-o em Opções em vez de discutir com os outros sobre o idioma que eles usam.
+* Use o idioma do canal de chat global que você selecionou. Escolha outro canal em Opções quando quiser conversar em um idioma diferente.
+* Se o chat global estiver distraindo, desative-o em Opções. Se outro usuário agir de forma abusiva, bloqueie-o em vez de discutir com ele.
+* As mensagens do chat global são salvas com o identificador da conta do remetente e o horário exato para análise manual. Elas permanecem salvas até que um desenvolvedor apague o histórico.
 * Não inunde o chat com mensagens repetidas, publicidade indesejada ou spam perturbador.
 * Mensagens privadas devem seguir os mesmos padrões do chat público.
 

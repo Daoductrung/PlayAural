@@ -38,7 +38,13 @@ class TestProfileSystem:
         user = self.db.create_user("deleted_player", "hash")
 
         # 2. Insert a fake game result for them
-        result_id = self.db.save_game_result("pig", "2024-01-01", 100, [(user.uuid, user.username, False)])
+        result_id = self.db.save_game_result(
+            "pig",
+            "2024-01-01",
+            100,
+            [(user.uuid, user.username, False)],
+            {"winner_ids": []},
+        )
 
         # Verify it exists
         players = self.db.get_game_result_players(result_id)

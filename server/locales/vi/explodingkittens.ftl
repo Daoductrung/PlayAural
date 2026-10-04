@@ -213,13 +213,7 @@ explodingkittens-table-player = { $player }: { $cards ->
 explodingkittens-status-alive = còn chơi
 explodingkittens-status-eliminated = đã bị loại
 explodingkittens-phase-normal = Đang chờ đánh hoặc rút bài.
-explodingkittens-phase-combo = Có người đang chọn một bộ cùng tên.
-explodingkittens-phase-target = Có người đang chọn mục tiêu.
-explodingkittens-phase-request = Có người đang yêu cầu một lá bài.
-explodingkittens-phase-nope = Cửa sổ Phủ Nhận đang mở.
 explodingkittens-phase-favor-give = Có người đang đưa bài theo lá Xin Bài.
-explodingkittens-phase-defuse = Một lá Mèo Nổ đang chờ quyết định Gỡ Bom.
-explodingkittens-phase-reinsert = Một lá Mèo Nổ đang được đặt lại vào chồng rút.
 explodingkittens-phase-game-over = Ván chơi đã kết thúc.
 
 explodingkittens-results-winner = Người thắng: { $player }.

@@ -11,7 +11,7 @@ threes-player-rolled-brief = { $player }: { $dice }.
 
 threes-turn-you = Seu turno na rodada { $round } de { $total }. Seu total atual é { $score }; o menor total vence.
 threes-turn-you-brief = Seu turno. Total { $score }.
-threes-turn-other = Turno de { $player } na rodada { $round } de { $total }. Total atual: { $score }.
+threes-turn-other = Turno de { $player } na rodada { $round } de { $total }. O total atual { GENDER_TERM($player_gender, "possessive-determiner") } é { $score }.
 threes-turn-other-brief = Turno de { $player}. Total { $score }.
 
 threes-you-keep = Você mantém o dado { $index }, que mostra { $die }.
@@ -36,11 +36,11 @@ threes-die-locked-label = { $value } travado
 
 threes-you-scored = Você marca { $score } pontos neste turno. Seu total agora é { $total }.
 threes-you-scored-brief = Marcou { $score }. Total { $total }.
-threes-scored = { $player } marca { $score } pontos neste turno. O total agora é { $total }.
+threes-scored = { $player } marca { $score } pontos neste turno. O total { GENDER_TERM($player_gender, "possessive-determiner") } agora é { $total }.
 threes-scored-brief = { $player }: { $score }, total { $total }.
 threes-you-shot-moon = Você fez a lua com cinco 6s e marca { $score } pontos. Seu total agora é { $total }.
 threes-you-shot-moon-brief = Fez a lua: { $score }. Total { $total }.
-threes-shot-moon = { $player } fez a lua com cinco 6s e marca { $score } pontos. O total agora é { $total }.
+threes-shot-moon = { $player } fez a lua com cinco 6s e marca { $score } pontos. O total { GENDER_TERM($player_gender, "possessive-determiner") } agora é { $total }.
 threes-shot-moon-brief = { $player } fez a lua: { $score }, total { $total }.
 
 threes-round-start = Começa a rodada { $round } de { $total }.
@@ -82,10 +82,5 @@ threes-error-toggle-last-die = Você não pode mudar o último dado livre; o tur
 threes-error-rounds-out-of-range = O Threes não pode começar com { $rounds } rodadas. Escolha um valor de { $min } a { $max }.
 threes-invalid-die-index = Esse dado não está disponível neste turno de Threes.
 
-threes-must-keep = Você deve manter pelo menos um dado antes de rolar novamente.
-threes-must-bank = Você deve guardar agora.
-threes-roll-first = Você precisa rolar primeiro.
 threes-keep-all-first = Mantenha todos os dados antes de guardar.
-threes-last-die = Este é seu último dado.
-
 threes-line-format = { $rank }. { $player }: { $points }

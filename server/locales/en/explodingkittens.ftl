@@ -213,13 +213,7 @@ explodingkittens-table-player = { $player }: { $cards ->
 explodingkittens-status-alive = still playing
 explodingkittens-status-eliminated = eliminated
 explodingkittens-phase-normal = Waiting for a play or draw.
-explodingkittens-phase-combo = A combo is being selected.
-explodingkittens-phase-target = A target is being selected.
-explodingkittens-phase-request = A card is being requested.
-explodingkittens-phase-nope = A Nope window is open.
 explodingkittens-phase-favor-give = A Favor card is being given.
-explodingkittens-phase-defuse = An Exploding Kitten is awaiting a Defuse decision.
-explodingkittens-phase-reinsert = An Exploding Kitten is being returned to the draw pile.
 explodingkittens-phase-game-over = The game is over.
 
 explodingkittens-results-winner = Winner: { $player }.

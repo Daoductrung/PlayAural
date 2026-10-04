@@ -20,6 +20,7 @@ from server.games.pig.game import PigGame
 from server.persistence.database import Database
 from server.users.bot import Bot
 from server.users.network_user import NetworkUser
+from server.voice import VoiceService
 
 
 class MockClient:
@@ -178,29 +179,28 @@ class TestAuthSecurity:
         assert self.db.get_user("Nguyễn Văn An") is None
 
     @pytest.mark.asyncio
-    async def test_registration_rejects_generated_bot_name(self):
+    async def test_registration_accepts_generated_bot_base_name(self):
         client = MockClient()
         packet = {
-            "username": "Pho Pixel",
+            "username": "Alice",
             "password": "Password123",
             "email": "botname@test.com",
         }
 
         await self.server._handle_register(client, packet)
 
-        assert client.sent_messages[-1]["status"] == "error"
-        assert client.sent_messages[-1]["error"] == "username_reserved_bot"
-        assert self.db.get_user("Pho Pixel") is None
+        assert client.sent_messages[-1]["status"] == "success"
+        assert self.db.get_user("Alice") is not None
 
     @pytest.mark.asyncio
-    async def test_registration_rejects_active_runtime_bot_name(self):
+    async def test_registration_ignores_active_runtime_bot_labels(self):
         class FakePlayer:
             def __init__(self, name, is_bot):
                 self.name = name
                 self.is_bot = is_bot
 
         class FakeGame:
-            players = [FakePlayer("Pho Pixel 2", True), FakePlayer("Human", False)]
+            players = [FakePlayer("Alice 2 (Bot)", True), FakePlayer("Human", False)]
 
         class FakeTable:
             game = FakeGame()
@@ -208,22 +208,21 @@ class TestAuthSecurity:
         self.server._tables.get_all_tables = lambda: [FakeTable()]
         client = MockClient()
         packet = {
-            "username": "pho pixel 2",
+            "username": "alice 2",
             "password": "Password123",
             "email": "runtimebot@test.com",
         }
 
         await self.server._handle_register(client, packet)
 
-        assert client.sent_messages[-1]["status"] == "error"
-        assert client.sent_messages[-1]["error"] == "username_reserved_bot"
-        assert self.db.get_user("pho pixel 2") is None
+        assert client.sent_messages[-1]["status"] == "success"
+        assert self.db.get_user("alice 2") is not None
 
-    def test_auth_manager_rejects_generated_bot_name(self):
-        result = self.server._auth.register("Omega Alpha", "Password123")
+    def test_auth_manager_accepts_generated_bot_base_name(self):
+        result = self.server._auth.register("Bob", "Password123")
 
-        assert result == "username_reserved_bot"
-        assert self.db.get_user("Omega Alpha") is None
+        assert result == "ok"
+        assert self.db.get_user("Bob") is not None
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("username", ["System", "system", "Ｓｙｓｔｅｍ"])
@@ -1030,6 +1029,14 @@ class TestAuthSecurity:
             email="alice@example.com",
         )
         self.server._auth.verify_password = lambda password, password_hash: True
+        self.server._voice = VoiceService(
+            enabled=True,
+            public_url="wss://voice.example.com",
+            api_key="test-key",
+            api_secret="test-secret",
+            room_prefix="pa",
+            token_ttl_seconds=300,
+        )
 
         async def allow_captcha(client, packet):
             return True, ""
@@ -1113,9 +1120,51 @@ class TestAuthSecurity:
         assert player.is_bot is False
         assert player.reconnect_grace_ticks == 7
         assert game.turn_index == 1
-        assert record.username not in self.server._voice_presence_by_user
-        assert record.username not in self.server._voice_join_authorizations_by_user
+        assert self.server._voice_presence_by_user[record.username] == {
+            "scope": "table",
+            "context_id": table.table_id,
+        }
+        authorization = self.server._voice_join_authorizations_by_user[
+            record.username
+        ]
+        assert authorization["context_id"] == table.table_id
+        assert authorization["announce_presence"] is False
+        assert authorization["continuation"] is True
         assert record.username not in self.server._audio_input_devices_by_user
+
+        queued = replacement_user.get_queued_messages()
+        table_context_index = next(
+            index
+            for index, packet in enumerate(queued)
+            if packet.get("type") == "table_context"
+            and packet.get("table_id") == table.table_id
+        )
+        voice_join_index = next(
+            index
+            for index, packet in enumerate(queued)
+            if packet.get("type") == "voice_join_info"
+        )
+        voice_join_packet = queued[voice_join_index]
+        assert table_context_index < voice_join_index
+        assert voice_join_packet["context_id"] == table.table_id
+        assert voice_join_packet["server_requested"] is True
+
+        await self.server._register_voice_presence(
+            replacement_user,
+            {
+                "scope": "table",
+                "context_id": table.table_id,
+            },
+        )
+        assert self.server._voice_presence_by_user[record.username] == {
+            "scope": "table",
+            "context_id": table.table_id,
+        }
+        assert record.username not in self.server._voice_join_authorizations_by_user
+        assert not any(
+            packet.get("key") == "voice-status-connected"
+            for packet in replacement_user.get_queued_messages()
+        )
 
         rendered_items = replacement_user._current_menus.get("turn_menu", {}).get(
             "items",

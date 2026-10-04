@@ -1,6 +1,6 @@
 {
   "app-title": "PlayAural Mobile",
-  "mode-main": "Menu",
+  "mode-main": "Trình đơn",
   "mode-chat": "Trò chuyện",
   "mode-history": "Nhật ký",
   "mode-shortcuts": "Phím tắt",
@@ -56,6 +56,8 @@
   "voice-chat-left-table": "Bạn đã rời bàn và rời khỏi Trò chuyện thoại.",
   "voice-chat-mic-on": "Mic đã bật.",
   "voice-chat-mic-off": "Mic đã tắt.",
+  "voice-chat-host-muted": "Chủ bàn đã tắt mic của bạn. Bạn vẫn có thể nghe.",
+  "voice-chat-host-unmuted": "Chủ bàn đã cho phép bạn dùng lại mic. Mic vẫn tắt cho đến khi bạn tự bật lên.",
   "voice-chat-mic-denied": "Quyền dùng mic đã bị từ chối. Hãy cho phép quyền microphone để nói trong trò chuyện thoại.",
   "voice-chat-mic-unsupported": "Thiết bị này không thể bật mic cho trò chuyện thoại.",
   "voice-chat-mic-permission-denied": "Quyền microphone đã bị từ chối. Bạn vẫn có thể nghe trong trò chuyện thoại, nhưng sẽ chưa thể nói cho đến khi cấp quyền mic.",
@@ -184,7 +186,6 @@
   "auth-reset-failed": "Đặt lại mật khẩu thất bại.",
   "auth-username-password-required": "Cần nhập tên đăng nhập và mật khẩu.",
   "auth-username-taken": "Tên đăng nhập đã được sử dụng. Vui lòng chọn tên khác.",
-  "auth-username-reserved-bot": "Tên này được dành riêng cho bot PlayAural. Vui lòng chọn tên đăng nhập khác.",
   "auth-username-reserved": "Tên này được PlayAural dành riêng. Vui lòng chọn tên đăng nhập khác.",
   "auth-registration-error": "Đăng ký thất bại do lỗi máy chủ. Vui lòng thử lại.",
   "auth-error-wrong-password": "Sai mật khẩu.",
@@ -232,5 +233,5 @@
   "current-music-track": "Nhạc nền: {value}",
   "current-ambience-track": "Môi trường: {value}",
   "footer-gestures-line-1": "Tự đọc dùng các cử chỉ gần giống trình đọc màn hình. Sau khi kết nối, hãy tắt TalkBack nếu bạn muốn PlayAural tự điều khiển giọng đọc.",
-  "footer-gestures-line-2": "Vuốt 1 ngón để di chuyển; vuốt rồi giữ nửa giây để tiếp tục di chuyển liên tục. Chạm đúp để kích hoạt; chạm đúp rồi giữ để dùng hành động phụ. Vuốt 2 ngón để Quay lại, mở Trò chuyện, Nhật ký hoặc Phím tắt. Chạm 2 ngón để dừng đọc. Vuốt lên hoặc xuống bằng 3 ngón để nhảy tới mục đầu hoặc cuối. Chạm 3 lần bằng 3 ngón để bật hoặc tắt tự đọc."
+  "footer-gestures-line-2": "Vuốt 1 ngón để di chuyển; vuốt rồi giữ nửa giây để tiếp tục di chuyển liên tục. Chạm đúp để kích hoạt; chạm đúp rồi giữ để dùng hành động phụ. Vuốt 2 ngón để Quay lại, mở Trò chuyện, Nhật ký hoặc Phím tắt. Chạm 2 ngón để dừng đọc. Chạm 1 lần bằng 3 ngón để nghe mô tả của mục trình đơn đang được chọn. Vuốt lên hoặc xuống bằng 3 ngón để nhảy tới mục đầu hoặc cuối. Chạm 3 lần bằng 3 ngón để bật hoặc tắt tự đọc."
 }

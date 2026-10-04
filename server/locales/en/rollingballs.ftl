@@ -154,7 +154,6 @@ rb-error-invalid-ball-packs = The selection contains { $count } unavailable ball
 }. Remove unavailable sets before starting.
 
 # Ball sets
-rb-pack-all = All ball sets mixed
 rb-pack-international = Around the World
 rb-pack-vietnam = Journey Through Vietnam
 

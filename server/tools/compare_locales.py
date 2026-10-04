@@ -9,6 +9,8 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from fluent.syntax import FluentParser, ast as fluent_ast
+
 DEFAULT_SOURCE_LOCALE = "en"
 LOCALE_METADATA_FILENAME = "metadata.json"
 
@@ -18,8 +20,8 @@ LOCALES_DIR = SERVER_DIR / "locales"
 
 MESSAGE_RE = re.compile(r"^(-?[A-Za-z][A-Za-z0-9_-]*)\s*=")
 ATTRIBUTE_RE = re.compile(r"^\s+\.([A-Za-z][A-Za-z0-9_-]*)\s*=", re.MULTILINE)
-VARIABLE_RE = re.compile(r"\{\s*\$([A-Za-z][A-Za-z0-9_-]*)")
 VARIANT_RE = re.compile(r"^\s*\*?\[([^\]]+)\]", re.MULTILINE)
+FLUENT_PARSER = FluentParser()
 
 
 @dataclass(frozen=True)
@@ -27,6 +29,8 @@ class MessageInfo:
     """Parsed structure that translators must keep compatible."""
 
     variables: frozenset[str]
+    required_variables: frozenset[str]
+    gender_variables: frozenset[str]
     variants: frozenset[str]
     attributes: frozenset[str]
 
@@ -95,6 +99,55 @@ class LocaleReport:
         return any(report.has_warnings for report in self.file_reports)
 
 
+def _collect_variable_usage(
+    body: str,
+) -> tuple[frozenset[str], frozenset[str], frozenset[str]]:
+    """Return all, required, and grammatical-selector variables.
+
+    The first argument to ``GENDER_TERM`` is a locale-specific grammatical
+    selector. A translation may omit it when the natural sentence does not
+    need gender, but every other variable remains required. This includes
+    variables passed to formatting functions such as ``NUMBER``.
+    """
+    variables: set[str] = set()
+    required_variables: set[str] = set()
+    gender_variables: set[str] = set()
+
+    def visit(value: object, *, grammar_only: bool = False) -> None:
+        if isinstance(value, fluent_ast.VariableReference):
+            variable = value.id.name
+            variables.add(variable)
+            if grammar_only:
+                gender_variables.add(variable)
+            else:
+                required_variables.add(variable)
+            return
+        if isinstance(value, fluent_ast.FunctionReference):
+            positional = value.arguments.positional
+            if value.id.name == "GENDER_TERM" and positional:
+                visit(positional[0], grammar_only=True)
+                for argument in positional[1:]:
+                    visit(argument)
+                for argument in value.arguments.named:
+                    visit(argument)
+                return
+        if isinstance(value, fluent_ast.BaseNode):
+            for field_name, field_value in vars(value).items():
+                if field_name != "span":
+                    visit(field_value, grammar_only=grammar_only)
+            return
+        if isinstance(value, (list, tuple)):
+            for item in value:
+                visit(item, grammar_only=grammar_only)
+
+    visit(FLUENT_PARSER.parse(body))
+    return (
+        frozenset(variables),
+        frozenset(required_variables),
+        frozenset(gender_variables),
+    )
+
+
 def parse_messages(file_path: Path) -> dict[str, MessageInfo]:
     """Parse top-level Fluent messages and basic structural requirements."""
     messages: dict[str, list[str]] = {}
@@ -113,12 +166,19 @@ def parse_messages(file_path: Path) -> dict[str, MessageInfo]:
     parsed: dict[str, MessageInfo] = {}
     for key, lines in messages.items():
         body = "".join(lines)
+        (
+            variables,
+            required_variables,
+            gender_variables,
+        ) = _collect_variable_usage(body)
         attributes = frozenset(
             attribute_match.group(1)
             for attribute_match in ATTRIBUTE_RE.finditer(body)
         )
         parsed[key] = MessageInfo(
-            variables=frozenset(VARIABLE_RE.findall(body)),
+            variables=variables,
+            required_variables=required_variables,
+            gender_variables=gender_variables,
             variants=frozenset(
                 variant.strip() for variant in VARIANT_RE.findall(body)
             ),
@@ -191,7 +251,18 @@ def compare_file(source_file: Path, target_file: Path, relative_path: Path) -> F
     for key in sorted(source_keys & target_keys):
         source_info = source_messages[key]
         target_info = target_messages[key]
-        if source_info.variables != target_info.variables:
+        missing_required_variables = (
+            source_info.required_variables - target_info.variables
+        )
+        extra_variables = target_info.variables - source_info.variables
+        unexpected_gender_variables = (
+            target_info.gender_variables - source_info.gender_variables
+        )
+        if (
+            missing_required_variables
+            or extra_variables
+            or unexpected_gender_variables
+        ):
             report.variable_mismatches.append(
                 (
                     key,

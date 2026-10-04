@@ -6,6 +6,7 @@ import pytest
 from ..core.server import Server
 from ..games.pig.game import PigGame
 from ..messages.localization import Localization
+from ..users.base import MenuItem
 from ..users.test_user import MockUser
 
 
@@ -635,6 +636,53 @@ async def test_stale_global_state_recovers_keybind_from_last_sent_game_menu() ->
             "table_id": table.table_id,
         }
         assert "leave_game_confirm" in host.menus
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_menu_description_works_during_gameplay_and_rejects_stale_menu() -> None:
+    server, host, _guest, _table, _game, _host_player = _make_playing_game_server()
+    try:
+        host.menus["turn_menu"] = {
+            "items": [
+                MenuItem(
+                    text="Roll",
+                    id="roll",
+                    description="Roll the die and add it to the turn total.",
+                )
+            ]
+        }
+        host._last_menu_packet_id = "turn_menu"
+        client = SimpleNamespace(username=host.username)
+        host.clear_messages()
+
+        await server._handle_authenticated_message(
+            client,
+            host,
+            {
+                "type": "menu_description",
+                "menu_id": "turn_menu",
+                "menu_item_id": "roll",
+            },
+        )
+
+        assert host.get_spoken_messages() == [
+            "Roll the die and add it to the turn total."
+        ]
+        assert host.messages[-1].data["buffer"] == "system"
+
+        host._last_menu_packet_id = "actions_menu"
+        await server._handle_authenticated_message(
+            client,
+            host,
+            {
+                "type": "menu_description",
+                "menu_id": "turn_menu",
+                "menu_item_id": "roll",
+            },
+        )
+        assert len(host.get_spoken_messages()) == 1
     finally:
         server._db.close()
 

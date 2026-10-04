@@ -208,6 +208,15 @@ class TestPlayerSubstitution:
         assert old_bot_id not in game.to_json()
         restored = PigGame.from_json(game.to_json())
         assert restored.get_player_by_id(incoming.uuid) is not None
+        result = game.build_game_result()
+        assert any(
+            entry.player_id == incoming.uuid and not entry.is_bot
+            for entry in result.player_results
+        )
+        assert not any(
+            entry.player_id == old_bot_id
+            for entry in result.player_results
+        )
         restored_menu = next(
             message
             for message in reversed(incoming.messages)
@@ -268,6 +277,15 @@ class TestPlayerSubstitution:
         assert outgoing_spectator is not None
         assert outgoing_spectator.is_spectator
         assert game.get_user(outgoing_spectator) is outgoing
+        result = game.build_game_result()
+        assert any(
+            entry.player_id == incoming.uuid and not entry.is_bot
+            for entry in result.player_results
+        )
+        assert not any(
+            entry.player_id == outgoing.uuid
+            for entry in result.player_results
+        )
         assert game.host == host.username
         assert table.host == host.username
         assert next(

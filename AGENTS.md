@@ -23,10 +23,33 @@ server-authorized but media flows through the separate LiveKit service. Never
 merge voice media into gameplay WebSocket traffic. Voice membership is
 runtime-only table state unless a future feature explicitly defines retention,
 cleanup, and account-deletion behavior.
+Focused menu help uses the semantic `menu_description` request with the current
+menu and stable item ids. The server validates both against the visible menu;
+never route this UI command through gameplay keybind dispatch.
 Server-requested voice joins reuse `voice_join_info` with
 `server_requested=true`; clients connect listen-only and must never enable the
 microphone without a separate explicit user action. `voice_context_closed`
 cancels both pending and active joins.
+Live device handover carries confirmed table-voice listening intent through a
+fresh context-bound server request without broadcasting a false leave/join
+pair. Never transfer a microphone or device selection; the replacement client
+starts listen-only, and only an unexpired continuation grant may survive a
+rapid second handover. Keep confirmed presence during that bounded grant;
+successful reconfirmation is silent, while client rejection, media-connection
+failure, or grant expiry clears it and announces one real disconnect. Clients
+must revoke failed join grants, and the server must close late confirmations.
+Table voice controls are keyed only by immutable account UUID. Host microphone
+moderation is server-authoritative and must update both the table policy and
+LiveKit publish permission; client microphone locks are defense in depth, not
+the authority. Personal mute and volume are listener-private mixer state. Both
+are checkpoint-only properties of the durable table: preserve them across a
+game switch and server restore, preserve settings *about* a departed target so
+they apply if that account rejoins, clear preferences owned by a listener when
+that listener leaves the table, and clear everything when the table is
+destroyed. Never persist these controls in a manual saved game or key them by
+username, display name, participant label, or seat.
+`clear_ui` clears server-owned menus and inputs only; table context and unified
+audio/voice lifecycle packets own runtime teardown.
 
 User blocks are directional persistent records retained until explicit
 unblocking or either account is deleted. Any block between two accounts is a
@@ -59,6 +82,18 @@ names are introduced, identity-sensitive profiles, reports, moderation views,
 and confirmations must expose the owning username, while every action id and
 payload remains bound to the UUID.
 
+Bot identity is likewise structural, never name-derived. `Player.id` and
+`Player.is_bot` are authoritative; `bot_name_base` is serialized presentation
+data used to preserve a bot's personality across save/load. Localized base
+names may match usernames or other bot bases. Every production bot must expose
+a collision-free table label: use the bare base while it is unique, add the
+localized bot marker only while a human or another bot shares that base, and
+add a stable ordinal when multiple bots share it. A replacement bot retains the
+disconnected human's account UUID and reclaim metadata. Reconcile labels across
+joins, leaves, replacements, reconnects, and save/load. Never reserve localized
+bot bases from registration, infer bot status from text, or route an action by
+an unqualified base name.
+
 ## Commands
 
 Run server tests from the repo root through uv:
@@ -86,7 +121,7 @@ cd mobile_client && cmd /c npm run typecheck && npx expo start
 
 ## Core Architecture
 
-- `server/games/` currently registers 48 games. Categories are `cards`, `dice`,
+- `server/games/` currently registers 49 games. Categories are `cards`, `dice`,
   `board`, `poker`, `arcade`, and `misc`; user-facing category labels must be
   localized. The Play menu uses dynamic counts, not hardcoded category counts.
 - Games are `@dataclass` classes registered with `@register_game`, inherit from
@@ -245,6 +280,10 @@ Rules:
   `whose_turn`, `whos_at_table`.
 - Use `_order_touch_standard_actions(action_set, target_order)`; do not copy
   manual ordering loops. Keep desktop ordering separate.
+- In mobile self-voicing mode, a three-finger single tap requests the focused
+  menu description. Defer it through the recognizer's shared multi-finger
+  multi-tap window and cancel it when another chord starts so it never fires
+  during the global three-finger triple-tap toggle.
 
 ## Keybinds
 
@@ -259,11 +298,13 @@ base `b` Add bot binding is `IDLE`, so a game may safely bind `b` to an
 while idle and select a grid cell while active.
 
 Base/client bindings to respect: `enter`, `escape`, `b`, `shift+b`, `f3`, `t`,
-`s`, `shift+s`, `ctrl+m`, `ctrl+q`, `ctrl+u`, `ctrl+s`, `ctrl+r`, `ctrl+i`,
-`ctrl+f1`. Do not reuse `ALWAYS` bindings or same-state base/client bindings
-for unrelated game-specific actions unless deliberately matching the standard
-behavior. When reusing a key across states, keep the scope explicit and add
-coverage for the intended separation.
+`s`, `shift+s`, `ctrl+m`, `ctrl+q`, `ctrl+u`, `ctrl+s`, `ctrl+i`,
+`f1`, `ctrl+f1`. Plain `F1` is the client-owned focused-menu-description
+command and must send the semantic `menu_description` request, never a game
+keybind; `Ctrl+F1` remains How to Play. Do not reuse `ALWAYS` bindings or
+same-state base/client bindings for unrelated game-specific actions unless
+deliberately matching the standard behavior. When reusing a key across states,
+keep the scope explicit and add coverage for the intended separation.
 
 ## Options
 
@@ -288,6 +329,14 @@ Use declarative `GameOptions` with `option_field()`.
   keeps the table alive; an ordinary spectator never does. This exception does
   not permit a bot-only start. If no active seat remains, retain the table but
   keep gameplay paused until the host restarts or closes it.
+- Treat a table as the durable social and voice session and its `Game` as a
+  replaceable activity. A host game switch must validate the complete live
+  roster and target capacity before mutation, then keep the table id, host,
+  privacy, bans, live human roles, dedicated bots, and voice context while
+  creating a fresh target lobby. Do not carry match options, teams, readiness,
+  timers, reclaim rights for disconnected seats, or activity-bound consent;
+  stop and detach all old-game runtime state, cancel old-game invitations, and
+  suppress the ordinary new-public-table notification.
 - `prestart_validate()` must block impossible deals, unsupported option
   combinations, and team-mode conflicts with clear localized errors.
 
@@ -299,6 +348,10 @@ Audio-first is mandatory. Every important state change needs TTS and/or sound.
 - Buffers: `chat` for shared chat, `private` for private messages, `game` for
   gameplay, `system` for settings/connection/moderation, and `misc` for minor
   non-game informational output.
+- Use `history=False` only for transient UI chrome such as menu-open/close
+  feedback and one-time selection prompts already represented by the current
+  interface. Clients must still speak it subject to the selected buffer's mute
+  state. Errors, gameplay results, and durable information stay in history.
 - Desktop, Web, and mobile share one buffer-mute contract. Muting `all` makes
   every buffer effectively muted and blocks individual mute changes until it is
   unmuted. A directly muted source retains its bounded runtime backlog but
@@ -445,7 +498,10 @@ participants; do not reuse game-player error strings for account lookups.
   vocabulary, an allowlisted context backed by
   `<context>-gender-term-<form>`. Unspecified and non-binary values use the
   locale's neutral fallback.
-- Maintain EN/VI parity: same keys, variables, and plural/select arms.
+- Maintain EN/VI parity: same keys, data-bearing variables, and plural/select
+  arms. A locale may omit a variable used only as a `GENDER_TERM(...)`
+  selector when its natural sentence does not need gender; if used, the
+  selector name must still match the source key.
 - Agents author both EN and VI strings in this repo, but Vietnamese is
   provisional and should be flagged for native review when quality matters.
 - Prefer writing locale keys before feature code so every announcement path is
@@ -454,6 +510,10 @@ participants; do not reuse game-player error strings for account lookups.
   branches in feature code; new languages should be added through locale files
   and metadata/registry layers. Missing translated strings or documentation
   must fall back to English rather than exposing raw keys to players.
+- A live language change updates client-owned chrome before later localized
+  packets, rebuilds that player's locale-bound action sets, and restores the
+  semantic parent menu/focus. Browser clients must serialize their asynchronous
+  locale-bundle load with later WebSocket packets so no stale language flashes.
 - Validate server Fluent changes with `server/tools/compare_locales.py`; it
   reports missing keys, obsolete keys, variables, select/plural arms, and
   attributes. Do not leave obsolete target keys behind after refactors.
@@ -507,6 +567,35 @@ player-facing tone.
 
 - Only games with real leaderboard support should expose
   `get_supported_leaderboards()` entries.
+- Every result for a wins or rating leaderboard must declare `winner_ids` by
+  immutable player/account id. An empty list means a draw and must not create
+  wins or losses. Never infer a competitive result from a name.
+- A real team or a game that supplies more than winner/loser placement must
+  store canonical `RATING_COMPETITORS_KEY` data built with
+  `rating_competitors_from_scores(...)`. Each participant appears exactly once;
+  equal ranks are ties, while ids grouped in one competitor are teammates.
+- Rating calculation is side-effect free. Persist the completed result,
+  aggregate stats, and validated rating updates in one database transaction.
+  Raw model parameters are internal; player-facing views use the conservative
+  skill score so a future tier policy can be layered on without changing the
+  rating model or durable identities.
+- Build every `PlayerResult` through `PlayerResult.from_player(...)`. A
+  disconnected replacement bot remains owned by the reserved account, so its
+  final result, stats, win/loss, and rating count for that account and a
+  disconnect cannot dodge a loss. A completed seat substitution transfers
+  ownership to the incoming account. A reversible host kick removes current
+  table membership but retains the account-owned replacement seat so the same
+  UUID can reclaim its complete context and result attribution; private-table
+  admission must recognize that reservation. A kick-and-ban, account deletion,
+  or other permanent removal rekeys the retained active seat to a fresh
+  dedicated-bot UUID immediately, so no later result is attributed to the
+  departed account; dedicated bots never receive durable player stats or
+  ratings. Keep an unclaimed reversible reservation visible as a human-owned
+  roster row so it cannot be mistaken for or removed as an ordinary bot.
+- Startup garbage collection derives valid game types and persisted stat keys
+  from the live registry. It removes unregistered-game data, unsupported
+  derived leaderboard aggregates, and invalid rating rows; do not maintain a
+  second hardcoded cleanup schema.
 - Scoreless games should not claim score support; score buttons are hidden and
   `s` / `shift+s` are ignored silently.
 - Games using default score actions must keep `TeamManager` synchronized.
@@ -531,8 +620,12 @@ Any persistent feature must define and test:
 
 `Game.on_discard()` is the idempotent lifecycle hook for match-scoped caches,
 bot observations, and similar memory that must not outlive its game instance.
-The framework calls it on both table destruction and game restart; it does not
-replace the retention and cleanup rules required for genuinely persistent data.
+The framework calls it whenever an instance is abandoned, including table
+destruction, restart, game switching, and failed replacement preparation.
+Games that launch asynchronous work must cancel it cooperatively here and drop
+every job reference; background work must operate on an isolated snapshot and
+must never call back into a discarded game. This hook does not replace the
+retention and cleanup rules required for genuinely persistent data.
 
 Do not add database rows, tables, saved runtime state, notifications, chat logs,
 tokens, invites, moderation records, or similar data without this lifecycle.

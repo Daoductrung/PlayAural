@@ -228,7 +228,7 @@ class EventHandlingMixin:
             user = self.get_user(player)
             if user:
                 user.remove_menu("status_box", send_packet=False)
-                user.speak_l("status-box-closed", buffer="game")
+                user.speak_l("status-box-closed", buffer="game", history=False)
                 self._status_box_open.discard(player.id)
                 self._live_status_boxes.pop(player.id, None)
                 focus = self._status_box_return_focus.pop(player.id, None)
@@ -412,7 +412,6 @@ class EventHandlingMixin:
         menu_item_id = event.get("menu_item_id")
         menu_index = event.get("menu_index")
 
-
         # Handle modifiers - reconstruct full key string
         if event.get("shift") and not key.startswith("shift+"):
             key = f"shift+{key}"
@@ -420,20 +419,6 @@ class EventHandlingMixin:
             key = f"ctrl+{key}"
         if event.get("alt") and not key.startswith("alt+"):
             key = f"alt+{key}"
-
-        # In a waiting lobby, Space speaks help attached to the focused
-        # action. During play it remains available to game keybinds.
-        if (
-            key == "space"
-            and getattr(self, "status", "playing") != "playing"
-            and menu_item_id
-        ):
-            action = self.find_action(player, menu_item_id)
-            resolved = self.resolve_action(player, action) if action else None
-            user = self.get_user(player)
-            if resolved and resolved.description and user:
-                user.speak(resolved.description, buffer="system")
-                return
 
         # Look up keybinds for this key
         keybinds = self._keybinds.get(key)

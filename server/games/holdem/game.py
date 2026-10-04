@@ -1636,21 +1636,19 @@ class HoldemGame(Game, TurnTimerMixin):
     def build_game_result(self) -> GameResult:
         active = self.get_active_players()
         winner = max(active, key=lambda p: p.chips, default=None)
+        winner_ids = [p.id for p in active if winner and p.chips == winner.chips]
         final_chips = {p.name: p.chips for p in active}
         return GameResult(
             game_type=self.get_type(),
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=p.id,
-                    player_name=p.name,
-                    is_bot=p.is_bot and not p.replaced_human,
-                )
+                PlayerResult.from_player(p)
                 for p in active
             ],
             custom_data={
                 "winner_name": winner.name if winner else None,
+                "winner_ids": winner_ids,
                 "winner_chips": winner.chips if winner else 0,
                 "final_chips": final_chips,
             },

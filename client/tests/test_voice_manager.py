@@ -17,9 +17,75 @@ from voice_manager import (
     VOICE_REMOTE_TRACK_DRAIN_MS,
     VoiceManager,
     _BoundedPcmBuffer,
+    _parse_voice_settings,
     _downmix_to_mono,
     _RealtimeOutputPlayer,
 )
+
+
+def test_voice_settings_parser_rejects_spoofed_and_off_scale_payloads() -> None:
+    valid = {
+        "type": "voice_settings",
+        "version": 1,
+        "context_id": "table-one",
+        "host_muted": True,
+        "participants": [
+            {"participant_id": "uuid-bob", "volume": 40, "muted": False}
+        ],
+    }
+
+    assert _parse_voice_settings(valid) == (
+        True,
+        {"uuid-bob": (0.4, False)},
+    )
+    assert _parse_voice_settings(
+        {key: value for key, value in valid.items() if key != "type"}
+    ) is None
+    assert _parse_voice_settings({**valid, "unknown": True}) is None
+    assert _parse_voice_settings({**valid, "context_id": " table-one"}) is None
+    assert _parse_voice_settings(
+        {
+            **valid,
+            "participants": [
+                {"participant_id": " uuid-bob", "volume": 40, "muted": False}
+            ],
+        }
+    ) is None
+    assert _parse_voice_settings(
+        {
+            **valid,
+            "participants": [
+                {"participant_id": "uuid-bob", "volume": 41, "muted": False}
+            ],
+        }
+    ) is None
+
+
+def test_voice_manager_combines_global_personal_and_mute_gain() -> None:
+    manager = VoiceManager.__new__(VoiceManager)
+    manager._volume_lock = threading.Lock()
+    manager._voice_volume = 0.8
+    manager._host_muted = False
+    manager._participant_voice_settings = {}
+    submitted = []
+    manager._submit_operation = submitted.append
+
+    assert manager.apply_voice_settings(
+        {
+            "type": "voice_settings",
+            "version": 1,
+            "context_id": "table-one",
+            "host_muted": False,
+            "participants": [
+                {"participant_id": "uuid-bob", "volume": 50, "muted": False},
+                {"participant_id": "uuid-carol", "volume": 100, "muted": True},
+            ],
+        }
+    ) is False
+    assert manager._get_participant_voice_volume("uuid-bob") == pytest.approx(0.4)
+    assert manager._get_participant_voice_volume("uuid-carol") == 0.0
+    assert manager._get_participant_voice_volume("uuid-unknown") == pytest.approx(0.8)
+    assert submitted == []
 
 
 def _pcm_samples(*values: int) -> bytes:
@@ -478,7 +544,7 @@ async def test_muted_tracks_leave_playback_until_unmuted() -> None:
 
             return register
 
-    async def add_track(track) -> None:
+    async def add_track(track, participant_id="") -> None:
         events.append(("add", track.sid))
 
     async def remove_track(track) -> None:
@@ -532,6 +598,7 @@ async def test_existing_muted_tracks_are_not_attached() -> None:
         kind=voice_manager.rtc.TrackKind.KIND_AUDIO,
     )
     participant = SimpleNamespace(
+        identity="uuid-remote",
         track_publications={
             "audible": SimpleNamespace(track=audible_track, muted=False),
             "muted": SimpleNamespace(track=muted_track, muted=True),
@@ -540,7 +607,7 @@ async def test_existing_muted_tracks_are_not_attached() -> None:
     manager = VoiceManager.__new__(VoiceManager)
     manager.room = SimpleNamespace(remote_participants={"participant": participant})
 
-    async def add_track(track) -> None:
+    async def add_track(track, participant_id="") -> None:
         attached.append(track.sid)
 
     manager._add_remote_track = add_track
@@ -937,6 +1004,8 @@ async def test_microphone_processing_is_confined_to_mono_input(monkeypatch) -> N
     manager.local_track = None
     manager.local_publication = None
     manager.output_player = OutputPlayer()
+    manager._volume_lock = threading.Lock()
+    manager._host_muted = False
     manager.on_mic_state = lambda enabled: None
     manager.on_status = lambda key, speak: None
 

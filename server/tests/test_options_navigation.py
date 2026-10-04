@@ -34,17 +34,18 @@ def _menu_ids(user: MockUser, menu_id: str) -> list[str]:
     return [item.id for item in items]
 
 
-async def _press_space_on(
+async def _request_description_on(
     server: Server,
     user: MockUser,
     menu_id: str,
     menu_item_id: str,
 ) -> None:
-    await server._handle_keybind(
-        SimpleNamespace(username=user.username),
+    client = SimpleNamespace(username=user.username)
+    await server._handle_authenticated_message(
+        client,
+        user,
         {
-            "type": "keybind",
-            "key": "space",
+            "type": "menu_description",
             "menu_id": menu_id,
             "menu_item_id": menu_item_id,
         },
@@ -345,31 +346,62 @@ async def test_general_options_navigation_is_shared_across_clients_and_locales(
 
 
 @pytest.mark.asyncio
-async def test_space_speaks_general_option_row_description_only_for_active_row(tmp_path) -> None:
+async def test_menu_description_speaks_general_option_row_only_for_active_row(tmp_path) -> None:
     server, user = _make_server(tmp_path)
     try:
         server._show_personal_options_menu(user)
         user.clear_messages()
 
-        await _press_space_on(server, user, "personal_options_menu", "options")
+        await _request_description_on(server, user, "personal_options_menu", "options")
         spoken = user.get_spoken_messages()
         assert spoken
         assert "global chat" in spoken[-1]
         assert "gameplay preferences" in spoken[-1]
 
         user.clear_messages()
-        await _press_space_on(server, user, "personal_options_menu", "back")
+        await _request_description_on(server, user, "personal_options_menu", "back")
         assert user.get_spoken_messages() == []
 
         user.clear_messages()
-        await _press_space_on(server, user, "wrong_menu", "options")
+        await _request_description_on(server, user, "wrong_menu", "options")
         assert user.get_spoken_messages() == []
     finally:
         server._db.close()
 
 
 @pytest.mark.asyncio
-async def test_space_speaks_general_options_submenu_descriptions(tmp_path) -> None:
+async def test_menu_description_ignores_missing_or_malformed_ids(tmp_path) -> None:
+    server, user = _make_server(tmp_path)
+    try:
+        server._show_personal_options_menu(user)
+        client = SimpleNamespace(username=user.username)
+        user.clear_messages()
+
+        for menu_id, menu_item_id in (
+            (None, "options"),
+            ("", "options"),
+            (42, "options"),
+            ("personal_options_menu", None),
+            ("personal_options_menu", ""),
+            ("personal_options_menu", ["options"]),
+        ):
+            await server._handle_authenticated_message(
+                client,
+                user,
+                {
+                    "type": "menu_description",
+                    "menu_id": menu_id,
+                    "menu_item_id": menu_item_id,
+                },
+            )
+
+        assert user.get_spoken_messages() == []
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_menu_description_speaks_general_options_submenu_descriptions(tmp_path) -> None:
     server, user = _make_server(tmp_path)
     try:
         await server._handle_open_options(SimpleNamespace(username=user.username))
@@ -377,13 +409,13 @@ async def test_space_speaks_general_options_submenu_descriptions(tmp_path) -> No
         assert _current_menu(server, user.username) == "options_audio_submenu"
 
         user.clear_messages()
-        await _press_space_on(server, user, "options_audio_submenu", "play_typing_sounds")
+        await _request_description_on(server, user, "options_audio_submenu", "play_typing_sounds")
         spoken = user.get_spoken_messages()
         assert spoken
         assert "typing sounds" in spoken[-1]
 
         user.clear_messages()
-        await _press_space_on(server, user, "options_audio_submenu", "back")
+        await _request_description_on(server, user, "options_audio_submenu", "back")
         assert user.get_spoken_messages() == []
     finally:
         server._db.close()
@@ -560,7 +592,7 @@ async def test_menu_hints_toggle_updates_all_rows_and_persists(tmp_path) -> None
         assert "global chat" not in general_options.text
 
         user.clear_messages()
-        await _press_space_on(server, user, "personal_options_menu", "options")
+        await _request_description_on(server, user, "personal_options_menu", "options")
         assert "gameplay preferences" in user.get_spoken_messages()[-1]
     finally:
         server._db.close()
@@ -758,6 +790,28 @@ async def test_action_close_restores_focus_to_parent_opener(tmp_path) -> None:
         assert user.menus["profile_menu"]["selection_id"] == "edit_gender"
         assert user.gender is Gender.MALE
         assert server._db.get_user(user.username).gender == Gender.MALE.value
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_space_no_longer_dispatches_menu_descriptions(tmp_path) -> None:
+    server, user = _make_server(tmp_path)
+    try:
+        server._show_personal_options_menu(user)
+        user.clear_messages()
+
+        await server._handle_keybind(
+            SimpleNamespace(username=user.username),
+            {
+                "type": "keybind",
+                "key": "space",
+                "menu_id": "personal_options_menu",
+                "menu_item_id": "options",
+            },
+        )
+
+        assert user.get_spoken_messages() == []
     finally:
         server._db.close()
 
@@ -1268,7 +1322,7 @@ async def test_reset_all_game_prefs(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_space_speaks_pref_description(tmp_path) -> None:
+async def test_menu_description_speaks_pref_description(tmp_path) -> None:
     server, user = _make_server(tmp_path)
     try:
         server._show_options_menu(user)
@@ -1276,13 +1330,11 @@ async def test_space_speaks_pref_description(tmp_path) -> None:
         await server._handle_game_options_selection(user, "cat_gameplay")
 
         spoken_before = len(user.get_spoken_messages())
-        await server._handle_keybind(
-            SimpleNamespace(username=user.username),
-            {
-                "type": "keybind",
-                "key": "space",
-                "menu_item_id": "pref_confirm_destructive_actions",
-            },
+        await _request_description_on(
+            server,
+            user,
+            "pref_category_menu",
+            "pref_confirm_destructive_actions",
         )
         spoken = user.get_spoken_messages()
         assert len(spoken) > spoken_before
@@ -1296,34 +1348,28 @@ async def test_space_speaks_pref_description(tmp_path) -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
-async def test_space_speaks_pref_detail_description_only_on_pref_rows(tmp_path) -> None:
+async def test_menu_description_speaks_pref_detail_only_on_pref_rows(tmp_path) -> None:
     server, user = _make_server(tmp_path)
     try:
         server._show_pref_detail_menu(user, "brief_announcements")
         assert _current_menu(server, user.username) == "pref_detail_menu"
 
         spoken_before = len(user.get_spoken_messages())
-        await server._handle_keybind(
-            SimpleNamespace(username=user.username),
-            {
-                "type": "keybind",
-                "key": "space",
-                "menu_id": "pref_detail_menu",
-                "menu_item_id": "detail_global",
-            },
+        await _request_description_on(
+            server,
+            user,
+            "pref_detail_menu",
+            "detail_global",
         )
         spoken = user.get_spoken_messages()
         assert len(spoken) == spoken_before + 1
         assert "shorten" in spoken[-1].lower()
 
-        await server._handle_keybind(
-            SimpleNamespace(username=user.username),
-            {
-                "type": "keybind",
-                "key": "space",
-                "menu_id": "pref_detail_menu",
-                "menu_item_id": "back",
-            },
+        await _request_description_on(
+            server,
+            user,
+            "pref_detail_menu",
+            "back",
         )
         assert user.get_spoken_messages() == spoken
     finally:
@@ -1331,30 +1377,24 @@ async def test_space_speaks_pref_detail_description_only_on_pref_rows(tmp_path) 
 
 
 @pytest.mark.asyncio
-async def test_space_ignores_stale_or_wrong_pref_description_ids(tmp_path) -> None:
+async def test_menu_description_ignores_stale_or_wrong_pref_ids(tmp_path) -> None:
     server, user = _make_server(tmp_path)
     try:
         server._show_pref_detail_menu(user, "brief_announcements")
         assert _current_menu(server, user.username) == "pref_detail_menu"
 
         spoken_before = list(user.get_spoken_messages())
-        await server._handle_keybind(
-            SimpleNamespace(username=user.username),
-            {
-                "type": "keybind",
-                "key": "space",
-                "menu_id": "pref_detail_menu",
-                "menu_item_id": "pref_confirm_destructive_actions",
-            },
+        await _request_description_on(
+            server,
+            user,
+            "pref_detail_menu",
+            "pref_confirm_destructive_actions",
         )
-        await server._handle_keybind(
-            SimpleNamespace(username=user.username),
-            {
-                "type": "keybind",
-                "key": "space",
-                "menu_id": "pref_category_menu",
-                "menu_item_id": "detail_global",
-            },
+        await _request_description_on(
+            server,
+            user,
+            "pref_category_menu",
+            "detail_global",
         )
         assert user.get_spoken_messages() == spoken_before
     finally:

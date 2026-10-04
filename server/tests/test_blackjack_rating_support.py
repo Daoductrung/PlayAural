@@ -24,7 +24,7 @@ def _make_server(tmp_path) -> Server:
     return server
 
 
-def test_blackjack_leaderboards_exclude_rating_and_prediction_is_disabled() -> None:
+def test_blackjack_leaderboards_exclude_rating_and_prediction_action() -> None:
     game = BlackjackGame()
     host_user = MockUser("Host")
     guest_user = MockUser("Guest")
@@ -38,8 +38,8 @@ def test_blackjack_leaderboards_exclude_rating_and_prediction_is_disabled() -> N
     enabled_ids = [action.action.id for action in game.get_all_enabled_actions(host_player)]
 
     assert game.get_supported_leaderboards() == ["games_played"]
-    assert game._is_predict_outcomes_enabled(host_player) == "action-not-available"
     assert "predict_outcomes" not in enabled_ids
+    assert "ctrl+r" not in game._keybinds
 
 
 def test_blackjack_does_not_update_ratings_when_finished(tmp_path) -> None:
@@ -61,7 +61,7 @@ def test_blackjack_does_not_update_ratings_when_finished(tmp_path) -> None:
             custom_data={"winner_name": host_player.name},
         )
 
-        game._update_ratings(result)
+        assert game._calculate_rating_updates(result) == {}
 
         assert server._db.get_player_rating(host_player.id, "blackjack") is None
         assert server._db.get_player_rating(guest_player.id, "blackjack") is None
@@ -114,7 +114,7 @@ def test_blackjack_saved_results_only_store_games_played_stats(tmp_path) -> None
         server._db.close()
 
 
-def test_rated_games_still_update_ratings(tmp_path) -> None:
+def test_rated_game_settlement_is_calculated_then_persisted_with_result(tmp_path) -> None:
     server = _make_server(tmp_path)
     try:
         game = PigGame()
@@ -131,7 +131,21 @@ def test_rated_games_still_update_ratings(tmp_path) -> None:
             custom_data={"winner_ids": ["pig-winner"], "winner_name": "Alice"},
         )
 
-        game._update_ratings(result)
+        updates = game._calculate_rating_updates(result)
+
+        assert updates.keys() == {"pig-winner", "pig-loser"}
+        assert server._db.get_player_rating("pig-winner", "pig") is None
+        server._db.save_game_result(
+            "pig",
+            result.timestamp,
+            result.duration_ticks,
+            [
+                (player.player_id, player.player_name, player.is_bot)
+                for player in result.player_results
+            ],
+            result.custom_data,
+            rating_updates=updates,
+        )
 
         assert server._db.get_player_rating("pig-winner", "pig") is not None
         assert server._db.get_player_rating("pig-loser", "pig") is not None
@@ -176,6 +190,86 @@ def test_blackjack_ui_hides_rating_everywhere_but_rated_games_still_show_it(tmp_
 
         server._show_my_game_stats(user, "pig")
         assert "rating" in _menu_ids(user, "my_game_stats")
+    finally:
+        server._db.close()
+
+
+def test_result_persistence_failure_does_not_strand_game_lifecycle(caplog) -> None:
+    game = PigGame()
+
+    class FailingTable:
+        _db = None
+
+        @staticmethod
+        def save_game_result(result, *, rating_updates=None) -> None:
+            raise RuntimeError("storage unavailable")
+
+    game._table = FailingTable()
+    result = GameResult(
+        game_type="pig",
+        timestamp="2026-10-01T00:00:00",
+        duration_ticks=0,
+        player_results=[PlayerResult("human-id", "Human", False)],
+        custom_data={"winner_ids": []},
+    )
+
+    game._persist_result(result)
+
+    assert "Failed to persist completed pig game result" in caplog.text
+
+
+def test_rating_ui_exposes_skill_score_without_model_parameters(tmp_path) -> None:
+    server = _make_server(tmp_path)
+    try:
+        account = server._db.create_user("RatedUser", "hash", trust_level=1)
+        viewer = MockUser("RatedUser", uuid=account.uuid)
+        server._db.set_player_rating(account.uuid, "pig", 32.0, 5.5)
+        server._db._conn.execute(
+            """
+            INSERT INTO player_game_stats (player_id, game_type, stat_key, stat_value)
+            VALUES (?, 'pig', 'games_played', 1)
+            """,
+            (account.uuid,),
+        )
+        server._db._conn.commit()
+
+        server._show_rating_leaderboard(viewer, "pig", "Pig")
+        leaderboard_text = " ".join(_menu_texts(viewer, "game_leaderboard"))
+        assert "RatedUser: 16 rating" in leaderboard_text
+        assert "32.0" not in leaderboard_text
+        assert "5.5" not in leaderboard_text
+
+        server._show_my_game_stats(viewer, "pig")
+        personal_text = " ".join(_menu_texts(viewer, "my_game_stats"))
+        assert "Skill rating: 16" in personal_text
+        assert "32.0" not in personal_text
+        assert "5.5" not in personal_text
+    finally:
+        server._db.close()
+
+
+def test_personal_stats_display_stored_zero_and_negative_scores(tmp_path) -> None:
+    server = _make_server(tmp_path)
+    try:
+        viewer = MockUser("ScoreUser", uuid="score-user")
+        server._db._conn.executemany(
+            """
+            INSERT INTO player_game_stats (player_id, game_type, stat_key, stat_value)
+            VALUES (?, 'pig', ?, ?)
+            """,
+            [
+                (viewer.uuid, "games_played", 1),
+                (viewer.uuid, "total_score", -4),
+                (viewer.uuid, "high_score", 0),
+            ],
+        )
+        server._db._conn.commit()
+
+        server._show_my_game_stats(viewer, "pig")
+
+        stats_text = " ".join(_menu_texts(viewer, "my_game_stats"))
+        assert "Total score: -4" in stats_text
+        assert "High score: 0" in stats_text
     finally:
         server._db.close()
 
@@ -255,43 +349,15 @@ def test_battle_custom_leaderboard_orders_higher_kills_first(tmp_path) -> None:
         server._db.close()
 
 
-def test_predict_outcomes_shows_probability_only_in_two_player_matches(tmp_path) -> None:
-    server = _make_server(tmp_path)
-    try:
-        game = PigGame()
-        host_user = MockUser("Host", uuid="predict-host")
-        guest_user = MockUser("Guest", uuid="predict-guest")
-        host_player = game.add_player("Host", host_user)
-        game.add_player("Guest", guest_user)
-        game._table = SimpleNamespace(_db=server._db)
-        game.status = "playing"
+def test_prediction_action_is_absent_from_rated_games() -> None:
+    game = PigGame()
+    player = game.add_player("Host", MockUser("Host", uuid="predict-host"))
+    game.add_player("Guest", MockUser("Guest", uuid="predict-guest"))
+    game.status = "playing"
+    game.setup_keybinds()
+    game.setup_player_actions(player)
 
-        game._action_predict_outcomes(host_player, "predict_outcomes")
-
-        lines = _menu_texts(host_user, "status_box")
-        assert any("%" in line for line in lines)
-        assert not any("2-player matches" in line for line in lines)
-    finally:
-        server._db.close()
-
-
-def test_predict_outcomes_explains_multiplayer_rating_only_mode(tmp_path) -> None:
-    server = _make_server(tmp_path)
-    try:
-        game = PigGame()
-        host_user = MockUser("Host", uuid="predict-host")
-        guest_user = MockUser("Guest", uuid="predict-guest")
-        third_user = MockUser("Third", uuid="predict-third")
-        host_player = game.add_player("Host", host_user)
-        game.add_player("Guest", guest_user)
-        game.add_player("Third", third_user)
-        game._table = SimpleNamespace(_db=server._db)
-        game.status = "playing"
-
-        game._action_predict_outcomes(host_player, "predict_outcomes")
-
-        lines = _menu_texts(host_user, "status_box")
-        assert any("3 or more human players" in line for line in lines)
-        assert not any("% win chance" in line for line in lines)
-    finally:
-        server._db.close()
+    standard = game.get_action_set(player, "standard")
+    assert standard is not None
+    assert "predict_outcomes" not in standard._order
+    assert "ctrl+r" not in game._keybinds

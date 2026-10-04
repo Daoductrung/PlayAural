@@ -56,6 +56,8 @@
   "voice-chat-left-table": "You left the table and left Voice Chat.",
   "voice-chat-mic-on": "Microphone on.",
   "voice-chat-mic-off": "Microphone off.",
+  "voice-chat-host-muted": "Your microphone is disabled by the table host. You can still listen.",
+  "voice-chat-host-unmuted": "The table host has allowed your microphone again. It remains off until you turn it on.",
   "voice-chat-mic-denied": "Microphone access was denied. Please allow microphone permission to speak in voice chat.",
   "voice-chat-mic-unsupported": "This device cannot enable the microphone for voice chat.",
   "voice-chat-mic-permission-denied": "Microphone permission was denied. You can still listen in voice chat, but speaking will stay unavailable until microphone access is allowed.",
@@ -184,7 +186,6 @@
   "auth-reset-failed": "Password reset failed.",
   "auth-username-password-required": "Username and password are required.",
   "auth-username-taken": "Username already taken. Please choose a different username.",
-  "auth-username-reserved-bot": "This name is reserved for PlayAural bots. Please choose a different username.",
   "auth-username-reserved": "This name is reserved by PlayAural. Please choose a different username.",
   "auth-registration-error": "Registration failed due to a server error. Please try again.",
   "auth-error-wrong-password": "Incorrect password.",
@@ -232,5 +233,5 @@
   "current-music-track": "Music: {value}",
   "current-ambience-track": "Ambience: {value}",
   "footer-gestures-line-1": "Self-voicing uses screen-reader-style gestures. Turn off TalkBack after connecting if you want PlayAural to control speech directly.",
-  "footer-gestures-line-2": "1-finger swipes move between items; swipe and hold for half a second to keep moving. Double-tap activates; double-tap and hold sends the modified action. 2-finger swipes open Back, Chat, History, or Shortcuts. 2-finger tap stops speech. 3-finger up or down jumps to the first or last item. 3-finger triple-tap toggles self-voicing."
+  "footer-gestures-line-2": "1-finger swipes move between items; swipe and hold for half a second to keep moving. Double-tap activates; double-tap and hold sends the modified action. 2-finger swipes open Back, Chat, History, or Shortcuts. 2-finger tap stops speech. 3-finger tap reads the focused menu item's description. 3-finger up or down jumps to the first or last item. 3-finger triple-tap toggles self-voicing."
 }

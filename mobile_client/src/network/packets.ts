@@ -40,6 +40,7 @@ export type SpeakPacket = {
   key?: string;
   params?: Record<string, unknown>;
   buffer?: SpeechBuffer;
+  history?: boolean;
   muted?: boolean;
 };
 
@@ -262,9 +263,24 @@ export type VoiceJoinInfoPacket = {
   room?: string;
   room_label?: string;
   server_requested?: boolean;
+  settings?: VoiceSettingsPacket;
   scope?: string;
   token: string;
   url: string;
+};
+
+export type VoiceParticipantSetting = {
+  muted: boolean;
+  participant_id: string;
+  volume: number;
+};
+
+export type VoiceSettingsPacket = {
+  context_id: string;
+  host_muted: boolean;
+  participants: VoiceParticipantSetting[];
+  type: "voice_settings";
+  version: number;
 };
 
 export type VoiceJoinErrorPacket = {
@@ -310,6 +326,7 @@ export type ServerPacket =
   | VoiceJoinErrorPacket
   | VoiceJoinInfoPacket
   | VoiceLeaveAckPacket
+  | VoiceSettingsPacket
   | { type: string; [key: string]: unknown };
 
 export type AuthorizePacket = {
@@ -360,6 +377,12 @@ export type MenuSelectionPacket = {
   selection: number;
   selection_id?: string;
   selection_value?: string;
+};
+
+export type MenuDescriptionPacket = {
+  type: "menu_description";
+  menu_id: string;
+  menu_item_id: string;
 };
 
 export type EscapePacket = {
@@ -438,6 +461,7 @@ export type ClientPacket =
   | KeybindPacket
   | ListOnlinePacket
   | LogoutPacket
+  | MenuDescriptionPacket
   | MenuSelectionPacket
   | OpenSystemPacket
   | PingPacket

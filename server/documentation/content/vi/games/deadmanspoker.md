@@ -54,8 +54,6 @@ Từ mạnh nhất đến yếu nhất, các tay bài là:
 
 Nếu hai người có cùng loại tay bài, hạng cao hơn sẽ thắng. Ví dụ, đôi K thắng đôi Q. Nếu phần chính ngang nhau, các lá lẻ cao hơn sẽ được xét tiếp. Nếu tay bài mạnh nhất giống hệt nhau, những người đó hòa tay bài mạnh nhất.
 
-Khi sở hữu tay bài này, hệ thống sẽ đọc là Sảnh chúa.
-
 \*\*Chuẩn bị ván bài\*\*
 
 Khi một ván bài mới bắt đầu:
@@ -103,11 +101,15 @@ Hãy dùng Bỏ non khi hai lá bài mở đầu quá tệ và bạn không mu�
 
 \*\*Đổi bài\*\*
 
-Đổi bài được dùng một lần trong mỗi ván bài.
+Đổi bài là cơ hội xoay chuyển tình thế chỉ dùng được một lần trong cả trận. Sau khi dùng, bạn sẽ không có lại hành động này ở những ván bài sau.
 
-Bạn chọn một trong hai lá bài riêng. Trò chơi đưa ra ba lá thay thế. Bạn chọn một lá, và lá đó trở thành bài riêng mới của bạn.
+Bạn chọn một trong hai lá bài riêng, rồi chọn lá thay thế từ một nhóm bài chỉ mình bạn biết. Đổi sớm cho bạn nhiều lựa chọn hơn, còn chờ lâu giúp bạn biết thêm bài chung:
 
-Đổi bài không tiêu lượt cược của bạn. Sau khi đổi xong, vẫn đến lượt bạn và bạn phải chọn Theo, Bỏ bài, hoặc Tất tay.
+\* Trước khi lật bài chung, bạn được chọn 1 trong 4 lá thay thế.
+\* Sau khi lật 3 lá bài chung đầu tiên, bạn được chọn 1 trong 3 lá thay thế.
+\* Sau khi lật lá bài chung thứ tư, bạn được chọn 1 trong 2 lá thay thế.
+
+Đổi bài không tiêu lượt cược của bạn. Sau khi đổi xong, vẫn đến lượt bạn, nhưng bạn phải Theo hoặc Bỏ bài. Bạn không thể Đổi bài rồi Tất tay trong cùng một lượt.
 
 Những người chơi khác sẽ được báo chính xác lá bài bạn đã bỏ. Họ không biết bạn chọn lá thay thế nào.
 
@@ -117,7 +119,9 @@ Bạn không thể đổi bài sau khi lá bài chung cuối cùng đã lật, v
 
 Tất tay nghĩa là bạn đẩy số đạn đã đặt lên 8 viên.
 
-Tất tay chỉ dùng được từ vòng cược 2 trở đi, sau khi ba lá bài chung đầu tiên đã được lật. Vòng mở đầu là lúc mọi người đưa ra quyết định đặt đạn đầu tiên, nên không ai có thể ép cả bàn lên 8 viên trước khi thấy flop.
+Tất tay chỉ dùng được từ vòng cược 2 trở đi, sau khi ba lá bài chung đầu tiên đã được lật. Vòng mở đầu là lúc mọi người đưa ra quyết định đặt đạn đầu tiên, nên không ai có thể ép cả bàn lên 8 viên trước khi thấy ba lá bài chung đầu tiên.
+
+Nếu vừa Đổi bài trong lượt này, bạn không thể là người tuyên bố Tất tay. Bạn phải kết thúc lượt hiện tại bằng cách Theo hoặc Bỏ bài. Quy tắc này không ngăn bạn Theo tất tay nếu một người khác tuyên bố Tất tay sau đó trong cùng vòng cược.
 
 Khi có người tất tay, vòng cược bình thường dừng lại. Mỗi người còn trong ván phải chọn:
 

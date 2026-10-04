@@ -46,8 +46,6 @@ nine-reason-nine-already-started = { $card } قابل بازی نیست چون �
 nine-reason-cannot-extend = { $card } نمی‌تواند دنباله‌ی { $suit } را ادامه دهد. کارت بعدی پایین‌تر یا بالاتر را در یکی از انتهای آن دنباله بازی کنید.
 nine-reason-unopened-suit = { $card } قابل بازی نیست چون دنباله‌ی { $suit } هنوز باز نشده است. ابتدا آن خال را با ۹ آن شروع کنید.
 nine-reason-must-skip = شما کارت قانونی برای بازی ندارید؛ نوبت شما به‌طور خودکار رد می‌شود.
-nine-reason-generic = آن کارت در حال حاضر قابل بازی نیست.
-
 # برنده شدن
 nine-you-wins-game = شما دیگر کارتی ندارید و بازی را برنده شدید!
 nine-player-wins-game = { $player } دیگر کارتی ندارد و بازی را برنده شد!

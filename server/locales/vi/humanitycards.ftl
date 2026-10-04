@@ -80,7 +80,6 @@ hc-choose-best-card-for = Chọn lá bài hay nhất khớp với: { $prompt }
 hc-select-winner-prompt = Chọn bài thắng cuộc
 hc-card-number = Lá bài { $number }
 hc-submission-number = Bài nộp { $number }
-hc-submission-option = { $text }
 hc-only-judges-pick = Chỉ trọng tài mới có thể chọn bài thắng cuộc.
 hc-not-judging-phase = Bạn chỉ có thể chọn bài thắng trong giai đoạn chấm bài.
 hc-submission-not-available = Bài nộp đó không còn khả dụng.
@@ -88,7 +87,6 @@ hc-submission-not-available = Bài nộp đó không còn khả dụng.
 # Kết quả
 hc-you-win-round = Bạn thắng vòng này! Điểm của bạn hiện là { $score }.
 hc-player-wins-round = { $player } thắng vòng này! Điểm: { $score }.
-hc-round-scores = Điểm sau vòng { $round }:
 hc-score-line = { $player }: { $score } { $score ->
     [one] điểm
    *[other] điểm
@@ -123,13 +121,8 @@ hc-error-not-enough-white-cards = { $players } người chơi với số bài tr
 hc-error-pick-exceeds-hand-size = Các bộ bài đã chọn có lá yêu cầu { $pick } câu trả lời, nhưng số bài trên tay chỉ là { $hand_size }. Hãy tăng số bài trên tay hoặc chọn bộ bài khác.
 
 # Quản lý bài trên tay
-hc-view-hand = Xem bài trên tay
 hc-toggle-card-keybind = Chọn/bỏ chọn lá bài { $number }
 hc-submit-cards-keybind = Nộp bài
-
-# Điểm số
-hc-view-scores = Xem điểm
-hc-no-scores = Chưa có điểm.
 
 # Lượt của ai / trọng tài là ai
 hc-whose-judge = Ai đang làm trọng tài

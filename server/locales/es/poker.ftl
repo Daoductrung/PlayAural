@@ -8,7 +8,6 @@ poker-enter-raise = Ingresa el monto de la subida
 poker-check-pot = Ver bote
 poker-check-bet = Monto para igualar
 poker-check-min-raise = Subida mínima
-poker-check-log = Registro de acciones
 poker-check-hand-players = Jugadores en la mano
 poker-check-turn-timer = Temporizador de turno
 poker-check-blind-timer = Temporizador de ciegas
@@ -91,7 +90,6 @@ poker-your-uncalled-bet-returned = Se te devolvió tu apuesta sin igualar de { $
 poker-hand-no-cards = No tienes cartas en la mano.
 poker-no-active-betting = No hay ninguna ronda de apuestas activa.
 
-poker-log-empty = Aún no hay acciones.
 poker-log-fold = { $player } se retiró
 poker-log-check = { $player } pasó
 poker-log-call = { $player } igualó { $amount }

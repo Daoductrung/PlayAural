@@ -1092,6 +1092,11 @@ class YahtzeeGame(Game, DiceGameMixin):
 
         final_scores = {p.name: p.get_total_score() for p in sorted_players}
         winner = sorted_players[0] if sorted_players else None
+        winner_ids = [
+            player.id
+            for player in sorted_players
+            if winner and player.get_total_score() == winner.get_total_score()
+        ]
         competitive = self._is_competitive_result()
 
         return GameResult(
@@ -1099,15 +1104,12 @@ class YahtzeeGame(Game, DiceGameMixin):
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=p.id,
-                    player_name=p.name,
-                    is_bot=p.is_bot and not p.replaced_human,
-                )
+                PlayerResult.from_player(p)
                 for p in active_players
             ],
             custom_data={
                 "winner_name": winner.name if winner else None,
+                "winner_ids": winner_ids,
                 "winner_score": winner.get_total_score() if winner else 0,
                 "final_scores": final_scores,
                 "games_played": self.games_played,
@@ -1122,7 +1124,15 @@ class YahtzeeGame(Game, DiceGameMixin):
         final_scores = result.custom_data.get("final_scores", {})
         for i, (name, score) in enumerate(final_scores.items(), 1):
             points_str = Localization.get(locale, "game-points", count=score)
-            lines.append(f"{i}. {name}: {points_str}")
+            lines.append(
+                Localization.get(
+                    locale,
+                    "leaderboard-score-entry",
+                    rank=i,
+                    player=name,
+                    value=points_str,
+                )
+            )
         return lines
 
     # ==========================================================================

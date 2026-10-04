@@ -46,8 +46,6 @@ nine-reason-nine-already-started = { $card } cannot be played because the { $sui
 nine-reason-cannot-extend = { $card } cannot extend the { $suit } sequence. Play the next lower or next higher card at one of that sequence's ends.
 nine-reason-unopened-suit = { $card } cannot be played because the { $suit } sequence has not been opened yet. Start that suit with its 9 first.
 nine-reason-must-skip = You have no legal card to play; your turn will be skipped automatically.
-nine-reason-generic = That card cannot be played right now.
-
 # Winning
 nine-you-wins-game = You have no cards left and win the game!
 nine-player-wins-game = { $player } has no cards left and wins the game!

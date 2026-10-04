@@ -62,7 +62,7 @@ hc-submission-progress = { $submitted } de { $total } jugadores enviaron su resp
 hc-waiting-for-submissions = Esperando envíos...
 hc-already-submitted = Ya enviaste tus cartas.
 hc-you-submitted = Enviaste tus cartas.
-hc-player-submitted = { $player } envió sus cartas.
+hc-player-submitted = { $player } envió { GENDER_TERM($player_gender, "possessive-determiner") } cartas.
 hc-judge-cannot-submit = Eres el Zar de la Carta esta ronda, así que no puedes enviar una respuesta.
 hc-not-submission-phase = Solo puedes seleccionar y enviar cartas blancas durante la fase de envío.
 hc-card-not-in-hand = Esa carta ya no está en tu mano.
@@ -80,7 +80,6 @@ hc-choose-best-card-for = Elige la mejor carta para: { $prompt }
 hc-select-winner-prompt = Selecciona la respuesta ganadora
 hc-card-number = Carta { $number }
 hc-submission-number = Respuesta { $number }
-hc-submission-option = { $text }
 hc-only-judges-pick = Solo el Zar de la Carta puede elegir la respuesta ganadora.
 hc-not-judging-phase = Solo puedes elegir una respuesta ganadora durante la fase de juicio.
 hc-submission-not-available = Esa respuesta ya no está disponible.
@@ -88,7 +87,6 @@ hc-submission-not-available = Esa respuesta ya no está disponible.
 # Resultados
 hc-you-win-round = ¡Ganas la ronda! Tu puntuación ahora es { $score }.
 hc-player-wins-round = ¡{ $player } gana la ronda! Puntuación: { $score }.
-hc-round-scores = Puntuaciones después de la ronda { $round }:
 hc-score-line = { $player }: { $score } { $score ->
     [one] punto
    *[other] puntos
@@ -126,13 +124,8 @@ hc-error-not-enough-white-cards = { $players } jugadores con un tamaño de mano 
 hc-error-pick-exceeds-hand-size = Los paquetes seleccionados incluyen una pregunta que requiere { $pick } respuestas, pero el tamaño de mano es solo { $hand_size }. Aumenta el tamaño de mano o elige otros paquetes.
 
 # Gestión de la mano
-hc-view-hand = Ver mano
 hc-toggle-card-keybind = Alternar carta { $number }
 hc-submit-cards-keybind = Enviar cartas
-
-# Puntuaciones
-hc-view-scores = Ver puntuaciones
-hc-no-scores = Aún no hay puntuaciones.
 
 # De quién es el turno / quién juzga
 hc-whose-judge = Quién está juzgando

@@ -52,6 +52,26 @@ def test_rejected_pair_cooldown_does_not_consume_sender_capacity() -> None:
     assert rejection.scope is TableInteractionScope.INVITE_SENDER
 
 
+def test_voice_moderation_has_an_independent_bounded_budget() -> None:
+    clock = FakeClock()
+    limiter = TableInteractionRateLimiter(clock=clock)
+    key = limiter.voice_moderation_key("account-a", "table-a")
+
+    for _ in range(3):
+        assert limiter.try_consume((key,)) is None
+    rejection = limiter.try_consume((key,))
+    assert rejection is not None
+    assert rejection.scope is TableInteractionScope.VOICE_MODERATION
+    assert rejection.seconds == 10
+
+    # Other interaction classes do not inherit a voice moderation cooldown.
+    assert limiter.try_consume(
+        (limiter.role_change_key("account-a", "table-a"),)
+    ) is None
+    clock.advance(10)
+    assert limiter.try_consume((key,)) is None
+
+
 def test_cleanup_removes_related_account_and_table_state() -> None:
     limiter = TableInteractionRateLimiter(clock=FakeClock())
     role_key = limiter.role_change_key("account-c", "table-a")

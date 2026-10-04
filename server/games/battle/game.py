@@ -2410,7 +2410,10 @@ class BattleGame(Game):
             game_type=self.get_type(),
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
-            player_results=[PlayerResult(player_id=player.id, player_name=player.name, is_bot=player.is_bot and not player.replaced_human) for player in self.get_active_players()],
+            player_results=[
+                PlayerResult.from_player(player)
+                for player in self.get_active_players()
+            ],
             custom_data=custom_data,
         )
 

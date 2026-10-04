@@ -1,7 +1,6 @@
 auth-username-password-required = Se requieren un nombre de usuario y una contraseña.
 auth-registration-success = ¡Registro exitoso! Ya puedes iniciar sesión con tus credenciales.
 auth-username-taken = Ese nombre de usuario ya está en uso. Elige otro.
-auth-username-reserved-bot = Este nombre está reservado para los bots de PlayAural. Elige otro nombre de usuario.
 auth-registration-error = El registro falló debido a un error del servidor. Inténtalo de nuevo.
 auth-error-wrong-password = Contraseña incorrecta.
 auth-error-user-not-found = El usuario no existe.
@@ -50,8 +49,6 @@ smtp-enc-ssl = Usar SSL
 smtp-enc-tls = Habilitar cifrado TLS automáticamente (STARTTLS)
 smtp-current-enc = * { $value }
 
-main-menu-title = Menú principal
-
 play = Jugar
 view-active-tables = Ver mesas activas
 options = Opciones
@@ -61,7 +58,6 @@ go-back = Volver
 context-menu = Menú contextual.
 no-actions-available = No hay acciones disponibles.
 table-new-host-promoted = { $player } ahora es el anfitrión de la mesa.
-return-to-lobby = Volver al vestíbulo
 return-to-table = Volver a la mesa
 create-table = Crear una mesa nueva
 leave-table = Salir de la mesa
@@ -110,7 +106,7 @@ table-full = La mesa está llena.
 table-join-social-blocked = No puedes entrar a esta mesa porque el contacto social directo no está disponible entre tú y su anfitrión. Aun así puedes recuperar un asiento ya reservado para ti.
 table-closed-disconnect-timeout = La mesa se cerró porque ningún jugador activo regresó dentro de { $minutes } minutos.
 player-replaced-by-bot = { $bot } ahora está jugando en nombre de { $player }.
-player-reclaimed-from-bot = { $player } regresó y recuperó su asiento de manos de { $bot }.
+player-reclaimed-from-bot = { $player } regresó y recuperó { GENDER_TERM($player_gender, "possessive-determiner") } asiento de manos de { $bot }.
 spectator-joined = Te uniste a la mesa de { $host } como espectador.
 
 spectate = Observar
@@ -128,9 +124,7 @@ friend-offline = Tu amigo { $player } se desconectó.
 permission-denied = No tienes permiso para realizar esta acción sobre un desarrollador.
 kick-user = Expulsar usuario
 kick-broadcast = { $actor } expulsó a { $target }.
-you-were-kicked = { $actor } te expulsó.
 user-not-online = El usuario { $target } no está en línea.
-kick-immune = No puedes expulsar a este usuario.
 kick-confirm = ¿Seguro que quieres expulsar a { $player }?
 no-users-to-kick = No hay usuarios disponibles para expulsar.
 usage-kick = Uso: /kick <nombre de usuario>
@@ -199,11 +193,7 @@ option-deselected-count = { $count } deseleccionados
 option-min-selected = Debes seleccionar al menos { $count }.
 option-max-selected = Puedes seleccionar como máximo { $count }.
 
-turn-sound-option = Sonido de turno: { $status }
-
 custom-bot-names-option = Nombres personalizados de bots: { $status }
-confirm-destructive-option = Confirmar acciones arriesgadas: { $status }
-clear-kept-option = Soltar dados guardados al lanzar: { $status }
 option-notify-table-created = Avisar cuando se crea una mesa: { $status }
 option-notify-user-presence = Notificaciones de conexión/desconexión de usuarios: { $status }
 option-notify-friend-presence = Notificaciones de conexión/desconexión de amigos: { $status }
@@ -246,12 +236,9 @@ pref-desc-clear-kept-on-roll = En juegos de dados compatibles como Yahtzee, suel
 pref-desc-dice-keeping-style = Posición de los dados: usa 1-5, o 1-6 en Midnight, para alternar dados por posición. Valores de los dados: usa 1-6 para soltar un dado guardado con ese valor y Shift+1-6 para guardar un dado suelto que coincida. Durante la fase de intercambio de Tradeoff, 1-6 guarda un dado que coincida y Shift+1-6 lo marca para intercambiar; durante la fase de toma, 1-6 toma un dado que coincida del montón.
 
 cancel = Cancelar
-no-bot-names-available = No hay nombres de bot disponibles.
 enter-bot-name = Ingresa el nombre del bot
 bot-name-invalid-length = Los nombres de bot deben tener entre 3 y 30 caracteres.
 bot-name-invalid-characters = Los nombres de bot solo pueden contener letras, números y espacios.
-bot-name-already-used = Ya hay un jugador o bot con ese nombre en esta mesa.
-bot-name-registered-account = Este nombre pertenece a una cuenta registrada. Elige otro nombre de bot.
 table-name-already-used = Ya hay un jugador o bot con ese nombre en esta mesa.
 no-options-available = No hay opciones disponibles.
 no-scores-available = No hay puntuaciones disponibles.
@@ -285,7 +272,7 @@ general-desc-play-typing-sounds = Reproduce pequeños sonidos de tecleo al escri
 general-desc-web-speech-settings = Configura la salida de voz del navegador, incluido el modo ARIA live o Web Speech, la velocidad de habla y la voz.
 general-desc-mobile-speech-settings = Configura el motor de texto a voz móvil, la voz y la velocidad de habla.
 general-desc-invert-multiline-enter = Intercambia el comportamiento de enviar y salto de línea en los campos de texto multilínea del cliente de escritorio.
-general-desc-menu-hints = Muestra las descripciones disponibles directamente en las filas del menú. Cuando está desactivado, puedes consultar las descripciones con Espacio donde sea compatible.
+general-desc-menu-hints = Muestra las descripciones disponibles directamente en las filas del menú. Cuando está desactivado, enfoca un elemento con descripción y pulsa F1 en Escritorio o en la Web con un teclado físico, o toca una vez con tres dedos en el modo de autolectura móvil para escucharla.
 general-desc-mute-global-chat = Evita que los mensajes del chat global se lean en voz alta automáticamente.
 general-desc-mute-table-chat = Evita que los mensajes del chat de mesa se lean en voz alta automáticamente.
 general-desc-notify-user-presence = Anuncia cuando los usuarios se conectan o desconectan.
@@ -344,13 +331,9 @@ action-start-requires-exact-players = No se puede iniciar. Jugadores activos: { 
 action-start-needs-human-player = No se puede iniciar solo con bots. Al menos un humano debe participar como jugador. Cambia de espectador a jugador; si la mesa está llena, primero elimina a un bot.
 action-no-bots = No hay bots para quitar.
 action-bots-cannot = Los bots no pueden hacer esto.
-action-no-scores = Aún no hay puntuaciones disponibles.
-
 options-category-audio = Audio
 options-category-accessibility = Accesibilidad
 options-category-notifications = Notificaciones
-options-category-game = Juego
-
 music-volume-option = Volumen de música: { $value }%
 sound-volume-option = Volumen de efectos de sonido: { $value }%
 ambience-volume-option = Volumen de ambiente: { $value }%
@@ -367,9 +350,6 @@ invert-multiline-enter-option = Invertir comportamiento de la tecla Enter: { $st
 menu-hints-option = Ayudas del menú: { $status }
 menu-hints-changed = Las ayudas del menú ahora están { $status }.
 play-typing-sounds-option = Reproducir sonidos de tecleo: { $status }
-enter-music-volume = Ingresa el volumen de música (0-100)
-enter-ambience-volume = Ingresa el volumen de ambiente (0-100)
-enter-voice-volume = Ingresa el volumen del chat de voz (10-100)
 invalid-volume = Volumen no válido.
 
 dice-not-rolled = Aún no has lanzado los dados.
@@ -402,7 +382,7 @@ table-member-status-bot = Bot
 table-member-status-online = En línea
 table-member-status-offline = Desconectado
 table-member-status-voice-chat = en chat de voz
-table-member-status-bot-takeover = bot jugando en su nombre: { $bot }
+table-member-status-bot-takeover = bot jugando en { GENDER_TERM($member_gender, "possessive-determiner") } nombre: { $bot }
 table-member-no-actions = No hay acciones disponibles para { $player }.
 table-member-left = Esa persona ya no está en esta mesa.
 table-member-bot-left = Ese bot ya no está en esta mesa.
@@ -442,7 +422,7 @@ leaderboard-avg-entry = { $rank }. { $player }: { $value }
 leaderboard-no-player-stats = Aún no has jugado este juego.
 
 leaderboard-no-ratings = Aún no hay datos de puntuación para este juego.
-leaderboard-rating-entry = { $rank }. { $player }: puntuación { $rating } ({ $mu } ± { $sigma })
+leaderboard-rating-entry = { $rank }. { $player }: puntuación { $rating }
 leaderboard-no-player-rating = Aún no tienes una puntuación para este juego.
 
 my-stats = Mis estadísticas
@@ -456,22 +436,15 @@ my-stats-winrate = Porcentaje de victorias: { $value }%
 my-stats-games-played = Partidas jugadas: { $value }
 my-stats-total-score = Puntuación total: { $value }
 my-stats-high-score = Puntuación máxima: { $value }
-my-stats-rating = Puntuación de habilidad: { $value } ({ $mu } ± { $sigma })
+my-stats-rating = Puntuación de habilidad: { $value }
 my-stats-no-rating = Aún no hay puntuación de habilidad
+my-stats-custom = { $name }: { $value }
 my-stats-avg-per-turn = Promedio de puntos por turno: { $value }
 my-stats-best-turn = Mejor turno individual: { $value }
 my-stats-score-per-round = Puntuación por ronda: { $value }
 my-stats-most-enemies-defeated = Más enemigos derrotados: { $value }
 my-stats-deepest-wave-reached = Oleada más profunda alcanzada: { $value }
 
-predict-outcomes = Predecir resultados
-predict-header = Resultados predichos (según puntuación de habilidad)
-predict-note-multiplayer = Los porcentajes de victoria solo se muestran en partidas de 2 jugadores. Con 3 o más jugadores humanos, solo se muestran las puntuaciones de habilidad.
-predict-entry = { $rank }. { $player } (puntuación: { $rating })
-predict-entry-2p = { $rank }. { $player } (puntuación: { $rating }, { $probability }% de probabilidad de ganar)
-predict-unavailable = Las predicciones de puntuación no están disponibles.
-predict-need-players = Se necesitan al menos 2 jugadores humanos para las predicciones.
-action-need-more-humans = Se necesitan más jugadores humanos.
 confirm-leave-game = ¿Seguro que quieres salir de la mesa?
 confirm-yes = Sí
 confirm-no = No
@@ -489,7 +462,6 @@ waiting-for-approval = Tu cuenta está esperando la aprobación de un administra
 account-approved-welcome = ¡Tu cuenta fue aprobada! ¡Bienvenido a PlayAural!
 account-declined-goodbye = Tu solicitud de cuenta fue rechazada.
 
-account-request = solicitud de cuenta
 account-action = acción de cuenta realizada
 
 promote-admin = Ascender a administrador
@@ -626,7 +598,6 @@ logout-confirm-no = No, quedarme
 
 system-name = Sistema
 server-restarting = El servidor se reiniciará en { $seconds } segundos...
-server-restarting-now = El servidor se está reiniciando ahora. Vuelve a conectarte en un momento.
 server-shutting-down = El servidor se apagará en { $seconds } segundos...
 server-shutting-down-now = El servidor se está apagando ahora. ¡Hasta luego!
 server-power-management = Gestión de energía del servidor
@@ -684,7 +655,7 @@ duration-hours = { $count ->
 }
 duration-minutes-seconds = { $minutes } minutos y { $seconds } segundos
 duration-hours-minutes = { $hours } horas y { $minutes } minutos
-server-error-changing-language = Error al cambiar el idioma: { $error }
+server-error-changing-language = No se pudo cambiar el idioma. Tu interfaz anterior sigue activa.
 default-save-name = { $game } - { $date }
 
 speech-settings = Configuración de voz
@@ -692,7 +663,6 @@ speech-mode-option = Modo de voz: { $status }
 speech-rate-option = Velocidad de voz: { $value }%
 speech-voice-option = Voz: { $voice }
 select-voice = Seleccionar voz
-enter-speech-rate = Ingresa la velocidad de voz (50-300)
 invalid-rate = Velocidad de voz no válida. Usa un valor entre 50 y 300.
 mode-aria = Aria-live
 mode-web-speech = API Web Speech
@@ -767,12 +737,8 @@ friends-send-request = Enviar solicitud de amistad
 friends-block-user = Bloquear a un usuario
 friends-list-empty = Aún no tienes amigos.
 friend-status-offline = Desconectado
-friend-status-playing = Jugando { $game }
-friend-status-spectating = Observando { $game }
-friend-status-lobby = Menú principal
 friend-list-entry = { $username } ({ $status })
 
-friend-actions-title = Acciones para { $username }
 view-profile = Ver perfil
 join-table = Unirse a la mesa
 remove-friend = Eliminar amigo
@@ -780,10 +746,9 @@ friend-remove-confirm = ¿Eliminar a { $username } de tu lista de amigos?
 friend-remove-not-friends = { $username } ya no está en tu lista de amigos.
 already-in-table = Ya estás en esta mesa.
 friend-removed-success = { $username } fue eliminado de tu lista de amigos.
-friend-removed-notify = { $username } te eliminó de su lista de amigos.
+friend-removed-notify = { $username } te eliminó de { GENDER_TERM($username_gender, "possessive-determiner") } lista de amigos.
 
 no-pending-requests = No hay solicitudes pendientes.
-friend-request-from = Solicitud de amistad de { $username }
 accept = Aceptar
 decline = Rechazar
 friend-accepted-success = Ahora eres amigo de { $username }.
@@ -792,19 +757,18 @@ request-not-found = La solicitud de amistad ya no existe.
 friend-declined-success = Solicitud de amistad rechazada.
 friend-declined-notify = { $username } rechazó tu solicitud de amistad.
 
-public-profile-title = Perfil de { $username }
 enter-friend-username = Ingresa el nombre de usuario de la persona que quieres agregar como amigo:
 enter-block-username = Ingresa el nombre de usuario de la persona que quieres bloquear:
 friend-error-self = No puedes enviarte una solicitud de amistad a ti mismo.
 friend-error-already-friends = Ya eres amigo de este usuario.
 friend-error-duplicate = Ya tienes una solicitud de amistad pendiente con este usuario.
 friend-error-blocked = Las solicitudes de amistad no están disponibles entre tú y { $username }.
-friend-error-blocked-by-you = Bloqueaste a { $username }. Desbloquéalo antes de enviarle una solicitud de amistad.
+friend-error-blocked-by-you = Bloqueaste a { $username }. Desbloquéa{ GENDER_TERM($username_gender, "object") } antes de enviarle una solicitud de amistad.
 friend-request-sent = Solicitud de amistad enviada a { $username }.
 friend-request-received = Recibiste una nueva solicitud de amistad de { $username }.
 
 block-confirm = ¿Bloquear a { $username }? Esto elimina cualquier amistad y solicitud de amistad pendiente entre ustedes. Ninguno de los dos podrá enviarle al otro solicitudes de amistad, mensajes privados ni invitaciones a mesas, y los mensajes de chat normales quedarán ocultos en ambas direcciones. Hasta que se desbloquee, ninguno de los dos podrá entrar de nuevo a una mesa organizada por el otro ni restaurar una mesa guardada que incluya a ambos jugadores. Bloquear no saca a ningún jugador de una mesa compartida, no impide recuperar un asiento reservado, ni silencia el chat de voz de la mesa.
-block-success = Bloqueaste a { $username }. El contacto social directo ya no está disponible entre ustedes, sus mensajes de chat normales quedan ocultos, y ninguno de los dos puede entrar de nuevo a una mesa organizada por el otro ni restaurar una mesa guardada que incluya a ambos jugadores.
+block-success = Bloqueaste a { $username }. El contacto social directo ya no está disponible entre ustedes, sus mensajes de chat normales quedan ocultos, y ninguno de los dos puede entrar de nuevo a una mesa organizada por el otro ni restaurar una mesa guardada que incluya a ambos usuarios.
 block-error-self = No puedes bloquearte a ti mismo.
 block-already-active = Ya bloqueaste a { $username }.
 block-no-longer-active = Este bloqueo ya no está activo.
@@ -841,6 +805,7 @@ table-spectator-suffix = (Espectador)
 host-management-set-private = Establecer mesa como privada
 host-management-set-public = Establecer mesa como pública
 host-management-invite = Invitar a un amigo
+host-management-voice = Gestionar el chat de voz
 host-management-pass-host = Ceder el anfitrionazgo a otro jugador
 host-management-kick = Expulsar a un jugador
 host-management-kick-ban = Expulsar y banear a un jugador
@@ -852,12 +817,12 @@ host-restart-broadcast = { $player } reinició la partida. La mesa volvió a la 
 host-restart-not-playing = No hay ninguna partida activa para reiniciar.
 host-invite-no-friends = (No hay amigos disponibles para invitar)
 host-invite-sent = Invitación enviada a { $player }.
-host-invite-friend-unavailable = Ese amigo no está en línea en este momento.
+host-invite-friend-unavailable = Ese amigo ya no está disponible para ser invitado.
 host-invite-already-pending = Ya hay una invitación pendiente para ese amigo.
 host-invite-friend-busy = Ese amigo ya está en una partida.
 host-invite-declined = { $player } rechazó tu invitación a la mesa.
-table-invite-received = { $host } te invitó a su mesa de { $game }.
-table-invite-queued = { $host } te invitó a su mesa de { $game }. Termina tu entrada actual para responder.
+table-invite-received = { $host } te invitó a { GENDER_TERM($host_gender, "possessive-determiner") } mesa de { $game }.
+table-invite-queued = { $host } te invitó a { GENDER_TERM($host_gender, "possessive-determiner") } mesa de { $game }. Termina tu entrada actual para responder.
 table-invite-expired = La invitación a la mesa caducó.
 invite-accept = Aceptar invitación
 invite-decline = Rechazar invitación
@@ -888,6 +853,42 @@ voice-status-connected = { $player } se conectó al chat de voz de la mesa.
 voice-status-disconnected = { $player } se desconectó del chat de voz.
 voice-status-connection-lost = { $player } perdió la conexión y fue eliminado del chat de voz.
 voice-status-left-table = { $player } salió de la mesa y del chat de voz.
+voice-member-status-connected = conectado al chat de voz
+voice-member-status-not-connected = no conectado al chat de voz
+voice-member-status-host-muted = micrófono desactivado por el anfitrión
+voice-member-status-host-unmuted = puede usar el micrófono
+voice-member-entry = { $player }: { $status }
+voice-host-management-no-members = No hay más miembros de la mesa que puedas moderar.
+voice-host-target-summary = Estado de voz de { $player }: { $voice_status }; { $moderation_status }.
+voice-host-mute-action = Desactivar el micrófono de { $player }
+voice-host-unmute-action = Permitir que { $player } use su micrófono
+voice-host-cannot-mute-self = Como anfitrión, no puedes desactivar tu propio micrófono.
+voice-host-moderation-rate-limited = La moderación del chat de voz está cambiando demasiado rápido. Inténtalo de nuevo dentro de { $seconds } segundos.
+voice-host-muted-actor = Desactivaste el micrófono de { $player } en esta mesa. Puede seguir escuchando, pero no puede transmitir el audio de su micrófono.
+voice-host-muted-target = { $host } desactivó tu micrófono en esta mesa. Puedes seguir escuchando, pero no puedes activar tu micrófono.
+voice-host-muted-observer = { $host } desactivó el micrófono de { $player } en esta mesa.
+voice-host-unmuted-actor = Permitiste que { $player } volviera a usar su micrófono. El micrófono permanece desactivado hasta que lo active explícitamente.
+voice-host-unmuted-target = { $host } te permitió volver a usar tu micrófono. Tu micrófono permanece desactivado hasta que lo actives explícitamente.
+voice-host-unmuted-observer = { $host } permitió que { $player } volviera a usar su micrófono.
+voice-host-unmuted-self = Volviste a permitir el uso de tu propio micrófono. Permanece desactivado hasta que lo actives explícitamente.
+voice-personal-settings-action = Configuración personal de voz
+voice-personal-settings-summary = Configuración personal de voz para { $player }: volumen al { $volume } por ciento; { $mute_status }; { $connection_status }.
+voice-personal-status-muted = silenciado solo para ti
+voice-personal-status-unmuted = no silenciado para ti
+voice-personal-mute-action = Silenciar a { $player } solo para mí
+voice-personal-unmute-action = Dejar de silenciar a { $player } solo para mí
+voice-personal-volume-action = Cambiar el volumen personal, actualmente al { $volume } por ciento
+voice-personal-volume-choice = { $volume } por ciento
+voice-personal-reset-action = Restablecer la configuración personal de voz
+voice-personal-muted = Silenciaste a { $player } solo para ti. Solo tú dejarás de escuchar a { $player }.
+voice-personal-unmuted = Dejaste de silenciar a { $player } solo para ti.
+voice-personal-volume-set = Estableciste el volumen personal de voz de { $player } al { $volume } por ciento.
+voice-personal-reset = Restableciste tu configuración personal de voz para { $player }.
+voice-member-left = Ese miembro ya no está en esta mesa. La configuración de voz que se conserva en la mesa no se modificó.
+voice-settings-limit-reached = Esta mesa alcanzó el límite de seguridad de la configuración de voz. No se modificó ningún ajuste.
+voice-settings-invalid = Esa configuración de voz no es válida. No se modificó ningún ajuste.
+voice-invalid-participant = Ese participante del chat de voz no es válido.
+voice-moderation-provider-failed = No se pudo aplicar la moderación del chat de voz en este momento. No se modificó ningún ajuste; inténtalo de nuevo.
 
 error-smtp-not-configured = La recuperación de contraseña está desactivada actualmente por el administrador.
 error-email-not-found = No se encontró ninguna cuenta con ese correo.
@@ -916,3 +917,399 @@ admin-localized-text-publish-motd = Publicar mensaje del día
 admin-localized-text-continue = Continuar
 admin-localized-text-apply-ban = Aplicar baneo
 admin-localized-text-apply-mute = Aplicar silencio
+
+auth-username-reserved = Este nombre está reservado por PlayAural. Elige otro nombre de usuario.
+action-role-change-rate-limited = Estás cambiando demasiado rápido entre jugador y espectador. Inténtalo de nuevo dentro de { $seconds ->
+    [one] 1 segundo
+   *[other] { $seconds } segundos
+}.
+general-desc-global-chat-channel = Elige el canal de idioma que usarás para enviar y recibir mensajes del chat global. Se necesita un canal aunque el chat global esté activado.
+global-chat-channel-option = Idioma del chat global: { $channel }
+global-chat-channel-none = Ningún canal seleccionado
+global-chat-channel-none-current = Ningún canal seleccionado (actual)
+global-chat-channel-name = { $language }
+global-chat-channel-recommended = { $language } (recomendado para el idioma de tu interfaz)
+global-chat-channel-current = { $language } (actual)
+global-chat-channel-current-recommended = { $language } (actual, recomendado para el idioma de tu interfaz)
+global-chat-channel-selected = El idioma del chat global se estableció en { $language }. El chat global no se supervisa en tiempo real. Si alguien usa palabras malsonantes o te insulta, bloquéalo. Reporta los abusos graves o reiterados para que puedan revisarse después.
+global-chat-channel-cleared = No hay ningún idioma seleccionado para el chat global. No enviarás ni recibirás mensajes globales.
+
+admin-moderation = Moderación del chat
+admin-moderation-global-chat-toggle = Chat global: { $status }
+admin-moderation-global-chat-toggle-description = Activa o desactiva el envío de mensajes en todos los canales de idioma del chat global. Esta configuración se conserva después de reiniciar el servidor.
+admin-moderation-global-chat-status-description = Estado actual para todo el servidor. Solo un desarrollador puede cambiar esta configuración.
+admin-moderation-global-chat-update-failed = No se pudo guardar la configuración del chat global, así que no se hizo ningún cambio. Inténtalo de nuevo.
+global-chat-availability-enabled = El desarrollador activó el chat global. Selecciona un canal de idioma antes de enviar o recibir mensajes globales.
+global-chat-availability-disabled = El desarrollador desactivó temporalmente el chat global.
+admin-moderation-section-reports = Reportes
+admin-moderation-open-reports = Reportes abiertos: { $count }
+admin-moderation-closed-reports = Reportes cerrados: { $count }
+admin-moderation-all-reports = Todos los reportes conservados: { $count }
+admin-moderation-section-messages = Historial de mensajes globales
+admin-moderation-browse-messages = Explorar y filtrar todos los mensajes globales
+admin-moderation-find-history = Buscar el historial del chat global por nombre de usuario exacto
+admin-moderation-retained-summary = Pruebas conservadas: { $messages } mensajes globales y { $closed } reportes cerrados.
+admin-moderation-section-retention = Eliminación permanente
+admin-moderation-clear-history = Borrar todos los mensajes conservados del chat global ({ $count })
+admin-moderation-clear-closed-reports = Borrar todos los reportes cerrados ({ $count })
+admin-moderation-open-report-list = Reportes abiertos, los más recientes primero
+admin-moderation-closed-report-list = Reportes cerrados, los más recientes primero
+admin-moderation-all-report-list = Todos los reportes conservados, los más recientes primero
+admin-moderation-report-row = Reporte n.º { $id }, enviado el { $time }. Usuario reportado: { $target }, ID { $target_id }. Motivo: { $reason }. Quien reportó: { $reporter }. Estado: { $status }.
+admin-moderation-no-reports = Ningún reporte coincide con esta vista.
+admin-moderation-value-unknown = desconocido
+admin-moderation-status-open = abierto
+admin-moderation-status-reviewed = revisado
+admin-moderation-status-dismissed = descartado
+admin-moderation-status-actioned = acción registrada
+admin-moderation-status-unknown = desconocido
+admin-moderation-report-unavailable = Este reporte ya no existe. Es posible que otro desarrollador lo haya eliminado.
+admin-moderation-report-id = ID del reporte: { $id }
+admin-moderation-report-time = Enviado el: { $time }
+admin-moderation-report-status = Estado: { $status }
+admin-moderation-report-origin = Origen: { $origin }
+admin-moderation-origin-manual = enviado por un usuario
+admin-moderation-origin-automatic = generado automáticamente por el Sistema
+admin-moderation-report-reporter = Quien reportó: { $username }. ID de cuenta: { $uuid }
+admin-moderation-report-target = Usuario reportado: { $username }. ID de cuenta: { $uuid }
+admin-moderation-report-reason = Motivo: { $reason }
+admin-moderation-report-channel = Canal de contexto del chat global: { $channel }
+admin-moderation-report-scope = Detectado en: { $scope }
+admin-moderation-scope-global = chat global
+admin-moderation-scope-table = chat de mesa
+admin-moderation-detection-rate-limited = mensajes enviados demasiado rápido
+admin-moderation-detection-repeated-message = mensajes coincidentes repetidos
+admin-moderation-automatic-evidence = Generado automáticamente por el Sistema solo para revisión manual; no se aplicó ninguna sanción. En { $scope }, el detector observó { $incidents } incidentes de spam separados y rechazó { $rejected } intentos durante un intervalo de observación de { $window }. Se aceptaron { $accepted } mensajes recientes. Detección: { $detection }. Último mensaje rechazado: { $sample }
+admin-moderation-automatic-evidence-unavailable = Este reporte fue generado automáticamente por el Sistema solo para revisión manual y no se aplicó ninguna sanción. Sus pruebas de detección estructuradas no están disponibles o pertenecen a una versión no compatible.
+admin-moderation-report-anchor = ID del mensaje de anclaje de contexto guardado: { $id }
+admin-moderation-report-anchor-unavailable = No hay ningún mensaje de anclaje de contexto guardado. Puede que la cuenta reportada no haya enviado un mensaje conservado en este canal o que se haya borrado el historial del chat.
+admin-moderation-report-details = Detalles adicionales: { $details }
+admin-moderation-report-review = Revisado por { $reviewer }, ID de cuenta { $reviewer_id }, el { $time }.
+admin-moderation-view-context = Ver la conversación alrededor de la hora del reporte
+admin-moderation-view-target-history = Ver todos los mensajes globales conservados del ID de cuenta reportado
+admin-moderation-mark-reviewed = Marcar como revisado sin sanción registrada
+admin-moderation-dismiss-report = Descartar reporte
+admin-moderation-mark-actioned = Marcar la acción como registrada. Esto no aplica ninguna sanción.
+admin-moderation-context-heading = Contexto del reporte n.º { $id }, enviado el { $time }. Canal: { $channel }. Los mensajes están en orden cronológico; los mensajes del usuario reportado se identifican expresamente.
+admin-moderation-context-message = { $username }: { $message } Mensaje n.º { $id }, enviado el { $time }. ID de cuenta: { $uuid }. Idioma: { $channel }.
+admin-moderation-context-target-message = Usuario reportado { $username }: { $message } Mensaje n.º { $id }, enviado el { $time }. ID de cuenta: { $uuid }. Idioma: { $channel }.
+admin-moderation-context-anchor-message = Mensaje anclado del usuario reportado { $username }: { $message } Mensaje n.º { $id }, enviado el { $time }. ID de cuenta: { $uuid }. Idioma: { $channel }.
+admin-moderation-context-empty = No quedan mensajes globales conservados alrededor de la hora de este reporte.
+admin-moderation-copy-page = { $count ->
+    [one] Copiar el mensaje de esta página (1)
+   *[other] Copiar los mensajes de esta página ({ $count })
+}
+admin-moderation-copy-page-success = { $count ->
+    [one] Se copió 1 mensaje de esta página al portapapeles.
+   *[other] Se copiaron { $count } mensajes de esta página al portapapeles.
+}
+admin-moderation-copy-page-failed = No se pudo copiar esta página al portapapeles. Comprueba el permiso del portapapeles e inténtalo de nuevo.
+admin-moderation-history-prompt = Escribe el nombre de usuario exacto cuyo historial conservado del chat global quieres buscar. Los ID de cuentas históricas con el mismo nombre se mostrarán por separado.
+admin-moderation-sender-results-heading = Identidades de remitentes conservadas que coinciden exactamente con el nombre de usuario «{ $username }».
+admin-moderation-sender-result = { $username }, ID de cuenta { $uuid }. { $count } mensajes desde { $first } hasta { $last }.
+admin-moderation-no-sender-history = Ningún historial conservado del chat global coincide exactamente con el nombre de usuario «{ $username }».
+admin-moderation-history-heading = Historial conservado del chat global de { $username }, ID de cuenta { $uuid }: { $count } mensajes, los más recientes primero.
+admin-moderation-history-message = { $username }: { $message } Mensaje n.º { $id }, enviado el { $time }. Idioma: { $channel }.
+admin-moderation-history-empty = No quedan mensajes globales conservados para este ID de cuenta.
+admin-moderation-message-list-heading = Historial de mensajes globales. Coinciden { $count } mensajes. Orden: { $sort }. Idioma: { $channel }. Período: { $period }. Todas las horas están en UTC.
+admin-moderation-message-row = { $username }: { $message } Mensaje n.º { $id }, enviado el { $time }. ID de cuenta: { $uuid }. Idioma: { $channel }.
+admin-moderation-message-list-empty = Ningún mensaje global conservado coincide con estos filtros.
+admin-moderation-message-filter-sort = Orden: { $sort }
+admin-moderation-message-filter-language = Idioma: { $channel }
+admin-moderation-message-filter-period = Período: { $period }
+admin-moderation-message-filter-reset = Restablecer todos los filtros de mensajes
+admin-moderation-message-sort-newest = más recientes primero
+admin-moderation-message-sort-oldest = más antiguos primero
+admin-moderation-message-language-all = todos los idiomas
+admin-moderation-message-period-all = todo el período
+admin-moderation-message-period-today = hoy
+admin-moderation-message-period-yesterday = ayer
+admin-moderation-message-period-last-7-days = últimos 7 días
+admin-moderation-message-period-last-30-days = últimos 30 días
+admin-moderation-message-period-current-month = mes natural actual
+admin-moderation-message-period-previous-month = mes natural anterior
+admin-moderation-message-language-menu = Filtra los mensajes por idioma. El filtro actual es { $channel }.
+admin-moderation-message-period-menu = Filtra los mensajes por período en UTC. El filtro actual es { $period }.
+admin-moderation-message-filter-current = { $value } (actual)
+admin-moderation-clear-history-confirm = ¿Eliminar permanentemente los { $count } mensajes conservados del chat global? Esta acción no se puede deshacer. Los { $open } reportes abiertos se conservarán, pero se eliminarán sus mensajes de anclaje y el contexto de la conversación.
+admin-moderation-clear-closed-confirm = ¿Eliminar permanentemente los { $count } reportes cerrados? Los reportes abiertos y el historial del chat global se conservarán. Esta acción no se puede deshacer.
+admin-moderation-report-already-closed = Otra acción de revisión ya había cerrado este reporte. Se volvió a cargar el registro actual.
+admin-moderation-report-status-updated = El reporte n.º { $id } ahora está marcado como { $status }. No se aplicó ninguna sanción automática.
+admin-new-manual-report = Nuevo reporte de moderación n.º { $id }: { $reporter } reportó a { $target }.
+admin-new-automatic-report = El nuevo reporte de spam del Sistema n.º { $id } requiere revisión manual: { $target }.
+admin-moderation-history-cleared = Se eliminaron permanentemente { $count } mensajes conservados del chat global. Los reportes existentes se conservan sin mensajes de anclaje. Si no queda ningún mensaje, la numeración se reiniciará en 1.
+admin-moderation-closed-reports-cleared = Se eliminaron permanentemente { $count } reportes cerrados. Los reportes abiertos se conservan. Si no queda ningún reporte, la numeración se reiniciará en 1.
+
+admin-database-management = Gestión de la base de datos
+admin-database-management-summary = Mantenimiento de la base de datos exclusivo para desarrolladores. El análisis es de solo lectura. La copia de seguridad, la limpieza y la compactación pausan temporalmente el juego y los cambios de cuentas en todo el servidor.
+admin-database-backup = Crear copia de seguridad de la base de datos
+admin-database-backup-confirm = ¿Crear ahora una copia de seguridad de la base de datos? El juego y los cambios de cuentas se pausarán mientras SQLite crea y verifica una instantánea de recuperación. La copia se conservará en el directorio de copias de seguridad del servidor hasta que un operador la elimine.
+admin-database-backup-success = Copia de seguridad de la base de datos completada: { $filename } ({ $size }).
+admin-database-backup-failed = Falló la copia de seguridad de la base de datos. No se publicó ninguna copia parcial. Consulta el registro del servidor para obtener más información.
+admin-database-size-bytes = { $value ->
+    [one] 1 byte
+   *[other] { NUMBER($value, maximumFractionDigits: 0) } bytes
+}
+admin-database-size-kib = { NUMBER($value, maximumFractionDigits: 1) } KiB
+admin-database-size-mib = { NUMBER($value, maximumFractionDigits: 1) } MiB
+admin-database-size-gib = { NUMBER($value, maximumFractionDigits: 1) } GiB
+admin-database-storage-analyze = Analizar candidatos para la limpieza
+admin-database-storage-analysis-summary = Tamaño de la base de datos: { $size }. Espacio reutilizable de SQLite: { $reusable }. Registros aptos para eliminar: { $records }.
+admin-database-storage-analysis-failed = El análisis del almacenamiento falló sin cambiar ningún dato. Consulta el registro del servidor para obtener más información.
+admin-database-storage-refresh-analysis = Actualizar el análisis del almacenamiento
+admin-database-storage-cleanup = Ejecutar la limpieza del almacenamiento
+admin-database-storage-cleanup-confirm = ¿Ejecutar ahora la limpieza segura del almacenamiento? El juego y los cambios de cuentas se pausarán mientras el servidor crea y verifica una copia de seguridad de precaución, elimina únicamente los registros transitorios o huérfanos indicados y valida el resultado. El archivo de la base de datos no se compactará.
+admin-database-storage-cleanup-not-needed = No es necesario limpiar el almacenamiento. No se encontraron registros aptos ni archivos temporales de copias de seguridad abandonados.
+admin-database-storage-cleanup-success = Limpieza del almacenamiento completada. Registros eliminados: { $records }. Archivos temporales de copias de seguridad abandonados eliminados: { $files } ({ $file_size }). Espacio reutilizable de SQLite: { $reusable }. Ejecuta la compactación por separado para reducir el tamaño del archivo. Copia de seguridad de precaución: { $filename }.
+admin-database-storage-cleanup-failed = Falló la limpieza del almacenamiento. Se conservó cualquier copia de seguridad de precaución completada. Consulta el registro del servidor antes de volver a intentarlo.
+admin-database-storage-no-record-candidates = En este momento no hay registros de la base de datos aptos para una limpieza segura.
+admin-database-storage-temporary-files = Archivos temporales abandonados de copias de seguridad de PlayAural: { $count } ({ $size }).
+admin-database-storage-invalid-timestamps = Advertencia de seguridad: { $count } registros contienen marcas de tiempo de conservación no válidas. La limpieza nunca los considerará caducados suponiendo su antigüedad; revísalos manualmente.
+admin-database-storage-exclusions = Siempre se excluyen de la limpieza automática: mesas guardadas, resultados de partidas, historial del chat global, reportes de moderación, cuentas de usuario, bloqueos válidos, datos activos, estadísticas de juegos registrados, datos de compatibilidad, copias de seguridad válidas y registros. Las mesas guardadas solo se eliminan mediante una acción expresa de su propietario o de un desarrollador.
+admin-database-storage-category-row = { $category }: { $count }
+admin-database-storage-category-expired-table-checkpoints = Puntos de control transitorios de mesas caducados
+admin-database-storage-category-expired-password-reset-tokens = Códigos de restablecimiento de contraseña caducados
+admin-database-storage-category-expired-bans = Registros de baneo conservados durante más de { $days } días después de caducar
+admin-database-storage-category-stale-pending-friend-requests = Solicitudes de amistad pendientes con más de { $days } días
+admin-database-storage-category-orphaned-friendships = Registros de amistad huérfanos
+admin-database-storage-category-orphaned-user-blocks = Registros de bloqueo de usuarios huérfanos
+admin-database-storage-category-stale-user-notifications = Notificaciones de usuario con más de { $days } días
+admin-database-storage-category-orphaned-user-notifications = Registros de notificaciones de usuario huérfanos
+admin-database-storage-category-expired-mutes = Registros de silenciamiento caducados
+admin-database-storage-category-orphaned-mutes = Registros de silenciamiento huérfanos
+admin-database-compact = Compactar la base de datos y recuperar el espacio sin usar
+admin-database-compact-confirm = ¿Compactar ahora la base de datos? El juego y los cambios de cuentas se pausarán. Se creará una copia de seguridad de precaución verificada antes de que SQLite reconstruya la base de datos activa. Esta operación requiere bastante espacio temporal en el disco y debería ejecutarse en un período de poca actividad.
+admin-database-compact-success = Compactación de la base de datos completada. El tamaño del archivo cambió de { $before } a { $after }; se recuperaron { $reclaimed }. Copia de seguridad de precaución: { $filename }.
+admin-database-compact-failed = Falló la compactación de la base de datos. La base de datos activa no se modificó intencionadamente y se conservó cualquier copia de seguridad de precaución completada. Consulta el registro del servidor para obtener más información.
+admin-database-maintenance-busy = Ya hay otra operación exclusiva del servidor en curso. Espera a que termine antes de iniciar el mantenimiento de la base de datos.
+database-maintenance-operation-backup = copia de seguridad de la base de datos
+database-maintenance-operation-cleanup = limpieza del almacenamiento
+database-maintenance-operation-compaction = compactación de la base de datos
+database-maintenance-not-active = El mantenimiento de la base de datos no está activo en este momento.
+database-maintenance-input-blocked = La { $operation } del servidor está en curso. El juego, el inicio de sesión, el registro y los cambios de cuentas están pausados temporalmente. Tu menú actual sigue disponible, pero las acciones no se ejecutarán hasta que termine el mantenimiento.
+database-maintenance-auth-blocked = El mantenimiento de la base de datos del servidor está en curso. El inicio de sesión, el registro y los cambios de contraseña no están disponibles temporalmente. Inténtalo de nuevo cuando termine el mantenimiento.
+database-maintenance-backup-started = El desarrollador está creando una copia de seguridad de la base de datos del servidor. El juego y los cambios de cuentas están pausados temporalmente; los menús actuales siguen visibles. Se te avisará cuando se reanude el servicio normal.
+database-maintenance-backup-completed = La copia de seguridad de la base de datos del servidor terminó. El juego y el acceso a las cuentas se están reanudando.
+database-maintenance-backup-failed = No se pudo completar la copia de seguridad de la base de datos del servidor. No se publicó ninguna copia parcial. El juego y el acceso a las cuentas se están reanudando.
+database-maintenance-cleanup-started = El desarrollador está limpiando el almacenamiento del servidor. El juego y los cambios de cuentas están pausados temporalmente, pero los menús actuales siguen visibles. Primero se está creando una copia de seguridad de precaución verificada. Se te avisará cuando se reanude el servicio normal.
+database-maintenance-cleanup-completed = La limpieza del almacenamiento y la validación de la base de datos del servidor terminaron. El juego y el acceso a las cuentas se están reanudando.
+database-maintenance-cleanup-failed = La limpieza del almacenamiento del servidor no pudo completarse de forma segura. El juego y el acceso a las cuentas se están reanudando.
+database-maintenance-compaction-started = El desarrollador está compactando la base de datos del servidor. El juego y los cambios de cuentas están pausados temporalmente; los menús actuales siguen visibles. Se te avisará cuando se reanude el servicio normal.
+database-maintenance-compaction-completed = La compactación de la base de datos del servidor terminó. El juego y el acceso a las cuentas se están reanudando.
+database-maintenance-compaction-failed = No se pudo completar la compactación de la base de datos del servidor. El juego y el acceso a las cuentas se están reanudando sin aplicar la compactación.
+database-maintenance-reopen-failed = Error crítico de mantenimiento: la base de datos activa no pudo volver a abrirse de forma segura, por lo que el servidor sigue inmovilizado. Espera a que el desarrollador restablezca el servicio.
+
+chat-repeated-message = Por favor, no repitas el mismo mensaje.
+chat-global-channel-required-send = Selecciona un idioma para el chat global antes de enviar mensajes. El chat global no se supervisa en tiempo real. Si alguien usa palabras malsonantes o te insulta, bloquéalo. Reporta los abusos graves o reiterados para que puedan revisarse después.
+chat-global-log-unavailable = El chat global no está disponible temporalmente porque este mensaje no se pudo guardar de forma segura. Inténtalo de nuevo más tarde.
+chat-global-temporarily-disabled-send = El desarrollador desactivó temporalmente el chat global.
+
+report-user = Reportar a un usuario
+enter-report-username = Escribe el nombre de usuario que quieres reportar.
+report-error-self = No puedes reportar tu propia cuenta.
+report-select-reason = Reportar a { $username }: selecciona el motivo que mejor describa su conducta.
+report-reason-spam = Spam o interrupciones reiteradas
+report-reason-harassment = Acoso o insultos personales
+report-reason-hateful-content = Contenido de odio
+report-reason-sexual-content = Contenido sexual
+report-reason-threats = Amenazas de daño
+report-reason-personal-information = Divulgación de información personal
+report-reason-other = Otra mala conducta grave
+report-channel-unspecified = ningún canal de chat global seleccionado
+report-confirm-summary = Reportar a { $username } por { $reason }. Canal de contexto: { $channel }. El reporte se guardará para revisión manual. El usuario no recibirá una notificación ni una sanción automática.
+report-submit = Enviar reporte
+report-change-reason = Cambiar el motivo
+report-submitted = Tu reporte sobre { $username } se guardó con la hora exacta de envío para su revisión manual. El usuario no recibió ninguna notificación. También puedes bloquear{ GENDER_TERM($username_gender, "object") } para impedir el contacto directo y ocultar sus mensajes globales.
+report-target-cooldown = Reportaste a { $username } recientemente. Espera { $duration } antes de enviar otro reporte; usa Bloquear ahora si no quieres recibir { GENDER_TERM($username_gender, "possessive-determiner") } mensajes.
+report-rate-limited = Has enviado varios reportes recientemente. Inténtalo de nuevo dentro de { $duration }.
+report-failed = No se pudo guardar el reporte de forma segura. Inténtalo de nuevo más tarde.
+
+server-power-maintenance-active = No se puede programar una operación de energía del servidor mientras el mantenimiento de la base de datos esté activo. Espera a que termine e inténtalo de nuevo.
+
+# Formas gramaticales compartidas para el género de la cuenta. Los juegos
+# pueden sustituir una forma mediante <context>-gender-term-<form> al llamar a
+# GENDER_TERM; los nombres técnicos context y form no deben traducirse.
+# Sujeto opcional. Incluye el espacio final: "él ", "ella " o nada. Escribe el
+# mensaje pegado al verbo ("así que { GENDER_TERM(...) }intercambia"). Sin género
+# definido (también los bots) el sujeto se omite, como es natural en español.
+gender-term-subject =
+    { $gender ->
+        [male] { "él " }
+        [female] { "ella " }
+       *[other] { "" }
+    }
+gender-term-subject-capitalized =
+    { $gender ->
+        [male] Él
+        [female] Ella
+       *[other] Esa persona
+    }
+gender-term-subject-be =
+    { $gender ->
+        [male] él está
+        [female] ella está
+       *[other] está
+    }
+gender-term-subject-be-capitalized =
+    { $gender ->
+        [male] Él está
+        [female] Ella está
+       *[other] Está
+    }
+gender-term-subject-have =
+    { $gender ->
+        [male] él tiene
+        [female] ella tiene
+       *[other] tiene
+    }
+gender-term-subject-have-capitalized =
+    { $gender ->
+        [male] Él tiene
+        [female] Ella tiene
+       *[other] Tiene
+    }
+# Pronombre átono de objeto: "lo", "la" o "le" (sin género definido, también los
+# bots). Va delante del verbo ("{ GENDER_TERM(...) } deja") o pegado al gerundio,
+# infinitivo o imperativo ("dejándo{ GENDER_TERM(...) }"). No se escribe tras "a".
+gender-term-object =
+    { $gender ->
+        [male] lo
+        [female] la
+       *[other] le
+    }
+gender-term-possessive-determiner =
+    { $gender ->
+        [male] su
+        [female] su
+       *[other] su
+    }
+gender-term-possessive-determiner-capitalized =
+    { $gender ->
+        [male] Su
+        [female] Su
+       *[other] Su
+    }
+gender-term-possessive-pronoun =
+    { $gender ->
+        [male] el suyo
+        [female] el suyo
+       *[other] el suyo
+    }
+gender-term-reflexive =
+    { $gender ->
+        [male] a sí mismo
+        [female] a sí misma
+       *[other] a sí
+    }
+
+friends-sent-requests = { $count ->
+    [0] Solicitudes enviadas
+   *[other] Solicitudes enviadas ({ $count })
+}
+friend-status-offline-last-online = Desconectado, última conexión { $relative_time }
+no-sent-requests = No tienes solicitudes de amistad enviadas pendientes.
+friend-request-to = Solicitud de amistad enviada a { $username }
+friend-request-manage-sent = Gestionar solicitud de amistad enviada
+friend-request-accept-action = Aceptar solicitud de amistad
+friend-request-cancel-action = Cancelar solicitud de amistad
+friend-request-cancel-confirm = ¿Cancelar tu solicitud de amistad pendiente para { $username }?
+friend-request-cancelled = Se canceló tu solicitud de amistad para { $username }.
+friend-request-cancel-unavailable = Esta solicitud de amistad ya no está pendiente, por lo que no se canceló.
+relative-time-just-now = ahora mismo
+relative-time-minutes-ago = { $count ->
+    [one] hace 1 minuto
+   *[other] hace { $count } minutos
+}
+relative-time-hours-ago = { $count ->
+    [one] hace 1 hora
+   *[other] hace { $count } horas
+}
+relative-time-days-ago = { $count ->
+    [one] hace 1 día
+   *[other] hace { $count } días
+}
+relative-time-weeks-ago = { $count ->
+    [one] hace 1 semana
+   *[other] hace { $count } semanas
+}
+relative-time-months-ago = { $count ->
+    [one] hace 1 mes
+   *[other] hace { $count } meses
+}
+relative-time-years-ago = { $count ->
+    [one] hace 1 año
+   *[other] hace { $count } años
+}
+
+host-management-switch-game = Cambiar a otro juego
+host-management-player-substitution = Sustitución de jugadores
+host-game-switch-current = Juego actual: { $game }. Esta mesa tiene { $seats } { $seats ->
+    [one] asiento activo
+   *[other] asientos activos
+}. Solo se muestran los juegos que admiten todos los asientos activos.
+host-game-switch-no-compatible-games = Ningún otro juego admite actualmente los { $seats } { $seats ->
+    [one] asiento activo
+   *[other] asientos activos
+}.
+host-game-switch-confirm = ¿Cambiar el juego de esta mesa de { $old_game } a { $new_game }? Todas las personas presentes pasarán a la nueva sala de espera con la misma función de jugador o espectador, y los bots permanecerán. Se descartarán la partida o configuración actual, las opciones, los equipos y el estado de preparación. Se conservarán el anfitrión, la privacidad, los baneos y el chat de voz. Se cancelarán las invitaciones pendientes del juego anterior.
+host-game-switch-target-unavailable = Ese juego ya no está disponible como destino del cambio. No se modificó ningún estado de la mesa.
+host-game-switch-roster-invalid = Los miembros presentes en la mesa ya no coinciden con los asientos del juego. El cambio se bloqueó para evitar que alguien quedara fuera. Vuelve a la mesa e inténtalo de nuevo después de que se actualice la lista.
+host-game-switch-too-many-seats = No se puede cambiar a { $game }: admite como máximo { $max } { $max ->
+    [one] asiento activo
+   *[other] asientos activos
+}, pero esta mesa necesita { $seats }.
+host-game-switch-failed = No se pudo cambiar de juego de forma segura. La mesa y el juego actuales permanecieron sin cambios.
+host-game-switch-you = Cambiaste el juego de esta mesa de { $old_game } a { $new_game }. Todos están ahora en la nueva sala de espera; el chat de voz de la mesa sigue conectado.
+host-game-switch-player = { $player } cambió el juego de esta mesa de { $old_game } a { $new_game }. Todos están ahora en la nueva sala de espera; el chat de voz de la mesa sigue conectado.
+
+player-substitution-offer-action = Colocar a un espectador en este asiento
+player-substitution-seat-bot = Asiento del bot: { $bot }
+player-substitution-seat-replacement = { $bot }, jugando en el asiento reservado de { $player }
+player-substitution-seat-self = Tu asiento: { $player }
+player-substitution-seat-player = Asiento del jugador: { $player }
+player-substitution-no-seats = (No hay asientos de jugadores activos disponibles)
+player-substitution-seat-unavailable = Ese asiento ya no está disponible para una sustitución. No se cambió ninguna función.
+player-substitution-no-spectators = (No hay espectadores aptos disponibles)
+player-substitution-spectator-unavailable = Ese espectador ya no está disponible para una sustitución. No se cambió ninguna función.
+player-substitution-user-busy = { $player } está completando otra entrada o vista de estado. Inténtalo de nuevo cuando ya no tenga esa vista abierta.
+player-substitution-game-busy = El juego está completando una elección sincronizada o una recuperación de la mesa que bloquea temporalmente las sustituciones. Inténtalo de nuevo cuando termine.
+player-substitution-offer-sent = Se ofreció el asiento de { $seat } a { $player }. Debe aceptar antes de que cambie el control.
+player-substitution-self-offer-sent = Se ofreció tu asiento a { $player }. Si { GENDER_TERM($player_gender, "subject") }acepta la oferta, pasarás a ser espectador y seguirás como anfitrión; el resultado final del asiento se registrará a nombre de { $player }.
+player-substitution-self-incoming-consent-sent = Pediste a { $player } que te cediera { GENDER_TERM($player_gender, "possessive-determiner") } asiento. Si { GENDER_TERM($player_gender, "subject") }acepta la solicitud, tomarás el control de inmediato porque al elegirte ya confirmaste tu consentimiento.
+player-substitution-outgoing-consent-sent = Pediste a { $player } que cediera { GENDER_TERM($player_gender, "possessive-determiner") } asiento a { $substitute }. Si { $player } acepta la solicitud, { $substitute } también deberá aceptar antes de que cambie el control.
+player-substitution-offer-pending = { $player } ya tiene una solicitud de sustitución pendiente de respuesta.
+player-substitution-seat-offer-pending = El asiento de { $seat } ya tiene una solicitud de sustitución pendiente de respuesta.
+player-substitution-self-seat-offer-pending = Tu asiento ya tiene una solicitud de sustitución pendiente de respuesta.
+player-substitution-request-outgoing = { $host } quiere que { $player } te sustituya en tu asiento actual. Si aceptas, pasarás a ser espectador y { $player } recibirá exactamente el estado de la partida, la información privada, el tiempo de turno restante y la atribución del resultado final del asiento. No se reiniciará ningún temporizador.
+player-substitution-request-outgoing-host-incoming = { $host } quiere sustituirte en tu asiento actual. Si aceptas, pasarás a ser espectador y { $host } recibirá exactamente el estado de la partida, la información privada, el tiempo de turno restante y la atribución del resultado final del asiento. No se reiniciará ningún temporizador.
+player-substitution-request-player = { $host } te ofrece el asiento de { $player } con { GENDER_TERM($player_gender, "possessive-determiner") } consentimiento. Si aceptas, heredarás exactamente el estado de la partida, la información privada, el tiempo de turno restante y la atribución del resultado final del asiento; no se reiniciará ningún temporizador y { $player } pasará a ser espectador.
+player-substitution-request-host-seat = { $host } te ofrece su propio asiento. Si aceptas, heredarás exactamente el estado de la partida, la información privada, el tiempo de turno restante y la atribución del resultado final del asiento; no se reiniciará ningún temporizador y { $host } pasará a ser espectador, pero seguirá siendo el anfitrión.
+player-substitution-request-bot = { $host } te ofrece el asiento controlado por { $bot }. Si aceptas, heredarás exactamente el estado de la partida, la información privada, el tiempo de turno restante y la atribución del resultado final del asiento; no se reiniciará ningún temporizador.
+player-substitution-request-replacement = { $host } te ofrece el asiento reservado de { $player }, controlado actualmente por { $bot }. Si aceptas, heredarás exactamente el estado de la partida, la información privada, el tiempo de turno restante y la atribución del resultado final del asiento; no se reiniciará ningún temporizador y { $player } ya no podrá recuperar ese asiento.
+player-substitution-decline = Rechazar sustitución
+player-substitution-accept = Aceptar sustitución
+player-substitution-offer-expired = La solicitud de sustitución caducó. No se cambió ninguna función.
+player-substitution-offer-expired-host = { $player } no respondió antes de que caducara la solicitud de sustitución. No se cambió ninguna función.
+player-substitution-offer-declined = { $player } rechazó la solicitud de sustitución. No se cambió ninguna función.
+player-substitution-no-longer-available = Esa solicitud de sustitución ya no está disponible. No se cambió ninguna función.
+player-substitution-awaiting-incoming = { $player } ya puede aceptar o rechazar la sustitución. Todavía no se cambió ninguna función.
+player-substitution-complete-player-you = Tomaste el control del antiguo asiento de { $player }. { GENDER_TERM($player_gender, "subject-be-capitalized") } ahora como espectador.
+player-substitution-complete-outgoing-you = { $player } tomó el control de tu antiguo asiento. Ahora eres espectador.
+player-substitution-complete-player = { $player } tomó el control del antiguo asiento de { $outgoing }. { $outgoing } está ahora como espectador.
+player-substitution-complete-host-player-you = Tomaste el control del antiguo asiento de { $player }. { GENDER_TERM($player_gender, "subject-be-capitalized") } ahora como espectador y conserva la función de anfitrión.
+player-substitution-complete-outgoing-host-you = { $player } tomó el control de tu antiguo asiento. Ahora eres espectador y sigues siendo el anfitrión.
+player-substitution-complete-host = { $player } tomó el control del antiguo asiento de { $outgoing }. { $outgoing } está ahora como espectador y sigue siendo el anfitrión.
+player-substitution-complete-bot-you = Tomaste el control del asiento de { $bot }.
+player-substitution-complete-bot = { $player } tomó el control del asiento de { $bot }.
+player-substitution-complete-replacement-you = Tomaste el control del asiento reservado de { $replaced_player }, que estaba en manos de { $bot }. La reserva anterior terminó.
+player-substitution-complete-replacement = { $player } tomó el control del asiento reservado de { $replaced_player }, que estaba en manos de { $bot }. La reserva anterior terminó.
+
+host-invite-pair-cooldown = Espera { $seconds ->
+    [one] 1 segundo
+   *[other] { $seconds } segundos
+} antes de volver a invitar a ese amigo.
+host-invite-rate-limited = Estás enviando invitaciones de mesa demasiado rápido. Inténtalo de nuevo dentro de { $seconds ->
+    [one] 1 segundo
+   *[other] { $seconds } segundos
+}.
+table-invite-no-longer-available = Esa invitación de mesa ya no está disponible.

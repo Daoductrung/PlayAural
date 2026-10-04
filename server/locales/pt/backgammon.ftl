@@ -22,7 +22,7 @@ backgammon-roll-player = { $player } tirou { $die1 } e { $die2 }.
 
 # No moves
 backgammon-no-moves-you = Você não tem jogadas válidas, então seu turno termina.
-backgammon-no-moves-player = { $player } não tem jogadas válidas, então o turno dele termina.
+backgammon-no-moves-player = { $player } não tem jogadas válidas, então o turno { GENDER_TERM($player_gender, "possessive-determiner") } termina.
 
 # Brief move commentary
 backgammon-brief-move-normal = { $is_self ->
@@ -129,12 +129,12 @@ backgammon-bearoff-no-die = Você não pode retirar damas da ponta { $point } co
 backgammon-nothing-to-undo = Nada para desfazer.
 backgammon-undo-move = { $listener ->
     [actor] Você desfaz sua jogada de { $source } para { $destination }.
-    *[observer] { $player } desfaz a jogada dele de { $source } para { $destination }.
+    *[observer] { $player } desfaz a jogada { GENDER_TERM($player_gender, "possessive-determiner") } de { $source } para { $destination }.
 }
 backgammon-undo-hit = { $listener ->
     [actor] Você desfaz sua jogada de { $source } para { $destination }, restaurando a dama de { $opponent }.
-    [target] { $player } desfaz a jogada dele de { $source } para { $destination }, restaurando a sua dama.
-    *[observer] { $player } desfaz a jogada dele de { $source } para { $destination }, restaurando a dama de { $opponent }.
+    [target] { $player } desfaz a jogada { GENDER_TERM($player_gender, "possessive-determiner") } de { $source } para { $destination }, restaurando a sua dama.
+    *[observer] { $player } desfaz a jogada { GENDER_TERM($player_gender, "possessive-determiner") } de { $source } para { $destination }, restaurando a dama de { $opponent }.
 }
 backgammon-selection-cleared = Seleção de dama cancelada.
 backgammon-no-selection = Nenhuma dama está selecionada.
@@ -142,7 +142,8 @@ backgammon-cannot-double = Você não pode dobrar agora.
 backgammon-double-single-game = O cubo de dobro não é usado em uma partida única.
 backgammon-double-crawford = Esta é a partida Crawford, então o cubo de dobro não está disponível.
 backgammon-double-dead-cube = Você já venceria a disputa ao ganhar com o valor atual do cubo, então o cubo está morto para você e não pode ser dobrado.
-backgammon-double-cube-owned = O cubo pertence ao seu oponente, então apenas ele pode oferecer o próximo dobro.
+backgammon-double-cube-owned = O cubo pertence a { $opponent }, então apenas { GENDER_TERM($opponent_gender, "subject") } pode oferecer o próximo dobro.
+backgammon-double-cube-owned-unknown = Seu oponente controla o cubo, então você não pode oferecer o próximo dobro.
 backgammon-double-before-roll-only = Você pode oferecer um dobro apenas no início do seu turno, antes de rolar os dados.
 backgammon-cannot-undo = Nada para desfazer.
 backgammon-not-doubling-phase = Nenhum dobro para responder.

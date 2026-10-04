@@ -53,6 +53,7 @@ def test_extract_incremental_stats_basic():
         ],
         custom_data={
             "winner_name": "Alice",
+            "winner_ids": ["uuid-1"],
             "score_unit_key": "game-score-unit-chips",
             "final_scores": {
                 "Alice": 105,
@@ -93,6 +94,7 @@ def test_extract_incremental_stats_custom_paths():
         ],
         custom_data={
             "winner_name": "Alice",
+            "winner_ids": ["uuid-1"],
             "player_stats": {
                 "Alice": {
                     "best_turn": 45,
@@ -115,6 +117,101 @@ def test_extract_incremental_stats_custom_paths():
     assert alice_stats["custom_win_percentage_denominator"] == 1.0
 
 
+def test_supported_persisted_stat_keys_matches_extraction_schema():
+    assert StatsExtractor.supported_persisted_stat_keys(MockGameClass) == {
+        "games_played",
+        "wins",
+        "losses",
+        "total_score",
+        "high_score",
+        "custom_best_turn_high",
+        "custom_win_percentage_numerator",
+        "custom_win_percentage_denominator",
+    }
+
+
+def test_draw_counts_a_game_without_awarding_wins_or_losses():
+    result = GameResult(
+        game_type="mock_game",
+        timestamp="2026-10-01T00:00:00",
+        duration_ticks=20,
+        player_results=[
+            PlayerResult(player_id="uuid-1", player_name="Alice", is_bot=False),
+            PlayerResult(player_id="uuid-2", player_name="Bob", is_bot=False),
+        ],
+        custom_data={"winner_ids": []},
+    )
+
+    updates = StatsExtractor.extract_incremental_stats(result)
+
+    assert updates == {
+        "uuid-1": {"games_played": 1.0},
+        "uuid-2": {"games_played": 1.0},
+    }
+
+
+@pytest.mark.parametrize("score", [0, -5])
+def test_numeric_nonpositive_scores_are_not_treated_as_missing(score):
+    result = GameResult(
+        game_type="mock_game",
+        timestamp="2026-10-01T00:00:00",
+        duration_ticks=20,
+        player_results=[
+            PlayerResult(player_id="uuid-1", player_name="Alice", is_bot=False),
+        ],
+        custom_data={
+            "winner_ids": [],
+            "final_scores": {"Alice": score},
+        },
+    )
+
+    assert StatsExtractor.extract_incremental_stats(result)["uuid-1"] == {
+        "games_played": 1.0,
+        "total_score": float(score),
+        "high_score_high": float(score),
+    }
+
+
+@pytest.mark.parametrize(
+    ("custom_data", "error"),
+    [
+        ({}, "immutable winner ids"),
+        ({"winner_ids": ["outside-roster"]}, "result participants"),
+        ({"winner_ids": ["uuid-1", "uuid-1"]}, "unique list"),
+    ],
+)
+def test_win_stats_reject_invalid_winner_identity(custom_data, error):
+    result = GameResult(
+        game_type="mock_game",
+        timestamp="2026-10-01T00:00:00",
+        duration_ticks=20,
+        player_results=[
+            PlayerResult(player_id="uuid-1", player_name="Alice", is_bot=False),
+            PlayerResult(player_id="uuid-2", player_name="Bob", is_bot=False),
+        ],
+        custom_data=custom_data,
+    )
+
+    with pytest.raises(ValueError, match=error):
+        StatsExtractor.extract_incremental_stats(result)
+
+
+def test_stats_reject_duplicate_result_participants():
+    result = GameResult(
+        game_type="mock_game",
+        timestamp="2026-10-01T00:00:00",
+        duration_ticks=20,
+        player_results=[
+            PlayerResult(player_id="uuid-1", player_name="Alice", is_bot=False),
+            PlayerResult(player_id="uuid-1", player_name="Alice again", is_bot=False),
+        ],
+        custom_data={"winner_ids": ["uuid-1"]},
+    )
+
+    with pytest.raises(ValueError, match="duplicate player ids"):
+        StatsExtractor.extract_incremental_stats(result)
+
+
 def test_extract_path_value():
     """Test the internal dot-notation dictionary path extractor."""
     data = {
@@ -128,3 +225,5 @@ def test_extract_path_value():
     assert StatsExtractor._extract_path_value(data, "level1.level2.value") == 42.0
     assert StatsExtractor._extract_path_value(data, "level1.invalid.value") is None
     assert StatsExtractor._extract_path_value(data, "missing") is None
+    assert StatsExtractor._extract_path_value({"value": float("nan")}, "value") is None
+    assert StatsExtractor._extract_path_value({"value": True}, "value") is None

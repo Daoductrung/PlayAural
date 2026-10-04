@@ -1,7 +1,6 @@
 auth-username-password-required = Username and password are required.
 auth-registration-success = Registration successful! You can now log in with your credentials.
 auth-username-taken = Username already taken. Please choose a different username.
-auth-username-reserved-bot = This name is reserved for PlayAural bots. Please choose a different username.
 auth-username-reserved = This name is reserved by PlayAural. Please choose a different username.
 auth-registration-error = Registration failed due to a server error. Please try again.
 auth-error-wrong-password = Incorrect password.
@@ -51,8 +50,6 @@ smtp-enc-ssl = Use SSL
 smtp-enc-tls = Enable TLS encryption automatically (STARTTLS)
 smtp-current-enc = * { $value }
 
-main-menu-title = Main Menu
-
 play = Play
 view-active-tables = View active tables
 options = Options
@@ -62,7 +59,6 @@ go-back = Go back
 context-menu = Context menu.
 no-actions-available = No actions available.
 table-new-host-promoted = { $player } is now the table host.
-return-to-lobby = Return to lobby
 return-to-table = Return to table
 create-table = Create a new table
 leave-table = Leave table
@@ -128,9 +124,7 @@ friend-offline = Your friend { $player } went offline.
 permission-denied = You do not have permission to perform this action on a Developer.
 kick-user = Kick User
 kick-broadcast = { $target } was kicked by { $actor }.
-you-were-kicked = You have been kicked by { $actor }.
 user-not-online = User { $target } is not online.
-kick-immune = You cannot kick this user.
 kick-confirm = Are you sure you want to kick { $player }?
 no-users-to-kick = No users available to kick.
 usage-kick = Usage: /kick <username>
@@ -199,11 +193,7 @@ option-deselected-count = { $count } deselected
 option-min-selected = You must select at least { $count }.
 option-max-selected = You can select at most { $count }.
 
-turn-sound-option = Turn sound: { $status }
-
 custom-bot-names-option = Custom bot names: { $status }
-confirm-destructive-option = Confirm risky actions: { $status }
-clear-kept-option = Clear kept dice when rolling: { $status }
 option-notify-table-created = Notify when table created: { $status }
 option-notify-user-presence = User online/offline notifications: { $status }
 option-notify-friend-presence = Friend online/offline notifications: { $status }
@@ -246,12 +236,9 @@ pref-desc-clear-kept-on-roll = In supported dice games such as Yahtzee, release 
 pref-desc-dice-keeping-style = Dice indexes: use 1-5, or 1-6 in Midnight, to toggle dice by position. Dice values: use 1-6 to release one kept die with that face value and Shift+1-6 to keep one matching released die. During Tradeoff's trading phase, 1-6 keeps one matching die and Shift+1-6 marks one for trading; during the taking phase, plain 1-6 takes a matching die from the pool.
 
 cancel = Cancel
-no-bot-names-available = No bot names available.
 enter-bot-name = Enter bot name
 bot-name-invalid-length = Bot names must be 3 to 30 characters.
 bot-name-invalid-characters = Bot names can only contain letters, numbers, and spaces.
-bot-name-already-used = A player or bot with this name is already at this table.
-bot-name-registered-account = This name belongs to a registered account. Please choose a different bot name.
 table-name-already-used = A player or bot with this name is already at this table.
 no-options-available = No options available.
 no-scores-available = No scores available.
@@ -285,7 +272,7 @@ general-desc-play-typing-sounds = Play small typing sounds while entering text i
 general-desc-web-speech-settings = Configure browser speech output, including ARIA live or Web Speech mode, speech speed, and voice.
 general-desc-mobile-speech-settings = Configure mobile text-to-speech engine, voice, and speech speed.
 general-desc-invert-multiline-enter = Swap the send and newline behavior for multiline text fields on the desktop client.
-general-desc-menu-hints = Show available descriptions directly in menu rows. When off, descriptions remain available on demand with Space where supported.
+general-desc-menu-hints = Show available descriptions directly in menu rows. When off, focus a described item and press F1 in Desktop or Web with a hardware keyboard, or tap once with three fingers in mobile self-voicing mode, to hear it.
 general-desc-mute-global-chat = Stop global chat messages from being spoken automatically.
 general-desc-global-chat-channel = Choose the language channel used to send and receive global chat. A channel is required even when global chat is enabled.
 general-desc-mute-table-chat = Stop table chat messages from being spoken automatically.
@@ -349,13 +336,9 @@ action-role-change-rate-limited = You are switching between playing and spectati
     [one] 1 second
    *[other] { $seconds } seconds
 }.
-action-no-scores = No scores available yet.
-
 options-category-audio = Audio
 options-category-accessibility = Accessibility
 options-category-notifications = Notifications
-options-category-game = Game
-
 music-volume-option = Music Volume: { $value }%
 sound-volume-option = Sound Effects Volume: { $value }%
 ambience-volume-option = Ambience Volume: { $value }%
@@ -381,9 +364,6 @@ invert-multiline-enter-option = Invert Enter Key Behavior: { $status }
 menu-hints-option = Menu Hints: { $status }
 menu-hints-changed = Menu hints are now { $status }.
 play-typing-sounds-option = Play Typing Sounds: { $status }
-enter-music-volume = Enter music volume (0-100)
-enter-ambience-volume = Enter ambience volume (0-100)
-enter-voice-volume = Enter voice chat volume (10-100)
 invalid-volume = Invalid volume.
 
 dice-not-rolled = You haven't rolled yet.
@@ -452,11 +432,10 @@ leaderboard-wins-entry = { $rank }: { $player }, { $wins } { $wins ->
 leaderboard-score-entry = { $rank }. { $player }: { $value }
 leaderboard-games-entry = { $rank }. { $player }: { $value } games
 leaderboard-avg-entry = { $rank }. { $player }: { $value }
-
 leaderboard-no-player-stats = You haven't played this game yet.
 
 leaderboard-no-ratings = No rating data yet for this game.
-leaderboard-rating-entry = { $rank }. { $player }: { $rating } rating ({ $mu } ± { $sigma })
+leaderboard-rating-entry = { $rank }. { $player }: { $rating } rating
 leaderboard-no-player-rating = You don't have a rating for this game yet.
 
 my-stats = My Stats
@@ -470,22 +449,15 @@ my-stats-winrate = Win rate: { $value }%
 my-stats-games-played = Games played: { $value }
 my-stats-total-score = Total score: { $value }
 my-stats-high-score = High score: { $value }
-my-stats-rating = Skill rating: { $value } ({ $mu } ± { $sigma })
+my-stats-rating = Skill rating: { $value }
 my-stats-no-rating = No skill rating yet
+my-stats-custom = { $name }: { $value }
 my-stats-avg-per-turn = Avg points per turn: { $value }
 my-stats-best-turn = Best single turn: { $value }
 my-stats-score-per-round = Score per round: { $value }
 my-stats-most-enemies-defeated = Most Enemies Defeated: { $value }
 my-stats-deepest-wave-reached = Deepest Wave Reached: { $value }
 
-predict-outcomes = Predict outcomes
-predict-header = Predicted Outcomes (by skill rating)
-predict-note-multiplayer = Win percentages are shown only for 2-player matches. With 3 or more human players, only skill ratings are shown.
-predict-entry = { $rank }. { $player } (rating: { $rating })
-predict-entry-2p = { $rank }. { $player } (rating: { $rating }, { $probability }% win chance)
-predict-unavailable = Rating predictions are not available.
-predict-need-players = Need at least 2 human players for predictions.
-action-need-more-humans = Need more human players.
 confirm-leave-game = Are you sure you want to leave the table?
 confirm-yes = Yes
 confirm-no = No
@@ -668,7 +640,6 @@ waiting-for-approval = Your account is waiting for approval by an administrator.
 account-approved-welcome = Your account has been approved! Welcome to PlayAural!
 account-declined-goodbye = Your account request has been declined.
 
-account-request = account request
 account-action = account action taken
 
 promote-admin = Promote Admin
@@ -850,7 +821,6 @@ logout-confirm-no = No, stay
 
 system-name = System
 server-restarting = Server is restarting in { $seconds } seconds...
-server-restarting-now = Server is restarting now. Please reconnect shortly.
 server-shutting-down = Server is shutting down in { $seconds } seconds...
 server-shutting-down-now = Server is shutting down now. Goodbye!
 server-power-management = Server Power Management
@@ -909,7 +879,7 @@ duration-hours = { $count ->
 }
 duration-minutes-seconds = { $minutes } minutes and { $seconds } seconds
 duration-hours-minutes = { $hours } hours and { $minutes } minutes
-server-error-changing-language = Error changing language: { $error }
+server-error-changing-language = The language could not be changed. Your previous interface remains active.
 default-save-name = { $game } - { $date }
 
 speech-settings = Speech Settings
@@ -917,7 +887,6 @@ speech-mode-option = Speech Mode: { $status }
 speech-rate-option = Speech Rate: { $value }%
 speech-voice-option = Voice: { $voice }
 select-voice = Select Voice
-enter-speech-rate = Enter speech rate (50-300)
 invalid-rate = Invalid speech rate. Use a value between 50 and 300.
 mode-aria = Aria-live
 mode-web-speech = Web Speech API
@@ -1072,12 +1041,8 @@ friends-blocked-empty = You have not blocked anyone.
 friends-list-empty = You have no friends yet.
 friend-status-offline = Offline
 friend-status-offline-last-online = Offline, last online { $relative_time }
-friend-status-playing = Playing { $game }
-friend-status-spectating = Spectating { $game }
-friend-status-lobby = Main menu
 friend-list-entry = { $username } ({ $status })
 
-friend-actions-title = Actions for { $username }
 view-profile = View Profile
 block-user = Block User
 unblock-user = Unblock User
@@ -1091,7 +1056,6 @@ friend-removed-notify = { $username } has removed you from { GENDER_TERM($userna
 
 no-pending-requests = No pending requests.
 no-sent-requests = You have no pending sent requests.
-friend-request-from = Friend request from { $username }
 friend-request-to = Friend request sent to { $username }
 accept = Accept
 decline = Decline
@@ -1133,7 +1097,6 @@ relative-time-years-ago = { $count ->
    *[other] { $count } years ago
 }
 
-public-profile-title = { $username }'s Profile
 enter-friend-username = Enter the username of the person you want to friend:
 friend-error-self = You cannot send a friend request to yourself.
 friend-error-already-friends = You are already friends with this user.
@@ -1174,6 +1137,8 @@ table-spectator-suffix = (Spectator)
 host-management-set-private = Set Table to Private
 host-management-set-public = Set Table to Public
 host-management-invite = Invite a Friend
+host-management-voice = Manage Voice Chat
+host-management-switch-game = Switch to Another Game
 host-management-pass-host = Pass Host to Another Player
 host-management-kick = Kick a Player
 host-management-kick-ban = Kick and Ban a Player
@@ -1181,6 +1146,24 @@ host-management-player-substitution = Player Substitution
 host-management-restart-game = Restart Game
 host-management-table-now-private = This table is now private. Only invited users can join.
 host-management-table-now-public = This table is now public.
+host-game-switch-current = Current game: { $game }. This table has { $seats } active { $seats ->
+    [one] seat
+   *[other] seats
+}. Only games that can hold every active seat are listed.
+host-game-switch-no-compatible-games = No other game can currently hold all { $seats } active { $seats ->
+    [one] seat
+   *[other] seats
+}.
+host-game-switch-confirm = Switch this table from { $old_game } to { $new_game }? Everyone who is still present will move into the new waiting lobby with the same playing or spectating role, and bots will remain. The current match or lobby setup, options, teams, and ready state will be discarded. Table ownership, privacy, bans, and voice chat will stay connected. Pending invitations for the old game will be cancelled.
+host-game-switch-target-unavailable = That game is no longer available as a switch target. No table state was changed.
+host-game-switch-roster-invalid = This table's live membership no longer matches its game roster, so switching games was blocked to prevent anyone from being dropped. Return to the table and try again after the roster has refreshed.
+host-game-switch-too-many-seats = Cannot switch to { $game }: it supports at most { $max } active { $max ->
+    [one] seat
+   *[other] seats
+}, but this table currently needs { $seats }.
+host-game-switch-failed = The game could not be switched safely. The current table and game were left unchanged.
+host-game-switch-you = You switched this table from { $old_game } to { $new_game }. Everyone is now in the new waiting lobby; table voice chat remains connected.
+host-game-switch-player = { $player } switched this table from { $old_game } to { $new_game }. Everyone is now in the new waiting lobby; table voice chat remains connected.
 host-restart-confirm = Restart the current game and return this table to the waiting room? Current players and voice chat will stay connected, but the current match will be cancelled.
 host-restart-broadcast = { $player } restarted the game. The table is back in the waiting room.
 host-restart-not-playing = There is no active game to restart.
@@ -1273,6 +1256,42 @@ voice-status-connected = { $player } connected to the table's voice chat.
 voice-status-disconnected = { $player } disconnected from the voice chat.
 voice-status-connection-lost = { $player } lost connection and was removed from the voice chat.
 voice-status-left-table = { $player } left the table and left the voice chat.
+voice-member-status-connected = connected to voice chat
+voice-member-status-not-connected = not connected to voice chat
+voice-member-status-host-muted = microphone disabled by the host
+voice-member-status-host-unmuted = allowed to use the microphone
+voice-member-entry = { $player }: { $status }
+voice-host-management-no-members = There are no other table members to moderate.
+voice-host-target-summary = Voice status for { $player}: { $voice_status}; { $moderation_status}.
+voice-host-mute-action = Disable { $player}'s Microphone
+voice-host-unmute-action = Allow { $player} to Use Their Microphone
+voice-host-cannot-mute-self = You cannot disable your own microphone as host.
+voice-host-moderation-rate-limited = Voice moderation is changing too quickly. Try again in { $seconds } seconds.
+voice-host-muted-actor = You disabled { $player}'s microphone for this table. They can still listen, but cannot publish microphone audio.
+voice-host-muted-target = { $host } disabled your microphone for this table. You can still listen, but cannot turn your microphone on.
+voice-host-muted-observer = { $host } disabled { $player}'s microphone for this table.
+voice-host-unmuted-actor = You allowed { $player} to use their microphone again. Their microphone remains off until they explicitly turn it on.
+voice-host-unmuted-target = { $host } allowed you to use your microphone again. Your microphone remains off until you explicitly turn it on.
+voice-host-unmuted-observer = { $host } allowed { $player} to use their microphone again.
+voice-host-unmuted-self = You allowed yourself to use the microphone again. It remains off until you explicitly turn it on.
+voice-personal-settings-action = Personal Voice Settings
+voice-personal-settings-summary = Personal voice settings for { $player}: volume { $volume } percent; { $mute_status}; { $connection_status}.
+voice-personal-status-muted = locally muted
+voice-personal-status-unmuted = not locally muted
+voice-personal-mute-action = Mute { $player } for Me
+voice-personal-unmute-action = Unmute { $player } for Me
+voice-personal-volume-action = Change Personal Volume, Currently { $volume } Percent
+voice-personal-volume-choice = { $volume } Percent
+voice-personal-reset-action = Reset Personal Voice Settings
+voice-personal-muted = You locally muted { $player}. Only you will stop hearing them.
+voice-personal-unmuted = You locally unmuted { $player}.
+voice-personal-volume-set = You set { $player}'s personal voice volume to { $volume } percent.
+voice-personal-reset = You reset your personal voice settings for { $player}.
+voice-member-left = That table member is no longer at this table. Their retained table voice settings were not changed.
+voice-settings-limit-reached = This table has reached its voice-settings safety limit. No setting was changed.
+voice-settings-invalid = That voice setting is invalid. No setting was changed.
+voice-invalid-participant = That voice participant is invalid.
+voice-moderation-provider-failed = Voice moderation could not be applied right now. No setting was changed; please try again.
 
 error-smtp-not-configured = Password recovery is currently disabled by the administrator.
 error-email-not-found = No account found with that email address.

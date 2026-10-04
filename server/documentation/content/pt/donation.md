@@ -6,7 +6,7 @@ O PlayAural continuará sendo totalmente gratuito para jogar. Se você gosta do 
 
 * Por favor, doe apenas se isso couber no seu orçamento.
 * Nunca há qualquer obrigação de doar para poder jogar.
-* A maior doação é o afeto, a confiança e o apoio que os jogadores dão ao PlayAural ao fazerem parte da comunidade.
+* A maior doação é o afeto, a confiança e o apoio que os usuários dão ao PlayAural ao fazerem parte da comunidade.
 
 # **No Que Seu Apoio Ajuda**
 

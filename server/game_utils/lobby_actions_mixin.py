@@ -1,6 +1,5 @@
 """Mixin providing lobby action handlers for games."""
 
-import secrets
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -8,13 +7,13 @@ if TYPE_CHECKING:
 
 from ..users.base import MenuItem, EscapeBehavior
 from ..users.bot import Bot
-from ..messages.localization import Localization
+from ..messages.localization import DEFAULT_LOCALE, Localization
 from ..ui.confirmation import show_confirmation_menu
 from .player import Player
 from .teams import TeamManager
 from .bot_names import (
-    generate_unique_bot_name,
-    get_valid_bot_name_pool,
+    allocate_bot_display_name,
+    generate_bot_base_name,
     normalize_bot_name,
     validate_custom_bot_name,
 )
@@ -565,7 +564,7 @@ class LobbyActionsMixin:
 
     def _bot_input_add_bot(self, player: "Player") -> str | None:
         """Get bot name for add_bot action."""
-        return self._generate_available_bot_name()
+        return self._generate_available_bot_base_name(player=player)
 
     def _should_prompt_add_bot(self, player: "Player") -> bool:
         """Return whether the host wants to type custom bot names."""
@@ -585,79 +584,132 @@ class LobbyActionsMixin:
                 names.append(replaced_name)
         return names
 
-    def _is_registered_username(self, name: str) -> bool:
-        """Return whether a bot name matches an existing account name."""
-        server = getattr(self._table, "_server", None) if self._table else None
-        db = getattr(server, "_db", None)
-        return bool(db and db.get_user(name))
+    def _bot_naming_locale(self, player: "Player | None" = None) -> str:
+        """Resolve the locale that owns a newly created bot's stable name."""
+        if player is not None:
+            player_user = self.get_user(player)
+            if player_user is not None:
+                return Localization.resolve_locale(player_user.locale)
 
-    def _generate_available_bot_name(self, existing_names: list[str] | None = None) -> str:
-        """Generate a bot name that avoids table names and registered accounts."""
-        existing_names = (
-            list(existing_names) if existing_names is not None else self._existing_player_names()
+            table = getattr(self, "_table", None)
+            database = getattr(table, "_db", None) if table is not None else None
+            get_user_by_uuid = getattr(database, "get_user_by_uuid", None)
+            if callable(get_user_by_uuid):
+                record = get_user_by_uuid(player.id)
+                if record is not None:
+                    return Localization.resolve_locale(record.locale)
+
+        table = getattr(self, "_table", None)
+        if table is not None:
+            host_user = table.get_user(table.host)
+            if host_user is not None:
+                return Localization.resolve_locale(host_user.locale)
+
+        for current_player in self.players:
+            current_user = self.get_user(current_player)
+            if current_user is not None and not current_player.is_bot:
+                return Localization.resolve_locale(current_user.locale)
+        return Localization.resolve_locale(DEFAULT_LOCALE)
+
+    def _existing_bot_base_names(
+        self,
+        *,
+        exclude_player_id: str | None = None,
+    ) -> list[str]:
+        """Return bases already assigned to synthetic or replacement bots."""
+        names: list[str] = []
+        for current_player in self.players:
+            if not current_player.is_bot or current_player.id == exclude_player_id:
+                continue
+            base_name = normalize_bot_name(current_player.bot_name_base)
+            if not base_name:
+                # Compatibility for in-memory test fixtures and pre-feature
+                # saves before their explicit migration runs.
+                base_name = normalize_bot_name(current_player.name)
+            if base_name:
+                names.append(base_name)
+        return names
+
+    def _generate_available_bot_base_name(
+        self,
+        *,
+        player: "Player | None" = None,
+        exclude_player_id: str | None = None,
+    ) -> str:
+        """Choose a localized base while preferring table-wide diversity."""
+        return generate_bot_base_name(
+            self._existing_bot_base_names(exclude_player_id=exclude_player_id),
+            self._bot_naming_locale(player),
         )
-        max_attempts = len(get_valid_bot_name_pool()) * 100
-        for _ in range(max_attempts):
-            bot_name = generate_unique_bot_name(existing_names)
-            if not self._is_registered_username(bot_name):
-                return bot_name
-            existing_names.append(bot_name)
-        return self._generate_emergency_bot_name(existing_names)
 
-    def _generate_emergency_bot_name(self, existing_names: list[str]) -> str:
-        """Generate a non-pool bot name if every configured bot name is unavailable."""
-        for _ in range(1000):
-            bot_name = f"Bot {secrets.randbelow(1_000_000):06d}"
-            if validate_custom_bot_name(bot_name, existing_names) is not None:
-                continue
-            if self._is_registered_username(bot_name):
-                existing_names.append(bot_name)
-                continue
-            return bot_name
-        raise RuntimeError("Unable to generate an unregistered bot name")
+    def _allocate_bot_display_name(
+        self,
+        base_name: str,
+        *,
+        player: "Player | None" = None,
+        exclude_player_id: str | None = None,
+    ) -> str:
+        """Allocate a collision-free label under the conditional-marker policy."""
+        existing_names = (
+            self._reserved_table_names(exclude_player_id=exclude_player_id)
+            if hasattr(self, "_reserved_table_names")
+            else self._existing_player_names()
+        )
+        return allocate_bot_display_name(
+            base_name,
+            existing_names,
+            self._bot_naming_locale(player),
+        )
 
     def _resolve_add_bot_name(
         self,
         player: "Player",
         requested_name: str,
-    ) -> str | None:
-        """Resolve and validate the bot name for the add_bot action."""
+    ) -> tuple[str, str] | None:
+        """Resolve a valid base and its unambiguous table display label."""
         if self._should_prompt_add_bot(player):
-            bot_name = normalize_bot_name(requested_name)
-            error_key = validate_custom_bot_name(
-                bot_name,
-                self._existing_player_names(),
-            )
+            base_name = normalize_bot_name(requested_name)
+            error_key = validate_custom_bot_name(base_name)
             if error_key:
                 user = self.get_user(player)
                 if user:
                     user.speak_l(error_key, buffer="game")
                 return None
-            if self._is_registered_username(bot_name):
-                user = self.get_user(player)
-                if user:
-                    user.speak_l("bot-name-registered-account", buffer="game")
-                return None
-            return bot_name
+        else:
+            base_name = self._generate_available_bot_base_name(player=player)
 
-        return self._generate_available_bot_name()
+        return (
+            base_name,
+            self._allocate_bot_display_name(base_name, player=player),
+        )
 
     def _action_add_bot(self, player: "Player", bot_name: str, action_id: str) -> None:
         """Add a bot with the selected name."""
         if self.team_arrangement_active:
             return
 
-        bot_name = self._resolve_add_bot_name(player, bot_name)
-        if bot_name is None:
+        bot_identity = self._resolve_add_bot_name(player, bot_name)
+        if bot_identity is None:
             return
+        bot_base_name, bot_display_name = bot_identity
 
-        bot_user = Bot(bot_name)
-        bot_player = self.create_player(bot_user.uuid, bot_name, is_bot=True)
+        bot_user = Bot(bot_display_name)
+        bot_player = self.create_player(
+            bot_user.uuid,
+            bot_display_name,
+            is_bot=True,
+        )
+        bot_player.bot_name_base = bot_base_name
         self.players.append(bot_player)
         self.attach_user(bot_player.id, bot_user)
+        self.ensure_bot_display_names(self._bot_naming_locale(player))
         # Set up action sets for the bot
         self.setup_player_actions(bot_player)
-        self.broadcast_l("table-joined", buffer="system", player=bot_name)
+        self.broadcast_l(
+            "table-joined",
+            buffer="system",
+            player=bot_player.name,
+        )
         self.play_table_join_sound(bot_player, is_bot=True)
         self.refresh_menus()
         self._notify_table_presence_changed()
@@ -675,6 +727,7 @@ class LobbyActionsMixin:
                 self._users.pop(bot.id, None)
                 self.broadcast_l("table-left", buffer="system", player=bot.name)
                 self.play_table_leave_sound(bot, is_bot=True)
+                self.ensure_bot_display_names()
                 break
         self.refresh_menus()
         self._notify_table_presence_changed()
@@ -824,9 +877,9 @@ class LobbyActionsMixin:
 
         self._actions_menu_open.add(player.id)
         if announce:
-            user.speak_l("context-menu", buffer="game")
+            user.speak_l("context-menu", buffer="game", history=False)
             if len(items) == 1:
-                user.speak_l("no-actions-available", buffer="game")
+                user.speak_l("no-actions-available", buffer="game", history=False)
 
         user.show_menu(
             "actions_menu",
@@ -907,8 +960,24 @@ class LobbyActionsMixin:
     def add_player(self, name: str, user: "User") -> "Player":
         """Add a player to the game."""
         is_bot = hasattr(user, "is_bot") and user.is_bot
-        player = self.create_player(user.uuid, name, is_bot=is_bot)
+        if is_bot:
+            base_name = normalize_bot_name(name)
+            error_key = validate_custom_bot_name(base_name)
+            if error_key:
+                raise ValueError(f"Invalid bot base name: {error_key}")
+            display_name = self._allocate_bot_display_name(base_name)
+        else:
+            self.prepare_human_name_for_roster(name)
+            base_name = ""
+            display_name = name
+        player = self.create_player(user.uuid, display_name, is_bot=is_bot)
+        if is_bot:
+            player.bot_name_base = base_name
         self.players.append(player)
+        if is_bot:
+            self.ensure_bot_display_names(self._bot_naming_locale(player))
+            if isinstance(user, Bot):
+                user.set_display_name(player.name)
         self.attach_user(player.id, user)
         # Set up action sets for the new player
         self.setup_player_actions(player)
@@ -919,6 +988,7 @@ class LobbyActionsMixin:
 
     def add_spectator(self, name: str, user: "User") -> "Player":
         """Add a spectator to the game."""
+        self.prepare_human_name_for_roster(name)
         player = self.create_player(user.uuid, name, is_bot=False)
         player.is_spectator = True
         self.players.append(player)

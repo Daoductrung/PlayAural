@@ -8,7 +8,6 @@ poker-enter-raise = مبلغ افزایش را وارد کنید
 poker-check-pot = بررسی پات
 poker-check-bet = مبلغ برای همراهی
 poker-check-min-raise = حداقل افزایش
-poker-check-log = گزارش اقدامات
 poker-check-hand-players = بازیکنان حاضر در دست
 poker-check-turn-timer = زمان‌سنج نوبت
 poker-check-blind-timer = زمان‌سنج بلایند
@@ -91,7 +90,6 @@ poker-your-uncalled-bet-returned = شرط پاسخ‌داده‌نشده‌ی { 
 poker-hand-no-cards = شما هیچ کارتی در دست ندارید.
 poker-no-active-betting = هیچ دور شرط‌بندی فعالی وجود ندارد.
 
-poker-log-empty = هنوز هیچ اقدامی انجام نشده است.
 poker-log-fold = { $player } کناره‌گیری کرد
 poker-log-check = { $player } بررسی کرد
 poker-log-call = { $player } { $amount } همراهی کرد

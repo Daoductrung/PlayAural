@@ -715,7 +715,15 @@ class TestPersistentStartAction:
 
         game.execute_action(host, "start_game")
         assert game._pending_actions[host.id] == "start_game"
-        user.get_queued_messages()
+        opened_packets = user.get_queued_messages()
+        prompt_packets = [
+            packet
+            for packet in opened_packets
+            if packet.get("type") == "speak" and packet.get("key") == "cancel"
+        ]
+        assert len(prompt_packets) == 1
+        assert prompt_packets[0]["buffer"] == "game"
+        assert prompt_packets[0]["history"] is False
 
         game.handle_event(
             host,
@@ -732,6 +740,7 @@ class TestPersistentStartAction:
             and packet.get("menu_id") == "action_input_menu"
             for packet in packets
         )
+        assert not any(packet.get("type") == "speak" for packet in packets)
 
     def test_validate_start_combines_count_and_game_errors(self) -> None:
         game = make_game(player_count=1)
@@ -895,6 +904,13 @@ class TestStatusBoxes:
         assert p1.id not in game._live_status_boxes
         assert "status_box" not in user1.menus
         assert turn_menu_messages(user1)
+        close_messages = [
+            message
+            for message in user1.messages
+            if message.type == "speak"
+            and message.data["text"] == "Status information closed."
+        ]
+        assert close_messages[-1].data["history"] is False
 
 
 class TestActionMenuFocus:
@@ -910,6 +926,13 @@ class TestActionMenuFocus:
         )
         assert p1.id in game._actions_menu_open
         assert actions_menu_messages(user1)
+        context_messages = [
+            message
+            for message in user1.messages
+            if message.type == "speak"
+            and message.data["text"] == "Context menu."
+        ]
+        assert context_messages[-1].data["history"] is False
 
         user1.clear_messages()
         game.refresh_menus(p1)

@@ -78,7 +78,7 @@ pusoydos-option-changed-penalty-per-two = Đã đặt phạt thêm cho mỗi lá
 pusoydos-desc-penalty-per-two = Chỉ dùng trong các chế độ điểm: mỗi lá 2 còn lại trên tay người thua sẽ nhân đôi mức phạt của tay đó.
 
 # =============================================================================
-# Game flow announcements
+# Thông báo diễn biến ván chơi
 # =============================================================================
 
 

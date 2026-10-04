@@ -1,9 +1,5 @@
 game-name-ninetynine = Noventa y Nueve
-ninetynine-description = Un juego de cartas donde los jugadores intentan evitar que el total acumulado supere 99. ¡Gana el último jugador en pie!
-
 ninetynine-round = Ronda { $round }.
-
-ninetynine-player-turn = Turno de { $player }.
 
 ninetynine-you-play = Juegas { $card }. El total ahora es { $count }.
 ninetynine-player-plays = { $player } juega { $card }. El total ahora es { $count }.
@@ -38,9 +34,6 @@ ninetynine-end-score = { $rank }. { $player }: { $tokens } { $tokens ->
     [one] token
    *[other] tokens
 }
-
-ninetynine-you-deal = Repartes las cartas.
-ninetynine-player-deals = { $player } reparte las cartas.
 
 ninetynine-you-draw = Robas { $card }.
 ninetynine-player-draws = { $player } roba una carta.
@@ -83,7 +76,6 @@ ninetynine-set-autodraw = Robo automático: { $enabled }
 ninetynine-option-changed-autodraw = Robo automático establecido en { $enabled }.
 ninetynine-desc-autodraw = Cuando está activado, los jugadores roban automáticamente una carta de reemplazo después de jugar. Cuando está desactivado, los jugadores deben robar manualmente.
 
-ninetynine-rules-standard = Reglas estándar.
 ninetynine-rules-action-cards = Reglas con cartas de acción.
 
 ninetynine-rules-variant-standard = Estándar

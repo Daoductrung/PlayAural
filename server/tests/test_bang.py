@@ -256,7 +256,7 @@ def all_card_ids(game: BangGame) -> list[int]:
     return ids
 
 
-def test_registration_metadata_options_and_catalog_count():
+def test_registration_metadata_and_options():
     assert GameRegistry.get("bang") is BangGame
     assert BangGame.get_name() == "BANG! The Bullet"
     assert BangGame.get_category() == "cards"

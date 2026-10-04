@@ -11,6 +11,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
 import os
 import random
+from threading import Event
 import time
 from typing import TYPE_CHECKING
 
@@ -154,15 +155,22 @@ class SearchTimeout(Exception):
     """Raised internally when the bounded search exhausts its budget."""
 
 
+class SearchCancelled(Exception):
+    """Raised internally when the owning game retires a search."""
+
+
 @dataclass
 class SearchContext:
     root_color: str
     deadline: float
     node_limit: int
+    cancel_event: Event | None = None
     nodes: int = 0
     transpositions: dict[tuple[str, str, int], int] = field(default_factory=dict)
 
     def check_budget(self) -> None:
+        if self.cancel_event is not None and self.cancel_event.is_set():
+            raise SearchCancelled
         self.nodes += 1
         if self.nodes > self.node_limit or time.perf_counter() >= self.deadline:
             raise SearchTimeout
@@ -172,6 +180,12 @@ class SearchContext:
 class BotSearchJob:
     signature: str
     future: Future
+    cancel_event: Event
+
+    def cancel(self) -> None:
+        """Request cooperative termination and cancel work not yet started."""
+        self.cancel_event.set()
+        self.future.cancel()
 
 
 def _opponent(color: str) -> str:
@@ -208,11 +222,7 @@ def _clone_game_for_search(game: "ChessGame") -> "ChessGame":
 
 
 def _bot_jobs(game: "ChessGame") -> dict[str, BotSearchJob]:
-    jobs = getattr(game, "_chess_bot_jobs", None)
-    if jobs is None:
-        jobs = {}
-        setattr(game, "_chess_bot_jobs", jobs)
-    return jobs
+    return game._chess_bot_jobs
 
 
 def _search_signature(game: "ChessGame", player: "ChessPlayer") -> str:
@@ -435,13 +445,21 @@ def _root_search(
     max_depth: int,
     time_limit: float,
     node_limit: int,
+    cancel_event: Event | None = None,
 ) -> tuple[int, int] | None:
+    if cancel_event is not None and cancel_event.is_set():
+        return None
     moves = _ordered_moves(game, color)
     if not moves:
         return None
 
     deadline = time.perf_counter() + time_limit
-    ctx = SearchContext(root_color=color, deadline=deadline, node_limit=node_limit)
+    ctx = SearchContext(
+        root_color=color,
+        deadline=deadline,
+        node_limit=node_limit,
+        cancel_event=cancel_event,
+    )
     best_move = moves[0]
     best_score = -INF
     preferred: tuple[int, int] | None = None
@@ -464,6 +482,8 @@ def _root_search(
                     depth_score = score
                     depth_best = move
                 alpha = max(alpha, depth_score)
+        except SearchCancelled:
+            return None
         except SearchTimeout:
             break
         best_move = depth_best
@@ -473,9 +493,13 @@ def _root_search(
             break
 
     # Keep a little variety only when moves are practically equivalent.
+    if cancel_event is not None and cancel_event.is_set():
+        return None
     if best_score < MATE_SCORE - 100:
         contenders: list[tuple[int, int]] = []
         for move in moves[:6]:
+            if cancel_event is not None and cancel_event.is_set():
+                return None
             saved = game.save_position()
             try:
                 game._apply_move_core(move[0], move[1], promotion="queen", auto_promote_to_queen=True)
@@ -514,6 +538,7 @@ def find_best_move(
 
 def _submit_search(game: "ChessGame", player: "ChessPlayer", signature: str) -> None:
     search_game = _clone_game_for_search(game)
+    cancel_event = Event()
     future = _EXECUTOR.submit(
         _root_search,
         search_game,
@@ -521,8 +546,28 @@ def _submit_search(game: "ChessGame", player: "ChessPlayer", signature: str) -> 
         max_depth=DEFAULT_DEPTH,
         time_limit=DEFAULT_TIME_LIMIT,
         node_limit=DEFAULT_NODE_LIMIT,
+        cancel_event=cancel_event,
     )
-    _bot_jobs(game)[player.id] = BotSearchJob(signature=signature, future=future)
+    _bot_jobs(game)[player.id] = BotSearchJob(
+        signature=signature,
+        future=future,
+        cancel_event=cancel_event,
+    )
+
+
+def cancel_bot_search(game: "ChessGame", player_id: str) -> None:
+    """Cancel and forget one game-owned search, if present."""
+    job = _bot_jobs(game).pop(player_id, None)
+    if job is not None:
+        job.cancel()
+
+
+def cancel_all_bot_searches(game: "ChessGame") -> None:
+    """Cancel and forget every search owned by one game instance."""
+    jobs = list(_bot_jobs(game).values())
+    _bot_jobs(game).clear()
+    for job in jobs:
+        job.cancel()
 
 
 def _material_balance(game: "ChessGame", color: str) -> int:
@@ -548,7 +593,7 @@ def bot_think(game: "ChessGame", player: "ChessPlayer") -> str | None:
         return "decline_undo"
 
     if game.current_player != player:
-        _bot_jobs(game).pop(player.id, None)
+        cancel_bot_search(game, player.id)
         return None
 
     if player.id in game.bot_move_targets and game.selected_square.get(player.id) is not None:
@@ -560,7 +605,7 @@ def bot_think(game: "ChessGame", player: "ChessPlayer") -> str | None:
     jobs = _bot_jobs(game)
     job = jobs.get(player.id)
     if job and job.signature != signature:
-        jobs.pop(player.id, None)
+        cancel_bot_search(game, player.id)
         job = None
 
     if job is None:

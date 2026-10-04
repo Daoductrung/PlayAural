@@ -22,15 +22,15 @@ deadmanspoker-already-matched-all-in = You have already matched the all-in.
 deadmanspoker-coward-used = You have already used Coward's Fold this match.
 deadmanspoker-coward-first-decision-only = Coward's Fold is only available on your first decision of a hand.
 deadmanspoker-all-in-too-early = All-in is available only from betting round 2, after the first three community cards are revealed.
+deadmanspoker-all-in-after-switch = You cannot go all-in on the same turn that you switch a card. Call or fold to finish this turn.
 deadmanspoker-switch-not-now = You cannot switch a card right now.
-deadmanspoker-switch-used = You have already switched a card this hand.
+deadmanspoker-switch-used = You have already used Switch in this match.
 deadmanspoker-switch-too-late = It is too late to switch a card.
 deadmanspoker-switch-no-cards = You do not have a private card to switch.
 deadmanspoker-switch-no-deck = The deck does not have enough replacement cards.
 deadmanspoker-switch-choice-missing = That replacement card is no longer available.
 
 deadmanspoker-match-start = Dead Man's Poker begins. Every bullet on the table is a bet with your life behind it.
-deadmanspoker-hand-start = Hand { $hand }. Each active player commits the first bullet.
 deadmanspoker-hand-start-all-alive = Hand { $hand }. Everyone commits the first bullet.
 deadmanspoker-hand-start-survivors = Hand { $hand }. Each survivor commits the first bullet.
 deadmanspoker-community-arrives = Five community cards arrive face down.

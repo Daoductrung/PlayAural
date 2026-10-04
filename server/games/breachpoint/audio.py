@@ -15,7 +15,20 @@ from ...audio import (
 )
 from ...game_utils.audio_duration import measure_audio_duration_ticks
 from ...game_utils.client_types import get_client_type
-from .arsenal import EQUIPMENT, UTILITIES, WEAPONS, get_utility
+from .agents import (
+    AGENT_GENDER_FEMALE,
+    AGENT_RADIO_CLICK_ASSET,
+    AGENT_VOICE_ASSETS,
+    AgentPersona,
+    get_agent_persona,
+)
+from .arsenal import (
+    EQUIPMENT,
+    SIDE_TERRORISTS,
+    UTILITIES,
+    WEAPONS,
+    get_utility,
+)
 from .maps import DEFAULT_MAP_ID, TACTICAL_MAPS, GridPoint, TacticalNode
 
 if TYPE_CHECKING:
@@ -101,6 +114,14 @@ DISTANT_ATTENUATION = DistanceAttenuation(
     max_distance=120.0,
     rolloff_factor=0.35,
     min_gain=0.06,
+    max_gain=1.0,
+)
+AGENT_RADIO_ATTENUATION = DistanceAttenuation(
+    model="inverse",
+    reference_distance=6.0,
+    max_distance=150.0,
+    rolloff_factor=0.15,
+    min_gain=0.22,
     max_gain=1.0,
 )
 FIRE_ATTENUATION = DistanceAttenuation(
@@ -213,6 +234,10 @@ HEADSHOT_ASSETS_BY_ARMOR = {
     True: _numbered_assets(f"{AUDIO_ROOT}/combat/headshot/armor", 3),
 }
 DEATH_VOICE_ASSETS = _numbered_assets(f"{AUDIO_ROOT}/combat/death/voice", 6)
+FEMALE_DEATH_VOICE_ASSETS = _numbered_assets(
+    f"{AUDIO_ROOT}/combat/death/female_voice",
+    8,
+)
 BODY_FALL_VARIANT_COUNTS_BY_SURFACE = {
     "sand": 2,
     "concrete": 2,
@@ -677,6 +702,8 @@ BREACHPOINT_ASSET_PATHS = tuple(
         {
             MAP_AMBIENCE_ASSET,
             *MAP_AMBIENCE_ASSETS,
+            AGENT_RADIO_CLICK_ASSET,
+            *AGENT_VOICE_ASSETS,
             TURN_NOTIFICATION_ASSET,
             *BUY_ITEM_HOVER_ASSETS,
             FIRE_LOOP_ASSET,
@@ -694,6 +721,7 @@ BREACHPOINT_ASSET_PATHS = tuple(
                 for asset in surface_assets
             ),
             *DEATH_VOICE_ASSETS,
+            *FEMALE_DEATH_VOICE_ASSETS,
             *(
                 asset
                 for assets in HEADSHOT_ASSETS_BY_ARMOR.values()
@@ -1794,6 +1822,80 @@ class BreachPointAudioMixin:
                 max_instances=10,
             )
 
+    @staticmethod
+    def _agent_persona_for_player(
+        player: BreachPointPlayer,
+    ) -> AgentPersona | None:
+        """Return the side-appropriate cosmetic voice assigned to a player."""
+
+        persona_id = (
+            player.terrorist_agent_id
+            if player.team_index == SIDE_TERRORISTS
+            else player.counter_terrorist_agent_id
+        )
+        persona = get_agent_persona(persona_id)
+        if not persona or persona.side_index != player.team_index:
+            return None
+        return persona
+
+    def _play_agent_voice(
+        self,
+        speaker: BreachPointPlayer,
+        event: str,
+        *,
+        fallback_event: str = "",
+    ) -> None:
+        """Play one positional radio-filtered callout for living teammates only."""
+
+        if speaker.eliminated:
+            return
+        persona = self._agent_persona_for_player(speaker)
+        if not persona:
+            return
+        assets = persona.assets_for(event)
+        if not assets and fallback_event:
+            assets = persona.assets_for(fallback_event)
+        if not assets:
+            return
+        source = self._player_grid_point(speaker)
+        voice_asset = self._agent_rng.choice(assets)
+        for listener, user in self._audio_listeners():
+            if (
+                listener.is_spectator
+                or listener.team_index != speaker.team_index
+            ):
+                continue
+            if listener.id == speaker.id:
+                position = None
+                curve = None
+            else:
+                position = self._relative_audio_position(
+                    listener,
+                    source,
+                    source_height_meters=WEAPON_SOURCE_HEIGHT_METERS,
+                )
+                curve = AGENT_RADIO_ATTENUATION
+            user.play_sound_chain(
+                [
+                    AudioSequenceSegment(
+                        AGENT_RADIO_CLICK_ASSET,
+                        gain=0.72,
+                        next_start_ratio=0.0,
+                    ),
+                    AudioSequenceSegment(
+                        voice_asset,
+                        position=position,
+                        attenuation=curve,
+                    ),
+                ],
+                handle=f"breachpoint.agent-voice.{speaker.id}",
+                bus="radio",
+                buffer="game",
+                volume=92,
+                priority=72,
+                max_instances=2,
+            )
+
     def _death_audio_assets(
         self,
         target: BreachPointPlayer,
@@ -1805,8 +1907,14 @@ class BreachPointAudioMixin:
         body_fall_assets = BODY_FALL_ASSETS_BY_SURFACE.get(surface)
         if not body_fall_assets:
             return None
+        persona = self._agent_persona_for_player(target)
+        voice_assets = (
+            FEMALE_DEATH_VOICE_ASSETS
+            if persona and persona.gender == AGENT_GENDER_FEMALE
+            else DEATH_VOICE_ASSETS
+        )
         return (
-            self._spatial_rng.choice(DEATH_VOICE_ASSETS),
+            self._spatial_rng.choice(voice_assets),
             self._spatial_rng.choice(body_fall_assets),
         )
 

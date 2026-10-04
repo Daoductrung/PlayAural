@@ -11,6 +11,8 @@ class BreachPointPlayer(Player):
 
     squad_index: int = -1
     team_index: int = -1
+    terrorist_agent_id: str = ""
+    counter_terrorist_agent_id: str = ""
     position_id: str = ""
     grid_x: int = -1
     grid_y: int = -1

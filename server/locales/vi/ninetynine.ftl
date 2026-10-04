@@ -1,9 +1,5 @@
 game-name-ninetynine = Chín mươi chín
-ninetynine-description = Một trò chơi bài nơi người chơi cố gắng không để tổng điểm vượt quá 99. Người cuối cùng còn trụ lại sẽ thắng!
-
 ninetynine-round = Vòng { $round }.
-
-ninetynine-player-turn = Lượt của { $player }.
 
 ninetynine-you-play = Bạn đánh lá { $card }. Tổng điểm giờ là { $count }.
 ninetynine-player-plays = { $player } đánh lá { $card }. Tổng điểm giờ là { $count }.
@@ -38,9 +34,6 @@ ninetynine-end-score = { $rank }. { $player }: { $tokens } { $tokens ->
     [one] thẻ
    *[other] thẻ
 }
-
-ninetynine-you-deal = Bạn chia bài.
-ninetynine-player-deals = { $player } chia bài.
 
 ninetynine-you-draw = Bạn rút lá { $card }.
 ninetynine-player-draws = { $player } rút một lá bài.
@@ -83,7 +76,6 @@ ninetynine-set-autodraw = Tự động rút bài: { $enabled }
 ninetynine-option-changed-autodraw = Tự động rút bài: { $enabled }.
 ninetynine-desc-autodraw = Khi bật, người chơi tự động rút lá thay thế sau khi đánh bài. Khi tắt, người chơi phải rút thủ công.
 
-ninetynine-rules-standard = Luật tiêu chuẩn.
 ninetynine-rules-action-cards = Luật lá bài hành động.
 
 ninetynine-rules-variant-standard = Tiêu chuẩn

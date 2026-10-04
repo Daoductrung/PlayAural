@@ -157,7 +157,7 @@ uno-swap-with = Trocar de mão com { $player }
 uno-choose-swap = Escolha um jogador para trocar de mão, ou recuse.
 uno-swap-none = Não trocar
 uno-you-swap-none = Você mantém sua mão.
-uno-swap-none-other = { $player } mantém sua mão.
+uno-swap-none-other = { $player } mantém a mão { GENDER_TERM($player_gender, "possessive-determiner") }.
 
 # Interceptions / straights
 uno-player-intercepts = { $player } intercepta com { $card }!
@@ -186,9 +186,9 @@ uno-round-details-none = Nenhum ponto foi tirado dos oponentes.
 uno-round-summary = { $details }. { $player } ganha { $total }.
 uno-round-summary-you = { $details }. Você ganha { $total }.
 uno-you-add-penalty-points = Você adiciona { $points } pontos de penalidade ao seu total para esta rodada.
-uno-player-adds-penalty-points = { $player } adiciona { $points } pontos de penalidade ao próprio total para esta rodada.
+uno-player-adds-penalty-points = { $player } adiciona { $points } pontos de penalidade ao total { GENDER_TERM($player_gender, "possessive-determiner") } nesta rodada.
 uno-you-add-penalty-points-with-interception = Você adiciona { $points } pontos de penalidade ao seu total para esta rodada ({ $hand_points } da sua mão mais { $penalty } de penalidade por interceptação).
-uno-player-adds-penalty-points-with-interception = { $player } adiciona { $points } pontos de penalidade ao próprio total para esta rodada ({ $hand_points } da própria mão mais { $penalty } de penalidade por interceptação).
+uno-player-adds-penalty-points-with-interception = { $player } adiciona { $points } pontos de penalidade ao total { GENDER_TERM($player_gender, "possessive-determiner") } nesta rodada ({ $hand_points } da mão { GENDER_TERM($player_gender, "possessive-determiner") } mais { $penalty } de penalidade por interceptação).
 uno-you-are-eliminated = Você atingiu o limite de eliminação de { $limit } pontos e está fora do jogo.
 uno-player-is-eliminated = { $player } atingiu o limite de eliminação de { $limit } pontos e está fora do jogo.
 uno-you-win-game =

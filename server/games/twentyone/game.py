@@ -3687,6 +3687,7 @@ class TwentyOneGame(ActionGuardMixin, Game):
     def build_game_result(self) -> GameResult:
         players = [p for p in self.players if isinstance(p, TwentyOnePlayer) and not p.is_spectator]
         winner = max(players, key=lambda p: p.hp, default=None)
+        winner_ids = [p.id for p in players if winner and p.hp == winner.hp]
         final_hp = {p.name: p.hp for p in players}
 
         return GameResult(
@@ -3694,15 +3695,12 @@ class TwentyOneGame(ActionGuardMixin, Game):
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=p.id,
-                    player_name=p.name,
-                    is_bot=p.is_bot,
-                )
+                PlayerResult.from_player(p)
                 for p in players
             ],
             custom_data={
                 "winner_name": winner.name if winner else None,
+                "winner_ids": winner_ids,
                 "winner_hp": winner.hp if winner else 0,
                 "final_hp": final_hp,
                 "rounds_played": self.round_number,

@@ -3,7 +3,7 @@ common-error = Lỗi
 common-ok = OK
 common-save = &Lưu
 
-main-menu-label = Menu
+main-menu-label = Trình đơn
 main-edit-label = Chỉnh sửa
 main-chat-label = Trò chuyện
 main-history-label = Nhật ký
@@ -37,6 +37,7 @@ voice-chat-listen-only = Đã tham gia trò chuyện thoại. Bạn đang chỉ 
 voice-chat-left = Đã rời trò chuyện thoại.
 voice-chat-mic-on = Mic đã bật.
 voice-chat-mic-off = Mic đã tắt.
+voice-chat-host-muted = Chủ bàn đã tắt mic của bạn. Bạn vẫn có thể nghe.
 voice-chat-not-connected = Trò chuyện thoại chưa được kết nối.
 voice-chat-unavailable = Trò chuyện thoại hiện chưa khả dụng.
 voice-chat-sdk-missing = Máy khách này chưa cài đặt hỗ trợ trò chuyện thoại.
@@ -76,7 +77,6 @@ auth-error-user-not-found = Người dùng không tồn tại.
 auth-error-username-ambiguous = Có nhiều tài khoản cũ trùng với cách viết này khi không phân biệt chữ hoa chữ thường. Hãy nhập đúng từng ký tự như tên đã đăng ký.
 auth-registration-success = Đăng ký thành công! Giờ bạn có thể đăng nhập bằng tài khoản này.
 auth-username-taken = Tên đăng nhập đã được sử dụng. Vui lòng chọn tên khác.
-auth-username-reserved-bot = Tên này được dành riêng cho bot PlayAural. Vui lòng chọn tên đăng nhập khác.
 auth-username-reserved = Tên này được PlayAural dành riêng. Vui lòng chọn tên đăng nhập khác.
 
 login-welcome-title = Chào mừng bạn đến với PlayAural

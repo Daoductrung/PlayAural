@@ -14,6 +14,10 @@ from ..registry import register_game
 from ...game_utils.actions import Action, ActionSet, MenuInput, Visibility
 from ...game_utils.bot_helper import BotHelper
 from ...game_utils.game_result import GameResult, PlayerResult
+from ...game_utils.stats_helpers import (
+    RATING_COMPETITORS_KEY,
+    rating_competitors_from_scores,
+)
 from ...game_utils.round_timer import RoundTimer
 from ...game_utils.teams import TeamManager
 from ...messages.localization import Localization
@@ -750,7 +754,7 @@ class MileByMileGame(Game):
             user.locale,
         )
         if reason_text is not None:
-            user.speak(reason_text, buffer="game")
+            user.speak(reason_text, buffer="game", history=False)
 
     def _unplayable_card_reason_text(
         self,
@@ -3012,11 +3016,23 @@ class MileByMileGame(Game):
         winner_name = None
 
         final_scores = {}
+        rating_groups: list[tuple[list[str], int]] = []
         # Calculate team scores/progress — use str(index) as key for dynamic
         # localization in format_end_screen (same pattern as the first build_game_result)
         for i, score in sorted_teams:
             team = self._team_manager.teams[i]
             final_scores[str(i)] = score
+            rating_groups.append(
+                (
+                    [
+                        player.id
+                        for player in self.get_active_players()
+                        if isinstance(player, MileByMilePlayer)
+                        and player.team_index == i
+                    ],
+                    score,
+                )
+            )
 
             if winner_team_idx is not None and i == winner_team_idx:
                 winner_name = self.get_team_name(i)
@@ -3033,18 +3049,15 @@ class MileByMileGame(Game):
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=p.id,
-                    player_name=p.name,
-                    is_bot=p.is_bot and not p.replaced_human,
-                )
+                PlayerResult.from_player(p)
                 for p in self.get_active_players()
             ],
             custom_data={
                 "winner_name": winner_name,
-                "winner_ids": winner_ids if winner_ids else None,
+                "winner_ids": winner_ids,
                 "winner_score": winner_score,
                 "final_scores": final_scores,
+                RATING_COMPETITORS_KEY: rating_competitors_from_scores(rating_groups),
                 "rounds_played": self.current_race,
                 "target_score": self.options.winning_score,
                 "race_distance": self.options.round_distance,

@@ -27,7 +27,7 @@ senet-water-other = { $player } caiu na Casa da Água! Peça enviada para a casa
 senet-happiness-you = Você chegou à Casa da Felicidade.
 senet-happiness-other = { $player } chegou à Casa da Felicidade.
 senet-horus-auto-you = Sua peça sai da Casa de Hórus porque sua primeira fileira está livre. Restam { $remaining }.
-senet-horus-auto-other = A peça de { $player } sai da Casa de Hórus porque a primeira fileira dela está livre. Restam { $remaining }.
+senet-horus-auto-other = A peça de { $player } sai da Casa de Hórus porque a primeira fileira { GENDER_TERM($player_gender, "possessive-determiner") } está livre. Restam { $remaining }.
 
 # No moves
 senet-no-moves-you = Você não tem movimentos possíveis.
@@ -59,7 +59,7 @@ senet-sticks-none = Nenhum lançamento ainda.
 
 # Win
 senet-wins-you = Você venceu! Todas as suas peças atravessaram a última casa.
-senet-wins-other = { $player } venceu! Todas as peças desse jogador atravessaram a última casa.
+senet-wins-other = { $player } venceu! Todas as peças { GENDER_TERM($player_gender, "possessive-determiner") } atravessaram a última casa.
 
 # Action labels
 senet-check-status = Status

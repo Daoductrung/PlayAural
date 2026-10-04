@@ -1,7 +1,6 @@
 auth-username-password-required = Yêu cầu tên đăng nhập và mật khẩu.
 auth-registration-success = Đăng ký thành công! Giờ bạn có thể đăng nhập.
 auth-username-taken = Tên đăng nhập đã có người dùng. Vui lòng chọn tên khác.
-auth-username-reserved-bot = Tên này được dành riêng cho bot PlayAural. Vui lòng chọn tên đăng nhập khác.
 auth-username-reserved = Tên này được PlayAural dành riêng. Vui lòng chọn tên đăng nhập khác.
 auth-registration-error = Đăng ký thất bại do lỗi máy chủ. Vui lòng thử lại.
 auth-error-wrong-password = Sai mật khẩu.
@@ -51,25 +50,22 @@ smtp-enc-ssl = Sử dụng SSL
 smtp-enc-tls = Tự động bật mã hóa TLS (STARTTLS)
 smtp-current-enc = * { $value }
 
-main-menu-title = Menu Chính
-
 play = Chơi
 view-active-tables = Xem các bàn đang hoạt động
 options = Tùy chỉnh
 logout = Đăng xuất
 back = Quay lại
 go-back = Quay lại
-context-menu = Menu ngữ cảnh.
+context-menu = Trình đơn ngữ cảnh.
 no-actions-available = Không có hành động nào.
 table-new-host-promoted = { $player } bây giờ là chủ bàn.
-return-to-lobby = Trở lại phòng chờ
 return-to-table = Trở lại bàn
 create-table = Tạo bàn mới
 leave-table = Rời bàn
-start-game = Bắt đầu game
+start-game = Bắt đầu chơi
 add-bot = Thêm Bot
 remove-bot = Xóa Bot
-actions-menu = Menu hành động
+actions-menu = Trình đơn hành động
 save-table = Lưu bàn
 whose-turn = Lượt của ai
 whos-at-table = Ai đang ở trong bàn
@@ -128,9 +124,7 @@ friend-offline = Bạn của bạn { $player } đã ngoại tuyến.
 permission-denied = Bạn không có quyền thực hiện hành động này đối với Nhà phát triển.
 kick-user = Đuổi người dùng
 kick-broadcast = { $target } đã bị đuổi bởi { $actor }.
-you-were-kicked = Bạn đã bị đuổi bởi { $actor }.
 user-not-online = Người dùng { $target } không trực tuyến.
-kick-immune = Bạn không thể đuổi người này.
 kick-confirm = Bạn có chắc chắn muốn đuổi { $player } không?
 no-users-to-kick = Không có người dùng nào để đuổi.
 usage-kick = Cách dùng: /kick <tên_người_dùng>
@@ -158,7 +152,7 @@ online-users-group = { $role ->
 }
 online-users-more = { $count } người khác
 online-user-waiting-approval = Đang chờ duyệt
-presence-status-main-menu = Menu chính
+presence-status-main-menu = Trình đơn chính
 presence-status-waiting-table = Đang chờ tại bàn { $game }
 presence-status-playing = Đang chơi { $game }
 presence-status-spectating = Đang xem { $game }
@@ -190,7 +184,7 @@ language-menu-current-entry = Hiện tại: { $entry }
 option-on = Bật
 option-off = Tắt
 
-# Điều khiển trong menu tùy chọn nhiều lựa chọn
+# Điều khiển trong trình đơn tùy chọn nhiều lựa chọn
 option-back = Quay lại
 option-select-all = Chọn tất cả
 option-deselect-all = Bỏ chọn tất cả
@@ -199,11 +193,7 @@ option-deselected-count = Đã bỏ chọn { $count }
 option-min-selected = Bạn phải chọn ít nhất { $count }.
 option-max-selected = Bạn chỉ được chọn tối đa { $count }.
 
-turn-sound-option = Âm thanh báo lượt: { $status }
-
 custom-bot-names-option = Tên bot tùy chỉnh: { $status }
-confirm-destructive-option = Xác nhận hành động rủi ro: { $status }
-clear-kept-option = Xóa xúc xắc đã giữ khi gieo: { $status }
 option-notify-table-created = Thông báo khi có bàn mới: { $status }
 option-notify-user-presence = Thông báo người dùng trực tuyến/ngoại tuyến: { $status }
 option-notify-friend-presence = Thông báo trạng thái bạn bè: { $status }
@@ -246,12 +236,9 @@ pref-desc-clear-kept-on-roll = Trong các trò xúc xắc có hỗ trợ, chẳn
 pref-desc-dice-keeping-style = Theo vị trí: dùng phím 1-5, hoặc 1-6 trong 1-4-24, để đổi trạng thái từng viên theo vị trí. Theo giá trị: dùng phím 1-6 để thả một viên đang giữ có mặt tương ứng, và Shift+1-6 để giữ lại một viên đã thả. Trong giai đoạn đổi của Tradeoff, phím 1-6 giữ lại một viên cùng mặt, còn Shift+1-6 đánh dấu một viên để đổi; trong giai đoạn lấy, phím số thường 1-6 lấy một viên cùng mặt từ hũ chung.
 
 cancel = Hủy
-no-bot-names-available = Không có tên bot nào.
 enter-bot-name = Nhập tên bot
 bot-name-invalid-length = Tên bot phải dài từ 3 đến 30 ký tự.
 bot-name-invalid-characters = Tên bot chỉ được dùng chữ cái, số và khoảng trắng.
-bot-name-already-used = Một người chơi hoặc bot với tên này đã có tại bàn.
-bot-name-registered-account = Tên này thuộc về một tài khoản đã đăng ký. Vui lòng chọn tên bot khác.
 table-name-already-used = Một người chơi hoặc bot với tên này đã có tại bàn.
 no-options-available = Không có tùy chọn nào.
 no-scores-available = Chưa có điểm số.
@@ -272,7 +259,7 @@ general-desc-friends = Quản lý bạn bè, lời mời kết bạn, tin nhắn
 general-desc-my-stats = Xem số ván thắng, thua, xếp hạng và các thống kê trò chơi có hỗ trợ.
 general-desc-general-options = Điều chỉnh ngôn ngữ, trò chuyện chung, âm thanh, hỗ trợ tiếp cận, thông báo và tùy chỉnh lối chơi.
 general-desc-game-options = Điều chỉnh các tùy chỉnh lối chơi có thể áp dụng chung hoặc riêng cho từng trò chơi có hỗ trợ.
-general-desc-language = Chọn ngôn ngữ dùng cho menu, thông báo và tài liệu của máy chủ khi có bản dịch.
+general-desc-language = Chọn ngôn ngữ dùng cho trình đơn, thông báo và tài liệu của máy chủ khi có bản dịch.
 general-desc-audio = Điều chỉnh âm lượng nhạc, hiệu ứng, môi trường, trò chuyện thoại, âm thanh gõ phím và thiết bị đầu vào trên máy khách máy tính.
 general-desc-accessibility = Điều chỉnh cách đọc nội dung, nhập liệu và hành vi hỗ trợ tiếp cận đang có trên thiết bị này.
 general-desc-notifications = Chọn các thông báo trò chuyện, trạng thái hiện diện và tạo bàn mà bạn muốn nghe.
@@ -285,7 +272,7 @@ general-desc-play-typing-sounds = Phát âm thanh gõ phím nhỏ khi bạn nh�
 general-desc-web-speech-settings = Cấu hình giọng đọc trên web, gồm chế độ ARIA live hoặc Web Speech, tốc độ đọc và giọng đọc.
 general-desc-mobile-speech-settings = Cấu hình bộ máy đọc, giọng đọc và tốc độ đọc trên di động.
 general-desc-invert-multiline-enter = Đổi vai trò gửi và xuống dòng trong các ô nhập nhiều dòng trên máy khách máy tính.
-general-desc-menu-hints = Hiện phần mô tả có sẵn ngay trong từng mục menu. Khi tắt, bạn vẫn có thể nhấn Space để nghe mô tả tại những nơi có hỗ trợ.
+general-desc-menu-hints = Hiện phần mô tả có sẵn ngay trong từng mục trình đơn. Khi tắt, hãy chọn mục có mô tả rồi nhấn F1 trên ứng dụng máy tính hoặc bản web khi dùng bàn phím, hoặc chạm một lần bằng ba ngón ở chế độ tự đọc trên di động để nghe phần mô tả.
 general-desc-mute-global-chat = Không tự động đọc tin nhắn ở kênh chung.
 general-desc-global-chat-channel = Chọn kênh ngôn ngữ dùng để gửi và nhận tin nhắn trò chuyện chung. Bạn vẫn phải chọn kênh ngay cả khi đã bật trò chuyện chung.
 general-desc-mute-table-chat = Không tự động đọc tin nhắn trò chuyện trong bàn.
@@ -328,7 +315,7 @@ saved-table-social-blocked = Không thể khôi phục bàn đã lưu vì bạn 
 saved-table-social-blocked-mixed = Bàn đã lưu này có những người dùng bạn đã chặn: { $blocked }. Hãy mở Cá nhân và Tùy chỉnh, chọn Bạn bè, rồi chọn Người dùng bị chặn và bỏ chặn họ. Ngoài ra, bạn hiện không thể liên hệ trực tiếp với: { $unavailable }. Bàn đã lưu vẫn được giữ lại.
 saved-table-invalid = Không thể khôi phục bàn đã lưu này vì dữ liệu trò chơi hoặc người chơi trong đó không đầy đủ hay không còn tương thích. Bàn đã lưu vẫn được giữ lại.
 table-restored = Đã khôi phục bàn! Tất cả người chơi đã được chuyển vào.
-table-saved-destroying = Đã lưu bàn! Đang quay về menu chính.
+table-saved-destroying = Đã lưu bàn! Đang quay về trình đơn chính.
 game-type-not-found = Loại trò chơi không còn tồn tại.
 
 action-not-your-turn = Chưa đến lượt của bạn.
@@ -349,13 +336,9 @@ action-role-change-rate-limited = Bạn đang chuyển đổi giữa người ch
     [one] 1 giây
    *[other] { $seconds } giây
 }.
-action-no-scores = Chưa có điểm số nào.
-
 options-category-audio = Âm thanh
 options-category-accessibility = Hỗ trợ tiếp cận
 options-category-notifications = Thông báo
-options-category-game = Trò chơi
-
 music-volume-option = Âm lượng nhạc: { $value }%
 sound-volume-option = Âm lượng hiệu ứng: { $value }%
 ambience-volume-option = Âm lượng môi trường: { $value }%
@@ -378,12 +361,9 @@ global-chat-channel-selected = Đã đặt ngôn ngữ trò chuyện chung thàn
 global-chat-channel-cleared = Chưa chọn ngôn ngữ trò chuyện chung. Bạn sẽ không gửi hoặc nhận tin nhắn chung.
 mute-table-chat-option = Tắt tiếng trò chuyện trong bàn: { $status }
 invert-multiline-enter-option = Đảo ngược phím Enter: { $status }
-menu-hints-option = Gợi ý trong menu: { $status }
-menu-hints-changed = Gợi ý trong menu hiện đang { $status }.
+menu-hints-option = Gợi ý trong trình đơn: { $status }
+menu-hints-changed = Gợi ý trong trình đơn hiện đang { $status }.
 play-typing-sounds-option = Âm thanh gõ phím: { $status }
-enter-music-volume = Nhập âm lượng nhạc (0-100)
-enter-ambience-volume = Nhập âm lượng môi trường (0-100)
-enter-voice-volume = Nhập âm lượng trò chuyện thoại (10-100)
 invalid-volume = Âm lượng không hợp lệ.
 
 dice-not-rolled = Bạn chưa gieo xúc xắc.
@@ -420,7 +400,7 @@ table-member-status-bot-takeover = bot đang chơi thay cho { GENDER_TERM($membe
 table-member-no-actions = Không có hành động nào cho { $player }.
 table-member-left = Người này không còn ở bàn này.
 table-member-bot-left = Bot này không còn ở bàn này.
-game-over = Kết thúc game
+game-over = Kết thúc trò chơi
 game-final-scores = Điểm tổng kết
 game-points = { $count } { $count ->
     [one] điểm
@@ -452,11 +432,10 @@ leaderboard-wins-entry = { $rank }: { $player }, { $wins } { $wins ->
 leaderboard-score-entry = { $rank }. { $player }: { $value }
 leaderboard-games-entry = { $rank }. { $player }: { $value } ván
 leaderboard-avg-entry = { $rank }. { $player }: { $value }
-
 leaderboard-no-player-stats = Bạn chưa chơi trò chơi này.
 
 leaderboard-no-ratings = Chưa có dữ liệu xếp hạng cho trò chơi này.
-leaderboard-rating-entry = { $rank }. { $player }: xếp hạng { $rating } ({ $mu } ± { $sigma })
+leaderboard-rating-entry = { $rank }. { $player }: xếp hạng { $rating }
 leaderboard-no-player-rating = Bạn chưa có xếp hạng cho trò chơi này.
 
 my-stats = Thống kê của tôi
@@ -470,22 +449,15 @@ my-stats-winrate = Tỷ lệ thắng: { $value }%
 my-stats-games-played = Số ván đã chơi: { $value }
 my-stats-total-score = Tổng điểm: { $value }
 my-stats-high-score = Điểm cao nhất: { $value }
-my-stats-rating = Xếp hạng kỹ năng: { $value } ({ $mu } ± { $sigma })
+my-stats-rating = Xếp hạng kỹ năng: { $value }
 my-stats-no-rating = Chưa có xếp hạng kỹ năng
+my-stats-custom = { $name }: { $value }
 my-stats-avg-per-turn = Điểm trung bình mỗi lượt: { $value }
 my-stats-best-turn = Lượt đi điểm cao nhất: { $value }
 my-stats-score-per-round = Điểm trung bình mỗi vòng: { $value }
 my-stats-most-enemies-defeated = Số địch hạ gục cao nhất: { $value }
 my-stats-deepest-wave-reached = Đợt vượt sâu nhất: { $value }
 
-predict-outcomes = Dự đoán kết quả
-predict-header = Kết quả dự đoán (theo xếp hạng kỹ năng)
-predict-note-multiplayer = Phần trăm thắng chỉ hiển thị khi đấu 2 người. Nếu có từ 3 người chơi thật trở lên, hệ thống chỉ hiển thị xếp hạng kỹ năng.
-predict-entry = { $rank }. { $player } (xếp hạng: { $rating })
-predict-entry-2p = { $rank }. { $player } (xếp hạng: { $rating }, tỷ lệ thắng { $probability }%)
-predict-unavailable = Dự đoán xếp hạng không khả dụng.
-predict-need-players = Cần ít nhất 2 người chơi thật để dự đoán.
-action-need-more-humans = Cần thêm người chơi thật.
 confirm-leave-game = Bạn có chắc chắn muốn rời bàn không?
 confirm-yes = Có
 confirm-no = Không
@@ -668,7 +640,6 @@ waiting-for-approval = Tài khoản của bạn đang chờ quản trị viên p
 account-approved-welcome = Tài khoản của bạn đã được duyệt! Chào mừng đến với PlayAural!
 account-declined-goodbye = Yêu cầu tài khoản của bạn đã bị từ chối.
 
-account-request = yêu cầu tài khoản
 account-action = đã thực hiện hành động tài khoản
 
 promote-admin = Thăng chức Admin
@@ -850,7 +821,6 @@ logout-confirm-no = Không, ở lại
 
 system-name = Hệ thống
 server-restarting = Máy chủ sẽ khởi động lại trong { $seconds } giây nữa...
-server-restarting-now = Máy chủ đang khởi động lại ngay bây giờ. Vui lòng kết nối lại sau ít phút.
 server-shutting-down = Máy chủ sẽ tắt trong { $seconds } giây nữa...
 server-shutting-down-now = Máy chủ đang tắt ngay bây giờ. Tạm biệt!
 server-power-management = Quản lý nguồn máy chủ
@@ -891,16 +861,16 @@ server-power-shutdown-warning = Máy chủ sẽ tắt sau { $duration }. Lý do:
 server-power-reboot-now = Máy chủ đang khởi động lại ngay bây giờ. Lý do: { $reason }. Đừng tự ngắt kết nối; máy khách sẽ tự kết nối lại, và các bàn đang chơi sẽ được giữ nguyên.
 server-power-shutdown-now = Máy chủ đang tắt ngay bây giờ. Lý do: { $reason }. Máy chủ sẽ ngoại tuyến.
 server-power-restore-waiting = Bàn này đã được khôi phục sau một lần khởi động lại theo lịch. Đang chờ tối đa { $seconds } giây để người chơi khác kết nối lại trước khi thay ghế vắng bằng bot.
-server-power-restore-input-blocked = Bàn này vẫn đang khôi phục sau lần khởi động lại theo lịch. Game tạm dừng tối đa { $seconds } giây nữa trong khi chờ { $players }; vui lòng thử lại sau khi hết thời gian chờ.
+server-power-restore-input-blocked = Bàn này vẫn đang khôi phục sau lần khởi động lại theo lịch. Ván chơi tạm dừng tối đa { $seconds } giây nữa trong khi chờ { $players }; vui lòng thử lại sau khi hết thời gian chờ.
 server-power-restore-missing-players-fallback = những người chơi còn lại
-server-power-restore-complete = Tất cả người chơi đang chơi đã kết nối lại sau lần khởi động lại theo lịch. Game tiếp tục.
-server-power-restore-complete-with-bots = Đã hết thời gian chờ kết nối lại sau lần khởi động lại theo lịch. Các ghế vắng đã được thay bằng bot, và game đang tiếp tục.
+server-power-restore-complete = Tất cả người chơi đang chơi đã kết nối lại sau lần khởi động lại theo lịch. Ván chơi tiếp tục.
+server-power-restore-complete-with-bots = Đã hết thời gian chờ kết nối lại sau lần khởi động lại theo lịch. Các ghế vắng đã được thay bằng bot, và ván chơi đang tiếp tục.
 duration-seconds = { $count } giây
 duration-minutes = { $count } phút
 duration-hours = { $count } giờ
 duration-minutes-seconds = { $minutes } phút và { $seconds } giây
 duration-hours-minutes = { $hours } giờ và { $minutes } phút
-server-error-changing-language = Lỗi khi thay đổi ngôn ngữ: { $error }
+server-error-changing-language = Không thể thay đổi ngôn ngữ. Giao diện bằng ngôn ngữ trước đó vẫn được giữ nguyên.
 default-save-name = { $game } - { $date }
 
 speech-settings = Cài đặt giọng đọc
@@ -908,7 +878,6 @@ speech-mode-option = Chế độ đọc: { $status }
 speech-rate-option = Tốc độ đọc: { $value }%
 speech-voice-option = Giọng đọc: { $voice }
 select-voice = Chọn giọng đọc
-enter-speech-rate = Nhập tốc độ đọc (50-300)
 invalid-rate = Tốc độ đọc không hợp lệ. Vui lòng dùng giá trị từ 50 đến 300.
 mode-aria = Aria-live
 mode-web-speech = Web Speech API
@@ -924,8 +893,8 @@ mobile-tts-enter-rate = Nhập tốc độ đọc di động (50-200)
 mobile-tts-invalid-rate = Tốc độ đọc di động không hợp lệ. Vui lòng dùng giá trị từ 50 đến 200.
 
 player-kicked-offline = Người chơi { $player } đã bị đuổi (ngoại tuyến).
-game-paused-host-disconnect = Game tạm dừng. Đang chờ { $player } kết nối lại...
-game-resumed = { $player } đã kết nối lại. Tiếp tục game!
+game-paused-host-disconnect = Ván chơi tạm dừng. Đang chờ { $player } kết nối lại...
+game-resumed = { $player } đã kết nối lại. Tiếp tục ván chơi!
 
 auth-error-username-length = Tên đăng nhập phải dài từ 3 đến 30 ký tự.
 auth-error-username-invalid-chars = Tên đăng nhập chỉ được chứa chữ cái, chữ số và dấu cách (không được có nhiều dấu cách liên tiếp hoặc ký tự đặc biệt).
@@ -1064,12 +1033,8 @@ friends-blocked-empty = Bạn chưa chặn người dùng nào.
 friends-list-empty = Bạn chưa có người bạn nào.
 friend-status-offline = Ngoại tuyến
 friend-status-offline-last-online = Ngoại tuyến, trực tuyến lần cuối { $relative_time }
-friend-status-playing = Đang chơi { $game }
-friend-status-spectating = Đang xem { $game }
-friend-status-lobby = Menu chính
 friend-list-entry = { $username } ({ $status })
 
-friend-actions-title = Hành động cho { $username }
 view-profile = Xem hồ sơ
 block-user = Chặn người dùng
 unblock-user = Bỏ chặn người dùng
@@ -1083,7 +1048,6 @@ friend-removed-notify = { $username } đã xóa bạn khỏi danh sách bạn b�
 
 no-pending-requests = Không có lời mời kết bạn nào đang chờ.
 no-sent-requests = Bạn không có lời mời kết bạn đã gửi nào đang chờ.
-friend-request-from = Lời mời kết bạn từ { $username }
 friend-request-to = Lời mời kết bạn đã gửi đến { $username }
 accept = Chấp nhận
 decline = Từ chối
@@ -1125,7 +1089,6 @@ relative-time-years-ago = { $count ->
    *[other] { $count } năm trước
 }
 
-public-profile-title = Hồ sơ của { $username }
 enter-friend-username = Nhập tên người dùng bạn muốn kết bạn:
 friend-error-self = Bạn không thể gửi lời mời kết bạn cho chính mình.
 friend-error-already-friends = Bạn đã là bạn bè với người này.
@@ -1163,6 +1126,8 @@ table-spectator-suffix = (Khán giả)
 host-management-set-private = Đặt bàn thành riêng tư
 host-management-set-public = Đặt bàn thành công khai
 host-management-invite = Mời bạn bè
+host-management-voice = Quản lý trò chuyện thoại
+host-management-switch-game = Chuyển sang trò chơi khác
 host-management-pass-host = Chuyển quyền chủ bàn
 host-management-kick = Đuổi người chơi
 host-management-kick-ban = Đuổi và cấm người chơi
@@ -1170,6 +1135,24 @@ host-management-player-substitution = Thay người chơi
 host-management-restart-game = Khởi động lại ván chơi
 host-management-table-now-private = Bàn này hiện là riêng tư. Chỉ người được mời mới có thể tham gia.
 host-management-table-now-public = Bàn này hiện là công khai.
+host-game-switch-current = Trò chơi hiện tại: { $game }. { $seats ->
+    [one] Bàn đang có 1 chỗ chơi.
+   *[other] Bàn đang có { $seats } chỗ chơi.
+} Danh sách chỉ hiển thị những trò chơi đủ chỗ cho tất cả người đang chơi.
+host-game-switch-no-compatible-games = { $seats ->
+    [one] Hiện không có trò chơi nào khác đủ chỗ cho 1 người đang chơi.
+   *[other] Hiện không có trò chơi nào khác đủ chỗ cho cả { $seats } người đang chơi.
+}
+host-game-switch-confirm = Chuyển bàn này từ { $old_game } sang { $new_game }? Mọi người vẫn còn ở bàn sẽ được đưa vào phòng chờ mới và giữ nguyên vai trò người chơi hoặc khán giả; các bot cũng được giữ lại. Ván hoặc thiết lập phòng chờ hiện tại, tùy chọn, đội và trạng thái sẵn sàng sẽ bị hủy. Quyền chủ bàn, chế độ riêng tư, danh sách cấm và trò chuyện thoại vẫn được giữ nguyên. Những lời mời đang chờ của trò chơi cũ sẽ bị hủy.
+host-game-switch-target-unavailable = Trò chơi đó không còn khả dụng để chuyển sang. Không có trạng thái nào của bàn bị thay đổi.
+host-game-switch-roster-invalid = Danh sách thành viên đang kết nối của bàn không còn khớp với danh sách người tham gia ván, nên thao tác chuyển trò chơi đã bị chặn để không ai bị bỏ lại. Hãy trở về bàn và thử lại sau khi danh sách được cập nhật.
+host-game-switch-too-many-seats = Không thể chuyển sang { $game}: trò chơi này { $max ->
+    [one] chỉ hỗ trợ tối đa 1 chỗ chơi,
+   *[other] chỉ hỗ trợ tối đa { $max } chỗ chơi,
+} trong khi bàn hiện cần { $seats } chỗ.
+host-game-switch-failed = Không thể chuyển trò chơi một cách an toàn. Bàn và ván hiện tại vẫn được giữ nguyên.
+host-game-switch-you = Bạn đã chuyển bàn từ { $old_game } sang { $new_game }. Mọi người hiện ở phòng chờ mới; trò chuyện thoại của bàn vẫn được kết nối.
+host-game-switch-player = { $player } đã chuyển bàn từ { $old_game } sang { $new_game }. Mọi người hiện ở phòng chờ mới; trò chuyện thoại của bàn vẫn được kết nối.
 host-restart-confirm = Khởi động lại ván hiện tại và đưa bàn về phòng chờ? Người chơi hiện tại và trò chuyện thoại vẫn được giữ nguyên, nhưng ván đang chơi sẽ bị hủy.
 host-restart-broadcast = { $player } đã khởi động lại ván chơi. Bàn đã trở về phòng chờ.
 host-restart-not-playing = Hiện không có ván nào đang chơi để khởi động lại.
@@ -1262,6 +1245,42 @@ voice-status-connected = { $player } đã kết nối vào trò chuyện thoại
 voice-status-disconnected = { $player } đã ngắt kết nối khỏi trò chuyện thoại.
 voice-status-connection-lost = { $player } bị mất kết nối và đã bị đưa ra khỏi trò chuyện thoại.
 voice-status-left-table = { $player } đã rời bàn và rời khỏi trò chuyện thoại.
+voice-member-status-connected = đang kết nối thoại
+voice-member-status-not-connected = chưa kết nối thoại
+voice-member-status-host-muted = bị chủ bàn tắt mic
+voice-member-status-host-unmuted = được phép dùng mic
+voice-member-entry = { $player}: { $status }
+voice-host-management-no-members = Không có thành viên nào khác trong bàn để quản lý.
+voice-host-target-summary = Trạng thái thoại của { $player}: { $voice_status}; { $moderation_status}.
+voice-host-mute-action = Tắt mic của { $player }
+voice-host-unmute-action = Cho phép { $player } dùng mic
+voice-host-cannot-mute-self = Khi đang là chủ bàn, bạn không thể tự tắt mic của mình.
+voice-host-moderation-rate-limited = Trạng thái quản lý thoại đang bị thay đổi quá nhanh. Hãy thử lại sau { $seconds } giây.
+voice-host-muted-actor = Bạn đã tắt mic của { $player } trong bàn này. Họ vẫn có thể nghe nhưng không thể phát âm thanh từ mic.
+voice-host-muted-target = { $host } đã tắt mic của bạn trong bàn này. Bạn vẫn có thể nghe nhưng không thể bật mic.
+voice-host-muted-observer = { $host } đã tắt mic của { $player } trong bàn này.
+voice-host-unmuted-actor = Bạn đã cho phép { $player } dùng lại mic. Mic của họ vẫn tắt cho đến khi họ chủ động bật lên.
+voice-host-unmuted-target = { $host } đã cho phép bạn dùng lại mic. Mic của bạn vẫn tắt cho đến khi bạn chủ động bật lên.
+voice-host-unmuted-observer = { $host } đã cho phép { $player } dùng lại mic.
+voice-host-unmuted-self = Bạn đã tự cho phép mình dùng lại mic. Mic vẫn tắt cho đến khi bạn chủ động bật lên.
+voice-personal-settings-action = Cài đặt thoại cá nhân
+voice-personal-settings-summary = Cài đặt thoại cá nhân cho { $player}: âm lượng { $volume } phần trăm; { $mute_status}; { $connection_status}.
+voice-personal-status-muted = đã tắt tiếng riêng
+voice-personal-status-unmuted = chưa tắt tiếng riêng
+voice-personal-mute-action = Chỉ mình tôi không nghe { $player }
+voice-personal-unmute-action = Cho phép mình nghe lại { $player }
+voice-personal-volume-action = Đổi âm lượng riêng, hiện là { $volume } phần trăm
+voice-personal-volume-choice = { $volume } phần trăm
+voice-personal-reset-action = Đặt lại cài đặt thoại cá nhân
+voice-personal-muted = Bạn đã tắt tiếng riêng của { $player}. Chỉ mình bạn không còn nghe họ.
+voice-personal-unmuted = Bạn đã cho phép mình nghe lại { $player}.
+voice-personal-volume-set = Bạn đã đặt âm lượng riêng của { $player } thành { $volume } phần trăm.
+voice-personal-reset = Bạn đã đặt lại cài đặt thoại cá nhân cho { $player}.
+voice-member-left = Thành viên đó không còn ở bàn này. Các cài đặt thoại đang được giữ lại trong bàn không bị thay đổi.
+voice-settings-limit-reached = Bàn này đã đạt giới hạn an toàn cho cài đặt thoại. Không có cài đặt nào bị thay đổi.
+voice-settings-invalid = Cài đặt thoại đó không hợp lệ. Không có cài đặt nào bị thay đổi.
+voice-invalid-participant = Người tham gia thoại đó không hợp lệ.
+voice-moderation-provider-failed = Hiện chưa thể áp dụng thay đổi quản lý thoại. Không có cài đặt nào bị thay đổi; vui lòng thử lại.
 
 error-smtp-not-configured = Tính năng khôi phục mật khẩu hiện đang bị quản trị viên vô hiệu hóa.
 error-email-not-found = Không tìm thấy tài khoản nào với địa chỉ email đó.

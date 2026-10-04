@@ -1,5 +1,6 @@
 import datetime
 import errno
+import json
 import os
 import sqlite3
 from dataclasses import replace
@@ -2020,6 +2021,7 @@ def test_prune_unsupported_leaderboard_data_removes_only_invalid_stats(db, capsy
         ("p3", "metalpipe", 31.0, 5.0),
         ("p6", "blackjack", 27.0, 8.0),
         ("p5", "lastcard", 35.0, 4.0),
+        ("p7", "pig", 25.0, 0.0),
     ]
     cursor.executemany(
         "INSERT INTO player_ratings (player_id, game_type, mu, sigma) VALUES (?, ?, ?, ?)",
@@ -2043,11 +2045,12 @@ def test_prune_unsupported_leaderboard_data_removes_only_invalid_stats(db, capsy
     )
     printed = capsys.readouterr().out
 
-    assert counts == {"player_game_stats": 6, "player_ratings": 2}
+    assert counts == {"player_game_stats": 6, "player_ratings": 3}
     assert "Unsupported leaderboard stat keys detected" in printed
     assert "metalpipe:games_played" in printed
     assert "twentyone:total_score" in printed
     assert "Unsupported rating game types detected: blackjack, metalpipe" in printed
+    assert "Invalid rating records detected: pig:p7" in printed
 
     cursor.execute(
         """
@@ -2145,3 +2148,42 @@ def test_delete_user_cascades(db):
 
     cursor.execute("SELECT COUNT(*) FROM users")
     assert cursor.fetchone()[0] == 0
+
+
+def test_delete_user_removes_checkpoint_with_only_a_reserved_seat(db):
+    account = db.create_user("Reserved", "hash")
+    cursor = db._conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO tables (
+            table_id, game_type, host, members_json, game_json, status
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            "reserved-seat-table",
+            "pig",
+            "OtherHost",
+            "[]",
+            json.dumps(
+                {
+                    "players": [
+                        {
+                            "id": account.uuid,
+                            "name": "Replacement Bot",
+                            "is_bot": True,
+                            "replaced_human": True,
+                            "replaced_human_name": account.username,
+                        }
+                    ]
+                }
+            ),
+            "playing",
+        ),
+    )
+
+    assert db.delete_user(account.username) is True
+
+    assert cursor.execute(
+        "SELECT COUNT(*) FROM tables WHERE table_id = ?",
+        ("reserved-seat-table",),
+    ).fetchone()[0] == 0

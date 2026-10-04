@@ -43,7 +43,6 @@ game-winner = ¡{ $player } gana!
 game-winner-you = ¡Ganaste!
 game-winner-score = ¡{ $player } gana con { $score } puntos!
 game-tiebreaker = ¡Es un empate! ¡Ronda de desempate!
-game-tiebreaker-players = ¡Hay un empate entre { $players }! ¡Ronda de desempate!
 game-eliminated = { $player } fue eliminado con { $score } puntos.
 
 game-set-target-score = Puntuación objetivo: { $score }
@@ -87,9 +86,6 @@ status-box-closed = Información de estado cerrada.
 game-leave = Salir de la partida
 
 round-timer-paused = { $player } pausó la partida (presiona p para iniciar la siguiente ronda).
-round-timer-resumed = Se reanudó el temporizador de ronda.
-round-timer-countdown = Siguiente ronda en { $seconds }...
-
 dice-keeping = Guardando { $value }.
 dice-rerolling = Volviendo a lanzar { $value }.
 dice-locked = Ese dado está bloqueado y no se puede cambiar.

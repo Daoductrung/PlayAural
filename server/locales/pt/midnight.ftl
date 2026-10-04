@@ -1,7 +1,6 @@
 game-name-midnight = 1-4-24
 
 midnight-roll = Rolar os dados
-midnight-keep-die = Manter { $value }
 midnight-bank = Guardar pontos
 midnight-check-dice = Ler dados atuais
 midnight-check-round-status = Ver status da rodada
@@ -28,7 +27,7 @@ midnight-scored = { $player } se qualifica com 1 e 4, pontuando { $score } a par
 midnight-you-scored-brief = Você pontua { $score }.
 midnight-scored-brief = { $player }: { $score }.
 midnight-you-disqualified = Você não se qualifica porque falta { $missing }.
-midnight-player-disqualified = { $player } não se qualifica porque falta { $missing }.
+midnight-player-disqualified = { $player } não se qualifica porque falta { $missing } para { GENDER_TERM($player_gender, "object") }.
 midnight-you-disqualified-brief = Você perde { $missing }.
 midnight-player-disqualified-brief = { $player } perde { $missing }.
 
@@ -83,7 +82,7 @@ midnight-your-dice-status =
 midnight-player-dice-status =
     { $qualified ->
         [yes] Dados de { $player }: { $dice }. Travados: { $locked }; mantidos para a próxima rolagem: { $kept }; dados ainda ativos: { $remaining }. A pontuação de qualificação atual seria { $score } a partir de { $scoring_dice }.
-       *[no] Dados de { $player }: { $dice }. Travados: { $locked }; mantidos para a próxima rolagem: { $kept }; dados ainda ativos: { $remaining }. Ele ainda precisa de { $missing } para se qualificar.
+       *[no] Dados de { $player }: { $dice }. Travados: { $locked }; mantidos para a próxima rolagem: { $kept }; dados ainda ativos: { $remaining }. Ainda falta { $missing } para { GENDER_TERM($player_gender, "object") } se qualificar.
     }
 
 midnight-status-round = Rodada { $round } de { $total }

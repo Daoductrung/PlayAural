@@ -1,7 +1,6 @@
 auth-username-password-required = نام کاربری و رمز عبور الزامی هستند.
 auth-registration-success = ثبت‌نام موفقیت‌آمیز! اکنون می‌توانید با مشخصات خود وارد شوید.
 auth-username-taken = این نام کاربری قبلاً گرفته شده است. لطفاً نام کاربری دیگری انتخاب کنید.
-auth-username-reserved-bot = این نام برای ربات‌های PlayAural رزرو شده است. لطفاً نام کاربری دیگری انتخاب کنید.
 auth-registration-error = ثبت‌نام به دلیل خطای سرور ناموفق بود. لطفاً دوباره تلاش کنید.
 auth-error-wrong-password = رمز عبور اشتباه است.
 auth-error-user-not-found = کاربر وجود ندارد.
@@ -49,8 +48,6 @@ smtp-enc-ssl = استفاده از SSL
 smtp-enc-tls = فعال‌سازی خودکار رمزنگاری TLS (STARTTLS)
 smtp-current-enc = * { $value }
 
-main-menu-title = منوی اصلی
-
 play = بازی
 view-active-tables = مشاهده‌ی میزهای فعال
 options = تنظیمات
@@ -60,7 +57,6 @@ go-back = بازگشت
 context-menu = منوی زمینه.
 no-actions-available = هیچ عملی در دسترس نیست.
 table-new-host-promoted = { $player } اکنون میزبان میز است.
-return-to-lobby = بازگشت به لابی
 return-to-table = بازگشت به میز
 create-table = ایجاد میز جدید
 leave-table = ترک میز
@@ -107,9 +103,7 @@ friend-offline = دوست شما { $player } آفلاین شد.
 permission-denied = شما مجوز انجام این عمل روی یک توسعه‌دهنده را ندارید.
 kick-user = اخراج کاربر
 kick-broadcast = { $target } توسط { $actor } اخراج شد.
-you-were-kicked = شما توسط { $actor } اخراج شدید.
 user-not-online = کاربر { $target } آنلاین نیست.
-kick-immune = شما نمی‌توانید این کاربر را اخراج کنید.
 kick-confirm = آیا مطمئن هستید که می‌خواهید { $player } را اخراج کنید؟
 no-users-to-kick = هیچ کاربری برای اخراج در دسترس نیست.
 usage-kick = طرز استفاده: /kick <نام‌کاربری>
@@ -156,11 +150,7 @@ option-deselected-count = { $count } انتخاب نشده
 option-min-selected = حداقل باید { $count } گزینه را انتخاب کنید.
 option-max-selected = حداکثر می‌توانید { $count } گزینه را انتخاب کنید.
 
-turn-sound-option = صدای نوبت: { $status }
-
 custom-bot-names-option = نام‌های سفارشی ربات: { $status }
-confirm-destructive-option = تأیید اقدامات پرریسک: { $status }
-clear-kept-option = پاک کردن تاس‌های نگهداشته‌شده هنگام پرتاب: { $status }
 option-notify-table-created = اعلان هنگام ایجاد میز: { $status }
 option-notify-user-presence = اعلان آنلاین/آفلاین شدن کاربران: { $status }
 option-notify-friend-presence = اعلان آنلاین/آفلاین شدن دوستان: { $status }
@@ -203,12 +193,9 @@ pref-desc-clear-kept-on-roll = در بازی‌های تاس‌پشتیبانی�
 pref-desc-dice-keeping-style = شماره‌ی تاس‌ها: از ۱-۵ یا در Midnight از ۱-۶ برای انتخاب تاس بر اساس موقعیت استفاده کنید. مقدار تاس‌ها: از ۱-۶ برای آزاد کردن یک تاس نگهداشته‌شده با آن مقدار و Shift+1-6 برای نگهداشتن یک تاس آزاد هم‌مقدار استفاده کنید. در مرحله‌ی مبادله‌ی Tradeoff، ۱-۶ یک تاس هم‌مقدار را نگه می‌دارد و Shift+1-6 یک تاس را برای مبادله علامت‌گذاری می‌کند؛ در مرحله‌ی برداشتن، ۱-۶ ساده یک تاس هم‌مقدار را از استخر برمی‌دارد.
 
 cancel = انصراف
-no-bot-names-available = هیچ نام رباتی در دسترس نیست.
 enter-bot-name = نام ربات را وارد کنید
 bot-name-invalid-length = نام ربات باید بین ۳ تا ۳۰ کاراکتر باشد.
 bot-name-invalid-characters = نام ربات فقط می‌تواند شامل حروف، اعداد و فاصله باشد.
-bot-name-already-used = یک بازیکن یا ربات با این نام قبلاً در این میز حضور دارد.
-bot-name-registered-account = این نام متعلق به یک حساب ثبت‌شده است. لطفاً نام ربات دیگری انتخاب کنید.
 table-name-already-used = یک بازیکن یا ربات با این نام قبلاً در این میز حضور دارد.
 no-options-available = هیچ گزینه‌ای در دسترس نیست.
 no-scores-available = هیچ امتیازی در دسترس نیست.
@@ -242,7 +229,7 @@ general-desc-play-typing-sounds = پخش صداهای کوتاه تایپ هنگ
 general-desc-web-speech-settings = تنظیم خروجی گفتار مرورگر، شامل حالت ARIA live یا Web Speech، سرعت گفتار و صدا.
 general-desc-mobile-speech-settings = تنظیم موتور تبدیل متن به گفتار موبایل، صدا و سرعت گفتار.
 general-desc-invert-multiline-enter = جابجایی رفتار دکمه‌ی Enter برای ارسال و خط جدید در فیلدهای چندخطی کلاینت دسکتاپ.
-general-desc-menu-hints = توضیحات موجود را مستقیماً در ردیف‌های منو نشان می‌دهد. وقتی خاموش باشد، در بخش‌های پشتیبانی‌شده می‌توانید با کلید Space توضیحات را بشنوید.
+general-desc-menu-hints = توضیحات موجود را مستقیماً در ردیف‌های منو نشان می‌دهد. وقتی خاموش باشد، روی یک آیتم دارای توضیح تمرکز کنید و در نسخه دسکتاپ یا وب با صفحه‌کلید فیزیکی F1 را فشار دهید، یا در حالت خودگویای موبایل یک بار با سه انگشت ضربه بزنید تا توضیح را بشنوید.
 general-desc-mute-global-chat = جلوگیری از پخش خودکار پیام‌های گفتگوی عمومی.
 general-desc-mute-table-chat = جلوگیری از پخش خودکار پیام‌های گفتگوی میز.
 general-desc-notify-user-presence = اعلام آنلاین یا آفلاین شدن کاربران.
@@ -296,13 +283,9 @@ action-start-has-too-many-players = قابل شروع نیست. بازیکنان
 action-start-requires-exact-players = قابل شروع نیست. بازیکنان فعال: { $current }. نیاز: دقیقاً { $required }.
 action-no-bots = هیچ رباتی برای حذف وجود ندارد.
 action-bots-cannot = ربات‌ها نمی‌توانند این کار را انجام دهند.
-action-no-scores = هنوز هیچ امتیازی در دسترس نیست.
-
 options-category-audio = صدا
 options-category-accessibility = دسترسی‌پذیری
 options-category-notifications = اعلان‌ها
-options-category-game = بازی
-
 music-volume-option = بلندی موسیقی: { $value }%
 sound-volume-option = بلندی افکت‌های صوتی: { $value }%
 ambience-volume-option = بلندی صدای محیط: { $value }%
@@ -319,9 +302,6 @@ invert-multiline-enter-option = معکوس کردن رفتار دکمه‌ی Ent
 menu-hints-option = راهنمای منو: { $status }
 menu-hints-changed = راهنمای منو اکنون { $status } است.
 play-typing-sounds-option = پخش صدای تایپ: { $status }
-enter-music-volume = بلندی موسیقی را وارد کنید (۰-۱۰۰)
-enter-ambience-volume = بلندی صدای محیط را وارد کنید (۰-۱۰۰)
-enter-voice-volume = بلندی مکالمه‌ی صوتی را وارد کنید (۱۰-۱۰۰)
 invalid-volume = بلندی نامعتبر است.
 
 dice-not-rolled = هنوز تاس نینداخته‌اید.
@@ -380,7 +360,7 @@ leaderboard-avg-entry = { $rank }. { $player }: { $value }
 leaderboard-no-player-stats = شما هنوز این بازی را انجام نداده‌اید.
 
 leaderboard-no-ratings = هنوز داده‌ی امتیازی برای این بازی وجود ندارد.
-leaderboard-rating-entry = { $rank }. { $player }: { $rating } امتیاز ({ $mu } ± { $sigma })
+leaderboard-rating-entry = { $rank }. { $player }: { $rating } امتیاز
 leaderboard-no-player-rating = شما هنوز برای این بازی امتیازی ندارید.
 
 my-stats = آمار من
@@ -394,7 +374,7 @@ my-stats-winrate = درصد برد: { $value }%
 my-stats-games-played = بازی‌های انجام‌شده: { $value }
 my-stats-total-score = امتیاز کل: { $value }
 my-stats-high-score = بیشترین امتیاز: { $value }
-my-stats-rating = امتیاز مهارت: { $value } ({ $mu } ± { $sigma })
+my-stats-rating = امتیاز مهارت: { $value }
 my-stats-no-rating = هنوز امتیاز مهارتی ندارید
 my-stats-avg-per-turn = میانگین امتیاز در هر نوبت: { $value }
 my-stats-best-turn = بهترین نوبت تکی: { $value }
@@ -402,14 +382,6 @@ my-stats-score-per-round = امتیاز در هر دور: { $value }
 my-stats-most-enemies-defeated = بیشترین دشمن شکست‌خورده: { $value }
 my-stats-deepest-wave-reached = عمیق‌ترین موج رسیده: { $value }
 
-predict-outcomes = پیش‌بینی نتایج
-predict-header = نتایج پیش‌بینی‌شده (بر اساس امتیاز مهارت)
-predict-note-multiplayer = درصد برد فقط برای مسابقات ۲ نفره نشان داده می‌شود. با ۳ بازیکن واقعی یا بیشتر، فقط امتیازات مهارت نشان داده می‌شوند.
-predict-entry = { $rank }. { $player } (امتیاز: { $rating })
-predict-entry-2p = { $rank }. { $player } (امتیاز: { $rating }، { $probability }% شانس برد)
-predict-unavailable = پیش‌بینی امتیازی در دسترس نیست.
-predict-need-players = برای پیش‌بینی به حداقل ۲ بازیکن واقعی نیاز است.
-action-need-more-humans = به بازیکنان واقعی بیشتری نیاز است.
 confirm-leave-game = آیا مطمئن هستید که می‌خواهید میز را ترک کنید؟
 confirm-yes = بله
 confirm-no = خیر
@@ -427,7 +399,6 @@ waiting-for-approval = حساب کاربری شما در انتظار تأیید
 account-approved-welcome = حساب شما تأیید شد! به PlayAural خوش آمدید!
 account-declined-goodbye = درخواست حساب شما رد شد.
 
-account-request = درخواست حساب
 account-action = اقدام روی حساب انجام شد
 
 promote-admin = ارتقا به مدیر
@@ -559,7 +530,6 @@ logout-confirm-no = نه، بمان
 
 system-name = سیستم
 server-restarting = سرور در { $seconds } ثانیه دیگر راه‌اندازی مجدد می‌شود...
-server-restarting-now = سرور در حال راه‌اندازی مجدد است. لطفاً به‌زودی دوباره وصل شوید.
 server-shutting-down = سرور در { $seconds } ثانیه دیگر خاموش می‌شود...
 server-shutting-down-now = سرور در حال خاموش شدن است. خداحافظ!
 server-power-management = مدیریت برق سرور
@@ -625,7 +595,6 @@ speech-mode-option = حالت گفتار: { $status }
 speech-rate-option = سرعت گفتار: { $value }%
 speech-voice-option = صدا: { $voice }
 select-voice = انتخاب صدا
-enter-speech-rate = سرعت گفتار را وارد کنید (۵۰-۳۰۰)
 invalid-rate = سرعت گفتار نامعتبر است. مقداری بین ۵۰ و ۳۰۰ استفاده کنید.
 mode-aria = Aria-live
 mode-web-speech = Web Speech API
@@ -698,12 +667,8 @@ friends-no-pending-requests = درخواست‌های در انتظار
 friends-send-request = ارسال درخواست دوستی
 friends-list-empty = شما هنوز دوستی ندارید.
 friend-status-offline = آفلاین
-friend-status-playing = در حال بازی { $game }
-friend-status-spectating = در حال تماشای { $game }
-friend-status-lobby = منوی اصلی
 friend-list-entry = { $username } ({ $status })
 
-friend-actions-title = عملیات برای { $username }
 view-profile = مشاهده‌ی پروفایل
 join-table = پیوستن به میز
 remove-friend = حذف دوست
@@ -714,7 +679,6 @@ friend-removed-success = { $username } از لیست دوستان شما حذف 
 friend-removed-notify = { $username } شما را از لیست دوستان خود حذف کرد.
 
 no-pending-requests = هیچ درخواستی در انتظار نیست.
-friend-request-from = درخواست دوستی از { $username }
 accept = پذیرش
 decline = رد
 friend-accepted-success = شما اکنون با { $username } دوست هستید.
@@ -723,7 +687,6 @@ request-not-found = درخواست دوستی دیگر وجود ندارد.
 friend-declined-success = درخواست دوستی رد شد.
 friend-declined-notify = { $username } درخواست دوستی شما را رد کرد.
 
-public-profile-title = پروفایل { $username }
 enter-friend-username = نام کاربری شخصی که می‌خواهید با او دوست شوید را وارد کنید:
 friend-error-self = نمی‌توانید برای خودتان درخواست دوستی بفرستید.
 friend-error-already-friends = شما قبلاً با این کاربر دوست هستید.

@@ -11,6 +11,10 @@ from server.auth.auth import AuthManager
 from server.auth.table_interaction_rate_limit import TableInteractionRateLimiter
 from server.core import server as server_module
 from server.core.server import (
+    HOST_VOICE_MANAGEMENT_MENU,
+    HOST_VOICE_TARGET_MENU,
+    PERSONAL_VOICE_SETTINGS_MENU,
+    PERSONAL_VOICE_VOLUME_MENU,
     Server,
     TABLE_MEMBERS_MENU,
     TABLE_MEMBER_ACTIONS_MENU,
@@ -28,6 +32,15 @@ from server.tables.table import (
 )
 from server.users.bot import Bot
 from server.users.test_user import MockUser
+from server.voice import VoiceAuthorizationError
+
+
+class RecordingConnection:
+    def __init__(self):
+        self.sent: list[dict] = []
+
+    async def send(self, packet: dict) -> None:
+        self.sent.append(packet)
 
 
 class TestTableInviteReclaim:
@@ -122,8 +135,10 @@ class TestTableInviteReclaim:
         )
 
     def _add_named_bot(self, game: PigGame, name: str):
-        bot_user = Bot(name)
-        bot_player = game.create_player(bot_user.uuid, name, is_bot=True)
+        display_name = game._allocate_bot_display_name(name)
+        bot_user = Bot(display_name)
+        bot_player = game.create_player(bot_user.uuid, display_name, is_bot=True)
+        bot_player.bot_name_base = name
         game.players.append(bot_player)
         game.attach_user(bot_player.id, bot_user)
         game.setup_player_actions(bot_player)
@@ -323,7 +338,7 @@ class TestTableInviteReclaim:
         )
 
     @pytest.mark.asyncio
-    async def test_direct_invite_rejects_table_name_conflict_without_notifying_target(
+    async def test_direct_invite_allows_human_to_share_bot_base_name(
         self,
     ):
         host = self._create_online_user("Host")
@@ -333,13 +348,14 @@ class TestTableInviteReclaim:
         self._make_friends(host, guest)
         self._add_named_bot(game, guest.username)
 
-        assert not await self.server._send_table_invite(host, table, guest)
+        assert await self.server._send_table_invite(host, table, guest)
 
-        assert guest.username not in self.server._pending_invites
-        assert guest.messages == []
-        assert host.get_last_spoken() == Localization.get(
-            host.locale,
-            "host-invite-friend-unavailable",
+        assert guest.username in self.server._pending_invites
+        assert any(
+            player.is_bot
+            and player.bot_name_base == guest.username
+            and player.name == guest.username
+            for player in game.players
         )
 
     @pytest.mark.asyncio
@@ -1321,7 +1337,34 @@ class TestTableInviteReclaim:
         assert "table_join.ogg" in self._sound_names(guest)
         assert "reconnect.ogg" not in self._sound_names(host)
 
-    def test_auto_join_rejects_name_matching_existing_bot(self):
+    def test_reclaim_is_unambiguous_when_dedicated_bot_shares_human_base(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, game = self._create_started_table(host, guest)
+        dedicated_bot = self._add_named_bot(game, guest.username)
+        guest_player = game.get_player_by_id(guest.uuid)
+        assert guest_player is not None
+
+        game._perform_leave_game(guest_player)
+        table.remove_member(guest.username)
+
+        replacement = game.get_player_by_id(guest.uuid)
+        assert replacement is not None
+        assert replacement.is_bot is True
+        assert replacement.name != dedicated_bot.name
+        assert replacement.replaced_human_name == guest.username
+
+        self.server._auto_join_table(guest, table, table.game_type)
+
+        reclaimed = game.get_player_by_id(guest.uuid)
+        assert reclaimed is not None
+        assert reclaimed.name == guest.username
+        assert reclaimed.is_bot is False
+        assert reclaimed.bot_name_base == ""
+        assert dedicated_bot.name == "Guest (Bot)"
+        assert dedicated_bot.bot_name_base == "Guest"
+
+    def test_auto_join_allows_human_to_share_a_bot_base_name(self):
         host = self._create_online_user("Host")
         entrant = self._create_online_user("Test")
         current_host = self._create_online_user("CurrentHost")
@@ -1335,18 +1378,35 @@ class TestTableInviteReclaim:
         table.game = game
         game._table = table
         game.initialize_lobby(host.username, host)
-        self._add_named_bot(game, "Test")
+        host.preferences.allow_custom_bot_names = True
+        host_player = game.get_player_by_id(host.uuid)
+        assert host_player is not None
+        game.execute_action(host_player, "add_bot")
+        game.handle_event(
+            host_player,
+            {
+                "type": "editbox",
+                "input_id": "action_input_editbox",
+                "text": "Test",
+            },
+        )
 
         self.server._auto_join_table(entrant, table, table.game_type)
 
-        assert self.server._tables.find_user_table(entrant.username) is current_table
-        assert game.get_player_by_id(entrant.uuid) is None
-        assert entrant.get_last_spoken() == Localization.get(
-            entrant.locale,
-            "table-name-already-used",
+        assert self.server._tables.find_user_table(entrant.username) is table
+        assert game.get_player_by_id(entrant.uuid).name == "Test"
+        assert any(
+            player.is_bot
+            and player.bot_name_base == "Test"
+            and player.name == "Test (Bot)"
+            for player in game.players
+        )
+        assert all(
+            member.username != entrant.username
+            for member in current_table.members
         )
 
-    def test_custom_bot_name_rejects_registered_account_name(self):
+    def test_custom_bot_name_accepts_registered_account_base_name(self):
         host = self._create_online_user("Host")
         self._create_online_user("Test")
         table = self.server._tables.create_table("pig", host.username, host)
@@ -1368,15 +1428,16 @@ class TestTableInviteReclaim:
             },
         )
 
-        assert not any(player.name == "Test" and player.is_bot for player in game.players)
-        assert host.get_last_spoken() == Localization.get(
-            host.locale,
-            "bot-name-registered-account",
+        assert any(
+            player.name == "Test"
+            and player.bot_name_base == "Test"
+            and player.is_bot
+            for player in game.players
         )
 
-    def test_generated_bot_name_skips_registered_account_name(self, monkeypatch):
+    def test_generated_bot_name_can_match_registered_account_base(self, monkeypatch):
         host = self._create_online_user("Host")
-        self._create_online_user("Pho Pixel")
+        self._create_online_user("Alice")
         table = self.server._tables.create_table("pig", host.username, host)
         game = PigGame(options=PigOptions(target_score=25))
         table.game = game
@@ -1392,13 +1453,12 @@ class TestTableInviteReclaim:
         game.execute_action(host_player, "add_bot")
 
         bot_names = [player.name for player in game.players if player.is_bot]
-        assert bot_names
-        assert "Pho Pixel" not in bot_names
+        assert bot_names == ["Alice"]
 
-    def test_replacement_bot_name_skips_registered_account_name(self, monkeypatch):
+    def test_replacement_bot_name_can_match_registered_account_base(self, monkeypatch):
         host = self._create_online_user("Host")
         guest = self._create_online_user("Guest")
-        self._create_online_user("Pho Pixel")
+        self._create_online_user("Alice")
         table, game = self._create_started_table(host, guest)
         guest_player = game.get_player_by_id(guest.uuid)
         assert guest_player is not None
@@ -1410,7 +1470,8 @@ class TestTableInviteReclaim:
         game._replace_with_bot(guest_player)
 
         assert guest_player.is_bot is True
-        assert guest_player.name != "Pho Pixel"
+        assert guest_player.bot_name_base == "Alice"
+        assert guest_player.name == "Alice"
 
     def test_disconnect_replacement_bot_survives_stale_waiting_table_status(
         self, monkeypatch
@@ -1487,6 +1548,16 @@ class TestTableInviteReclaim:
             guest,
             PigGame(options=PigOptions(target_score=25)),
         )
+        self.server._show_table_members_menu(host, table)
+        await self.server._handle_table_members_selection(
+            host,
+            f"table_member_user_{guest.username}",
+            self.server._user_states[host.username],
+        )
+        assert "table_pass_host" in self._get_menu_action_ids(
+            host,
+            TABLE_MEMBER_ACTIONS_MENU,
+        )
         client = SimpleNamespace(
             username=guest.username,
             address="guest-client",
@@ -1502,6 +1573,15 @@ class TestTableInviteReclaim:
         assert "disconnect.ogg" in self._sound_names(host)
         assert "table_leave.ogg" not in self._sound_names(host)
         assert any(member.username == guest.username for member in table.members)
+        assert self.server._user_states[host.username]["menu"] == (
+            TABLE_MEMBER_ACTIONS_MENU
+        )
+        assert "table_pass_host" not in self._get_menu_action_ids(
+            host,
+            TABLE_MEMBER_ACTIONS_MENU,
+        )
+        assert not self.server._perform_host_pass(host, table, guest.username)
+        assert table.host == host.username
 
         returning_guest = MockUser(guest.username, uuid=guest.uuid)
         self.server._users[guest.username] = returning_guest
@@ -1512,6 +1592,112 @@ class TestTableInviteReclaim:
         assert game.get_user(game.get_player_by_id(guest.uuid)) is returning_guest
         assert "reconnect.ogg" in self._sound_names(host)
         assert "table_join.ogg" not in self._sound_names(host)
+        assert "table_pass_host" in self._get_menu_action_ids(
+            host,
+            TABLE_MEMBER_ACTIONS_MENU,
+        )
+
+    @pytest.mark.asyncio
+    async def test_disconnect_revokes_host_transfer_before_voice_cleanup(
+        self,
+        monkeypatch,
+    ):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, _game = self._create_waiting_table(
+            host,
+            guest,
+            PigGame(options=PigOptions(target_score=25)),
+        )
+        self.server._show_table_members_menu(host, table)
+        await self.server._handle_table_members_selection(
+            host,
+            f"table_member_user_{guest.username}",
+            self.server._user_states[host.username],
+        )
+        assert "table_pass_host" in self._get_menu_action_ids(
+            host,
+            TABLE_MEMBER_ACTIONS_MENU,
+        )
+
+        cleanup_started = asyncio.Event()
+        finish_cleanup = asyncio.Event()
+
+        async def delayed_voice_cleanup(*_args, **_kwargs):
+            cleanup_started.set()
+            await finish_cleanup.wait()
+
+        monkeypatch.setattr(
+            self.server,
+            "_clear_voice_presence",
+            delayed_voice_cleanup,
+        )
+        client = SimpleNamespace(
+            username=guest.username,
+            address="guest-client",
+            authenticated=True,
+            retired=False,
+        )
+        guest.connection = client
+        disconnect = asyncio.create_task(self.server._on_client_disconnect(client))
+        await cleanup_started.wait()
+
+        assert "table_pass_host" not in self._get_menu_action_ids(
+            host,
+            TABLE_MEMBER_ACTIONS_MENU,
+        )
+        assert not self.server._perform_host_pass(host, table, guest.username)
+        assert table.host == host.username
+
+        finish_cleanup.set()
+        await disconnect
+
+    @pytest.mark.asyncio
+    async def test_table_member_action_menu_returns_to_roster_when_target_leaves(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, game = self._create_waiting_table(
+            host,
+            guest,
+            PigGame(options=PigOptions(target_score=25)),
+        )
+        host_player = game.get_player_by_id(host.uuid)
+        guest_player = game.get_player_by_id(guest.uuid)
+        assert host_player is not None
+        assert guest_player is not None
+        self.server._set_in_game_state(host, table.table_id)
+
+        game._action_whos_at_table(host_player, "whos_at_table")
+        await self.server._handle_table_members_selection(
+            host,
+            f"table_member_user_{guest.username}",
+            self.server._user_states[host.username],
+        )
+        assert self.server._user_states[host.username]["menu"] == (
+            TABLE_MEMBER_ACTIONS_MENU
+        )
+        self.server._user_states[host.username].update(
+            {
+                "_last_selection_id": "table_pass_host",
+                "_last_selection_position": 1,
+            }
+        )
+
+        game.remove_player(guest_player.id)
+        assert table.remove_member(guest.username)
+
+        state = self.server._user_states[host.username]
+        assert state["menu"] == TABLE_MEMBERS_MENU
+        assert [frame.get("menu") for frame in state["_stack"]] == ["in_game"]
+        assert "_last_selection_id" not in state
+        assert "_last_selection_position" not in state
+        assert f"table_member_user_{guest.username}" not in self._get_menu_action_ids(
+            host,
+            TABLE_MEMBERS_MENU,
+        )
+
+        await self.server._handle_table_members_selection(host, "back", state)
+        assert self.server._user_states[host.username]["menu"] == "in_game"
 
     @pytest.mark.asyncio
     async def test_network_disconnected_replacement_stays_under_human_roster_row(self):
@@ -1720,6 +1906,394 @@ class TestTableInviteReclaim:
             self.server._user_states[host.username],
         )
         assert self.server._user_states[host.username]["menu"] == TABLE_MEMBERS_MENU
+
+    @pytest.mark.asyncio
+    async def test_table_voice_controls_apply_by_account_id_with_personal_feedback(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        host.connection = RecordingConnection()
+        guest.connection = RecordingConnection()
+        table, _game = self._create_started_table(host, guest)
+
+        self.server._open_host_management_from_game(host, table)
+        await self.server._handle_host_management_selection(
+            host,
+            "manage_voice",
+            self.server._user_states[host.username],
+        )
+        assert self.server._user_states[host.username]["menu"] == HOST_VOICE_MANAGEMENT_MENU
+        assert f"host_voice_member_{guest.uuid}" in self._get_menu_action_ids(
+            host,
+            HOST_VOICE_MANAGEMENT_MENU,
+        )
+
+        await self.server._handle_host_voice_management_selection(
+            host,
+            f"host_voice_member_{guest.uuid}",
+            self.server._user_states[host.username],
+        )
+        assert self.server._user_states[host.username]["menu"] == HOST_VOICE_TARGET_MENU
+        await self.server._handle_host_voice_target_selection(
+            host,
+            "toggle_host_voice_mute",
+            self.server._user_states[host.username],
+        )
+
+        assert table.is_voice_host_muted(guest.uuid)
+        assert guest.connection.sent[-1] == {
+            "type": "voice_settings",
+            "version": 1,
+            "context_id": table.table_id,
+            "host_muted": True,
+            "participants": [],
+        }
+        assert any(
+            "You disabled Guest's microphone" in text
+            for text in host.get_spoken_messages()
+        )
+        assert any(
+            "Host disabled your microphone" in text
+            for text in guest.get_spoken_messages()
+        )
+
+        self.server._show_table_members_menu(host, table)
+        await self.server._handle_table_members_selection(
+            host,
+            f"table_member_user_{guest.username}",
+            self.server._user_states[host.username],
+        )
+        assert "personal_voice_settings" in self._get_menu_action_ids(
+            host,
+            TABLE_MEMBER_ACTIONS_MENU,
+        )
+        await self.server._handle_table_member_actions_selection(
+            host,
+            "personal_voice_settings",
+            self.server._user_states[host.username],
+        )
+        assert self.server._user_states[host.username]["menu"] == PERSONAL_VOICE_SETTINGS_MENU
+        await self.server._handle_personal_voice_settings_selection(
+            host,
+            "toggle_personal_voice_mute",
+            self.server._user_states[host.username],
+        )
+        assert table.get_personal_voice_settings(host.uuid, guest.uuid) == (100, True)
+        assert host.connection.sent[-1]["participants"] == [
+            {"participant_id": guest.uuid, "volume": 100, "muted": True}
+        ]
+
+        await self.server._handle_personal_voice_settings_selection(
+            host,
+            "set_personal_voice_volume",
+            self.server._user_states[host.username],
+        )
+        assert self.server._user_states[host.username]["menu"] == PERSONAL_VOICE_VOLUME_MENU
+        await self.server._handle_personal_voice_volume_selection(
+            host,
+            "personal_voice_volume_30",
+            self.server._user_states[host.username],
+        )
+        assert table.get_personal_voice_settings(host.uuid, guest.uuid) == (30, True)
+
+    @pytest.mark.asyncio
+    async def test_voice_presence_repaints_open_management_menu_in_place(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, _game = self._create_started_table(host, guest)
+        self.server._show_host_voice_management_menu(host, table)
+
+        def guest_row_text() -> str:
+            items = host.get_current_menu_items(HOST_VOICE_MANAGEMENT_MENU) or []
+            return next(
+                item.text
+                for item in items
+                if item.id == f"host_voice_member_{guest.uuid}"
+            )
+
+        assert "not connected" in guest_row_text()
+        self.server._voice_presence_by_user[guest.username] = {
+            "scope": "table",
+            "context_id": table.table_id,
+        }
+        await self.server._broadcast_voice_presence_event(
+            table,
+            guest.username,
+            "voice-status-connected",
+            play_sound=False,
+        )
+        assert "connected to voice chat" in guest_row_text()
+
+        await self.server._clear_voice_presence(
+            guest.username,
+            "",
+            table=table,
+            broadcast=False,
+        )
+        assert "not connected" in guest_row_text()
+
+    @pytest.mark.asyncio
+    async def test_voice_presence_refresh_preserves_open_volume_menu_focus(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, _game = self._create_started_table(host, guest)
+        self.server._show_personal_voice_volume_menu(
+            host,
+            table,
+            guest.uuid,
+            guest.username,
+        )
+        assert host.menus[PERSONAL_VOICE_VOLUME_MENU]["position"] is not None
+        host.clear_messages()
+
+        self.server._voice_presence_by_user[guest.username] = {
+            "scope": "table",
+            "context_id": table.table_id,
+        }
+        await self.server._broadcast_voice_presence_event(
+            table,
+            guest.username,
+            "voice-status-connected",
+            play_sound=False,
+        )
+
+        repaint = next(
+            message
+            for message in reversed(host.messages)
+            if message.type == "show_menu"
+            and message.data["menu_id"] == PERSONAL_VOICE_VOLUME_MENU
+        )
+        assert repaint.data["position"] is None
+        assert repaint.data["selection_id"] is None
+
+    def test_departing_voice_target_closes_personal_overlay_without_stale_stack(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, _game = self._create_started_table(host, guest)
+        self.server._show_personal_voice_volume_menu(
+            host,
+            table,
+            guest.uuid,
+            guest.username,
+        )
+
+        assert table.remove_member(guest.username)
+
+        state = self.server._user_states[host.username]
+        assert state["menu"] == "in_game"
+        assert "_stack" not in state
+        assert any(
+            "no longer at this table" in text
+            for text in host.get_spoken_messages()
+        )
+
+    @pytest.mark.asyncio
+    async def test_stale_personal_voice_menu_cannot_mutate_after_target_leaves(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        host.connection = RecordingConnection()
+        table, _game = self._create_started_table(host, guest)
+        self.server._show_personal_voice_settings_menu(
+            host,
+            table,
+            guest.uuid,
+            guest.username,
+        )
+        stale_state = dict(self.server._user_states[host.username])
+
+        assert table.remove_member(guest.username)
+        await self.server._handle_personal_voice_settings_selection(
+            host,
+            "toggle_personal_voice_mute",
+            stale_state,
+        )
+
+        assert table.get_personal_voice_settings(host.uuid, guest.uuid) == (100, False)
+        assert any(
+            "no longer at this table" in text
+            for text in host.get_spoken_messages()
+        )
+
+    @pytest.mark.asyncio
+    async def test_live_host_voice_mute_commits_only_after_provider_success(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        host.connection = RecordingConnection()
+        guest.connection = RecordingConnection()
+        table, _game = self._create_started_table(host, guest)
+        self.server._voice_presence_by_user[guest.username] = {
+            "scope": "table",
+            "context_id": table.table_id,
+        }
+        calls = []
+
+        async def fail_update(**kwargs):
+            calls.append(kwargs)
+            raise VoiceAuthorizationError("voice-moderation-provider-failed")
+
+        self.server._voice = SimpleNamespace(
+            set_participant_can_publish=fail_update,
+        )
+        self.server._show_host_voice_target_menu(
+            host,
+            table,
+            guest.uuid,
+            guest.username,
+        )
+
+        await self.server._handle_host_voice_target_selection(
+            host,
+            "toggle_host_voice_mute",
+            self.server._user_states[host.username],
+        )
+
+        assert calls[0]["identity"] == guest.uuid
+        assert calls[0]["can_publish"] is False
+        assert not table.is_voice_host_muted(guest.uuid)
+        assert guest.connection.sent == []
+        assert any(
+            "could not be applied" in text
+            for text in host.get_spoken_messages()
+        )
+
+    @pytest.mark.asyncio
+    async def test_live_host_voice_mute_updates_provider_before_client_snapshot(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        host.connection = RecordingConnection()
+        guest.connection = RecordingConnection()
+        table, _game = self._create_started_table(host, guest)
+        self.server._voice_presence_by_user[guest.username] = {
+            "scope": "table",
+            "context_id": table.table_id,
+        }
+        events = []
+
+        async def apply_provider_permission(**kwargs):
+            events.append(("provider", kwargs["identity"], kwargs["can_publish"]))
+
+        async def record_guest_packet(packet):
+            events.append(("client", packet["host_muted"]))
+            guest.connection.sent.append(packet)
+
+        self.server._voice = SimpleNamespace(
+            set_participant_can_publish=apply_provider_permission,
+        )
+        guest.connection.send = record_guest_packet
+        self.server._show_host_voice_target_menu(
+            host,
+            table,
+            guest.uuid,
+            guest.username,
+        )
+
+        await self.server._handle_host_voice_target_selection(
+            host,
+            "toggle_host_voice_mute",
+            self.server._user_states[host.username],
+        )
+
+        assert events == [
+            ("provider", guest.uuid, False),
+            ("client", True),
+        ]
+        assert table.is_voice_host_muted(guest.uuid)
+
+    @pytest.mark.asyncio
+    async def test_rapid_host_voice_toggles_serialize_against_provider_state(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        host.connection = RecordingConnection()
+        guest.connection = RecordingConnection()
+        table, _game = self._create_started_table(host, guest)
+        self.server._voice_presence_by_user[guest.username] = {
+            "scope": "table",
+            "context_id": table.table_id,
+        }
+        first_started = asyncio.Event()
+        release_first = asyncio.Event()
+        provider_permissions = []
+
+        async def apply_provider_permission(**kwargs):
+            provider_permissions.append(kwargs["can_publish"])
+            if len(provider_permissions) == 1:
+                first_started.set()
+                await release_first.wait()
+
+        self.server._voice = SimpleNamespace(
+            set_participant_can_publish=apply_provider_permission,
+        )
+        self.server._show_host_voice_target_menu(
+            host,
+            table,
+            guest.uuid,
+            guest.username,
+        )
+        state = dict(self.server._user_states[host.username])
+
+        first = asyncio.create_task(
+            self.server._handle_host_voice_target_selection(
+                host,
+                "toggle_host_voice_mute",
+                state,
+            )
+        )
+        await first_started.wait()
+        second = asyncio.create_task(
+            self.server._handle_host_voice_target_selection(
+                host,
+                "toggle_host_voice_mute",
+                state,
+            )
+        )
+        release_first.set()
+        await asyncio.gather(first, second)
+
+        assert provider_permissions == [False, True]
+        assert not table.is_voice_host_muted(guest.uuid)
+
+    @pytest.mark.asyncio
+    async def test_host_voice_policy_survives_target_departure_during_provider_update(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        host.connection = RecordingConnection()
+        guest.connection = RecordingConnection()
+        table, _game = self._create_started_table(host, guest)
+        self.server._voice_presence_by_user[guest.username] = {
+            "scope": "table",
+            "context_id": table.table_id,
+        }
+        provider_started = asyncio.Event()
+        finish_provider = asyncio.Event()
+
+        async def participant_disappears(**_kwargs):
+            provider_started.set()
+            await finish_provider.wait()
+            raise VoiceAuthorizationError("voice-moderation-provider-failed")
+
+        self.server._voice = SimpleNamespace(
+            set_participant_can_publish=participant_disappears,
+        )
+        self.server._show_host_voice_target_menu(
+            host,
+            table,
+            guest.uuid,
+            guest.username,
+        )
+        state = dict(self.server._user_states[host.username])
+        moderation = asyncio.create_task(
+            self.server._handle_host_voice_target_selection(
+                host,
+                "toggle_host_voice_mute",
+                state,
+            )
+        )
+        await provider_started.wait()
+        self.server._voice_presence_by_user.pop(guest.username, None)
+        assert table.remove_member(guest.username)
+        finish_provider.set()
+        await moderation
+
+        assert table.is_voice_host_muted(guest.uuid)
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -2018,14 +2592,164 @@ class TestTableInviteReclaim:
         assert not any(member.username == guest.username for member in table.members)
         refreshed_items = host.get_current_menu_items(TABLE_MEMBERS_MENU) or []
         refreshed_texts = [item.text for item in refreshed_items]
-        assert not any(text.startswith(f"{guest.username}:") for text in refreshed_texts)
-        assert any(
-            text.startswith(f"{replacement_bot_name}:")
+        guest_row = next(
+            text
             for text in refreshed_texts
+            if text.startswith(f"{guest.username}:")
+        )
+        assert "Offline" in guest_row
+        assert f"bot playing on their behalf: {replacement_bot_name}" in guest_row
+        assert not any(
+            text.startswith(f"{replacement_bot_name}:") for text in refreshed_texts
+        )
+        assert guest_player.id == guest.uuid
+        assert guest_player.replaced_human is True
+        assert game.get_player_by_id(guest.uuid) is guest_player
+
+        host.clear_messages()
+        assert not self.server._perform_host_kick(
+            host,
+            table,
+            guest.username,
+            is_ban=False,
+        )
+        assert host.get_last_spoken() == Localization.get(
+            host.locale,
+            "host-kick-invalid-target",
+        )
+        assert guest_player.id == guest.uuid
+        assert guest_player.replaced_human is True
+
+        await self.server._handle_table_members_selection(
+            host,
+            f"table_member_user_{guest.username}",
+            self.server._user_states[host.username],
+        )
+        action_ids = self._get_menu_action_ids(host, TABLE_MEMBER_ACTIONS_MENU)
+        assert "table_kick" not in action_ids
+        assert "table_kick_ban" in action_ids
+
+        self.server._show_host_kick_menu(host, table, ban=False)
+        assert f"kick_{guest.username}" not in self._get_menu_action_ids(
+            host,
+            "host_kick_menu",
+        )
+        self.server._show_host_kick_menu(host, table, ban=True)
+        assert f"kick_{guest.username}" in self._get_menu_action_ids(
+            host,
+            "host_kick_ban_menu",
         )
 
+    def test_reversibly_kicked_player_reclaims_private_active_seat(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, game = self._create_started_table(host, guest)
+        table.is_private = True
+        seat = game.get_player_by_id(guest.uuid)
+        assert seat is not None
+
+        assert self.server._perform_host_kick(host, table, guest.username)
+        assert seat.id == guest.uuid
+        assert seat.is_bot is True
+        assert seat.replaced_human is True
+        assert self.server._tables.find_user_table(guest.username) is None
+
+        table_items, _ = self.server._get_tables_menu_items(guest, table.game_type)
+        assert f"table_{table.table_id}" in {
+            item.id for item in table_items if hasattr(item, "id")
+        }
+
+        self.server._auto_join_table(guest, table, table.game_type)
+
+        assert self.server._tables.find_user_table(guest.username) is table
+        assert game.get_player_by_id(guest.uuid) is seat
+        assert seat.is_bot is False
+        assert seat.replaced_human is False
+        assert table.get_user(guest.username) is guest
+
+    def test_active_kick_ban_immediately_releases_live_account_identity(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, game = self._create_started_table(host, guest)
+        seat = game.get_player_by_id(guest.uuid)
+        assert seat is not None
+
+        assert self.server._perform_host_kick(
+            host,
+            table,
+            guest.username,
+            is_ban=True,
+        )
+
+        assert table.is_banned(guest.uuid)
+        assert seat in game.players
+        assert seat.id != guest.uuid
+        assert seat.is_bot is True
+        assert seat.replaced_human is False
+        assert game.get_player_by_id(guest.uuid) is None
+        result_entry = next(
+            entry
+            for entry in game.build_game_result().player_results
+            if entry.player_id == seat.id
+        )
+        assert result_entry.is_bot is True
+
+        self.server._auto_join_table(guest, table, table.game_type)
+        assert self.server._tables.find_user_table(guest.username) is None
+        assert guest.get_last_spoken() == Localization.get(
+            guest.locale,
+            "table-you-are-banned",
+        )
+
+    def test_ban_escalation_does_not_disrupt_target_at_another_table(self):
+        first_host = self._create_online_user("FirstHost")
+        guest = self._create_online_user("Guest")
+        second_host = self._create_online_user("SecondHost")
+        first_table, first_game = self._create_started_table(first_host, guest)
+        reserved_seat = first_game.get_player_by_id(guest.uuid)
+        assert reserved_seat is not None
+
+        assert self.server._perform_host_kick(
+            first_host,
+            first_table,
+            guest.username,
+        )
+
+        second_table = self.server._tables.create_table(
+            "pig",
+            second_host.username,
+            second_host,
+        )
+        second_game = PigGame(options=PigOptions(target_score=25))
+        second_table.game = second_game
+        second_game._table = second_table
+        second_game.initialize_lobby(second_host.username, second_host)
+        self.server._auto_join_table(guest, second_table, second_table.game_type)
+        assert self.server._tables.find_user_table(guest.username) is second_table
+        assert self.server._user_states[guest.username] == {
+            "menu": "in_game",
+            "table_id": second_table.table_id,
+        }
+
+        assert self.server._perform_host_kick(
+            first_host,
+            first_table,
+            guest.username,
+            is_ban=True,
+        )
+
+        assert first_table.is_banned(guest.uuid)
+        assert reserved_seat.id != guest.uuid
+        assert reserved_seat.replaced_human is False
+        assert self.server._tables.find_user_table(guest.username) is second_table
+        assert second_game.get_player_by_id(guest.uuid) is not None
+        assert self.server._user_states[guest.username] == {
+            "menu": "in_game",
+            "table_id": second_table.table_id,
+        }
+
     @pytest.mark.asyncio
-    async def test_table_roster_back_stack_after_offline_kick_and_blocked_bot_remove(self):
+    async def test_table_roster_back_stack_after_reversible_kick_and_ban_escalation(self):
         host = self._create_online_user("Host")
         guest = self._create_online_user("Guest")
         table, game = self._create_started_table(host, guest)
@@ -2035,7 +2759,6 @@ class TestTableInviteReclaim:
         assert guest_player is not None
 
         assert game._replace_with_bot(guest_player) is True
-        replacement_bot_name = guest_player.name
         self.server._users.pop(guest.username, None)
         self.server._set_in_game_state(host, table.table_id)
 
@@ -2063,13 +2786,13 @@ class TestTableInviteReclaim:
 
         roster_items = host.get_current_menu_items(TABLE_MEMBERS_MENU) or []
         assert any(
-            item.text.startswith(f"{replacement_bot_name}:")
+            item.text.startswith(f"{guest.username}:")
             for item in roster_items
         )
 
         await self.server._handle_table_members_selection(
             host,
-            f"table_member_bot_{guest.uuid}",
+            f"table_member_user_{guest.username}",
             self.server._user_states[host.username],
         )
         assert (
@@ -2079,24 +2802,15 @@ class TestTableInviteReclaim:
 
         await self.server._handle_table_member_actions_selection(
             host,
-            "table_remove_bot",
-            self.server._user_states[host.username],
-        )
-        state = self.server._user_states[host.username]
-        assert state["menu"] == TABLE_MEMBER_ACTIONS_MENU
-        assert [frame.get("menu") for frame in state["_stack"]] == [
-            "in_game",
-            TABLE_MEMBERS_MENU,
-        ]
-
-        await self.server._handle_table_member_actions_selection(
-            host,
-            "back",
+            "table_kick_ban",
             self.server._user_states[host.username],
         )
         state = self.server._user_states[host.username]
         assert state["menu"] == TABLE_MEMBERS_MENU
         assert [frame.get("menu") for frame in state["_stack"]] == ["in_game"]
+        assert guest_player.id != guest.uuid
+        assert guest_player.replaced_human is False
+        assert table.is_banned(guest.uuid)
 
         await self.server._handle_table_members_selection(
             host,
@@ -2321,10 +3035,12 @@ class TestTableInviteReclaim:
         [PigGame, CrazyEightsGame, UnoGame],
         ids=["pig", "crazy-eights", "uno"],
     )
-    def test_spectator_host_keeps_kicked_disconnect_replacement_active(
+    @pytest.mark.parametrize("is_ban", [False, True], ids=["kick", "kick-ban"])
+    def test_spectator_host_keeps_moderated_replacement_seat_active(
         self,
         monkeypatch,
         game_class,
+        is_ban,
     ):
         host = self._create_online_user("Host")
         guest = self._create_online_user("Guest")
@@ -2355,10 +3071,48 @@ class TestTableInviteReclaim:
         replacement = game.get_player_by_id(guest.uuid)
         assert replacement is not None and replacement.is_bot
 
-        assert self.server._perform_host_kick(host, table, guest.username)
+        assert self.server._perform_host_kick(
+            host,
+            table,
+            guest.username,
+            is_ban=is_ban,
+        )
         assert all(member.username != guest.username for member in table.members)
         assert table.player_count == 0
-        assert game.get_player_by_id(guest.uuid) is replacement
+        assert replacement in game.players
+        assert replacement.is_bot is True
+        replacement_user = game.get_user(replacement)
+        assert isinstance(replacement_user, Bot)
+        assert replacement_user.uuid == replacement.id
+
+        result = game.build_game_result()
+        if is_ban:
+            assert replacement.id != guest.uuid
+            assert game.get_player_by_id(guest.uuid) is None
+            assert replacement.replaced_human is False
+            assert replacement.replaced_human_name == ""
+            assert replacement.replacement_bot_name == ""
+            assert not any(
+                entry.player_id == guest.uuid for entry in result.player_results
+            )
+            replacement_result = next(
+                entry
+                for entry in result.player_results
+                if entry.player_id == replacement.id
+            )
+            assert replacement_result.is_bot is True
+            assert table.is_banned(guest.uuid)
+        else:
+            assert replacement.id == guest.uuid
+            assert replacement.replaced_human is True
+            assert replacement.replaced_human_name == guest.username
+            replacement_result = next(
+                entry
+                for entry in result.player_results
+                if entry.player_id == guest.uuid
+            )
+            assert replacement_result.is_bot is False
+            assert not table.is_banned(guest.uuid)
 
         game_ticks: list[bool] = []
         monkeypatch.setattr(game, "on_tick", lambda: game_ticks.append(True))
@@ -2604,6 +3358,8 @@ class TestTableInviteReclaim:
         host = self._create_online_user("Host")
         guest = self._create_online_user("Guest")
         table, game = self._create_started_table(host, guest)
+        guest_seat = game.get_player_by_id(guest.uuid)
+        assert guest_seat is not None
 
         deleted = await self.server._delete_account_and_evict(
             guest.username,
@@ -2621,12 +3377,18 @@ class TestTableInviteReclaim:
         assert not any(
             member.username == guest.username for member in table.members
         )
-        assert not any(
-            player.id == guest.uuid
-            or player.name == guest.username
-            or player.replaced_human_name == guest.username
-            for player in game.players
+        assert guest_seat in game.players
+        assert guest_seat.id != guest.uuid
+        assert guest_seat.is_bot is True
+        assert guest_seat.replaced_human is False
+        assert guest_seat.replaced_human_name == ""
+        assert game.get_player_by_id(guest.uuid) is None
+        result_entry = next(
+            entry
+            for entry in game.build_game_result().player_results
+            if entry.player_id == guest_seat.id
         )
+        assert result_entry.is_bot is True
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -2659,6 +3421,8 @@ class TestTableInviteReclaim:
         game.execute_action(host_player, "start_game")
         game.flush_menus()
         assert game.status == "playing"
+        guest_seat = game.get_player_by_id(guest.uuid)
+        assert guest_seat is not None
 
         deleted = await self.server._delete_account_and_evict(
             guest.username,
@@ -2673,12 +3437,42 @@ class TestTableInviteReclaim:
         assert self.server._tables.get_table(table.table_id) is table
         assert table.has_online_spectator_host()
         assert self.server._tables.find_user_table(guest.username) is None
-        assert not any(
-            player.id == guest.uuid
-            or player.name == guest.username
-            or player.replaced_human_name == guest.username
-            for player in game.players
+        assert guest_seat in game.players
+        assert guest_seat.id != guest.uuid
+        assert guest_seat.is_bot is True
+        assert guest_seat.replaced_human is False
+        assert guest_seat.replaced_human_name == ""
+        assert game.get_player_by_id(guest.uuid) is None
+
+    @pytest.mark.asyncio
+    async def test_account_deletion_releases_reservation_after_reversible_kick(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, game = self._create_started_table(host, guest)
+        reserved_seat = game.get_player_by_id(guest.uuid)
+        assert reserved_seat is not None
+        assert self.server._perform_host_kick(host, table, guest.username)
+        assert self.server._tables.find_user_table(guest.username) is None
+        assert reserved_seat.id == guest.uuid
+        assert reserved_seat.replaced_human is True
+
+        deleted = await self.server._delete_account_and_evict(
+            guest.username,
+            {
+                "type": "disconnect",
+                "reason": "Account deleted",
+                "reconnect": False,
+            },
         )
+
+        assert deleted is True
+        assert self.db.get_user(guest.username) is None
+        assert self.server._tables.get_table(table.table_id) is table
+        assert reserved_seat in game.players
+        assert reserved_seat.id != guest.uuid
+        assert reserved_seat.is_bot is True
+        assert reserved_seat.replaced_human is False
+        assert game.get_player_by_id(guest.uuid) is None
 
     def test_lobby_disconnected_player_becomes_reclaimable_bot_on_start(
         self, monkeypatch
@@ -2850,6 +3644,7 @@ class TestTableInviteReclaim:
         assert replacement.is_bot is True
         assert replacement.replaced_human is True
         replacement_name = replacement.name
+        replacement_base_name = replacement.bot_name_base
 
         assert table.reset_game()
         assert table.game is not None
@@ -2860,6 +3655,7 @@ class TestTableInviteReclaim:
         )
         assert fresh_bot.id != guest.uuid
         assert fresh_bot.replaced_human is False
+        assert fresh_bot.bot_name_base == replacement_base_name
 
     @pytest.mark.asyncio
     async def test_friend_join_reclaims_bot_replaced_seat(self):

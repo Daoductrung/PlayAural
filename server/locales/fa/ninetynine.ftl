@@ -1,9 +1,5 @@
 game-name-ninetynine = نود و نه
-ninetynine-description = یک بازی کارتی که در آن بازیکنان سعی می‌کنند از رساندن مجموع جاری به بالای ۹۹ جلوگیری کنند. آخرین بازیکن باقی‌مانده برنده می‌شود!
-
 ninetynine-round = دور { $round }.
-
-ninetynine-player-turn = نوبت { $player }.
 
 ninetynine-you-play = شما { $card } بازی می‌کنید. مجموع اکنون { $count } است.
 ninetynine-player-plays = { $player } { $card } بازی می‌کند. مجموع اکنون { $count } است.
@@ -38,9 +34,6 @@ ninetynine-end-score = { $rank }. { $player }: { $tokens } { $tokens ->
     [one] نشان
    *[other] نشان
 }
-
-ninetynine-you-deal = شما کارت‌ها را پخش می‌کنید.
-ninetynine-player-deals = { $player } کارت‌ها را پخش می‌کند.
 
 ninetynine-you-draw = شما { $card } می‌کشید.
 ninetynine-player-draws = { $player } یک کارت می‌کشد.
@@ -83,7 +76,6 @@ ninetynine-set-autodraw = کشیدن خودکار: { $enabled }
 ninetynine-option-changed-autodraw = کشیدن خودکار روی { $enabled } تنظیم شد.
 ninetynine-desc-autodraw = وقتی فعال باشد، بازیکنان پس از بازی کردن به‌طور خودکار یک کارت جایگزین می‌کشند. وقتی خاموش باشد، بازیکنان باید دستی بکشند.
 
-ninetynine-rules-standard = قوانین استاندارد.
 ninetynine-rules-action-cards = قوانین کارت‌های اقدام.
 
 ninetynine-rules-variant-standard = استاندارد

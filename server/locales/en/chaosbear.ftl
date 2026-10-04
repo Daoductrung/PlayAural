@@ -41,7 +41,6 @@ chaosbear-position-other-brief = { $player }: square { $position }, gap { $gap }
 
 chaosbear-draw-card-you = You draw a chaos card.
 chaosbear-draw-card-other = { $player } draws a chaos card.
-chaosbear-draws-card = { $player } draws a card.
 chaosbear-draw-card-you-brief = You draw.
 chaosbear-draw-card-other-brief = { $player } draws.
 chaosbear-card-impulsion-you = Impulsion! You surge ahead to square { $position }, { $gap } squares ahead of the bear.

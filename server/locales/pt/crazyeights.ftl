@@ -21,8 +21,6 @@ crazyeights-game-blocked = O jogo está travado! Ninguém pode jogar.
 crazyeights-new-hand = Rodada { $round }.
 crazyeights-start-card-you = Você vira { $card }.
 crazyeights-start-card = { $player } vira { $card }.
-crazyeights-wild-played = { $player } jogou um Oito Coringa.
-
 crazyeights-no-players = Sem jogadores.
 crazyeights-no-top = Nenhuma carta no topo.
 
@@ -32,14 +30,12 @@ crazyeights-reverse = Inversão de { $suit }
 crazyeights-skip = Pulo de { $suit }
 crazyeights-draw-two = Compra Dois de { $suit }
 
-crazyeights-suit-chosen = O naipe agora é { $suit }.
 crazyeights-you-choose-suit = Você escolhe { $suit }. O próximo jogador deve seguir esse naipe ou jogar outro Oito Coringa.
 crazyeights-player-chooses-suit = { $player } escolhe { $suit }. O próximo jogador deve seguir esse naipe ou jogar outro Oito Coringa.
 
 crazyeights-round-summary = { $player } vence a rodada. { $details }. { $player } ganha { $total } pontos.
 crazyeights-round-summary-you = Você vence a rodada. { $details }. Você ganha { $total } pontos.
 crazyeights-round-details-none = Nenhum ponto foi tirado dos oponentes.
-crazyeights-round-winner = { $player } ganha { $points } pontos. { $detail }
 crazyeights-round-points-from = { $points } de { $player }
 crazyeights-dealt-cards = Todos recebem { $cards } cartas.
 

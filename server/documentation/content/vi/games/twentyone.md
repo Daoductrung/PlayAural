@@ -46,13 +46,13 @@ Bộ bài gồm các lá bài được xếp hạng từ 1 đến 11, mỗi hạ
 
 
 
-Lá Biến là phần chiến thuật cốt lõi của trò chơi. Thay vì rút thêm hay dừng, bạn có thể chơi một lá Biến từ tay. Menu chơi hiển thị toàn bộ Lá Biến trên tay bạn; lá nào chưa thể dùng sẽ có lý do ngay trong menu, và nếu bạn chọn lá đó, trò chơi sẽ giải thích chính xác vì sao nó chưa đánh được. Một số lá có hiệu lực tức thì rồi bị loại khỏi ván. Số khác là hiệu ứng bàn kéo dài đến hết vòng. Mỗi người chơi chỉ có thể có tối đa 5 hiệu ứng bàn cùng lúc; nếu thêm lá thứ sáu, hiệu ứng cũ nhất bị xóa.
+Lá Biến là phần chiến thuật cốt lõi của trò chơi. Thay vì rút thêm hay dừng, bạn có thể chơi một lá Biến từ tay. Trình đơn chơi hiển thị toàn bộ Lá Biến trên tay bạn; lá nào chưa thể dùng sẽ có lý do ngay trong trình đơn, và nếu bạn chọn lá đó, trò chơi sẽ giải thích chính xác vì sao nó chưa đánh được. Một số lá có hiệu lực tức thì rồi bị loại khỏi ván. Số khác là hiệu ứng bàn kéo dài đến hết vòng. Mỗi người chơi chỉ có thể có tối đa 5 hiệu ứng bàn cùng lúc; nếu thêm lá thứ sáu, hiệu ứng cũ nhất bị xóa.
 
-Trong ván có ba hoặc bốn người, các lá Biến tác động lên một đối thủ sẽ yêu cầu bạn chọn mục tiêu. Menu mục tiêu chỉ liệt kê những đối thủ hợp lệ, kèm máu và tổng điểm đang lộ của họ. Khi hiệu ứng bàn đã được đặt, các thao tác đọc trạng thái sẽ nói rõ hiệu ứng đó đang nhắm vào ai.
+Trong ván có ba hoặc bốn người, các lá Biến tác động lên một đối thủ sẽ yêu cầu bạn chọn mục tiêu. Trình đơn mục tiêu chỉ liệt kê những đối thủ hợp lệ, kèm máu và tổng điểm đang lộ của họ. Khi hiệu ứng bàn đã được đặt, các thao tác đọc trạng thái sẽ nói rõ hiệu ứng đó đang nhắm vào ai.
 
 
 
-Nhấn \*\*C\*\* hoặc chọn \*\*Hướng dẫn lá Biến\*\* trong menu hành động để mở hộp trạng thái liệt kê từng lá Biến và mô tả của nó. Khi bật \*\*Gợi ý trong menu\*\*, mỗi lựa chọn trong menu đánh bài cũng kèm mô tả và lý do nếu lá đó tạm thời chưa dùng được. Khi tắt Gợi ý trong menu, các lựa chọn chỉ còn số thứ tự và tên lá ngắn gọn; nếu vẫn chọn một lá chưa dùng được, trò chơi sẽ giải thích chính xác nguyên nhân.
+Nhấn \*\*C\*\* hoặc chọn \*\*Hướng dẫn lá Biến\*\* trong trình đơn hành động để mở hộp trạng thái liệt kê từng lá Biến và mô tả của nó. Khi bật \*\*Gợi ý trong trình đơn\*\*, mỗi lựa chọn trong trình đơn đánh bài cũng kèm mô tả và lý do nếu lá đó tạm thời chưa dùng được. Khi tắt Gợi ý trong trình đơn, các lựa chọn chỉ còn số thứ tự và tên lá ngắn gọn; nếu vẫn chọn một lá chưa dùng được, trò chơi sẽ giải thích chính xác nguyên nhân.
 
 
 
@@ -218,7 +218,7 @@ Lan chịu 2 sát thương (cược cơ bản 1, cộng 1 từ Tăng một của
 
 \* \*\*2:\*\* Dừng lại (chốt tổng điểm của bạn).
 
-\* \*\*3:\*\* Chơi lá Biến (mở menu để chọn lá muốn chơi).
+\* \*\*3:\*\* Chơi lá Biến (mở trình đơn để chọn lá muốn chơi).
 
 \* \*\*4:\*\* Kiểm tra trạng thái 21 (thông báo mục tiêu, máu, cược hiện tại, tay bài, lá Biến trong tay và hiệu ứng đang hoạt động; cũng hiển thị thông tin có thể nhìn thấy của từng đối thủ).
 

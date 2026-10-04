@@ -53,9 +53,9 @@ lrc-you-keep-all = Todos os seus dados são pontos, então { $count ->
     [one] você mantém sua única ficha
    *[other] você mantém todas as { $count } fichas
 }.
-lrc-player-keeps-all = Todos os dados de { $player } são pontos, então { $count ->
-    [one] { $player } mantém sua única ficha
-   *[other] { $player } mantém todas as { $count } fichas
+lrc-player-keeps-all = Todos os dados de { $player } são pontos, então { GENDER_TERM($player_gender, "subject-have") } { $count ->
+    [one] a única ficha
+   *[other] todas as { $count } fichas
 }.
 lrc-you-keep-all-brief = Você: sem transferências; { $count } { $count ->
     [one] ficha
@@ -67,7 +67,7 @@ lrc-player-keeps-all-brief = { $player }: sem transferências; { $count } { $cou
 }.
 
 lrc-you-skip-no-chips = Você não tem fichas, então seu turno é pulado. Você continua no jogo e pode receber fichas de qualquer vizinho.
-lrc-player-skips-no-chips = { $player } não tem fichas, então o turno dele é pulado. Ele continua no jogo e pode receber fichas de qualquer vizinho.
+lrc-player-skips-no-chips = { $player } não tem fichas, então o turno { GENDER_TERM($player_gender, "possessive-determiner") } é pulado. { GENDER_TERM($player_gender, "subject-capitalized") } continua no jogo e pode receber fichas de qualquer vizinho.
 lrc-you-skip-no-chips-brief = Você: sem fichas; turno pulado.
 lrc-player-skips-no-chips-brief = { $player }: sem fichas; turno pulado.
 
@@ -75,7 +75,7 @@ lrc-you-win = Você é o último jogador com fichas e vence com { $count } resta
     [one] a única ficha no centro
    *[other] as { $center } fichas no centro
 }.
-lrc-player-wins = { $player } é o último jogador com fichas e vence com { $count } restantes. { $player } reivindica { $center ->
+lrc-player-wins = { $player } é o último jogador com fichas e vence com { $count } restantes. { GENDER_TERM($player_gender, "subject-capitalized") } recebe { $center ->
     [one] a única ficha no centro
    *[other] as { $center } fichas no centro
 }.

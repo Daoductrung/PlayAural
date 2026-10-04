@@ -1,5 +1,70 @@
 Registro de cambios
 
+Viernes 2 de octubre de 2026
+
+Novedades:
+
+* El chat de voz ahora incluye controles de moderación y escucha específicos de cada mesa. Los anfitriones pueden elegir Gestión del anfitrión > Gestionar el chat de voz para desactivar el micrófono de otro miembro de la mesa o permitirle volver a usarlo. Desde Quién está en la mesa, puedes abrir Configuración personal de voz para otro miembro, silenciarlo solo para ti, establecer un volumen de reproducción independiente para esa persona o restablecer esas opciones. Estos ajustes permanecen con la mesa al cambiar de juego y durante los reinicios planificados del servidor.
+
+Mejoras:
+
+* El chat de voz ahora permanece conectado cuando el anfitrión cambia la mesa a otro juego o cuando la sesión activa se transfiere a otro dispositivo. El nuevo dispositivo se conecta solo para escuchar, y su micrófono permanece apagado hasta que el jugador lo activa explícitamente.
+* Las Tablas de clasificación y Mis estadísticas ahora muestran la Puntuación de habilidad como un único número más claro. Los resultados, las estadísticas, las tablas de clasificación y las puntuaciones de habilidad ahora son más precisos en las partidas por equipos y los empates, así como cuando los jugadores se desconectan, vuelven a sus asientos, son sustituidos por bots o son eliminados de la partida de forma permanente.
+* La acción poco fiable Predecir resultados se eliminó de los menús de las mesas.
+
+Corrección de errores:
+
+* Gestión del anfitrión ya no ofrece la opción Ceder el anfitrionazgo a otro jugador cuando el asiento está desconectado o controlado por un bot. Si la persona seleccionada se va, el menú de acciones de ese miembro ahora vuelve de forma segura a Quién está en la mesa en lugar de quedar desactualizado.
+* En Android, TalkBack ahora lee con normalidad el texto mientras se escribe en los campos de inicio de sesión, chat y recuperación de contraseña, así como en los campos de texto de los juegos, en lugar de anunciar repetidamente todo el campo.
+
+Jueves 1 de octubre de 2026
+
+Novedades:
+
+* Se añadió el Bingo de 75 bolas para entre 2 y 12 jugadores. Todos juegan al mismo tiempo en un cartón accesible de 5 por 5, con un ritmo de canto ajustable, bots, espectadores, controles de teclado y táctiles, y cuatro patrones para ganar: Cualquier línea, Cuatro esquinas, Letra X y Cartón lleno.
+* Gestión del anfitrión ahora incluye Sustitución de jugadores. Con el consentimiento de todas las personas implicadas, un espectador puede ocupar durante la partida el asiento de una persona, un bot o un jugador con el asiento reservado, y heredar exactamente su posición actual, información privada, tiempo y resultado.
+* Los anfitriones ahora pueden elegir Gestión del anfitrión > Cambiar a otro juego sin reconstruir la mesa. El anfitrión, la privacidad, los baneos, los jugadores presentes, los espectadores, los bots y la sala de voz permanecen juntos mientras el nuevo juego se abre en una sala de espera nueva.
+* El perfil ahora incluye las opciones de género opcionales Masculino, Femenino, No binario y Sin definir. Los anuncios usan esta opción para referirse a usuarios y jugadores de forma más natural.
+
+Mejoras:
+
+* Amigos ahora incluye Solicitudes enviadas, donde puedes revisar o cancelar las solicitudes salientes. También se muestra cuándo se conectaron por última vez los amigos que están desconectados.
+* Reportar a un usuario ahora está disponible desde Quién está en la mesa, incluso para espectadores y asientos de personas desconectadas; no se puede reportar a los bots.
+* Opciones generales ahora sitúa Idioma del chat global justo debajo de Idioma y contiene Opciones de juego como submenú. El foco vuelve al elemento que abrió cada submenú.
+* Pulsa F1 en Escritorio o Web para escuchar una descripción del elemento de menú enfocado. En el modo de autolectura de Móvil, usa un toque con tres dedos. Los avisos de confirmación ahora son visibles y se leen en voz alta, mientras que los comentarios breves de los menús ya no llenan el historial de mensajes.
+* Iniciar sesión desde otro cliente de Escritorio, Web o Móvil ahora transfiere la sesión activa sin problemas y conserva la mesa, el asiento de jugador, el turno y la conexión de voz actuales. Cerrar una aplicación o cerrar sesión también abandona las mesas y sesiones de voz de forma más fiable.
+* Los anfitriones que estén como espectadores ahora pueden mantener en marcha una mesa activa y gestionar su sala de espera. Las invitaciones y los cambios de función también se recuperan de forma más fiable cuando alguien se desconecta, cambia de función o responde tarde.
+* Los nombres de los bots ahora siguen el idioma seleccionado, son fáciles de distinguir y se mantienen uniformes al reconectarse, sustituir jugadores y restaurar mesas guardadas.
+* Punto de Ruptura ahora usa una fase de compra simultánea, una cantidad de rondas tácticas que se adapta al tamaño de los escuadrones, explosiones de bomba que causan daño, recuperación gratuita de una bomba soltada cuando T llega hasta ella, y una protección más estricta de las acciones y los sonidos de compra que los enemigos no pueden observar.
+* Los bots de Punto de Ruptura ahora escuchan la actividad enemiga, coordinan el control del mapa y los objetivos, se adaptan a las rondas anteriores, usan mejor el equipo y el dinero, y valoran las armas y los objetos recogidos de forma más realista. Los jugadores también reciben llamadas de radio variadas y exclusivas para su equipo, que suenan desde la posición de cada agente masculino o femenino.
+
+Corrección de errores:
+
+* El cliente de Escritorio ahora se inicia correctamente en computadoras antiguas con Windows en las que antes se cerraba antes de llegar al inicio de sesión.
+* El inicio de sesión y las acciones sociales ahora gestionan de forma uniforme los nombres de usuario con caracteres internacionales o distintas mayúsculas y minúsculas, y evitan cuentas duplicadas cuyos nombres parecen iguales.
+* Cambiar el idioma durante la conexión ahora actualiza de inmediato los menús y el texto del cliente sin mezclar brevemente el idioma anterior con el nuevo.
+
+Sábado 26 de septiembre de 2026
+
+Novedades:
+
+* El chat global ahora está organizado en canales de idioma. No hay ningún canal seleccionado de forma predeterminada; elige Personal y Opciones > Opciones generales > Idioma del chat global antes de enviar o recibir mensajes globales. Fuera de una mesa, los mensajes normales se envían al canal seleccionado; en una mesa, permanecen en el chat de la mesa y `/g` los envía al canal global.
+* Reportar a un usuario ya está disponible para casos de abuso grave o reiterado. Los reportes registran el motivo, el canal de idioma y la hora exacta de envío para su revisión manual, sin avisar ni castigar automáticamente al usuario reportado. Los mensajes del chat global se conservan junto con su remitente y la hora hasta que un desarrollador borra el historial, lo que permite revisar los reportes en su contexto; mientras esperas, puedes bloquear al usuario de inmediato.
+* Punto de Ruptura ya está disponible por completo en español y portugués, incluidos todos los textos del juego y las guías para principiantes.
+
+Mejoras:
+
+* Las filas informativas de todos los menús ahora son siempre de solo lectura. Seleccionar una ya no ejecuta ninguna acción ni vuelve inesperadamente al menú anterior.
+* La protección contra el spam del chat ahora trata el chat global con más rigor que el chat de mesa. Solo rechaza el mensaje que parece spam en lugar de silenciar automáticamente la cuenta, y los incidentes reiterados pueden enviarse para su revisión manual.
+* El mantenimiento del servidor ahora ofrece avisos claros al comenzar y terminar cuando es necesario pausar temporalmente las partidas y los cambios de las cuentas. Los menús actuales permanecen visibles hasta que se reanuda el servicio normal.
+
+Corrección de errores:
+
+* Los sonidos, la música y el ambiente de los juegos en Web ahora funcionan de forma fiable en los navegadores de Apple y se recuperan correctamente cuando el navegador vuelve del segundo plano.
+* En Móvil, un sonido que tarda en cargar o falla ya no bloquea pasos, disparos ni otros sonidos posteriores, y las partidas largas ya no pierden sonidos espaciales de forma gradual.
+* Punto de Ruptura ahora conserva correctamente los escuadrones, bandos, la posesión de la bomba y las puntuaciones durante el cambio de lado, el tiempo extra, la sustitución de asientos desconectados, la recuperación de asientos y la restauración de mesas guardadas. Las acciones bloqueadas ya no revelan movimientos enemigos ocultos ni detalles del equipo, los espectadores reciben un estado neutral de la bomba antes de la plantada y los disparos en Móvil son más suaves para reducir la saturación.
+* El ritmo de la partida ya no se acelera para recuperar el tiempo después de una ralentización temporal del servidor.
+
 Miércoles 23 de septiembre de 2026
 
 Novedades:

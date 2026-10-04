@@ -19,7 +19,11 @@ from ...game_utils.grid_mixin import GridCursor, GridGameMixin, grid_cell_id
 from ...game_utils.options import BoolOption, MenuOption, option_field
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
-from .bot import bot_think as _bot_think
+from .bot import (
+    bot_think as _bot_think,
+    cancel_all_bot_searches,
+    cancel_bot_search,
+)
 
 if TYPE_CHECKING:
     from ...users.base import User
@@ -263,10 +267,12 @@ class ChessGame(GridGameMixin, Game):
     def _prepare_seat_substitution(self, player: Player) -> None:
         """Cancel an in-flight engine search before human control begins."""
         super()._prepare_seat_substitution(player)
-        job = self._chess_bot_jobs.pop(player.id, None)
-        future = getattr(job, "future", None)
-        if future is not None:
-            future.cancel()
+        cancel_bot_search(self, player.id)
+
+    def on_discard(self) -> None:
+        """Stop asynchronous engine work owned by this game instance."""
+        cancel_all_bot_searches(self)
+        super().on_discard()
 
     def finish_game(self, show_end_screen: bool = True) -> None:
         self._clear_transient_request_state()
@@ -671,11 +677,7 @@ class ChessGame(GridGameMixin, Game):
         self.pending_undo_snapshot = None
         self._pending_actions.clear()
         self._pending_action_return_focus.clear()
-        for job in self._chess_bot_jobs.values():
-            future = getattr(job, "future", None)
-            if future is not None:
-                future.cancel()
-        self._chess_bot_jobs.clear()
+        cancel_all_bot_searches(self)
 
     def _push_undo_snapshot(self, snapshot: ChessUndoSnapshot) -> None:
         self.undo_history.append(snapshot)
@@ -1096,7 +1098,7 @@ class ChessGame(GridGameMixin, Game):
             self.selected_square.pop(player.id, None)
             self.bot_move_targets.pop(player.id, None)
             user.play_sound(SOUND_SETDOWN)
-            user.speak_l("chess-selection-cleared", buffer="game")
+            user.speak_l("chess-selection-cleared", buffer="game", history=False)
             self.refresh_menus(player)
             return
 
@@ -1814,7 +1816,11 @@ class ChessGame(GridGameMixin, Game):
             self.pending_promotion_special = outcome.get("special", "")
             user = self.get_user(player)
             if user:
-                user.speak_l("chess-choose-promotion", buffer="game")
+                user.speak_l(
+                    "chess-choose-promotion",
+                    buffer="game",
+                    history=False,
+                )
             self.refresh_menus()
             if player.is_bot:
                 BotHelper.jolt_bot(player, ticks=random.randint(6, 12))
@@ -2518,15 +2524,12 @@ class ChessGame(GridGameMixin, Game):
             timestamp=datetime.now().isoformat(),
             duration_ticks=self.sound_scheduler_tick,
             player_results=[
-                PlayerResult(
-                    player_id=player.id,
-                    player_name=player.name,
-                    is_bot=player.is_bot and not player.replaced_human,
-                )
+                PlayerResult.from_player(player)
                 for player in self.get_active_players()
             ],
             custom_data={
                 "winner_name": winner.name if winner else None,
+                "winner_ids": [winner.id] if winner else [],
                 "winner_color": self.winner_color,
                 "draw_reason": self.draw_reason,
                 "move_count": self._fullmove_count(),

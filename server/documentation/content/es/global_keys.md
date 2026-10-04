@@ -41,6 +41,7 @@ PlayAural agrupa los mensajes en búferes separados para que puedas revisar los 
 \* \*\*Entrar:\*\* Activa el elemento enfocado.
 \* \*\*Escape:\*\* Retrocede o abre el menú de acciones.
 \* \*\*Inicio / Fin:\*\* Salta al primer o al último elemento de la lista actual.
+\* \*\*F1:\*\* Lee la descripción del elemento de menú enfocado, cuando haya una disponible.
 \* \*\*Letras A-Z:\*\* Salta rápidamente a los elementos que empiezan con esa letra.
 
 \*\*Controles móviles\*\*
@@ -57,7 +58,7 @@ El cliente móvil tiene su propia navegación hablada integrada. Puedes activar 
 \* \*\*Deslizar a la izquierda con 2 dedos:\*\* Abre o cierra el Historial.
 \* \*\*Deslizar hacia abajo con 2 dedos:\*\* Abre o cierra los Atajos.
 \* \*\*Toque con 2 dedos:\*\* Detiene la voz actual.
-\* \*\*Toque con 3 dedos:\*\* Repite el anuncio más reciente.
+\* \*\*Toque con 3 dedos:\*\* Lee la descripción del elemento de menú enfocado, cuando haya una disponible.
 \* \*\*Triple toque con 3 dedos:\*\* Activa o desactiva la autolectura.
 \* \*\*Deslizar hacia arriba con 3 dedos:\*\* Salta al primer elemento de la lista actual.
 \* \*\*Deslizar hacia abajo con 3 dedos:\*\* Salta al último elemento de la lista actual.

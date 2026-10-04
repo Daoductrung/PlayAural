@@ -40,14 +40,12 @@ nine-player-skips-turn-brief = { $player } bỏ lượt; không có lá hợp l�
 
 # Lý do không thể đánh bài
 nine-reason-not-your-turn = Chưa đến lượt bạn.
-nine-reason-card-slot-gone = Lá bài đó không còn trên tay bạn. Menu bài trên tay đã được làm mới.
+nine-reason-card-slot-gone = Lá bài đó không còn trên tay bạn. Trình đơn bài trên tay đã được làm mới.
 nine-reason-must-play-starting-nine = Nước đầu tiên phải là { $starting_card }. Chưa thể đánh { $card } trước khi bàn được mở.
 nine-reason-nine-already-started = Không thể đánh { $card } vì dãy { $suit } đã được mở rồi.
 nine-reason-cannot-extend = { $card } không nối được vào dãy { $suit }. Hãy đánh lá liền dưới hoặc liền trên một đầu của dãy đó.
 nine-reason-unopened-suit = Không thể đánh { $card } vì dãy { $suit } chưa được mở. Hãy mở chất đó bằng lá 9 trước.
 nine-reason-must-skip = Bạn không có lá hợp lệ để đánh; lượt của bạn sẽ được tự động bỏ qua.
-nine-reason-generic = Lá bài đó hiện không đánh được.
-
 # Chiến thắng
 nine-you-wins-game = Bạn đã hết bài và thắng ván chơi!
 nine-player-wins-game = { $player } đã hết bài và thắng ván chơi!

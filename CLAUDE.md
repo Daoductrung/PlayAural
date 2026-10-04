@@ -110,6 +110,11 @@ application exit. The server, not the client, leaves every registered runtime
 activity before retiring the session and returning `force_exit`; this keeps
 table, voice, and future room teardown authoritative and ordered.
 
+Clients request the focused row's available help with `menu_description`,
+carrying the current `menu_id` and stable `menu_item_id`. The server validates
+both against the visible menu before speaking. This is a semantic UI request,
+not a gameplay keybind.
+
 **`silent` flag on `chat` packets**: Adding `"silent": True` suppresses both chat notification sounds and TTS in the first-party clients. Use it only when the server is also sending explicit `speak` and/or `audio` packets to control the output precisely.
 
 ### Social Blocking Boundary
@@ -149,6 +154,18 @@ through the shared registry and cannot be registered by users. When display
 names are introduced, identity-sensitive profiles, reports, moderation views,
 and confirmations must expose the owning username, while every action id and
 payload remains bound to the UUID.
+
+Bot identity is likewise structural, never name-derived. `Player.id` and
+`Player.is_bot` are authoritative; `bot_name_base` is serialized presentation
+data used to preserve a bot's personality across save/load. Localized base
+names may match usernames or other bot bases. Every production bot must expose
+a collision-free table label: use the bare base while it is unique, add the
+localized bot marker only while a human or another bot shares that base, and
+add a stable ordinal when multiple bots share it. A replacement bot retains the
+disconnected human's account UUID and reclaim metadata. Reconcile labels across
+joins, leaves, replacements, reconnects, and save/load. Never reserve localized
+bot bases from registration, infer bot status from text, or route an action by
+an unqualified base name.
 
 ### Audio Control Protocol
 
@@ -297,7 +314,7 @@ loading an asset.
 ### Server Architecture
 - **`server/core/server.py`** — Main orchestrator, auth routing, menus, reconnect, moderation, MOTD, presence
 - **`server/network/websocket_server.py`** — Async WebSocket transport
-- **`server/games/`** — 48 registered game implementations
+- **`server/games/`** — 49 registered game implementations
 - **`server/game_utils/`** — shared game mixins and helpers
 - **`server/tables/`** — table lifecycle, save/restore, membership
 - **`server/auth/`** — authentication, CAPTCHA checks, password reset, rate limiting
@@ -315,6 +332,33 @@ loading an asset.
   `server_requested=true`. First-party clients may connect automatically but
   always enter listen-only; microphone publishing remains a separate explicit
   user action. `voice_context_closed` cancels both pending and active joins.
+- A live device handover preserves confirmed table-voice listening intent by
+  invalidating the old session's grant and issuing the replacement client a
+  fresh context-bound server request after its restored `table_context`.
+  Reconfirmation is silent to other table members, and an unexpired grant
+  explicitly marked as a continuation may carry through another rapid device
+  handover. Ordinary pending/manual grants may not. Microphone state and audio
+  input selection are device-local and never transfer; the replacement always
+  starts listen-only. Preserve the prior confirmed presence only for the
+  bounded continuation grant: successful reconfirmation is silent, while an
+  explicit client rejection, media connection failure, or grant expiry clears
+  it and broadcasts exactly one actual disconnect. Clients revoke grants when
+  media setup fails, and the server rejects late presence confirmations after
+  authorization expiry.
+- Table voice controls are keyed only by immutable account UUID. Host
+  microphone moderation is authoritative table policy backed by LiveKit
+  participant publish permission; client-side microphone locks are defense in
+  depth. Personal mute and volume are private per-listener mixer settings.
+  Both are checkpoint-only properties of the durable table: preserve them
+  across a game switch and server restore, retain controls *about* a departed
+  target for an eventual same-account rejoin, clear preferences owned by a
+  listener when that listener leaves, and clear all controls when the table is
+  destroyed. Manual saved games must omit them. Never key these controls by a
+  username, display name, participant label, or gameplay seat.
+- `clear_ui` is an interface-only command: it clears server-owned menus,
+  editboxes, and focus state without changing table, game-audio, or voice
+  ownership. Lifecycle exits must use `table_context`, unified `audio`
+  teardown, and `voice_context_closed`/membership teardown as appropriate.
 - Voice presence is runtime-only state. It is tied to the active table lifecycle and must not create long-lived database rows unless a future feature defines retention and cleanup rules explicitly.
 
 ### Game Implementation Pattern
@@ -325,7 +369,6 @@ Key built-in mixins include:
 - `GameCommunicationMixin`
 - `GameResultMixin`
 - `GameScoresMixin`
-- `GamePredictionMixin`
 - `TurnManagementMixin`
 - `MenuManagementMixin`
 - `ActionVisibilityMixin`
@@ -436,12 +479,15 @@ conflicting, as UNO does. Likewise, `enter` can start the game while idle and
 select a grid cell while active.
 
 Base/client bindings to respect include `enter`, `escape`, `b`, `shift+b`,
-`f3`, `t`, `s`, `shift+s`, `ctrl+m`, `ctrl+q`, `ctrl+u`, `ctrl+s`, `ctrl+r`,
-`ctrl+i`, and `ctrl+f1`. Do not reuse `ALWAYS` bindings or same-state
-base/client bindings for unrelated game-specific actions unless the behavior is
-deliberately shared or overridden. When reusing a key across states, keep the
-scope explicit, keep matching `Action`/`Keybind` spectator visibility aligned,
-and add tests or clear coverage for the intended state separation.
+`f3`, `t`, `s`, `shift+s`, `ctrl+m`, `ctrl+q`, `ctrl+u`, `ctrl+s`,
+`ctrl+i`, `f1`, and `ctrl+f1`. Plain `F1` is the client-owned
+focused-menu-description command and sends `menu_description`, never a game
+keybind; `Ctrl+F1` remains How to Play. Do not reuse `ALWAYS` bindings or
+same-state base/client bindings for unrelated game-specific actions unless the
+behavior is deliberately shared or overridden. When reusing a key across
+states, keep the scope explicit, keep matching `Action`/`Keybind` spectator
+visibility aligned, and add tests or clear coverage for the intended state
+separation.
 
 #### Turn Management Rules
 - `set_turn_players(players)` resets `turn_index` to `0`
@@ -634,6 +680,12 @@ Rules:
 - brief score checks speak one TTS message per player/team in the `game` buffer instead of one combined sentence
 - detailed score checks use a live status box with one line per player/team unless the game has a stronger custom detail view
 - score units are display text only; leaderboards, ratings, personal statistics, and `GameResult.custom_data` continue to store numeric values in their established schema
+- every result for a wins or rating leaderboard declares `winner_ids` using immutable player/account ids; an empty list is a draw and creates neither wins nor losses, and competitive outcomes are never inferred from names
+- real teams and games with richer placement data store `RATING_COMPETITORS_KEY` data produced by `rating_competitors_from_scores(...)`; each result participant appears exactly once, equal ranks are ties, and multiple ids in one competitor are actual teammates
+- rating calculation is side-effect free; the result, aggregate stats, and validated rating updates commit in one database transaction
+- OpenSkill `mu` and `sigma` remain internal model state; player-facing views expose the conservative skill score, leaving visible per-game tiers or placement policy as a separate future presentation layer
+- every `PlayerResult` is built through `PlayerResult.from_player(...)`; a disconnected replacement bot remains owned by the reserved account, so its result, stats, win/loss, and rating count for that account and disconnecting cannot dodge a loss; completed substitution transfers ownership to the incoming account; a reversible host kick removes current membership but preserves that UUID-owned seat, private-table reclaim admission, and human-owned roster identity, while kick-and-ban, account deletion, and every other permanent removal immediately rekey an active retained seat to a fresh dedicated-bot UUID; dedicated bots never receive durable player stats or ratings
+- startup garbage collection derives valid game types and persisted stat keys from the live game registry, then removes unregistered-game data, unsupported derived leaderboard aggregates, and invalid rating rows; never maintain a parallel hardcoded cleanup schema
 
 #### Team Management and Arrangement
 Team-based games use `TeamManager` and the shared lobby team arrangement flow.
@@ -680,6 +732,19 @@ the owner back into a seat. Ordinary spectators never keep an abandoned table
 alive. This does not weaken the active-human start requirement. If an active
 table reaches zero gameplay seats, preserve it for the present spectator host
 but keep gameplay ticks paused until restart or explicit teardown.
+
+Treat the `Table` as the durable party, admission, and LiveKit context and its
+`Game` as a replaceable activity. Host-requested game switching validates the
+entire live roster and the target game's active-seat capacity before any table
+mutation. A successful switch retains the table id, host, privacy, bans, live
+human playing/spectating roles, dedicated bots, table chat, and voice context,
+but constructs a fresh target lobby with default options. Match state, teams,
+readiness, turn timers, scheduled/managed audio, disconnected-seat reclaim
+rights, pending substitutions, and invitations that named the old game do not
+cross that boundary. Retire the old activity completely, suppress the normal
+public table-created notification, rebuild every present member's UI from the
+new game, and fail without changing the current table when preparation or
+capacity validation fails.
 
 #### Server-Side Navigation Stack
 Server menus use the breadcrumb stack in `_user_states[username]["_stack"]`.
@@ -907,6 +972,11 @@ Every `user.speak_l()` and `broadcast_l()` call must include an explicit `buffer
 - `private` — private messages
 - `misc` — minor non-chat, non-game informational output
 
+Use `history=False` only for transient UI chrome such as menu-open/close
+feedback and one-time selection prompts already represented by the current
+interface. Clients must still speak it subject to the selected buffer's mute
+state. Errors, gameplay results, and durable information stay in history.
+
 Desktop, Web, and mobile clients share one buffer-mute contract. Muting `all`
 makes every buffer effectively muted and prevents individual mute changes until
 `all` is unmuted. A directly muted source retains its own bounded runtime
@@ -939,8 +1009,12 @@ Any new persistent feature must define:
 
 `Game.on_discard()` is the idempotent lifecycle hook for match-scoped caches,
 bot observations, and similar memory that must not outlive its game instance.
-The framework calls it on both table destruction and game restart; it does not
-replace the retention and cleanup rules required for genuinely persistent data.
+The framework calls it whenever an instance is abandoned, including table
+destruction, restart, game switching, and failed replacement preparation.
+Games that launch asynchronous work must cancel it cooperatively here, discard
+all job references, run that work only against isolated snapshots, and never
+let it call back into a discarded game. This hook does not replace the retention
+and cleanup rules required for genuinely persistent data.
 
 #### Chat Anti-Spam and Moderation Reports
 - Throttle by immutable account UUID and independent chat scope. Global chat is
@@ -997,7 +1071,11 @@ replace the retention and cleanup rules required for genuinely persistent data.
 - PlayAural ships English and Vietnamese, and — unlike upstream PlayPalace,
   where translators own everything but `en` — here the agent authors **both**.
   A new or changed `en` key must land with its `vi` counterpart, kept in
-  structural parity: same keys, same `$variables`, matching plural/select arms.
+  structural parity: same keys, same data-bearing `$variables`, and matching
+  plural/select arms. A locale may omit a variable used only as the first
+  argument to `GENDER_TERM(...)` when its natural sentence does not need
+  gender; if the selector is used, its name must match the source key. Never
+  omit names, counts, scores, formatted values, or other player/game data.
 - Agent-authored Vietnamese is provisional: write it and keep parity, but flag
   it for native review rather than treating it as final.
 - Prefer writing the `en` strings before the game/feature code — it forces the
@@ -1007,6 +1085,14 @@ replace the retention and cleanup rules required for genuinely persistent data.
   through locale files and the appropriate metadata/registry layer. Missing
   translated strings and missing translated documentation must fall back to
   English, never to raw keys or empty manuals.
+- A live language change sends the client locale update before newly localized
+  speech or menus, rebuilds only that player's locale-bound game action sets,
+  and restores the semantic parent menu and focus rather than translating a
+  rendered surface in place. Desktop and Mobile apply bundled catalogs
+  synchronously. Web must place its asynchronous catalog load behind an
+  ordered barrier so later WebSocket packets cannot render or speak in front
+  of the locale and document-direction update; rapid locale packets must chain
+  rather than race.
 - Validate server Fluent changes with `server/tools/compare_locales.py`. The
   tool reports missing and obsolete files/keys, plus variable, select/plural
   arm, and attribute mismatches. Obsolete target keys are cleanup work, not
@@ -1159,6 +1245,10 @@ Mobile rules:
 - credentials are stored in SecureStore
 - Back resolves the visible dialog/input before local tabs or server menus;
   same-menu updates retain the server's escape behavior
+- In self-voicing mode, a three-finger single tap requests the focused menu
+  description. Defer it through the recognizer's shared multi-finger multi-tap
+  window and cancel it as soon as another gesture chord starts so it never
+  fires during the global three-finger triple-tap toggle.
 - boards scroll on both axes without shrinking touch targets below the UI
   minimum; self-voicing focus reveals the selected cell without delaying cursor
   or speech updates. Android boards use one native two-axis gesture owner and
@@ -1192,11 +1282,11 @@ Mobile rules:
   language names; metadata complements it and does not replace it.
 
 ### Game Counts and Catalog
-The server currently registers **48 games**:
+The server currently registers **49 games**:
 - category ids are `cards`, `dice`, `board`, `poker`, `arcade`, and `misc`
 - the Play menu exposes a persisted category filter with dynamic per-category game counts
 - games usually expose one category through `get_category()`, while `get_categories()` supports future multi-category games
-- recent additions include `Bingo`, `Metal Pipe`, `Nine`, `Senet`, `Cards Against Humanity`, `21`, `Flip 7`, `Age of Heroes`, `UNO`, `Exploding Kittens`, `BANG! The Bullet`, and `Monopoly`
+- recent additions include `Flip 7`, `Skip-Bo`, `Bingo`, `Metal Pipe`, `Nine`, `Senet`, `Cards Against Humanity`, `21`, `Age of Heroes`, `UNO`, `Exploding Kittens`, `BANG! The Bullet`, and `Monopoly`
 
 ### Key Tech Stack
 - Python 3.11, `asyncio`, `websockets>=12.0`, `mashumaro`, `fluent-runtime`, `openskill`, `argon2-cffi`

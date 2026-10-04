@@ -400,6 +400,81 @@ def test_desktop_copy_directives_cover_modified_enter_and_escape(monkeypatch):
     assert sent_packets == []
 
 
+def test_desktop_f1_requests_menu_description_without_stealing_ctrl_f1(monkeypatch):
+    sent_packets = []
+    menu_list = type(
+        "MenuList",
+        (),
+        {
+            "GetCount": staticmethod(lambda: 1),
+            "GetSelection": staticmethod(lambda: 0),
+        },
+    )()
+    monkeypatch.setattr(
+        main_window_module.wx,
+        "Window",
+        type("Window", (), {"FindFocus": staticmethod(lambda: menu_list)}),
+    )
+    window = type(
+        "WindowHarness",
+        (),
+        {
+            "connected": True,
+            "current_menu_id": "turn_menu",
+            "current_menu_item_ids": ["status_row"],
+            "current_menu_item_read_only": [True],
+            "current_mode": "list",
+            "menu_list": menu_list,
+            "multiletter_enabled": True,
+            "network": type(
+                "Network",
+                (),
+                {"send_packet": staticmethod(sent_packets.append)},
+            )(),
+            "_native_typing_control_handles": set(),
+            "_request_focused_menu_description": MainWindow._request_focused_menu_description,
+        },
+    )()
+
+    def event(*, control=False):
+        modifiers = main_window_module.wx.MOD_CONTROL if control else 0
+        return type(
+            "EventHarness",
+            (),
+            {
+                "AltDown": staticmethod(lambda: False),
+                "ControlDown": staticmethod(lambda: control),
+                "GetKeyCode": staticmethod(lambda: main_window_module.wx.WXK_F1),
+                "GetModifiers": staticmethod(lambda: modifiers),
+                "MetaDown": staticmethod(lambda: False),
+                "ShiftDown": staticmethod(lambda: False),
+                "Skip": staticmethod(lambda: None),
+            },
+        )()
+
+    MainWindow.on_char_hook(window, event())
+    assert sent_packets == [
+        {
+            "type": "menu_description",
+            "menu_id": "turn_menu",
+            "menu_item_id": "status_row",
+        }
+    ]
+
+    window.current_menu_item_read_only = [False]
+    MainWindow.on_char_hook(window, event(control=True))
+    assert sent_packets[-1] == {
+        "type": "keybind",
+        "key": "f1",
+        "control": True,
+        "alt": False,
+        "shift": False,
+        "menu_id": "turn_menu",
+        "menu_index": 1,
+        "menu_item_id": "status_row",
+    }
+
+
 def test_desktop_copy_directives_fail_closed_for_malformed_or_failed_payloads():
     invalid = execute_copy_directive(
         {
@@ -706,7 +781,7 @@ def test_all_clients_clear_old_runtime_ui_before_restored_session_packets():
         "    def on_authorize_success(self, packet):", 1
     )[1].split("    def on_server_speak", 1)[0]
     assert 'if packet.get("reset_ui", False):' in desktop_handler
-    assert "self.on_server_clear_ui({})" in desktop_handler
+    assert "self.reset_runtime_for_session()" in desktop_handler
 
     web_handler = web_source.split("  handleAuthorizeSuccess(packet) {", 1)[1].split(
         "  retireLocalSession(reason", 1
@@ -719,3 +794,99 @@ def test_all_clients_clear_old_runtime_ui_before_restored_session_packets():
     )[1].split('        if (packet.type === "chat") {', 1)[0]
     assert "if (authPacket.reset_ui === true)" in mobile_handler
     assert "resetRuntimeUiForSession(false);" in mobile_handler
+
+
+def test_clear_ui_preserves_table_voice_and_audio_context_on_every_client():
+    repo_root = CLIENT_DIR.parent
+    desktop_source = (CLIENT_DIR / "ui" / "main_window.py").read_text(
+        encoding="utf-8"
+    )
+    web_source = (repo_root / "web_client" / "app.js").read_text(
+        encoding="utf-8"
+    )
+    mobile_source = (
+        repo_root / "mobile_client" / "src" / "app" / "PlayAuralApp.tsx"
+    ).read_text(encoding="utf-8")
+
+    desktop_clear = desktop_source.split(
+        "    def on_server_clear_ui(self, packet):", 1
+    )[1].split("    def reset_runtime_for_session(self):", 1)[0]
+    assert "cleanup_voice_chat" not in desktop_clear
+    assert "current_table_context_id" not in desktop_clear
+    assert "sound_manager.stop_all" not in desktop_clear
+
+    desktop_reset = desktop_source.split(
+        "    def reset_runtime_for_session(self):", 1
+    )[1].split("    def on_voice_settings(self, packet):", 1)[0]
+    assert 'self.current_table_context_id = ""' in desktop_reset
+    assert "self.voice_manager.clear_voice_settings()" in desktop_reset
+
+    desktop_settings = desktop_source.split(
+        "    def on_voice_settings(self, packet):", 1
+    )[1].split("    def on_server_game_list(self, packet):", 1)[0]
+    assert 'self.current_table_context_id = ""' not in desktop_settings
+    assert "self.on_server_clear_ui" not in desktop_settings
+
+    web_clear_case = web_source.split('      case "clear_ui":', 1)[1].split(
+        "        break;", 1
+    )[0]
+    assert "this.clearUi();" in web_clear_case
+    assert "cleanupRuntime" not in web_clear_case
+
+    mobile_clear_case = mobile_source.split(
+        '        if (packet.type === "clear_ui") {', 1
+    )[1].split("          return;", 1)[0]
+    assert "clearRuntimeUi();" in mobile_clear_case
+    assert "resetRuntimeUiForSession" not in mobile_clear_case
+
+
+def test_all_clients_revoke_voice_grants_when_media_connection_fails():
+    repo_root = CLIENT_DIR.parent
+    desktop_window = (CLIENT_DIR / "ui" / "main_window.py").read_text(
+        encoding="utf-8"
+    )
+    desktop_voice = (CLIENT_DIR / "voice_manager.py").read_text(encoding="utf-8")
+    web_source = (repo_root / "web_client" / "app.js").read_text(
+        encoding="utf-8"
+    )
+    mobile_app = (
+        repo_root / "mobile_client" / "src" / "app" / "PlayAuralApp.tsx"
+    ).read_text(encoding="utf-8")
+    mobile_voice = (
+        repo_root / "mobile_client" / "src" / "voice" / "MobileVoiceManager.ts"
+    ).read_text(encoding="utf-8")
+
+    desktop_failure = desktop_window.split(
+        "    def on_voice_join_failed(self):", 1
+    )[1].split("    def on_voice_status", 1)[0]
+    assert '"type": "voice_leave"' in desktop_failure
+    assert "self.on_join_failed()" in desktop_voice
+
+    web_connect = web_source.split(
+        "  async connect(packet, joinGeneration) {", 1
+    )[1].split("  attachExistingTracks(room) {", 1)[0]
+    assert "const failedContext = { ...this.context };" in web_connect
+    assert 'type: "voice_leave"' in web_connect
+
+    assert "onJoinFailed?: () => void;" in mobile_voice
+    assert "this.callbacks.onJoinFailed?.();" in mobile_voice
+    mobile_callbacks = mobile_app.split("    voice.setCallbacks({", 1)[1].split(
+        "    });", 1
+    )[0]
+    assert "onJoinFailed:" in mobile_callbacks
+    assert "sendVoiceLeave();" in mobile_callbacks
+
+
+def test_desktop_server_speech_can_bypass_history_without_bypassing_mutes():
+    source = (CLIENT_DIR / "ui" / "main_window.py").read_text(encoding="utf-8")
+    handler = source.split("    def on_server_speak(self, packet):", 1)[1].split(
+        "    def on_receive_chat", 1
+    )[0]
+
+    assert 'packet.get("history", True) is not False' in handler
+    assert "store_in_history=store_in_history" in handler
+    add_history = source.split("    def add_history(", 1)[1].split(
+        "    # List/Edit mode switching methods", 1
+    )[0]
+    assert "if store_in_history:" in add_history
+    assert "if speak_aloud and not self._is_message_muted_for_history" in add_history

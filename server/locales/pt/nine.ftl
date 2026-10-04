@@ -34,7 +34,7 @@ nine-you-extend-sequence-brief = Você joga { $card } em { $suit }.
 nine-player-extend-sequence-brief = { $player }: { $card } em { $suit }.
 
 nine-you-skips-turn = Você não tem nenhuma carta legal para jogar, então seu turno é pulado.
-nine-player-skips-turn = { $player } não tem nenhuma carta legal para jogar e pula o turno.
+nine-player-skips-turn = { $player } não tem nenhuma carta válida para jogar, então o turno { GENDER_TERM($player_gender, "possessive-determiner") } é pulado.
 nine-you-skips-turn-brief = Você pula; nenhuma carta legal.
 nine-player-skips-turn-brief = { $player } pula; nenhuma carta legal.
 
@@ -46,8 +46,6 @@ nine-reason-nine-already-started = { $card } não pode ser jogada porque a sequ�
 nine-reason-cannot-extend = { $card } não pode estender a sequência de { $suit }. Jogue a próxima carta inferior ou superior em uma das pontas dessa sequência.
 nine-reason-unopened-suit = { $card } não pode ser jogada porque a sequência de { $suit } ainda não foi aberta. Inicie esse naipe com o 9 dele primeiro.
 nine-reason-must-skip = Você não tem nenhuma carta legal para jogar; seu turno será pulado automaticamente.
-nine-reason-generic = Essa carta não pode ser jogada agora.
-
 # Winning
 nine-you-wins-game = Você não tem cartas restantes e vence o jogo!
 nine-player-wins-game = { $player } não tem cartas restantes e vence o jogo!

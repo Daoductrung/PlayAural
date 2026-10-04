@@ -13,12 +13,17 @@ from .game_result import GameResult, PlayerResult
 from .player import Player
 from .action_context import ActionContext
 from .reaction_window import ReactionWindow
-from .stats_helpers import LeaderboardHelper, LeaderboardEntry, RatingHelper, PlayerRating
+from .stats_helpers import (
+    RATING_COMPETITORS_KEY,
+    RATING_CONFIDENCE_Z,
+    PlayerRating,
+    RatingHelper,
+    rating_competitors_from_scores,
+)
 from .game_sound_mixin import GameSoundMixin
 from .game_communication_mixin import GameCommunicationMixin
 from .game_result_mixin import GameResultMixin
 from .game_scores_mixin import GameScoresMixin
-from .game_prediction_mixin import GamePredictionMixin
 from .turn_management_mixin import TurnManagementMixin
 from .menu_management_mixin import MenuManagementMixin, StatusBoxBuild
 from .action_visibility_mixin import ActionVisibilityMixin
@@ -46,15 +51,15 @@ __all__ = [
     "Player",
     "ActionContext",
     "ReactionWindow",
-    "LeaderboardHelper",
-    "LeaderboardEntry",
+    "RATING_COMPETITORS_KEY",
+    "RATING_CONFIDENCE_Z",
     "RatingHelper",
     "PlayerRating",
+    "rating_competitors_from_scores",
     "GameSoundMixin",
     "GameCommunicationMixin",
     "GameResultMixin",
     "GameScoresMixin",
-    "GamePredictionMixin",
     "TurnManagementMixin",
     "MenuManagementMixin",
     "StatusBoxBuild",

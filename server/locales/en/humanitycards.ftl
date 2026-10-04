@@ -80,7 +80,6 @@ hc-choose-best-card-for = Choose the best card that matches: { $prompt }
 hc-select-winner-prompt = Select the winning submission
 hc-card-number = Card { $number }
 hc-submission-number = Submission { $number }
-hc-submission-option = { $text }
 hc-only-judges-pick = Only the Card Czar can choose the winning submission.
 hc-not-judging-phase = You can only choose a winning submission during the judging phase.
 hc-submission-not-available = That submission is no longer available.
@@ -88,7 +87,6 @@ hc-submission-not-available = That submission is no longer available.
 # Results
 hc-you-win-round = You win the round! Your score is now { $score }.
 hc-player-wins-round = { $player } wins the round! Score: { $score }.
-hc-round-scores = Scores after round { $round }:
 hc-score-line = { $player }: { $score } { $score ->
     [one] point
    *[other] points
@@ -126,13 +124,8 @@ hc-error-not-enough-white-cards = { $players } players with a hand size of { $ha
 hc-error-pick-exceeds-hand-size = The selected packs include a prompt that requires { $pick } answers, but the hand size is only { $hand_size }. Increase the hand size or choose different packs.
 
 # Hand management
-hc-view-hand = View hand
 hc-toggle-card-keybind = Toggle card { $number }
 hc-submit-cards-keybind = Submit cards
-
-# Scores
-hc-view-scores = View scores
-hc-no-scores = No scores yet.
 
 # Whose turn / whose judge
 hc-whose-judge = Who is judging

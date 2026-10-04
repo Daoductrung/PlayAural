@@ -39,11 +39,11 @@ Nhân vật dự bị chưa có năng lực cho tới khi biến cố Danh tính
 
 \*\*Một lượt, từng bước một\*\*
 
-1. Nghe dòng Việc tiếp theo ở đầu menu. PlayAural sẽ lần lượt giải quyết biến cố hiện tại, Thuốc nổ, Nhà giam và mọi lựa chọn do nhân vật hoặc biến cố tạo ra.
+1. Nghe dòng Việc tiếp theo ở đầu trình đơn. PlayAural sẽ lần lượt giải quyết biến cố hiện tại, Thuốc nổ, Nhà giam và mọi lựa chọn do nhân vật hoặc biến cố tạo ra.
 2. Hoàn tất bước rút bài. Bình thường bạn rút 2 lá, nhưng nhân vật hoặc biến cố có thể thay thế hay thay đổi lần rút này.
-3. Chọn một lá bài hoặc năng lực đang dùng được. PlayAural chỉ hiện phản ứng, chi phí và mục tiêu hợp lệ. Bạn có thể tiếp tục đánh khi menu còn báo đang ở bước hành động.
+3. Chọn một lá bài hoặc năng lực đang dùng được. PlayAural chỉ hiện phản ứng, chi phí và mục tiêu hợp lệ. Bạn có thể tiếp tục đánh khi trình đơn còn báo đang ở bước hành động.
 4. Chọn Kết thúc lượt. Nếu số bài trên tay vượt lượng máu hiện tại, chọn đúng số lá được yêu cầu rồi xác nhận bỏ. Riêng Sean Mallory được giữ tối đa 10 lá.
-5. Lượt chuyển sang người còn tham chiến kế tiếp. Bài của bạn vẫn hiện nhưng không dùng được trong menu khi người khác đang đi, nên bạn có thể xem mà không làm đổi trạng thái ván. Nhấn H để nghe riêng bài trên tay lẫn các lá ngửa trước mặt mình.
+5. Lượt chuyển sang người còn tham chiến kế tiếp. Bài của bạn vẫn hiện nhưng không dùng được trong trình đơn khi người khác đang đi, nên bạn có thể xem mà không làm đổi trạng thái ván. Nhấn H để nghe riêng bài trên tay lẫn các lá ngửa trước mặt mình.
 
 Nếu một hiệu ứng đang đợi ai đó phản ứng hoặc chọn, nước đi hiện tại sẽ tạm dừng. Không ai được mở một nước khác cho tới khi việc đó xong. Nếu thử làm việc chưa hợp lệ, bạn sẽ nghe rõ đang chờ ai và bước cụ thể còn dang dở, nhưng không bị lộ bài kín. Lệnh hỏi lượt cũng báo người đang có việc phải làm và việc họ cần hoàn tất, kể cả khi họ đang phản ứng ngoài lượt.
 
@@ -57,11 +57,11 @@ Khi thử vận, PlayAural lật rồi bỏ lá trên cùng. Cơ thường giúp
 \* \*\*Lá xanh lam:\*\* Nằm ngửa trước mặt. Bạn không thể có hai lá không phải Súng cùng tên trước mặt mình.
 \* \*\*Lá đặt chờ:\*\* Được đặt ngửa mà chưa chọn mục tiêu và không thể dùng trong chính lượt vừa đặt. Từ lượt sau, bỏ lá để dùng hiệu ứng và chỉ khi đó mới chọn mục tiêu. Lá đặt chờ bị cuỗm sẽ trở lại tay, phải đặt xuống rồi chờ lại từ đầu.
 
-\*\*Menu, chọn mục tiêu và hủy nước đi\*\*
+\*\*Trình đơn, chọn mục tiêu và hủy nước đi\*\*
 
 Chọn lá muốn đánh. Nếu lá đó cần trả thêm một lá, hãy chọn lá trả trước; chưa lá nào bị lấy đi cho tới khi toàn bộ nước bài thành công. Chẳng hạn, Rượu tequila yêu cầu một lá trả thêm rồi mới hỏi người nhận. Hủy ở bước nào cũng giữ nguyên cả hai lá.
 
-Chọn mục tiêu là chốt nước đi ngay. Vì vậy, menu một mục tiêu chỉ gồm các mục tiêu hợp lệ rồi tới nút Hủy, không có nút Xác nhận thừa. Nếu chỉ có đúng một mục tiêu hoặc phản ứng hợp lệ, PlayAural có thể tự giải quyết lựa chọn bắt buộc đó. Nút Xác nhận chỉ xuất hiện khi thật sự phải chọn từ hai lá trở lên, như bỏ bài dư hoặc dùng năng lực của Sid Ketchum.
+Chọn mục tiêu là chốt nước đi ngay. Vì vậy, trình đơn một mục tiêu chỉ gồm các mục tiêu hợp lệ rồi tới nút Hủy, không có nút Xác nhận thừa. Nếu chỉ có đúng một mục tiêu hoặc phản ứng hợp lệ, PlayAural có thể tự giải quyết lựa chọn bắt buộc đó. Nút Xác nhận chỉ xuất hiện khi thật sự phải chọn từ hai lá trở lên, như bỏ bài dư hoặc dùng năng lực của Sid Ketchum.
 
 Với Cat Balou, Cuống cuồng!, Ẩu đả, Nhịp nhạc rộn ràng, Vũ điệu đá cao và Xe ngựa đường dài, bạn có thể chọn thẳng lá đang lộ trước mặt. Bài trên tay là bí mật, nên chọn phần bài trên tay sẽ lấy ngẫu nhiên một lá. Khi đặt một lá chờ có mục tiêu như Vũ điệu đá cao hay Dao, bạn chưa chọn ai; tới lượt sau, lúc dùng lá mới chọn mục tiêu.
 
@@ -89,7 +89,7 @@ Nếu không đủ hiệu ứng Trượt!, mục tiêu mất 1 máu. Trong Quy�
 
 Khi tụt xuống 0 máu hoặc thấp hơn, phải uống đủ Bia có sẵn trên tay hoặc dùng năng lực Sid Ketchum đủ lần để trở lại trên 0. Được phép bỏ Bia khi đang đầy máu, nhưng không hồi gì. Bia cũng không hồi máu khi bàn chỉ còn hai người. Quán rượu và Rượu tequila vẫn có tác dụng ở bàn hai người. Máu không bao giờ vượt mức tối đa.
 
-Người bị hạ lộ thân phận và mất toàn bộ bài, trừ khi Vulture Sam thu gom. Nếu Vulture Sam và Vera Custer đang mượn năng lực Vulture Sam cùng có mặt, hai người chia chiến lợi phẩm: người gần nạn nhân nhất theo chiều kim đồng hồ chọn trước, sau đó hai người luân phiên lấy từng lá cho tới hết. Khi không có ai thu gom, người bị hạ tự xếp thứ tự bỏ bài trên tay lẫn bài trước mặt, từng lá một; chọn Chốt để bỏ phần còn lại theo thứ tự menu.
+Người bị hạ lộ thân phận và mất toàn bộ bài, trừ khi Vulture Sam thu gom. Nếu Vulture Sam và Vera Custer đang mượn năng lực Vulture Sam cùng có mặt, hai người chia chiến lợi phẩm: người gần nạn nhân nhất theo chiều kim đồng hồ chọn trước, sau đó hai người luân phiên lấy từng lá cho tới hết. Khi không có ai thu gom, người bị hạ tự xếp thứ tự bỏ bài trên tay lẫn bài trước mặt, từng lá một; chọn Chốt để bỏ phần còn lại theo thứ tự trình đơn.
 
 Người gây ra cái chết của một Kẻ cướp được rút 3 lá. Nếu Cảnh trưởng hạ Phó cảnh trưởng, Cảnh trưởng bỏ sạch bài trên tay lẫn trước mặt; nếu Cảnh trưởng cũng là Vulture Sam thì thu bài trước rồi mới chịu phạt. Sát thương do chính mình mở Quyết đấu không tính cho đối thủ.
 
@@ -217,7 +217,7 @@ Khi bật biến cố, lá đầu tiên xuất hiện đầu lượt thứ hai c
 
 \* \*\*Mỏ bỏ hoang:\*\* Khi rút đầu lượt, lấy các lá ngửa trên cùng của chồng bỏ tới khi chồng này hết rồi lấy phần còn thiếu từ chồng rút. Ở bước bỏ bài cuối lượt, úp bài dư lên đầu chồng rút, kể cả khi chồng bỏ vốn trống hoặc đã hết giữa chừng.
 \* \*\*Phục kích:\*\* Khoảng cách gốc giữa mọi cặp người là 1; hiệu chỉnh khác vẫn tính.
-\* \*\*Anh em kết nghĩa:\*\* Đầu lượt, có thể trả 1 máu không phải điểm cuối để một người còn sống đang bị thương hồi 1 máu. Nếu không ai hồi được, menu không hỏi thừa.
+\* \*\*Anh em kết nghĩa:\*\* Đầu lượt, có thể trả 1 máu không phải điểm cuối để một người còn sống đang bị thương hồi 1 máu. Nếu không ai hồi được, trình đơn không hỏi thừa.
 \* \*\*Kẻ chết trở về:\*\* Người đầu tiên bị hạ được trở lại đúng một lần ở lượt kế tiếp của mình, với 2 máu và 2 lá, rồi vẫn thực hiện bước rút bình thường.
 \* \*\*Rượu mạnh:\*\* Bỏ bước rút bình thường để hồi 1 máu. Nếu đang đầy máu, vẫn mất lượt rút mà không hồi gì.
 \* \*\*Thòng lọng:\*\* Mọi lá trước mặt mất hiệu lực nhưng vẫn nằm đó và vẫn có thể bị nhắm tới. Nhà giam cùng Thuốc nổ ở nguyên chỗ và không thử vận đầu lượt cho tới khi Thòng lọng bị thay thế.
@@ -249,17 +249,17 @@ Khi biến cố đổi, hãy chọn Nghe biến cố hiện tại hoặc nhấn 
 
 \*\*Thông tin và cách chơi dễ tiếp cận\*\*
 
-Nghe bài trên tay và trước mặt báo riêng bài trên tay trước, sau đó báo các lá ngửa của chính bạn. Hai danh sách gọn này chỉ đọc tên, hạng và chất, không đọc phần mô tả. Hành động luôn dùng được ngoài lượt, kể cả khi người khác đang chọn. Khi bật \*\*Gợi ý trong menu\*\*, dòng bài tại nơi bạn quyết định đánh hoặc dùng lá sẽ kèm toàn bộ mô tả luật của lá đó. Khi tắt Gợi ý trong menu, dòng bài vẫn giữ loại hành động, tên, hạng và chất nhưng bỏ phần luật chi tiết.
+Nghe bài trên tay và trước mặt báo riêng bài trên tay trước, sau đó báo các lá ngửa của chính bạn. Hai danh sách gọn này chỉ đọc tên, hạng và chất, không đọc phần mô tả. Hành động luôn dùng được ngoài lượt, kể cả khi người khác đang chọn. Khi bật \*\*Gợi ý trong trình đơn\*\*, dòng bài tại nơi bạn quyết định đánh hoặc dùng lá sẽ kèm toàn bộ mô tả luật của lá đó. Khi tắt Gợi ý trong trình đơn, dòng bài vẫn giữ loại hành động, tên, hạng và chất nhưng bỏ phần luật chi tiết.
 
 Xem khoảng cách và tầm súng mở một bảng tự cập nhật. Dòng đầu cho biết khẩu Súng cùng tầm hiện tại; mỗi dòng sau cho biết khoảng cách từ bạn tới một người còn trong ván. Xem toàn bàn mở một bảng công khai khác, gồm người đang có lượt, biến cố hiện tại, máu, số bài trên tay, nhân vật, thân phận đã lộ, Súng và chỉ tên các lá trước mặt. Hai bảng luôn cập nhật trong lúc đang mở, nên bạn có thể xem lại từng dòng mà không cần nhớ một câu đọc dài.
 
 Nghe số máu báo máu hiện tại và mức tối đa. Nghe thân phận và nhân vật báo thân phận, năng lực, nhân vật dự bị, máu và Súng. Nghe tình trạng chồng bài báo số lá trong chồng rút, số lá trong chồng bỏ và lá trên cùng của chồng bỏ. Nghe biến cố hiện tại giải thích biến cố đang có hiệu lực. Hỏi lượt báo cả người đang có lượt lẫn người đang phải làm một lựa chọn ngoài lượt. Danh sách người ở bàn luôn phản ánh những người còn hiện diện.
 
-Trên thiết bị cảm ứng, các phản ứng cần làm ngay xuất hiện trong menu hiện tại. Lời đọc luôn báo kết quả có ý nghĩa luật chơi; âm thanh riêng giúp phân biệt đòn đánh, phòng thủ, mất máu, hồi máu, bị hạ và chiến thắng mà không thay thế thông tin bằng lời.
+Trên thiết bị cảm ứng, các phản ứng cần làm ngay xuất hiện trong trình đơn hiện tại. Lời đọc luôn báo kết quả có ý nghĩa luật chơi; âm thanh riêng giúp phân biệt đòn đánh, phòng thủ, mất máu, hồi máu, bị hạ và chiến thắng mà không thay thế thông tin bằng lời.
 
 \*\*Kết quả\*\*
 
-BANG! không tính điểm. Ván công bố phe thắng và mọi thành viên thuộc phe đó, kể cả người đã bị hạ nếu luật thân phận vẫn tính họ thắng. Menu điểm cùng bảng xếp hạng không xuất hiện.
+BANG! không tính điểm. Ván công bố phe thắng và mọi thành viên thuộc phe đó, kể cả người đã bị hạ nếu luật thân phận vẫn tính họ thắng. Trình đơn điểm cùng bảng xếp hạng không xuất hiện.
 
 \*\*Phím tắt\*\*
 

@@ -74,7 +74,6 @@ ageofheroes-option-changed-max-hand = Maximum hand size set to { $cards } cards.
 
 # Setup phase
 ageofheroes-setup-start = You are the leader of the { $tribe } tribe. Your special monument resource is { $special }. Roll the dice to determine turn order.
-ageofheroes-setup-viewer = Players are rolling dice to determine turn order.
 ageofheroes-roll-dice = Roll the dice
 ageofheroes-war-roll-dice = Roll the dice
 ageofheroes-dice-result = You rolled { $total } ({ $die1 } + { $die2 }).
@@ -100,8 +99,6 @@ ageofheroes-prepare-your-turn = You have { $count } { $count ->
     [one] card
     *[other] cards
 } to play or discard.
-ageofheroes-prepare-done = Preparation phase complete.
-
 # Events played/discarded
 ageofheroes-population-growth = { $player } plays Population Growth and builds a new city.
 ageofheroes-population-growth-you = You play Population Growth and build a new city.
@@ -115,7 +112,6 @@ ageofheroes-eruption-you = An eruption destroys one of your cities.
 # Disaster effects
 ageofheroes-hunger-strikes = Hunger strikes.
 ageofheroes-lose-card-hunger = You lose { $card }.
-ageofheroes-barbarians-pillage = Barbarians attack { $player }'s resources.
 ageofheroes-barbarians-attack = Barbarians attack { $player }'s resources.
 ageofheroes-barbarians-attack-you = Barbarians attack your resources.
 ageofheroes-lose-card-barbarians = You lose { $card }.
@@ -152,7 +148,6 @@ ageofheroes-fair-draw-other = { $player } draws { $count } { $count ->
 
 # Trading/Auction
 ageofheroes-auction-start = Auction begins.
-ageofheroes-offer-trade = Offer to trade
 ageofheroes-offer-made = { $player } offers { $card } for { $wanted }.
 ageofheroes-offer-made-you = You offer { $card } for { $wanted }.
 ageofheroes-trade-accepted = { $player } accepts { $other }'s offer and trades { $give } for { $receive }.
@@ -222,8 +217,6 @@ ageofheroes-road-built = { $tribe1 } and { $tribe2 } are now connected by road.
 ageofheroes-road-no-target = No neighboring tribes available for road construction.
 ageofheroes-approve = Approve
 ageofheroes-deny = Deny
-ageofheroes-supply-exhausted = No more { $building } available to build.
-
 # Do Nothing
 ageofheroes-do-nothing = { $player } passes.
 ageofheroes-do-nothing-you = You pass...
@@ -341,16 +334,7 @@ ageofheroes-you-win-battle-as-defender = You defend successfully against { $atta
 ageofheroes-battle-victory-defender = { $defender } defends successfully against { $attacker }.
 ageofheroes-you-draw-battle = You and { $opponent } both lose all forces committed to the battle.
 ageofheroes-battle-mutual-defeat = Both { $attacker } and { $defender } lose all forces committed to the battle.
-ageofheroes-general-bonus = +{ $count } from { $count ->
-    [one] general
-    *[other] generals
-}
-ageofheroes-fortress-bonus = +{ $count } from fortress defense
-ageofheroes-battle-winner = { $winner } wins the battle.
-ageofheroes-battle-draw = The battle ends in a draw...
 ageofheroes-battle-continue = Continue the battle.
-ageofheroes-battle-end = The battle is over.
-
 # War outcomes
 ageofheroes-conquest-success = { $attacker } conquers { $count } { $count ->
     [one] city
@@ -456,12 +440,6 @@ ageofheroes-status = { $player } ({ $tribe }): { $cities } { $cities ->
     *[other] armies
 }, { $monument }/5 monument
 ageofheroes-status-detailed-header = { $player } ({ $tribe })
-ageofheroes-status-cities = Cities: { $count }
-ageofheroes-status-armies = Armies: { $count }
-ageofheroes-status-generals = Generals: { $count }
-ageofheroes-status-fortresses = Fortresses: { $count }
-ageofheroes-status-monument = Monument: { $count }/5
-ageofheroes-status-roads = Roads: { $left }{ $right }
 ageofheroes-status-road-left = left
 ageofheroes-status-road-right = right
 ageofheroes-status-none = none
@@ -495,8 +473,6 @@ ageofheroes-status-detail-returning-generals = { $count } returning { $count ->
 }
 
 # Deck info
-ageofheroes-deck-empty = No more { $card } cards in the deck.
-ageofheroes-deck-count = Cards remaining: { $count }
 ageofheroes-deck-reshuffled = The discard pile has been reshuffled into the deck.
 
 # Give up
@@ -504,16 +480,9 @@ ageofheroes-give-up-confirm = Are you sure you want to give up?
 ageofheroes-gave-up = { $player } gave up!
 ageofheroes-gave-up-you = You gave up!
 
-# Hero card
-ageofheroes-hero-use = Use as army or general?
-ageofheroes-hero-army = Army
-ageofheroes-hero-general = General
-
 # Fortune card
 ageofheroes-you-use-fortune = You use Fortune to reroll the battle die.
 ageofheroes-player-uses-fortune = { $player } uses Fortune to reroll the battle die.
-ageofheroes-fortune-prompt = You lost the roll. Use Fortune to reroll?
-
 # Disabled action reasons
 ageofheroes-not-your-turn = It's not your turn.
 ageofheroes-game-not-started = The game hasn't started yet.
@@ -533,10 +502,3 @@ ageofheroes-offered-card-unavailable = The offered card is no longer available.
 ageofheroes-trade-card-type-mismatch = Your selected card does not match the requested card type.
 ageofheroes-trade-card-subtype-mismatch = Your selected card does not match the requested card.
 ageofheroes-trade-offer-label = { $player }: { $offered } for { $wanted }
-
-# Building costs (for display)
-ageofheroes-cost-army = 2 Grain, Iron
-ageofheroes-cost-fortress = Iron, Wood, Stone
-ageofheroes-cost-general = Iron, Gold
-ageofheroes-cost-road = 2 Stone
-ageofheroes-cost-city = 2 Wood, Stone

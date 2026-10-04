@@ -74,7 +74,6 @@ ageofheroes-option-changed-max-hand = Tamanho máximo da mão definido para { $c
 
 # Setup phase
 ageofheroes-setup-start = Você é o líder da tribo { $tribe }. Seu recurso especial de monumento é { $special }. Role os dados para determinar a ordem dos turnos.
-ageofheroes-setup-viewer = Os jogadores estão rolando os dados para determinar a ordem dos turnos.
 ageofheroes-roll-dice = Rolar os dados
 ageofheroes-war-roll-dice = Rolar os dados
 ageofheroes-dice-result = Você tirou { $total } ({ $die1 } + { $die2 }).
@@ -100,14 +99,12 @@ ageofheroes-prepare-your-turn = Você tem { $count } { $count ->
     [one] carta
     *[other] cartas
 } para jogar ou descartar.
-ageofheroes-prepare-done = Fase de preparação concluída.
-
 # Events played/discarded
 ageofheroes-population-growth = { $player } joga Crescimento Populacional e constrói uma nova cidade.
 ageofheroes-population-growth-you = Você joga Crescimento Populacional e constrói uma nova cidade.
 ageofheroes-discard-card = { $player } descarta { $card }.
 ageofheroes-discard-card-you = Você descarta { $card }.
-ageofheroes-earthquake = Um terremoto atinge a tribo de { $player }; os exércitos entram em recuperação.
+ageofheroes-earthquake = Um terremoto atinge a tribo de { $player }; os exércitos { GENDER_TERM($player_gender, "possessive-determiner") } entram em recuperação.
 ageofheroes-earthquake-you = Um terremoto atinge sua tribo; seus exércitos entram em recuperação.
 ageofheroes-eruption = Uma erupção destrói uma das cidades de { $player }.
 ageofheroes-eruption-you = Uma erupção destrói uma de suas cidades.
@@ -115,7 +112,6 @@ ageofheroes-eruption-you = Uma erupção destrói uma de suas cidades.
 # Disaster effects
 ageofheroes-hunger-strikes = A fome ataca.
 ageofheroes-lose-card-hunger = Você perde { $card }.
-ageofheroes-barbarians-pillage = Os bárbaros atacam os recursos de { $player }.
 ageofheroes-barbarians-attack = Os bárbaros atacam os recursos de { $player }.
 ageofheroes-barbarians-attack-you = Os bárbaros atacam seus recursos.
 ageofheroes-lose-card-barbarians = Você perde { $card }.
@@ -152,12 +148,11 @@ ageofheroes-fair-draw-other = { $player } compra { $count } { $count ->
 
 # Trading/Auction
 ageofheroes-auction-start = O leilão começa.
-ageofheroes-offer-trade = Oferecer troca
 ageofheroes-offer-made = { $player } oferece { $card } por { $wanted }.
 ageofheroes-offer-made-you = Você oferece { $card } por { $wanted }.
 ageofheroes-trade-accepted = { $player } aceita a oferta de { $other } e troca { $give } por { $receive }.
 ageofheroes-trade-accepted-you = Você aceita a oferta de { $other } e recebe { $receive }.
-ageofheroes-trade-cancelled = { $player } retira sua oferta por { $card }.
+ageofheroes-trade-cancelled = { $player } retira a oferta { GENDER_TERM($player_gender, "possessive-determiner") } por { $card }.
 ageofheroes-trade-cancelled-you = Você retira sua oferta por { $card }.
 ageofheroes-stop-trading = Parar de Negociar
 ageofheroes-select-request = Você está oferecendo { $card }. O que quer em troca?
@@ -197,7 +192,7 @@ ageofheroes-tax-collection-you = Você escolhe Coleta de Impostos: { $cities } {
 ageofheroes-tax-collection-brief = { $player } imposto: { $cards } de { $cities }.
 ageofheroes-tax-collection-you-brief = Imposto: { $cards } de { $cities }.
 ageofheroes-tax-no-city = Coleta de Impostos: Você não tem cidades sobreviventes. Descarte uma carta para comprar uma nova.
-ageofheroes-tax-no-city-done = { $player } escolhe Coleta de Impostos mas não tem cidades, então troca uma carta.
+ageofheroes-tax-no-city-done = { $player } escolhe Coleta de Impostos, mas não tem cidades, então { GENDER_TERM($player_gender, "subject") } troca uma carta.
 ageofheroes-tax-no-city-done-you = Coleta de Impostos: Você trocou { $card } por uma nova carta.
 
 # Construction
@@ -222,8 +217,6 @@ ageofheroes-road-built = { $tribe1 } e { $tribe2 } agora estão conectadas por e
 ageofheroes-road-no-target = Nenhuma tribo vizinha disponível para construção de estrada.
 ageofheroes-approve = Aprovar
 ageofheroes-deny = Recusar
-ageofheroes-supply-exhausted = Não há mais { $building } disponíveis para construir.
-
 # Do Nothing
 ageofheroes-do-nothing = { $player } passa a vez.
 ageofheroes-do-nothing-you = Você passa a vez...
@@ -341,16 +334,7 @@ ageofheroes-you-win-battle-as-defender = Você se defende com sucesso contra { $
 ageofheroes-battle-victory-defender = { $defender } se defende com sucesso contra { $attacker }.
 ageofheroes-you-draw-battle = Você e { $opponent } perdem todas as forças comprometidas na batalha.
 ageofheroes-battle-mutual-defeat = Tanto { $attacker } quanto { $defender } perdem todas as forças comprometidas na batalha.
-ageofheroes-general-bonus = +{ $count } { $count ->
-    [one] do general
-    *[other] dos generais
-}
-ageofheroes-fortress-bonus = +{ $count } da defesa da fortaleza
-ageofheroes-battle-winner = { $winner } vence a batalha.
-ageofheroes-battle-draw = A batalha termina em empate...
 ageofheroes-battle-continue = Continuar a batalha.
-ageofheroes-battle-end = A batalha acabou.
-
 # War outcomes
 ageofheroes-conquest-success = { $attacker } conquista { $count } { $count ->
     [one] cidade
@@ -421,7 +405,7 @@ ageofheroes-discard-more = Descarte mais { $count } { $count ->
 # Victory
 ageofheroes-victory-cities = { $player } construiu { $cities } cidades! Império das Cidades.
 ageofheroes-victory-cities-you = Você construiu { $cities } cidades! Império das Cidades.
-ageofheroes-victory-monument = { $player } concluiu seu monumento! Portadores da Grande Cultura.
+ageofheroes-victory-monument = { $player } concluiu o monumento { GENDER_TERM($player_gender, "possessive-determiner") }! Portadores da Grande Cultura.
 ageofheroes-victory-monument-you = Você concluiu seu monumento! Portadores da Grande Cultura.
 ageofheroes-victory-last-standing = { $player } é a última tribo sobrevivente! Os Mais Persistentes.
 ageofheroes-victory-last-standing-you = Você é a última tribo sobrevivente! Os Mais Persistentes.
@@ -456,12 +440,6 @@ ageofheroes-status = { $player } ({ $tribe }): { $cities } { $cities ->
     *[other] exércitos
 }, { $monument }/5 monumento
 ageofheroes-status-detailed-header = { $player } ({ $tribe })
-ageofheroes-status-cities = Cidades: { $count }
-ageofheroes-status-armies = Exércitos: { $count }
-ageofheroes-status-generals = Gerais: { $count }
-ageofheroes-status-fortresses = Fortalezas: { $count }
-ageofheroes-status-monument = Monumento: { $count }/5
-ageofheroes-status-roads = Estradas: { $left }{ $right }
 ageofheroes-status-road-left = esquerda
 ageofheroes-status-road-right = direita
 ageofheroes-status-none = nenhum
@@ -495,8 +473,6 @@ ageofheroes-status-detail-returning-generals = { $count } { $count ->
 }
 
 # Deck info
-ageofheroes-deck-empty = Não há mais cartas de { $card } no baralho.
-ageofheroes-deck-count = Cartas restantes: { $count }
 ageofheroes-deck-reshuffled = A pilha de descarte foi reembaralhada no baralho.
 
 # Give up
@@ -504,16 +480,9 @@ ageofheroes-give-up-confirm = Tem certeza de que deseja desistir?
 ageofheroes-gave-up = { $player } desistiu!
 ageofheroes-gave-up-you = Você desistiu!
 
-# Hero card
-ageofheroes-hero-use = Usar como exército ou general?
-ageofheroes-hero-army = Exército
-ageofheroes-hero-general = General
-
 # Fortune card
 ageofheroes-you-use-fortune = Você usa Sorte para rolar novamente o dado de batalha.
 ageofheroes-player-uses-fortune = { $player } usa Sorte para rolar novamente o dado de batalha.
-ageofheroes-fortune-prompt = Você perdeu a rolagem. Deseja usar Sorte para rolar novamente?
-
 # Disabled action reasons
 ageofheroes-not-your-turn = Não é o seu turno.
 ageofheroes-game-not-started = O jogo ainda não começou.
@@ -533,10 +502,3 @@ ageofheroes-offered-card-unavailable = A carta oferecida não está mais dispon�
 ageofheroes-trade-card-type-mismatch = A carta selecionada não corresponde ao tipo de carta solicitado.
 ageofheroes-trade-card-subtype-mismatch = A carta selecionada não corresponde à carta solicitada.
 ageofheroes-trade-offer-label = { $player }: { $offered } por { $wanted }
-
-# Building costs (for display)
-ageofheroes-cost-army = 2 Grãos, Ferro
-ageofheroes-cost-fortress = Ferro, Madeira, Pedra
-ageofheroes-cost-general = Ferro, Ouro
-ageofheroes-cost-road = 2 Pedras
-ageofheroes-cost-city = 2 Madeiras, Pedra

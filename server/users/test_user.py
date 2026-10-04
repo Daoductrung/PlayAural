@@ -81,12 +81,27 @@ class MockUser(User):
     def locale(self) -> str:
         return self._locale
 
+    def set_locale(self, locale: str) -> None:
+        """Mirror the production user's validated locale mutation."""
+        from ..messages.localization import Localization
+
+        self._locale = Localization.resolve_locale(locale, fallback=self._locale)
+
     @property
     def approved(self) -> bool:
         return self._approved
 
-    def speak(self, text: str, buffer: str = "misc") -> None:
-        self.messages.append(Message("speak", {"text": text, "buffer": buffer}))
+    def speak(
+        self,
+        text: str,
+        buffer: str = "misc",
+        *,
+        history: bool = True,
+    ) -> None:
+        data = {"text": text, "buffer": buffer}
+        if not history:
+            data["history"] = False
+        self.messages.append(Message("speak", data))
 
     def send_audio_command(self, command: AudioCommand) -> None:
         """Capture commands while keeping legacy game assertions concise."""

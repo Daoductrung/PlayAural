@@ -154,7 +154,6 @@ rb-error-invalid-ball-packs = A seleção contém { $count } { $count ->
 }. Remova conjuntos indisponíveis antes de começar.
 
 # Ball sets
-rb-pack-all = Todos os conjuntos de bolas misturados
 rb-pack-international = Volta ao Mundo
 rb-pack-vietnam = Jornada pelo Vietnã
 

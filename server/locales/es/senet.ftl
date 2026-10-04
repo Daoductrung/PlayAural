@@ -27,7 +27,7 @@ senet-water-other = ¡{ $player } cayó en la Casa del Agua! La ficha fue enviad
 senet-happiness-you = Llegaste a la Casa de la Felicidad.
 senet-happiness-other = { $player } llegó a la Casa de la Felicidad.
 senet-horus-auto-you = Tu ficha sale de la Casa de Horus porque tu primera fila está despejada. Quedan { $remaining }.
-senet-horus-auto-other = La ficha de { $player } sale de la Casa de Horus porque su primera fila está despejada. Quedan { $remaining }.
+senet-horus-auto-other = La ficha de { $player } sale de la Casa de Horus porque { GENDER_TERM($player_gender, "possessive-determiner") } primera fila está despejada. Quedan { $remaining }.
 
 # No moves
 senet-no-moves-you = No tienes movimientos legales.

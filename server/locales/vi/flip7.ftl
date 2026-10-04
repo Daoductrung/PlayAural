@@ -17,6 +17,8 @@ flip7-card-flip-three = Lật 3
 # Hành động trong lượt
 flip7-hit = Lật một lá
 flip7-stay = Dừng lại và giữ { $points } điểm
+flip7-stay-base = Dừng lại và giữ điểm
+flip7-stay-banked = Dừng lại và giữ điểm (đã giữ điểm)
 flip7-you-stay = Bạn dừng lại và giữ { $points } điểm.
 flip7-player-stays = { $player } dừng lại và giữ { $points } điểm.
 

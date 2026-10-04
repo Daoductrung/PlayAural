@@ -12,7 +12,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 import random
-from typing import TYPE_CHECKING
 
 from mashumaro.mixins.json import DataClassJSONMixin
 
@@ -66,7 +65,6 @@ from ..registry import register_game
 from ...game_utils.actions import Action, ActionSet, Visibility
 from ...game_utils.bot_helper import BotHelper
 from ...game_utils.game_result import GameResult, PlayerResult
-from ...game_utils.menu_management_mixin import MenuBuild
 from ...game_utils.options import IntOption, option_field
 from ...game_utils.sequence_runner_mixin import SequenceBeat, SequenceOperation
 from ...game_utils.stats_helpers import (
@@ -75,10 +73,6 @@ from ...game_utils.stats_helpers import (
 )
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
-from ...users.base import MenuItem
-
-if TYPE_CHECKING:
-    from ...users.base import User
 
 # Small fixed gap after a card's effect announcement before the flow moves on.
 EFFECT_GAP_TICKS = TICKS_PER_SECOND // 2
@@ -1515,37 +1509,6 @@ class Flip7Game(Game):
             sets.insert(0, turn_set)
             self.player_action_sets[player.id] = sets
 
-    def build_menu_items(self, player: Player, user: "User") -> MenuBuild:
-        """Keep the personal area summary visible in the main turn list."""
-        build = super().build_menu_items(player, user)
-        if self.status != "playing" or player.is_spectator:
-            return build
-        flip_player: Flip7Player = player  # type: ignore[assignment]
-        ordered = [flip_player] + [
-            other for other in self._active() if other is not flip_player
-        ]
-        rows: list[MenuItem] = []
-        for area_player in ordered:
-            for index, line in enumerate(
-                self._inline_area_lines(area_player, user.locale, area_player is flip_player)
-            ):
-                rows.append(
-                    MenuItem(
-                        text=line,
-                        id=f"flip7_area_{area_player.id}_{index}",
-                        read_only=True,
-                    )
-                )
-        turn_ids = set(self._desired_turn_action_ids(player))
-        insert_at = 0
-        for index, item in enumerate(build.items):
-            if item.id in turn_ids:
-                insert_at = index + 1
-            elif insert_at:
-                break
-        build.items = build.items[:insert_at] + rows + build.items[insert_at:]
-        return build
-
     def create_turn_action_set(self, player: Player) -> ActionSet:
         user = self.get_user(player)
         locale = user.locale if user else "en"
@@ -1575,7 +1538,7 @@ class Flip7Game(Game):
         action_set.add(
             Action(
                 id="stay",
-                label=Localization.get(locale, "flip7-stay"),
+                label=Localization.get(locale, "flip7-stay-base"),
                 handler="_action_stay",
                 is_enabled="_is_stay_enabled",
                 is_hidden="_is_stay_hidden",
@@ -1687,6 +1650,10 @@ class Flip7Game(Game):
     def _get_stay_label(self, player: Player, action_id: str) -> str:
         locale = self._locale_of(player)
         flip_player: Flip7Player = player  # type: ignore[assignment]
+        if flip_player.round_status == STATUS_STAYED:
+            return Localization.get(locale, "flip7-stay-banked")
+        if flip_player.round_status != STATUS_PLAYING:
+            return Localization.get(locale, "flip7-stay-base")
         return Localization.get(
             locale, "flip7-stay", points=self.round_points(flip_player)
         )
@@ -1708,6 +1675,10 @@ class Flip7Game(Game):
             return
         flip_player: Flip7Player = player  # type: ignore[assignment]
         flip_player.round_status = STATUS_STAYED
+        # Repaint this player's persistent control immediately so its label no
+        # longer advertises points that have already been banked.  The turn
+        # advances only after the bank cue finishes.
+        self.refresh_menus(flip_player)
         points = self.round_points(flip_player)
         self.play_sound(audio.SOUND_STAY)
         self.broadcast_personal_l(
@@ -1778,17 +1749,23 @@ class Flip7Game(Game):
     def _is_check_area_hidden(self, player: Player) -> Visibility:
         if self.status != "playing" or player.is_spectator:
             return Visibility.HIDDEN
-        return Visibility.VISIBLE
+        return self._touch_information_visibility(player)
 
     def _is_check_table_hidden(self, player: Player) -> Visibility:
         if self.status != "playing":
             return Visibility.HIDDEN
-        return Visibility.VISIBLE
+        return self._touch_information_visibility(player)
 
     def _is_check_deck_hidden(self, player: Player) -> Visibility:
         if self.status != "playing":
             return Visibility.HIDDEN
-        return Visibility.VISIBLE
+        return self._touch_information_visibility(player)
+
+    def _touch_information_visibility(self, player: Player) -> Visibility:
+        user = self.get_user(player)
+        if self.is_touch_client(user):
+            return Visibility.VISIBLE
+        return Visibility.HIDDEN
 
     def _is_check_area_enabled(self, player: Player) -> str | None:
         if player.is_spectator:
@@ -1808,7 +1785,7 @@ class Flip7Game(Game):
     def _inline_area_lines(
         self, player: Flip7Player, locale: str, is_self: bool = True
     ) -> list[str]:
-        """Compact personal area summary shown in the main turn list."""
+        """Build the compact summary spoken by the area inspection action."""
         who = Localization.get(locale, "flip7-you-label") if is_self else player.name
         status = ""
         if player.round_status == STATUS_STAYED:
@@ -1933,7 +1910,7 @@ class Flip7Game(Game):
         )
         self.define_keybind(
             "h",
-            Localization.get(locale, "flip7-stay"),
+            Localization.get(locale, "flip7-stay-base"),
             ["stay"],
             state=KeybindState.ACTIVE,
         )

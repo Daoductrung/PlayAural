@@ -17,6 +17,8 @@ flip7-card-flip-three = Voltea 3
 # Acciones del turno
 flip7-hit = Voltea una carta
 flip7-stay = Detente y guarda { $points } puntos
+flip7-stay-base = Detente y guarda
+flip7-stay-banked = Detente y guarda (puntos ya guardados)
 flip7-you-stay = Te detienes y guardas { $points } puntos.
 flip7-player-stays = { $player } se detiene y guarda { $points } puntos.
 

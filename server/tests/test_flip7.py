@@ -761,22 +761,27 @@ def test_flip7_match_win_cue_precedes_the_end_screen():
 # ---------------------------------------------------------------------------
 
 
-def test_flip7_turn_menu_orders_areas_below_main_actions():
-    game = _make_game(player_count=2)
-    _deal_number_cards(game, [3, 4])
-    actor = game.current_player
-    user = game.get_user(actor)
-    game.before_menu_build(actor)
-    build = game.build_menu_items(actor, user)
+def test_flip7_turn_menu_keeps_scoreboard_out_of_the_primary_action_list():
+    desktop = _make_game(player_count=3)
+    mobile = _make_game(player_count=3, mobile_user=True)
 
-    ids = [item.id for item in build.items]
-    assert "hit" in ids
-    assert "stay" in ids
-    area_ids = [item_id for item_id in ids if item_id.startswith("flip7_area_")]
-    assert len(area_ids) == 2
-    assert ids.index("hit") < ids.index(area_ids[0])
-    assert ids.index("stay") < ids.index(area_ids[0])
-    assert all(item.read_only for item in build.items if item.id in area_ids)
+    for game in (desktop, mobile):
+        _deal_number_cards(game, [3, 4, 5])
+        actor = game.current_player
+        user = game.get_user(actor)
+        game.before_menu_build(actor)
+        ids = [item.id for item in game.build_menu_items(actor, user).items]
+        assert ids[:2] == ["hit", "stay"]
+        assert not any(item_id.startswith("flip7_area_") for item_id in ids)
+
+    mobile_ids = [
+        item.id
+        for item in mobile.build_menu_items(
+            mobile.current_player, mobile.get_user(mobile.current_player)
+        ).items
+    ]
+    assert mobile_ids[2:5] == ["check_area", "check_table", "check_deck"]
+    assert mobile_ids[-2:] == ["web_actions_menu", "web_leave_table"]
 
 
 def test_flip7_turn_menu_swaps_to_choice_actions():
@@ -797,20 +802,59 @@ def test_flip7_information_actions_touch_visibility():
     desktop = _make_game(player_count=2)
     mobile = _make_game(player_count=2, mobile_user=True)
 
-    for game in (desktop, mobile):
+    for game, expected_visible in ((desktop, False), (mobile, True)):
         actor = game.players[0]
         game.before_menu_build(actor)
         for action_id in ("check_area", "check_table", "check_deck"):
             action = game.find_action(actor, action_id)
             resolved = game.resolve_action(actor, action)
-            assert resolved.visible is True, (action_id,)
+            assert resolved.visible is expected_visible, (action_id,)
             assert resolved.enabled is True
-            # Desktop clients reach these through the actions menu, not only
-            # through the table board.
             assert resolved.action.show_in_actions_menu is True, action_id
             assert resolved.action.include_spectators is (
                 action_id in ("check_table", "check_deck")
             ), action_id
+
+    desktop_actions = {
+        resolved.action.id
+        for resolved in desktop.get_all_enabled_actions(desktop.players[0])
+    }
+    assert {"check_area", "check_table", "check_deck"} <= desktop_actions
+
+
+def test_flip7_banked_and_busted_players_get_stable_stop_labels():
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [3, 4, 5])
+    player = game.players[0]
+
+    assert game._get_stay_label(player, "stay") == "Stop and bank 3 points"
+    player.round_status = STATUS_STAYED
+    assert game._get_stay_label(player, "stay") == (
+        "Stop and bank (already banked)"
+    )
+    player.round_status = STATUS_BUSTED
+    assert game._get_stay_label(player, "stay") == "Stop and bank"
+
+
+def test_flip7_banking_repaints_the_persistent_stop_label_immediately():
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [3, 4, 5])
+    actor = game.current_player
+    user = game.get_user(actor)
+    game.flush_menus()
+
+    initial = next(
+        item for item in user.menus["turn_menu"]["items"] if item.id == "stay"
+    )
+    assert initial.text == "Stop and bank 4 points"
+
+    game.execute_action(actor, "stay")
+    game.flush_menus()
+
+    banked = next(
+        item for item in user.menus["turn_menu"]["items"] if item.id == "stay"
+    )
+    assert banked.text == "Stop and bank (already banked)"
 
 
 # ---------------------------------------------------------------------------
@@ -858,20 +902,25 @@ def test_flip7_keybind_c_speaks_the_area_even_though_standalone():
 def test_flip7_modifier_reveals_use_the_exact_value_cue():
     game = _make_game(player_count=3, start=False)
     _deal_number_cards(game, [3, 4, 5])
-    for value in (2, 4, 6, 8, 10):
+    expected = {
+        2: "game_rollingballs/plus1.ogg",
+        4: "game_rollingballs/plus2.ogg",
+        6: "game_rollingballs/plus3.ogg",
+        8: "game_rollingballs/plus4.ogg",
+        10: "game_rollingballs/plus5.ogg",
+    }
+    for value, cue in expected.items():
         card = _card(CARD_MODIFIER, value, uid=value)
-        assert game._card_reveal_sound(card, forced=False) == (
-            f"game_flip7/modifier_plus_{value}.ogg"
-        )
+        assert game._card_reveal_sound(card, forced=False) == cue
 
 
 def test_flip7_forced_action_reveals_keep_their_own_cue():
     game = _make_game(player_count=3, start=False)
     _deal_number_cards(game, [3, 4, 5])
     expected = {
-        CARD_FREEZE: "game_flip7/freeze.ogg",
-        CARD_FLIP_THREE: "game_flip7/flip_three.ogg",
-        CARD_SECOND_CHANCE: "game_flip7/second_chance.ogg",
+        CARD_FREEZE: "game_coup/challengefail.ogg",
+        CARD_FLIP_THREE: "game_squares/start.ogg",
+        CARD_SECOND_CHANCE: "game_uno/winround.ogg",
     }
     for kind, cue in expected.items():
         card = _card(kind, uid=1)
@@ -879,19 +928,46 @@ def test_flip7_forced_action_reveals_keep_their_own_cue():
         assert game._card_reveal_sound(card, forced=False) == cue
 
 
-def test_flip7_audio_fallback_metadata_matches_every_shipped_asset():
-    # Server-only deployments cannot measure assets, so the fallback table must
-    # equal the real durations of the exact files that ship with each client.
-    repository_root = ROOT
-    for key, declared in audio.AUDIO_DURATIONS_TICKS.items():
-        if not key.startswith("game_flip7/") or not key.endswith(".ogg"):
-            continue
+def test_flip7_audio_reuses_complete_shared_assets_with_exact_fallbacks():
+    # Flip 7 must not carry renamed copies of existing sounds. Every referenced
+    # asset exists identically in all three packs, and server-only deployments
+    # retain the measured duration for deterministic sequence pacing.
+    packs = ("client", "web_client", "mobile_client")
+    for pack in packs:
+        assert not (ROOT / pack / "sounds" / "game_flip7").exists()
+
+    exact_assets = {
+        key: declared
+        for key, declared in audio.AUDIO_DURATIONS_TICKS.items()
+        if key.endswith(".ogg")
+    }
+    family_assets = {
+        audio.SOUND_CARD_NUMBER_FAMILY: range(1, 5),
+        audio.SOUND_SHUFFLE_FAMILY: range(1, 4),
+    }
+
+    for asset, declared in exact_assets.items():
+        paths = [ROOT / pack / "sounds" / asset for pack in packs]
+        assert all(path.is_file() for path in paths), asset
+        assert len({path.read_bytes() for path in paths}) == 1, asset
         measured = measure_audio_duration_ticks(
-            repository_root / "client" / "sounds" / key,
-            ticks_per_second=audio.TICKS_PER_SECOND,
+            paths[0], ticks_per_second=audio.TICKS_PER_SECOND
         )
-        assert measured is not None, key
-        assert declared == measured, f"{key}: table={declared} asset={measured}"
+        assert declared == measured, f"{asset}: table={declared} asset={measured}"
+
+    for family, variants in family_assets.items():
+        measured_variants = []
+        for variant in variants:
+            asset = f"{family}{variant}.ogg"
+            paths = [ROOT / pack / "sounds" / asset for pack in packs]
+            assert all(path.is_file() for path in paths), asset
+            assert len({path.read_bytes() for path in paths}) == 1, asset
+            measured = measure_audio_duration_ticks(
+                paths[0], ticks_per_second=audio.TICKS_PER_SECOND
+            )
+            assert measured is not None, asset
+            measured_variants.append(measured)
+        assert audio.AUDIO_DURATIONS_TICKS[family] == max(measured_variants)
 
 
 def test_flip7_deal_reveals_announce_cards_and_schedule_sound():
@@ -1206,17 +1282,9 @@ def test_flip7_pending_choice_keeps_unrelated_players_turn_rows_stable():
     baseline = {}
     for player in (observer, third):
         baseline[player.id] = [
-            item.id
-            for item in game.get_user(player).menus["turn_menu"]["items"]
-            if not item.id.startswith("flip7_area_")
+            item.id for item in game.get_user(player).menus["turn_menu"]["items"]
         ]
-    assert baseline[observer.id] == [
-        "hit",
-        "stay",
-        "check_area",
-        "check_table",
-        "check_deck",
-    ]
+    assert baseline[observer.id] == ["hit", "stay"]
 
     _resolve(game, actor, _card(CARD_FREEZE, uid=1))
 
@@ -1224,10 +1292,7 @@ def test_flip7_pending_choice_keeps_unrelated_players_turn_rows_stable():
     # their stable rows survive as disabled controls with the waiting reason.
     for player, user in ((observer, observer_user), (third, third_user)):
         item_ids = [item.id for item in user.menus["turn_menu"]["items"]]
-        persistent = [
-            item_id for item_id in item_ids if not item_id.startswith("flip7_area_")
-        ]
-        assert persistent == baseline[player.id]
+        assert item_ids == baseline[player.id]
         assert game._is_hit_enabled(player) == "flip7-error-wait-choice"
         assert game._is_stay_enabled(player) == "flip7-error-wait-choice"
 
@@ -1274,7 +1339,7 @@ def test_flip7_pending_choice_repeated_builds_preserve_set_order_and_focus():
 
 
 def test_flip7_spectators_read_public_information_but_not_private_areas():
-    game = _make_game(player_count=3, start=False)
+    game = _make_game(player_count=3, start=False, mobile_user=True)
     _deal_number_cards(game, [3, 4, 5])
     watcher = game.players[2]
     watcher.is_spectator = True

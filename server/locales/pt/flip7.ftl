@@ -17,6 +17,8 @@ flip7-card-flip-three = Vira 3
 # Ações da vez
 flip7-hit = Vire uma carta
 flip7-stay = Pare e garanta { $points } pontos
+flip7-stay-base = Pare e garanta
+flip7-stay-banked = Pare e garanta (pontos já garantidos)
 flip7-you-stay = Você para e garante { $points } pontos.
 flip7-player-stays = { $player } para e garante { $points } pontos.
 

@@ -17,6 +17,8 @@ flip7-card-flip-three = Flip Three
 # Turn actions
 flip7-hit = Draw a card
 flip7-stay = Stop and bank { $points } points
+flip7-stay-base = Stop and bank
+flip7-stay-banked = Stop and bank (already banked)
 flip7-you-stay = You stop and bank { $points } points.
 flip7-player-stays = { $player } stops and banks { $points } points.
 

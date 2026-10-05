@@ -354,6 +354,7 @@ class TestGameRegistryIntegration:
             "twentyone": "cards",
             "uno": "cards",
             "yahtzee": "dice",
+            "zombiedice": "dice",
         }
 
         actual_categories = {

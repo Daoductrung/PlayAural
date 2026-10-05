@@ -362,6 +362,11 @@ Audio-first is mandatory. Every important state change needs TTS and/or sound.
   direct-mute names, never message history.
 - Use `play_sound`, `user.play_sound`, `play_music`, ambience helpers, scheduled
   sounds, or sequences as appropriate.
+- Sound-pack version increments are maintainer-controlled release actions.
+  Never bump a sound-pack version merely because audio assets or generated
+  manifests changed. Change version markers only when the project maintainer
+  explicitly requests a bump; otherwise preserve them when adding, replacing,
+  converting, normalizing, or regenerating audio assets.
 - All server-driven SFX, music, and ambience use the versioned `audio` command
   contract in `server/audio.py`. Do not add separate packet types or
   client-specific routing. Asset paths and command values must be validated.

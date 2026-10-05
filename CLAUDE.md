@@ -175,6 +175,11 @@ The server validates relative asset paths, ids, numeric ranges, commands,
 kinds, and scopes through `server/audio.py`; clients validate again before
 loading an asset.
 
+- Sound-pack version increments are maintainer-controlled release actions.
+  Never bump a sound-pack version merely because audio assets or generated
+  manifests changed. Change version markers only when the project maintainer
+  explicitly requests a bump; otherwise preserve them when adding, replacing,
+  converting, normalizing, or regenerating audio assets.
 - Optional 3D positions use listener-relative `(x, y, z)` coordinates with the
   listener at the origin facing `+Y`. The server is the positioning authority
   and derives ordinary pan from the same point for non-HRTF fallbacks. Desktop,

@@ -1,5 +1,5 @@
 // Numbered entries are lookup candidates only; exact asset playback remains exact.
-export const bundledSoundVersion = "12";
+export const bundledSoundVersion = "13";
 
 export const soundManifest: Record<string, number> = {
   "accountactionnotify.ogg": require("../../sounds/accountactionnotify.ogg"),
@@ -1185,6 +1185,29 @@ export const soundManifest: Record<string, number> = {
   "game_deadmansdeck/music.ogg": require("../../sounds/game_deadmansdeck/music.ogg"),
   "game_deadmansdeck/revolver_spin.ogg": require("../../sounds/game_deadmansdeck/revolver_spin.ogg"),
   "game_deadmansdeck/round_start.ogg": require("../../sounds/game_deadmansdeck/round_start.ogg"),
+  "game_deadmansdice/ambience_bar.ogg": require("../../sounds/game_deadmansdice/ambience_bar.ogg"),
+  "game_deadmansdice/ambience_cigarette_lighter.ogg": require("../../sounds/game_deadmansdice/ambience_cigarette_lighter.ogg"),
+  "game_deadmansdice/ambience_crowd_east.ogg": require("../../sounds/game_deadmansdice/ambience_crowd_east.ogg"),
+  "game_deadmansdice/ambience_crowd_west.ogg": require("../../sounds/game_deadmansdice/ambience_crowd_west.ogg"),
+  "game_deadmansdice/ambience_fan.ogg": require("../../sounds/game_deadmansdice/ambience_fan.ogg"),
+  "game_deadmansdice/ambience_glasses.ogg": require("../../sounds/game_deadmansdice/ambience_glasses.ogg"),
+  "game_deadmansdice/ambience_ice_glass.ogg": require("../../sounds/game_deadmansdice/ambience_ice_glass.ogg"),
+  "game_deadmansdice/ambience_pour_glug.ogg": require("../../sounds/game_deadmansdice/ambience_pour_glug.ogg"),
+  "game_deadmansdice/bid_tap_hollow.ogg": require("../../sounds/game_deadmansdice/bid_tap_hollow.ogg"),
+  "game_deadmansdice/bid_tap_resonant.ogg": require("../../sounds/game_deadmansdice/bid_tap_resonant.ogg"),
+  "game_deadmansdice/bid_tap_short.ogg": require("../../sounds/game_deadmansdice/bid_tap_short.ogg"),
+  "game_deadmansdice/call_liar.ogg": require("../../sounds/game_deadmansdice/call_liar.ogg"),
+  "game_deadmansdice/call_spot_on.ogg": require("../../sounds/game_deadmansdice/call_spot_on.ogg"),
+  "game_deadmansdice/cup_reveal.ogg": require("../../sounds/game_deadmansdice/cup_reveal.ogg"),
+  "game_deadmansdice/death_choke.ogg": require("../../sounds/game_deadmansdice/death_choke.ogg"),
+  "game_deadmansdice/death_headfall.ogg": require("../../sounds/game_deadmansdice/death_headfall.ogg"),
+  "game_deadmansdice/dice_shake_heavy.ogg": require("../../sounds/game_deadmansdice/dice_shake_heavy.ogg"),
+  "game_deadmansdice/dice_shake_loose.ogg": require("../../sounds/game_deadmansdice/dice_shake_loose.ogg"),
+  "game_deadmansdice/dice_shake_quick.ogg": require("../../sounds/game_deadmansdice/dice_shake_quick.ogg"),
+  "game_deadmansdice/dice_shake_rattle.ogg": require("../../sounds/game_deadmansdice/dice_shake_rattle.ogg"),
+  "game_deadmansdice/poison_drink_gulp.ogg": require("../../sounds/game_deadmansdice/poison_drink_gulp.ogg"),
+  "game_deadmansdice/poison_drink_steady.ogg": require("../../sounds/game_deadmansdice/poison_drink_steady.ogg"),
+  "game_deadmansdice/win.ogg": require("../../sounds/game_deadmansdice/win.ogg"),
   "game_deadmanspoker/all_in.ogg": require("../../sounds/game_deadmanspoker/all_in.ogg"),
   "game_deadmanspoker/call.ogg": require("../../sounds/game_deadmanspoker/call.ogg"),
   "game_deadmanspoker/community_cards_arrive.ogg": require("../../sounds/game_deadmanspoker/community_cards_arrive.ogg"),

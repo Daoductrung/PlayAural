@@ -320,6 +320,7 @@ class TestGameRegistryIntegration:
             "coup": "cards",
             "crazyeights": "cards",
             "deadmansdeck": "cards",
+            "deadmansdice": "dice",
             "deadmanspoker": "poker",
             "dominos": "cards",
             "explodingkittens": "cards",

@@ -45,8 +45,8 @@ from server.games.bang.state import (
     PHASE_GAME_OVER,
     PHASE_PLAY,
     PHASE_RESOLVING,
-    PHASE_STARTING,
     PHASE_START_TURN,
+    PHASE_STARTING,
     BangDecision,
     BangEffect,
     BangPlayIntent,
@@ -256,9 +256,8 @@ def all_card_ids(game: BangGame) -> list[int]:
     return ids
 
 
-def test_registration_metadata_options_and_catalog_count():
+def test_registration_metadata_and_options():
     assert GameRegistry.get("bang") is BangGame
-    assert len(GameRegistry.get_all()) == 48
     assert BangGame.get_name() == "BANG! The Bullet"
     assert BangGame.get_category() == "cards"
     assert (BangGame.get_min_players(), BangGame.get_max_players()) == (3, 8)

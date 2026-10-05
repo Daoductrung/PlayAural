@@ -38,6 +38,7 @@ from .colorgame.game import ColorGameGame
 from .battle.game import BattleGame
 from .citadels.game import CitadelsGame
 from .deadmansdeck.game import DeadMansDeckGame
+from .deadmansdice.game import DeadMansDiceGame
 from .deadmanspoker.game import DeadMansPokerGame
 from .metalpipe.game import MetalPipeGame
 from .nine.game import NineGame
@@ -92,6 +93,7 @@ __all__ = [
     "BattleGame",
     "CitadelsGame",
     "DeadMansDeckGame",
+    "DeadMansDiceGame",
     "DeadMansPokerGame",
     "MetalPipeGame",
     "NineGame",

@@ -175,6 +175,11 @@ The server validates relative asset paths, ids, numeric ranges, commands,
 kinds, and scopes through `server/audio.py`; clients validate again before
 loading an asset.
 
+- Sound-pack version increments are maintainer-controlled release actions.
+  Never bump a sound-pack version merely because audio assets or generated
+  manifests changed. Change version markers only when the project maintainer
+  explicitly requests a bump; otherwise preserve them when adding, replacing,
+  converting, normalizing, or regenerating audio assets.
 - Optional 3D positions use listener-relative `(x, y, z)` coordinates with the
   listener at the origin facing `+Y`. The server is the positioning authority
   and derives ordinary pan from the same point for non-HRTF fallbacks. Desktop,
@@ -314,7 +319,7 @@ loading an asset.
 ### Server Architecture
 - **`server/core/server.py`** — Main orchestrator, auth routing, menus, reconnect, moderation, MOTD, presence
 - **`server/network/websocket_server.py`** — Async WebSocket transport
-- **`server/games/`** — 48 registered game implementations
+- **`server/games/`** — 50 registered game implementations
 - **`server/game_utils/`** — shared game mixins and helpers
 - **`server/tables/`** — table lifecycle, save/restore, membership
 - **`server/auth/`** — authentication, CAPTCHA checks, password reset, rate limiting
@@ -1282,11 +1287,11 @@ Mobile rules:
   language names; metadata complements it and does not replace it.
 
 ### Game Counts and Catalog
-The server currently registers **48 games**:
+The server currently registers **50 games**:
 - category ids are `cards`, `dice`, `board`, `poker`, `arcade`, and `misc`
 - the Play menu exposes a persisted category filter with dynamic per-category game counts
 - games usually expose one category through `get_category()`, while `get_categories()` supports future multi-category games
-- recent additions include `Skip-Bo`, `Bingo`, `Metal Pipe`, `Nine`, `Senet`, `Cards Against Humanity`, `21`, `Age of Heroes`, `UNO`, `Exploding Kittens`, `BANG! The Bullet`, and `Monopoly`
+- recent additions include `Zombie Dice`, `Dead Man's Dice`, `Skip-Bo`, `Bingo`, `Metal Pipe`, `Nine`, `Senet`, `Cards Against Humanity`, `21`, `Age of Heroes`, `UNO`, `Exploding Kittens`, `BANG! The Bullet`, and `Monopoly`
 
 ### Key Tech Stack
 - Python 3.11, `asyncio`, `websockets>=12.0`, `mashumaro`, `fluent-runtime`, `openskill`, `argon2-cffi`

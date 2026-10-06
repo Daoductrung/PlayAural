@@ -7,7 +7,7 @@ conflict, follow `CLAUDE.md` and update `AGENTS.md`.
 ## Project
 
 PlayAural is an audio-first multiplayer gaming platform for screen reader users.
-It is GPL-licensed and has four first-party components:
+It is licensed under GPL-3.0-or-later and has four first-party components:
 
 - `server/`: Python 3.11 asyncio WebSocket server, games, auth, tables,
   persistence, localization, ratings, voice authorization.

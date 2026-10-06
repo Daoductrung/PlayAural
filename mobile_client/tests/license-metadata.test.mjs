@@ -16,16 +16,21 @@ test("every resolved mobile package declares public license metadata", async () 
     .map(([path]) => path);
 
   assert.deepEqual(missing, []);
+  assert.equal(lock.packages[""].license, "GPL-3.0-or-later");
 });
 
-test("the local native module identifies the PlayAural license", async () => {
-  const modulePackage = JSON.parse(await readFile(
-    new URL(
-      "../modules/playaural-spatial-audio/package.json",
-      import.meta.url,
+test("PlayAural packages identify the project license", async () => {
+  const [rootPackage, modulePackage] = await Promise.all([
+    readFile(new URL("../package.json", import.meta.url), "utf8"),
+    readFile(
+      new URL(
+        "../modules/playaural-spatial-audio/package.json",
+        import.meta.url,
+      ),
+      "utf8",
     ),
-    "utf8",
-  ));
+  ]).then((contents) => contents.map((content) => JSON.parse(content)));
 
-  assert.equal(modulePackage.license, "GPL-2.0-only");
+  assert.equal(rootPackage.license, "GPL-3.0-or-later");
+  assert.equal(modulePackage.license, "GPL-3.0-or-later");
 });

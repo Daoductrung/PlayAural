@@ -12,7 +12,8 @@ PlayAural is an audio-first multiplayer online gaming platform with four first-p
 
 PlayAural also supports table-scoped real-time voice chat. The game server authorizes access and tracks voice membership, while a separate LiveKit-based media service carries the actual audio stream.
 
-The project is open source under the **GNU GENERAL PUBLIC LICENSE**. See [LICENSE](LICENSE).
+The project is open source under the **GNU General Public License, version 3 or
+any later version**. See [LICENSE](LICENSE).
 
 ## Commands
 

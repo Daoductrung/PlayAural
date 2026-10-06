@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from functools import lru_cache
+from functools import cache
 from pathlib import Path, PurePosixPath
 
 from ...game_utils.audio_duration import measure_audio_duration_ticks
@@ -66,7 +66,7 @@ _SOUND_ASSET_ROOTS = (
 )
 
 
-@lru_cache(maxsize=None)
+@cache
 def sound_ticks(sound_or_family: str) -> int:
     """Return this server run's asset duration, with metadata as fallback."""
 

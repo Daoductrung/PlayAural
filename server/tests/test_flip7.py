@@ -1,8 +1,23 @@
 """Tests for the Flip 7 card game."""
 
-from pathlib import Path
 import json
+from pathlib import Path
 
+from ..game_utils.audio_duration import measure_audio_duration_ticks
+from ..game_utils.sequence_runner_mixin import (
+    SequenceBeat,
+    SequenceOperation,
+)
+from ..game_utils.stats_helpers import RATING_COMPETITORS_KEY
+from ..games.flip7 import audio
+from ..games.flip7.bot import (
+    BotObservation,
+    CardCount,
+    TargetObservation,
+    choose_action,
+    choose_target,
+    next_draw_metrics,
+)
 from ..games.flip7.game import (
     ACTION_COPIES,
     CARD_DOUBLE,
@@ -34,14 +49,7 @@ from ..games.flip7.game import (
     Flip7Options,
     Flip7PendingAction,
 )
-from ..games.flip7 import audio
 from ..games.registry import GameRegistry
-from ..game_utils.audio_duration import measure_audio_duration_ticks
-from ..game_utils.sequence_runner_mixin import (
-    SequenceBeat,
-    SequenceOperation,
-)
-from ..game_utils.stats_helpers import RATING_COMPETITORS_KEY
 from ..messages.localization import Localization
 from ..ui.keybinds import KeybindState
 from ..users.bot import Bot
@@ -212,7 +220,10 @@ def test_flip7_deck_composition():
     assert len(deck) == 94
     assert len({c.uid for c in deck}) == 94
 
-    kinds = {kind: [c for c in deck if c.kind == kind] for kind in set(c.kind for c in deck)}
+    kinds = {
+        kind: [c for c in deck if c.kind == kind]
+        for kind in {c.kind for c in deck}
+    }
     numbers = kinds[CARD_NUMBER]
     assert len(numbers) == 1 + sum(range(1, MAX_NUMBER + 1))
     assert len(kinds[CARD_MODIFIER]) == len(MODIFIER_VALUES)
@@ -575,7 +586,7 @@ def test_flip7_frozen_owner_still_resolves_its_queued_action_cards():
     # Being frozen is not busting: revealed Flip Three/Freeze cards resolve.
     game = _make_game(player_count=3, start=False)
     _deal_number_cards(game, [11, 4, 12])
-    owner, target, _third = game.players
+    owner, _target, _third = game.players
     owner.round_status = STATUS_STAYED
     frozen = _card(CARD_FREEZE, uid=1)
     game.pending_actions = [
@@ -1088,6 +1099,220 @@ def test_flip7_game_state_serializes_round_trip():
 # ---------------------------------------------------------------------------
 
 
+def _bot_policy_observation(**overrides):
+    values = {
+        "numbers": (4,),
+        "number_total": 4,
+        "has_double": False,
+        "second_chance": False,
+        "round_points": 4,
+        "total_score": 0,
+        "target_score": 200,
+        "secured_score_to_beat": 0,
+        "draw_counts": (
+            CardCount(CARD_NUMBER, 4, 1),
+            CardCount(CARD_NUMBER, 6, 1),
+            CardCount(CARD_MODIFIER, 2, 1),
+            CardCount(CARD_DOUBLE, 0, 1),
+        ),
+    }
+    values.update(overrides)
+    return BotObservation(**values)
+
+
+def _target_policy_observation(player_id, **overrides):
+    values = {
+        "player_id": player_id,
+        "is_actor": False,
+        "number_count": 2,
+        "round_points": 10,
+        "total_score": 50,
+        "second_chance": False,
+        "bust_probability": 0.2,
+    }
+    values.update(overrides)
+    return TargetObservation(**values)
+
+
+def test_flip7_bot_measures_exact_next_draw_risk_and_stop_value():
+    metrics = next_draw_metrics(_bot_policy_observation())
+
+    assert metrics.bust_probability == 0.25
+    assert metrics.expected_stop_score == 6.0
+
+    protected = next_draw_metrics(
+        _bot_policy_observation(second_chance=True)
+    )
+    assert protected.bust_probability == 0.0
+    assert protected.expected_stop_score == 7.0
+
+
+def test_flip7_bot_values_the_seventh_number_bonus_exactly():
+    observation = _bot_policy_observation(
+        numbers=(1, 2, 3, 4, 5, 6),
+        number_total=21,
+        round_points=21,
+        draw_counts=(
+            CardCount(CARD_NUMBER, 1, 1),
+            CardCount(CARD_NUMBER, 7, 1),
+            CardCount(CARD_FREEZE, 0, 1),
+        ),
+    )
+
+    metrics = next_draw_metrics(observation)
+
+    assert metrics.bust_probability == 1 / 3
+    assert metrics.expected_stop_score == 64 / 3
+
+
+def test_flip7_bot_banks_a_target_reaching_lead_or_tie():
+    observation = _bot_policy_observation(
+        round_points=20,
+        total_score=180,
+        target_score=200,
+        secured_score_to_beat=200,
+    )
+
+    assert choose_action(observation) == "stay"
+
+
+def test_flip7_bot_keeps_drawing_when_stopping_cannot_catch_target_leader():
+    observation = _bot_policy_observation(
+        numbers=(10, 11, 12),
+        number_total=33,
+        round_points=33,
+        total_score=150,
+        target_score=200,
+        secured_score_to_beat=210,
+        draw_counts=(
+            CardCount(CARD_NUMBER, 10, 10),
+            CardCount(CARD_NUMBER, 1, 1),
+        ),
+    )
+
+    assert next_draw_metrics(observation).expected_stop_score < 33
+    assert choose_action(observation) == "hit"
+
+
+def test_flip7_bot_stops_when_one_more_draw_has_negative_value():
+    observation = _bot_policy_observation(
+        numbers=(10, 11, 12),
+        number_total=33,
+        round_points=33,
+        draw_counts=(
+            CardCount(CARD_NUMBER, 10, 10),
+            CardCount(CARD_NUMBER, 1, 1),
+        ),
+    )
+
+    assert choose_action(observation) == "stay"
+
+
+def test_flip7_bot_target_policy_uses_risk_without_helping_the_leader():
+    actor = _target_policy_observation(
+        "actor",
+        is_actor=True,
+        round_points=18,
+        total_score=120,
+        bust_probability=0.8,
+    )
+    exposed = _target_policy_observation(
+        "exposed",
+        number_count=5,
+        round_points=24,
+        total_score=80,
+        bust_probability=0.35,
+    )
+    protected_leader = _target_policy_observation(
+        "leader",
+        number_count=6,
+        round_points=30,
+        total_score=190,
+        second_chance=True,
+        bust_probability=0.0,
+    )
+    low_stake_leader = _target_policy_observation(
+        "low",
+        number_count=1,
+        round_points=2,
+        total_score=170,
+        bust_probability=0.05,
+    )
+    targets = (actor, exposed, protected_leader, low_stake_leader)
+
+    assert choose_target(CHOICE_FLIP_THREE, targets) == "exposed"
+    assert choose_target(CHOICE_FREEZE, targets) == "low"
+    assert (
+        choose_target(CHOICE_FREEZE, targets, actor_should_stay=True)
+        == "actor"
+    )
+
+
+def test_flip7_bot_uses_safe_self_flip_three_to_chase_flip_seven():
+    actor = _target_policy_observation(
+        "actor",
+        is_actor=True,
+        number_count=6,
+        round_points=31,
+        total_score=100,
+        second_chance=True,
+        bust_probability=0.0,
+    )
+    exposed = _target_policy_observation(
+        "exposed",
+        number_count=5,
+        round_points=28,
+        bust_probability=0.35,
+    )
+
+    assert choose_target(CHOICE_FLIP_THREE, (actor, exposed)) == "actor"
+
+
+def test_flip7_bot_gives_extra_second_chance_where_it_has_least_value():
+    safe = _target_policy_observation(
+        "safe",
+        number_count=1,
+        round_points=2,
+        total_score=20,
+        bust_probability=0.02,
+    )
+    threatened = _target_policy_observation(
+        "threatened",
+        number_count=5,
+        round_points=28,
+        total_score=170,
+        bust_probability=0.3,
+    )
+
+    assert choose_target(CHOICE_SECOND_CHANCE, (threatened, safe)) == "safe"
+
+
+def test_flip7_bot_observation_does_not_expose_shuffled_order():
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [3, 4, 5])
+    actor = game.current_player
+    first = game._bot_observation(actor)
+    game.deck.reverse()
+    second = game._bot_observation(actor)
+
+    assert first == second
+
+
+def test_flip7_bot_counts_only_secured_opponent_points_as_score_to_beat():
+    game = _make_game(player_count=3, start=False, target_score=50)
+    _deal_number_cards(game, [3, 10, 5])
+    actor, playing_opponent, stayed_opponent = game.players
+    playing_opponent.total_score = 45
+    stayed_opponent.total_score = 44
+    stayed_opponent.round_status = STATUS_STAYED
+
+    observation = game._bot_observation(actor)
+
+    # The playing opponent may still bust, while the stopped opponent's five
+    # points are secured for round scoring.
+    assert observation.secured_score_to_beat == 49
+
+
 def test_flip7_bots_play_a_full_match_to_finished():
     game = _make_game(player_count=3, start=True, bot_all=True, target_score=50)
     assert advance_until(game, lambda: game.status == "finished", max_ticks=60000)
@@ -1357,7 +1582,7 @@ def test_flip7_pending_choice_repeated_builds_preserve_set_order_and_focus():
     # before_menu_build() must be idempotent while another player chooses.
     game = _make_game(player_count=3, start=False)
     _deal_number_cards(game, [3, 4, 5])
-    actor, observer, third = game.players
+    actor, observer, _third = game.players
     observer_user = game.get_user(observer)
     game.flush_menus()
 

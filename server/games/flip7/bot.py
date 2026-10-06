@@ -1,112 +1,199 @@
-"""Bot strategy for Flip 7."""
+"""Public-information bot policy for Flip 7."""
 
 from __future__ import annotations
 
-import random
+from dataclasses import dataclass
 
 from .constants import (
+    CARD_DOUBLE,
+    CARD_MODIFIER,
     CARD_NUMBER,
     CHOICE_FLIP_THREE,
     CHOICE_FREEZE,
     CHOICE_SECOND_CHANCE,
-    PHASE_PLAYING,
-    STATUS_STAYED,
+    FLIP_SEVEN_BONUS,
+    FLIP_SEVEN_TARGET,
 )
 
 
-def _bust_risk(game, player) -> float:
-    """Chance that the next drawn card repeats a number already held."""
-    if not player.numbers:
-        return 0.0
+@dataclass(frozen=True)
+class CardCount:
+    """One publicly inferable card type in the remaining draw pool."""
 
-    total = len(game.deck)
-    source = game.deck
-    if total == 0:
-        source = game.discard
-        total = len(source)
-    if total <= 0:
-        return 0.0
-
-    held = set(player.numbers)
-    unsafe = 0
-    for card in source:
-        if card.kind == CARD_NUMBER and card.value in held:
-            unsafe += 1
-    return unsafe / total
+    kind: str
+    value: int
+    count: int
 
 
-def _should_hit(game, player) -> bool:
-    """Push the luck while the expected gain still beats the bust chance."""
-    if not player.numbers:
-        # Nothing can repeat yet, so always take a card.
-        return True
+@dataclass(frozen=True)
+class BotObservation:
+    """Public state needed for one draw-or-stop decision."""
 
-    held = len(player.numbers)
-    risk = _bust_risk(game, player)
-    if player.second_chance:
-        # The duplicate is absorbed, but the safety net is spent.
-        risk = 0.0
-
-    if held == 6:
-        # One more unique number pays the Flip 7 bonus immediately.
-        return risk < 0.30
-
-    threshold = 0.20 if player.second_chance else 0.11
-    if held >= 4:
-        threshold += 0.05
-    if held <= 2:
-        threshold += 0.06
-
-    if risk < threshold:
-        return True
-    # Occasionally take a calculated risk so bots do not play identically.
-    return random.random() < 0.12
+    numbers: tuple[int, ...]
+    number_total: int
+    has_double: bool
+    second_chance: bool
+    round_points: int
+    total_score: int
+    target_score: int
+    secured_score_to_beat: int
+    draw_counts: tuple[CardCount, ...]
 
 
-def _pick_target(game, kind):
-    targets = game._choice_targets()
+@dataclass(frozen=True)
+class NextDrawMetrics:
+    """Exact immediate risk and stop value of taking one more card."""
+
+    bust_probability: float
+    expected_stop_score: float
+
+
+@dataclass(frozen=True)
+class TargetObservation:
+    """Public state used to spend one targeted action card."""
+
+    player_id: str
+    is_actor: bool
+    number_count: int
+    round_points: int
+    total_score: int
+    second_chance: bool
+    bust_probability: float
+
+    @property
+    def projected_score(self) -> int:
+        return self.total_score + self.round_points
+
+
+def next_draw_metrics(observation: BotObservation) -> NextDrawMetrics:
+    """Evaluate one unknown draw without consulting the shuffled card order."""
+
+    total_cards = sum(card.count for card in observation.draw_counts)
+    if total_cards <= 0:
+        return NextDrawMetrics(0.0, float(observation.round_points))
+
+    held = set(observation.numbers)
+    expected_score = 0.0
+    bust_cards = 0
+    for card in observation.draw_counts:
+        score = observation.round_points
+        if card.kind == CARD_NUMBER:
+            if card.value in held:
+                if not observation.second_chance:
+                    bust_cards += card.count
+                    score = 0
+            else:
+                multiplier = 2 if observation.has_double else 1
+                score += card.value * multiplier
+                if len(held) + 1 == FLIP_SEVEN_TARGET:
+                    score += FLIP_SEVEN_BONUS
+        elif card.kind == CARD_MODIFIER:
+            score += card.value
+        elif card.kind == CARD_DOUBLE and not observation.has_double:
+            score += observation.number_total
+        expected_score += card.count * score
+
+    return NextDrawMetrics(
+        bust_probability=bust_cards / total_cards,
+        expected_stop_score=expected_score / total_cards,
+    )
+
+
+def choose_action(observation: BotObservation) -> str:
+    """Choose Draw or Stop from public state and exact one-card expectation."""
+
+    if not observation.numbers:
+        # A first number cannot repeat, while every non-number card is safe.
+        return "hit"
+
+    projected_score = observation.total_score + observation.round_points
+    if (
+        projected_score >= observation.target_score
+        and projected_score >= observation.secured_score_to_beat
+    ):
+        # Securing either the lead or an official extra-round tie is preferable
+        # to risking a score that already reaches the match target.
+        return "stay"
+
+    metrics = next_draw_metrics(observation)
+    if metrics.bust_probability == 0:
+        return "hit"
+
+    if (
+        observation.secured_score_to_beat >= observation.target_score
+        and projected_score < observation.secured_score_to_beat
+    ):
+        # Stopping behind a target-reaching opponent cannot win this round.
+        return "hit"
+
+    return "hit" if metrics.expected_stop_score > observation.round_points else "stay"
+
+
+def choose_target(
+    kind: str,
+    targets: tuple[TargetObservation, ...],
+    *,
+    actor_should_stay: bool = False,
+) -> str | None:
+    """Spend an action card without using private or future information."""
+
     if not targets:
         return None
-    actor = game._choice_actor()
+
+    actor = next((target for target in targets if target.is_actor), None)
+    opponents = tuple(target for target in targets if not target.is_actor)
 
     if kind == CHOICE_SECOND_CHANCE:
-        # Protect whoever is closest to a dangerous hand.
-        return max(targets, key=lambda p: (len(p.numbers), p.total_score))
-    if kind == CHOICE_FLIP_THREE:
-        # Hurt the strongest table presence.
-        return max(targets, key=lambda p: (p.total_score, len(p.numbers)))
+        # An extra Second Chance must help somebody else. Give it where its
+        # immediate protective value and current stake are both smallest.
+        return min(
+            targets,
+            key=lambda target: (
+                target.bust_probability,
+                target.round_points,
+                target.number_count,
+                target.projected_score,
+            ),
+        ).player_id
+
     if kind == CHOICE_FREEZE:
-        leader = max(targets, key=lambda p: (p.total_score, len(p.numbers)))
-        if actor is not None and leader is actor and len(targets) > 1:
-            others = [p for p in targets if p is not actor]
-            return max(others, key=lambda p: (p.total_score, len(p.numbers)))
-        return leader
-    return targets[0]
+        if actor is not None and actor_should_stay:
+            return actor.player_id
+        if opponents:
+            # Freeze an opponent who banks as little as possible; among equal
+            # stakes, stop the greater match threat first.
+            return min(
+                opponents,
+                key=lambda target: (
+                    target.round_points,
+                    -target.total_score,
+                    -target.number_count,
+                ),
+            ).player_id
+        return actor.player_id if actor is not None else targets[0].player_id
 
+    if kind == CHOICE_FLIP_THREE:
+        if (
+            actor is not None
+            and actor.number_count == FLIP_SEVEN_TARGET - 1
+            and (actor.second_chance or actor.bust_probability <= 0.15)
+        ):
+            # A protected or low-risk sixth number makes self-targeting the
+            # strongest route to the round-ending Flip 7 bonus.
+            return actor.player_id
+        candidates = opponents or targets
+        # Prefer an exposed opponent with the most to lose. A held Second
+        # Chance makes the immediate duplicate risk zero and is considered
+        # before every other tie-breaker.
+        return max(
+            candidates,
+            key=lambda target: (
+                not target.second_chance,
+                target.bust_probability,
+                target.round_points,
+                target.number_count,
+                target.total_score,
+            ),
+        ).player_id
 
-def bot_think(game, player):
-    if game.pending_choice is not None:
-        if game._choice_actor() is not player:
-            return None
-        target = _pick_target(game, game.pending_choice.kind)
-        if target is None:
-            return None
-        return f"choose_{game.pending_choice.kind}_{target.id}"
-
-    if game.phase != PHASE_PLAYING or game.flip_state is not None:
-        return None
-    if game.deal_index < len(game.deal_order):
-        return None
-    if game.current_player is not player:
-        return None
-    if game._is_hit_enabled(player) is not None:
-        return None
-
-    if _should_hit(game, player):
-        return "hit"
-    if game._is_stay_enabled(player) is None:
-        # Staying requires something to bank; otherwise there is nothing to do.
-        flip_player = player
-        if flip_player.round_status != STATUS_STAYED:
-            return "stay"
-    return None
+    return targets[0].player_id

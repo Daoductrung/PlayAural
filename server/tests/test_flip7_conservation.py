@@ -6,10 +6,20 @@ from collections import Counter
 import pytest
 
 from ..games.flip7.game import (
-    Flip7Game, Flip7PendingAction, CARD_NUMBER, CARD_MODIFIER, CARD_DOUBLE,
-    CARD_SECOND_CHANCE, CARD_FREEZE, CARD_FLIP_THREE, CONTINUE_FLOW,
+    CARD_DOUBLE,
+    CARD_FLIP_THREE,
+    CARD_FREEZE,
+    CARD_MODIFIER,
+    CARD_NUMBER,
+    CARD_SECOND_CHANCE,
     CHOICE_SECOND_CHANCE,
-    PHASE_PLAYING, STATUS_BUSTED, STATUS_STAYED, TAG_FLOW,
+    CONTINUE_FLOW,
+    PHASE_PLAYING,
+    STATUS_BUSTED,
+    STATUS_STAYED,
+    TAG_FLOW,
+    Flip7Game,
+    Flip7PendingAction,
 )
 from ..users.test_user import MockUser
 

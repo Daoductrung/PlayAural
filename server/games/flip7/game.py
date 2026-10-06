@@ -9,14 +9,35 @@ Second Chance cards are given away while the round runs.
 
 from __future__ import annotations
 
+import random
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-import random
 
 from mashumaro.mixins.json import DataClassJSONMixin
 
+from ...game_utils.actions import Action, ActionSet, Visibility
+from ...game_utils.bot_helper import BotHelper
+from ...game_utils.game_result import GameResult, PlayerResult
+from ...game_utils.options import IntOption, option_field
+from ...game_utils.sequence_runner_mixin import SequenceBeat, SequenceOperation
+from ...game_utils.stats_helpers import (
+    RATING_COMPETITORS_KEY,
+    rating_competitors_from_scores,
+)
+from ...messages.localization import Localization
+from ...ui.keybinds import KeybindState
+from ..base import Game, GameOptions, Player
+from ..registry import register_game
 from . import audio
-from .bot import bot_think
+from .bot import (
+    BotObservation,
+    CardCount,
+    TargetObservation,
+    choose_action,
+    choose_target,
+    next_draw_metrics,
+)
 from .constants import (
     ACTION_COPIES,
     BOT_MAX_THINK_TICKS,
@@ -60,19 +81,6 @@ from .constants import (
     TICKS_PER_SECOND,
     TURN_CARD_TICKS,
 )
-from ..base import Game, GameOptions, Player
-from ..registry import register_game
-from ...game_utils.actions import Action, ActionSet, Visibility
-from ...game_utils.bot_helper import BotHelper
-from ...game_utils.game_result import GameResult, PlayerResult
-from ...game_utils.options import IntOption, option_field
-from ...game_utils.sequence_runner_mixin import SequenceBeat, SequenceOperation
-from ...game_utils.stats_helpers import (
-    RATING_COMPETITORS_KEY,
-    rating_competitors_from_scores,
-)
-from ...messages.localization import Localization
-from ...ui.keybinds import KeybindState
 
 # Small fixed gap after a card's effect announcement before the flow moves on.
 EFFECT_GAP_TICKS = TICKS_PER_SECOND // 2
@@ -270,9 +278,10 @@ class Flip7Game(Game):
         actor = self._choice_actor()
         targets: list[Flip7Player] = []
         for player in self._playing_players():
-            if kind == CHOICE_SECOND_CHANCE:
-                if player is actor or player.second_chance:
-                    continue
+            if kind == CHOICE_SECOND_CHANCE and (
+                player is actor or player.second_chance
+            ):
+                continue
             targets.append(player)
         return targets
 
@@ -464,7 +473,81 @@ class Flip7Game(Game):
         )
 
     def bot_think(self, player: Flip7Player) -> str | None:
-        return bot_think(self, player)
+        if self.pending_choice is not None:
+            if self._choice_actor() is not player:
+                return None
+            targets = tuple(
+                self._bot_target_observation(player, target)
+                for target in self._choice_targets()
+            )
+            actor_should_stay = (
+                self.pending_choice.kind == CHOICE_FREEZE
+                and choose_action(self._bot_observation(player)) == "stay"
+            )
+            target_id = choose_target(
+                self.pending_choice.kind,
+                targets,
+                actor_should_stay=actor_should_stay,
+            )
+            if target_id is None:
+                return None
+            return f"choose_{self.pending_choice.kind}_{target_id}"
+
+        if self.phase != PHASE_PLAYING or self.flip_state is not None:
+            return None
+        if self.deal_index < len(self.deal_order):
+            return None
+        if self.current_player is not player:
+            return None
+        if self._is_hit_enabled(player) is not None:
+            return None
+        return choose_action(self._bot_observation(player))
+
+    def _bot_observation(self, player: Flip7Player) -> BotObservation:
+        source = self.deck if self.deck else self.discard
+        counts = Counter((card.kind, card.value) for card in source)
+        opponents = [other for other in self._active() if other.id != player.id]
+        return BotObservation(
+            numbers=tuple(player.numbers),
+            number_total=sum(player.numbers),
+            has_double=player.has_double,
+            second_chance=player.second_chance,
+            round_points=self.round_points(player),
+            total_score=player.total_score,
+            target_score=self.options.target_score,
+            secured_score_to_beat=max(
+                (
+                    other.total_score
+                    + (
+                        self.round_points(other)
+                        if other.round_status == STATUS_STAYED
+                        else 0
+                    )
+                    for other in opponents
+                ),
+                default=0,
+            ),
+            draw_counts=tuple(
+                CardCount(kind=kind, value=value, count=count)
+                for (kind, value), count in sorted(counts.items())
+            ),
+        )
+
+    def _bot_target_observation(
+        self,
+        actor: Flip7Player,
+        target: Flip7Player,
+    ) -> TargetObservation:
+        observation = self._bot_observation(target)
+        return TargetObservation(
+            player_id=target.id,
+            is_actor=target is actor,
+            number_count=len(target.numbers),
+            round_points=observation.round_points,
+            total_score=target.total_score,
+            second_chance=target.second_chance,
+            bust_probability=next_draw_metrics(observation).bust_probability,
+        )
 
     def on_sequence_callback(
         self, sequence_id: str, callback_id: str, payload: dict
@@ -561,8 +644,7 @@ class Flip7Game(Game):
     ) -> SequenceBeat:
         """Reveal beat measured to its cue, floored long enough to speak."""
         beat = SequenceBeat.after_audio(audio.sound_ticks(reveal_sound), ops=ops)
-        if beat.delay_after_ticks < MIN_REVEAL_SPEECH_TICKS:
-            beat.delay_after_ticks = MIN_REVEAL_SPEECH_TICKS
+        beat.delay_after_ticks = max(beat.delay_after_ticks, MIN_REVEAL_SPEECH_TICKS)
         return beat
 
     def _card_flow_tail(
@@ -810,7 +892,6 @@ class Flip7Game(Game):
             self.discard.append(card)
             return
         outcome = str(payload.get("outcome", OUTCOME_OK))
-        forced = bool(payload.get("forced", False))
 
         if outcome == OUTCOME_PENDING:
             pending = Flip7PendingAction(
@@ -835,9 +916,7 @@ class Flip7Game(Game):
 
         if card.kind == CARD_NUMBER:
             self._apply_number(player, card, outcome)
-        elif card.kind == CARD_MODIFIER:
-            player.cards.append(card)
-        elif card.kind == CARD_DOUBLE:
+        elif card.kind == CARD_MODIFIER or card.kind == CARD_DOUBLE:
             player.cards.append(card)
         elif card.kind == CARD_SECOND_CHANCE:
             self._apply_second_chance(player, card, outcome)

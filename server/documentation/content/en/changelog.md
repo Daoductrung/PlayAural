@@ -1,5 +1,19 @@
 Changelog
 
+Tuesday 6 October 2026
+
+New Additions:
+
+* Skip-Bo has been added for 2 to 6 players, with individual play and two-person partnerships at four- or six-player tables. Empty your stock pile by building shared piles from 1 through 12 with cards from your hand, your stock and discard piles, or a partner's public piles, while Skip-Bo wild cards fill any missing number. Tables can choose standard or shorter stock piles, a single game or a scored match, and a match target. Strategic bots, stable card and destination choices, off-turn access to your hand, detailed pile views, keyboard and touch controls, background music, and beginner guides in English and Vietnamese are included; the complete game and guide are also available in Spanish.
+* Dead Man's Dice has been added for 2 to 4 players. Hide five dice beneath your cup, keep raising the table's bid, or challenge with Liar or Spot On before a second dose of poison eliminates you. Traditional rules with wild ones and Basic rules with exact faces are both available, alongside fair-information bots, accessible bid and review controls, beginner guides in English and Vietnamese, and a fully spatial tavern of cups, dice, poison, and the final fall.
+* Zombie Dice has been added for 2 to 8 players. Roll three dice at a time, keep brains, reroll footprints, and decide when to stop before three shotgun blasts wipe out the brains from your turn. The official thirteen-die cup, equal-turn final round, repeatable leader-only tiebreaks, adjustable winning target, challenging bots, live turn and table views, keyboard and touch controls, and beginner guides in English and Vietnamese are included. Its spatial swamp surrounds the table with a moving zombie soundscape, responsive dice, bites, gunfire, impacts, and music.
+* Flip 7 has been added for 3 to 10 players. Keep flipping for points or stop and bank before a repeated number makes you bust; Double and additive modifiers change the score, while Second Chance, Freeze, and Flip Three can turn the round around. Completing seven different numbers earns the Flip 7 bonus and ends the round. The complete 94-card deck, adjustable target score, tied-leader continuation, fair-information bots, phase-aware table reviews, keyboard and touch controls, and full game text and beginner guides in English, Vietnamese, Spanish, and Brazilian Portuguese are included.
+
+Improvements:
+
+* Dead Man's Poker now treats Switch Card as a once-per-match escape. The private replacement choice narrows from four cards to three and then two as community cards are revealed, and switching must be followed by Call or Fold rather than an All-in on the same turn. Bots make stronger decisions from information they can legitimately know, and the opening position continues correctly after an elimination.
+* Cards Against Humanity tables can now choose English, Spanish, or Brazilian Portuguese card text independently of the interface language. English includes the current US 3.0 main deck by default, with official, historical, family, and community packs available to mix without duplicate cards. Ordered multi-card answers, private hand review, anonymous answer review, judge controls, keyboard and touch play, and the beginner guide have also been refined; the guide now clearly warns about the game's mature and potentially offensive content.
+
 Friday 2 October 2026
 
 New Additions:
@@ -95,7 +109,6 @@ Improvements:
 * Large game boards such as Battleship now keep readable touch targets and scroll smoothly in every direction on Web and Mobile, including two-finger panning with TalkBack. Focused cells are brought into view without delaying cursor movement or speech.
 * Read online users now announces the total first, followed by developers, administrators, and other users. Open online users list follows the same order, stays on the current page while it refreshes, and keeps account actions available as people come online, go offline, or change roles.
 * Text in right-to-left languages now uses the correct writing direction throughout Desktop, Web, and Mobile while keeping the familiar layout and navigation order.
-* The Brazilian Portuguese translation has received a broad update across game names, terminology, menus, announcements, and player guides, including Battle fighter and move names and refreshed Backgammon wording.
 
 Bug Fixes:
 
@@ -145,7 +158,6 @@ Tuesday 18 August 2026
 Improvements:
 
 * Monopoly is now fully available in Spanish, including its boards, menus, announcements, and beginner guide, thanks to community translator UnDuende (Storm Demoner).
-* Spanish account screens now include username-character guidance during registration and clear instructions when an older account name has more than one capitalization match.
 * Choice menus can now update while they remain open without dropping screen-reader focus. Options, labels, descriptions, and balances follow the current game state; submitting or cancelling returns focus to the control that opened the prompt; text entries are not reset by background updates; and opening speech or sounds do not repeat during those updates. This keeps Monopoly's Read all portfolios, Manage properties, and Propose a trade choices, Battleship's manual deployment bearings, Mile by Mile's unplayable-card prompt, and 21 (Survival Rules) Change-card choices stable through game updates and reconnects.
 * Monopoly auction controls now remain visible for every participating bidder, update to show the current minimum bid, and stay unavailable while another bidder acts. They close only when you leave the auction or the auction ends.
 * Monopoly rent settlement now gives the property owner, the player paying, and other listeners one concise message from the appropriate perspective. Brief announcements remain shorter, and duplicate rent notices have been removed.
@@ -167,7 +179,6 @@ New Additions:
 Improvements:
 
 * Desktop Voice Chat now remains smooth when several people speak or connections briefly fluctuate, reducing crackling, stuttering, cut-off words, and delayed audio while preserving incoming stereo quality.
-* Spanish players now see Battle's preset fighters and moves in Spanish, and keyboard shortcut names are consistent throughout the Spanish player guides.
 
 Bug Fixes:
 
@@ -236,7 +247,6 @@ New Additions:
 
 Improvements:
 
-* Mile by Mile's Vietnamese text and guide now use clearer, consistent racing terms and shorter screen-reader-friendly announcements.
 * Dice rolls now use a varied set of sounds across Pig, Farkle, Yahtzee, and other dice-driven games.
 
 Sunday 5 July 2026
@@ -328,7 +338,6 @@ Bug Fixes:
 * The desktop client now applies server language changes immediately without requiring a restart.
 * Desktop sound effect volume changes now affect sounds that are already playing.
 * The mobile TTS voice menu now selects system voices correctly and safely keeps saved voices when Android temporarily returns an empty voice list.
-* The web update/version mismatch message is now localized instead of showing raw English fallback text.
 
 Thursday 25 June 2026
 
@@ -365,7 +374,6 @@ Bug Fixes:
 * Web ARIA live and Web Speech output now avoids skipped messages more reliably.
 * Web buffer-reading shortcuts now work in Web Speech mode.
 * Web voice selection and speech speed controls are clearer across Windows, Android, and macOS.
-* Web localization and connection messages are clearer in English and Vietnamese.
 
 Sunday 21 June 2026
 
@@ -375,7 +383,6 @@ New Additions:
 * Yahtzee now lets players and spectators press Shift+C to check any player's scorecard.
 * Pirates of the Lost Seas Portal now includes a Random destination that can choose any valid map space, including empty seas.
 * Rolling Balls now includes richer and more accurate Around the World and Journey Through Vietnam ball sets.
-* Rolling Balls documentation now clearly credits the original open-source PlayPalace project.
 * Chaos Bear now supports Brief announcements.
 * Farkle's default Target Score is now 1000.
 
@@ -393,12 +400,11 @@ Bug Fixes:
 * Yahtzee standard score checks now show real Yahtzee totals.
 * Yahtzee scoring a category now returns touch focus to Roll dice.
 * Chess takeback acceptance no longer resolves the game as a draw.
-* Chess undo history is cleaned up correctly.
+* Chess takeback requests now apply only to the latest move and clear when the game ends.
 * Chess keeps Enter Move visible as a stable focus anchor and returns touch focus there after submitting a move.
 * Pirates of the Lost Seas Sailor's Instinct no longer creates blank choices.
 * Pirates of the Lost Seas bot strategy is stronger and uses skills more intelligently.
 * Pirates of the Lost Seas skill balance, skill messages, and Portal lock-in feedback are clearer.
-* Rolling Balls rules, manuals, ball terminology, and announcements are clearer in English and Vietnamese.
 * Mile by Mile now explains distance-card limits clearly and allows legal cards that do not pass the finish.
 * Mile by Mile now respects Require exact finish and over-finish options correctly.
 * Mile by Mile discard prompts now restore focus to the card you came from.
@@ -478,7 +484,6 @@ Bug Fixes:
 * Basic score checks now speak each player or team separately.
 * Detailed score checks now use clear line-by-line status screens where appropriate.
 * Leaderboard menus now hide games that do not support leaderboards.
-* Old unsupported leaderboard data is cleaned up safely.
 * Table invites can no longer be declined by pressing the invite title.
 * Table invites that arrive while you are typing wait until you finish the input.
 * The Play category filter no longer leaks into Documentation, Leaderboards, or My Stats.
@@ -534,7 +539,6 @@ Bug Fixes:
 * Tien Len now follows Southern and Northern rule details more closely.
 * Tien Len now supports continued play for remaining places, instant wins, chopping rules, Southern Vietnamese terminology, and coin scoring.
 * Pusoy Dos now validates rules more strictly.
-* Pusoy Dos now gives clearer localized messages.
 * Pusoy Dos bots now make better decisions.
 * Pusoy Dos risky passes now use safer confirmation handling.
 * Five Card Draw now keeps useful information actions available on touch clients during the hand.
@@ -586,7 +590,7 @@ New Additions:
 
 * Replacement bots now use a different bot name instead of taking the disconnected player's exact name.
 * Disconnected players can reclaim their exact seat while the current match is still ongoing.
-* Lobby cleanup now converts disconnected seated players into reclaimable replacement bots before the host starts a match.
+* When the host starts a match, disconnected seated players are now converted into reclaimable replacement bots.
 * Seat handoff sounds and announcements now identify both the original human and the replacement bot.
 
 Bug Fixes:
@@ -598,8 +602,7 @@ Tuesday 28 April 2026
 
 New Additions:
 
-* Dead Man's Deck was added with beginner documentation.
-* Dead Man's Deck is fully localized in English and Vietnamese.
+* Dead Man's Deck was added with beginner documentation and complete English and Vietnamese game text.
 
 Sunday 26 April 2026
 
@@ -620,8 +623,7 @@ Thursday 23 April 2026
 
 New Additions:
 
-* Citadels was added with comprehensive documentation.
-* Citadels is fully localized in English and Vietnamese.
+* Citadels was added with comprehensive documentation and complete English and Vietnamese game text.
 * Mobile gained experimental background-running support.
 
 Bug Fixes:
@@ -680,8 +682,7 @@ Monday 13 April 2026
 
 New Additions:
 
-* Battle was added with beginner documentation.
-* Battle is fully localized in English and Vietnamese.
+* Battle was added with beginner documentation and complete English and Vietnamese game text.
 * Mobile now lets players disable self-voicing and use the device's system screen reader instead.
 * Mobile shows standard on-screen buttons for chat and shortcuts when self-voicing is off.
 
@@ -702,8 +703,7 @@ Thursday 9 April 2026
 
 New Additions:
 
-* Color Game was added with beginner documentation.
-* Color Game is fully localized in English and Vietnamese.
+* Color Game was added with beginner documentation and complete English and Vietnamese game text.
 
 Bug Fixes:
 
@@ -715,22 +715,19 @@ Tuesday 7 April 2026
 
 New Additions:
 
-* Tien Len was added with Southern and Northern rule variants.
-* Tien Len is fully localized in English and Vietnamese.
+* Tien Len was added with Southern and Northern rule variants and complete English and Vietnamese game text.
 
 Monday 6 April 2026
 
 New Additions:
 
-* Bunko was added with complete rules and beginner documentation.
-* Bunko is fully localized in English and Vietnamese.
+* Bunko was added with complete rules, beginner documentation, and complete English and Vietnamese game text.
 
 Friday 3 April 2026
 
 New Additions:
 
-* Sorry! was added with complete rules and beginner documentation.
-* Sorry! is fully localized in English and Vietnamese.
+* Sorry! was added with complete rules, beginner documentation, and complete English and Vietnamese game text.
 
 Thursday 2 April 2026
 
@@ -748,19 +745,14 @@ Wednesday 1 April 2026
 
 New Additions:
 
-* Chess was added with complete rules and documentation.
-* Backgammon was added with complete rules and documentation.
-* Chess includes clock presets, draw offers, undo requests, and automatic draw detection.
-* Backgammon includes the doubling cube and international tournament rules.
-* Chess is fully localized in English and Vietnamese.
-* Backgammon is fully localized in English and Vietnamese.
+* Chess was added with complete rules and documentation, clock presets, draw offers, undo requests, automatic draw detection, and complete English and Vietnamese game text.
+* Backgammon was added with complete rules and documentation, the doubling cube, international tournament rules, and complete English and Vietnamese game text.
 
 Tuesday 31 March 2026
 
 New Additions:
 
-* Ludo was added with complete rules and detailed documentation.
-* Ludo uses natural English and Vietnamese terminology.
+* Ludo was added with complete rules, detailed documentation, and natural English and Vietnamese terminology.
 
 Sunday 29 March 2026
 

@@ -1,65 +1,98 @@
 \*\*Flip 7\*\*
 
-Flip 7 is a push-your-luck card game for 3 to 10 players. Each round, every player still in the game collects number cards and decides whether to draw again or stop and bank their points. After a completed round, the unique highest match total at or above the target score wins the match.
+\*\*What Is Flip 7?\*\*
 
-\*\*Goal\*\*
+Designed by Eric Olsen and first published by The Op Games in 2024, Flip 7 is a fast push-your-luck card game. In this kind of game, you decide how long to keep risking what you have already earned: every safe card can raise your score, but one repeated number can wipe out your entire round.
 
-Score points by keeping number cards in your area. You can stop to bank your current round total, but drawing a number you already have makes you bust and score nothing for that round.
+PlayAural's version is for 3 to 10 players. Everyone builds a public row of face-up cards from the same draw pile. There is no private hand to manage.
 
-\*\*Gameplay\*\*
+\*\*How To Win\*\*
 
-At the start of each round, every player still in the game receives one card, dealt in turn after the dealer. This starting card is resolved exactly like a card you draw on your turn, so it can be an action card that targets someone. After the deal, players take turns choosing:
+The standard target is 200 points. Scores are settled at the end of each round. Once somebody reaches the target, the player with the single highest match total wins. Reaching the target does not win if another player has more points, and a tie for the lead sends everyone into another round.
 
-* \*\*Draw a card:\*\* Turn over one more card and resolve it.
-* \*\*Stop and bank:\*\* End your round safely and bank your current points when the round ends.
+\*\*The Deck\*\*
 
-The round ends when all players have stopped or busted, or when someone completes Flip 7.
+Flip 7 uses 94 cards. Its number cards run from 0 through 12, but the numbers do not appear equally often:
 
-When the deck runs out, the discard pile is reshuffled back into the deck and play continues.
+\* there is one 0 and one 1;
+\* there are two 2s, three 3s, four 4s, and so on;
+\* there are twelve 12s.
 
-\*\*Cards\*\*
+This distribution is the heart of the game. Larger numbers are worth more, but they are also more likely to appear again and make you bust. The 0 scores no points, though it still counts as one of the seven different numbers needed for Flip 7.
 
-* \*\*Number cards:\*\* Add their value to your area. If you draw a number you already have, you bust unless a Second Chance saves you.
-* \*\*Modifier cards:\*\* Add bonus points, such as +2 or +10.
-* \*\*Double:\*\* Doubles the value of your number cards before modifiers are added.
-* \*\*Second Chance:\*\* Protects you once from drawing a repeated number. If you already have a Second Chance, the card is not set aside: you must give the new one to another eligible player.
-* \*\*Freeze:\*\* Choose a player who is still playing this round. That player stops and banks their current round total. You may target yourself, and if you are the only player still playing, you stop yourself automatically.
-* \*\*Flip Three:\*\* Choose a player who must flip three cards in a row.
+The deck also contains five additive modifiers—+2, +4, +6, +8, and +10—one Double card, and three copies each of Second Chance, Freeze, and Flip Three.
 
-Whoever draws an action card is the one who chooses its target, whether it was drawn during the deal, on your turn, or as part of a Flip Three.
+\*\*Starting A Round\*\*
 
-\*\*Flip Three\*\*
+The dealer changes after every round. Beginning with the player after the dealer, each player who is still active when their place is reached receives one face-up card; the dealer goes last. A dealt action card is resolved immediately before dealing continues. Because action cards can cause more cards to be flipped—or remove somebody from the round—players may finish the opening deal with different numbers of cards, or with none at all.
 
-The chosen player flips three cards in a row, resolving each one as it is turned over. Freeze and Flip Three cards turned during a Flip Three are held and resolved after the three flips finish, in the order they were turned, so they can each open their own choice. Second Chance is resolved immediately: if the flipping player does not have one, it is set aside and can protect them from a later duplicate in the same Flip Three; if they already have one, they must give the new card to another eligible player before the remaining flips continue. If the flipping player busts partway through, they stop flipping and any held Freeze or Flip Three cards are discarded. During a Flip Three the flipping player cannot choose to draw or stop.
+After the opening deal is finished, play continues in the same order.
 
-\*\*Scoring\*\*
+\*\*Your Turn\*\*
 
-Your round total is the sum of your number cards. If you have Double, that number total is doubled. Modifier cards are added after doubling.
+If you are still active in the round, choose one of two actions:
 
-If you collect seven different number cards, you score the Flip 7 bonus of 15 points and the round ends immediately for everyone.
+\* \*\*Flip a card:\*\* Reveal the next card and resolve it.
+\* \*\*Stop and bank:\*\* Leave the round safely with your current round score. You may stop as long as at least one card is in your area, even if that card is worth 0 points.
 
-Busted players score 0 for the round. Players who stopped or survived until the round ends bank their current round total.
+Stopping protects your score, but you take no more turns that round. If you keep flipping and reveal a number already in your area, you bust. A busted player scores 0 for the round, regardless of any number cards or modifiers collected before the duplicate.
 
-After each completed round, the player with the highest match total is the leader. If that highest total reaches or passes the target score and only one player holds it, that player wins the match. If the highest total is tied between players, nobody wins yet and the match continues with another round. For example, with a target of 200 and totals of 210 and 205, the player on 210 wins as the sole leader.
+The round ends when nobody remains active, or immediately when somebody completes Flip 7.
 
-\*\*Options\*\*
+\*\*Modifier Cards\*\*
 
-* \*\*Target Score:\*\* The match total needed to win after a completed round (default 200, range 50 to 1000).
+Modifier cards cannot make you bust and do not count toward Flip 7.
 
-\*\*Information Actions\*\*
+\* \*\*+2, +4, +6, +8, and +10:\*\* Add the printed amount to your round score.
+\* \*\*Double:\*\* Doubles the sum of your number cards. Add the other modifiers only after doubling. Double does not multiply additive modifiers or the 15-point Flip 7 bonus.
 
-* \*\*Check my area:\*\* Speaks your current cards, bonuses, and round total.
-* \*\*Check the table:\*\* Speaks the round, target score, and each player's face-up cards, bonuses, round status, round total, and match total.
-* \*\*Check the deck:\*\* Speaks how many cards are in the deck and discard pile.
-* \*\*Check scores:\*\* Speaks the accumulated match scores.
+For example, number cards 3 and 8 with Double and +4 score 26 points: 3 plus 8, doubled to 22, then plus 4.
+
+\*\*Action Cards\*\*
+
+The player who receives an action card chooses its target. Freeze and Flip Three may target any player still active in the round, including the player who received the card. If only one player remains active, that player must target themself.
+
+\* \*\*Second Chance:\*\* Give this card to any active player who does not already have one, including yourself. The next time that player reveals a repeated number, discard both the duplicate and Second Chance; the player remains active. It cannot prevent Freeze. If nobody can receive it, discard it.
+\* \*\*Freeze:\*\* The chosen player stops immediately and banks their current round score.
+\* \*\*Flip Three:\*\* The chosen player must accept three consecutive cards and cannot stop between them.
+
+Receiving Second Chance does not grant an extra turn. Play resumes in the established turn order after the card and any resulting choices have been resolved.
+
+\*\*Resolving Flip Three\*\*
+
+Every card revealed by Flip Three counts toward its three cards. Number and modifier cards take effect immediately. A revealed Second Chance is also assigned immediately, so the player resolving Flip Three may keep it and use it against a duplicate later in the same sequence, or give it to another eligible player.
+
+Freeze and Flip Three cards revealed during the sequence wait until all three cards have been flipped, then resolve in reveal order. The player who revealed each waiting action chooses its target. If that player busts or completes Flip 7 before the sequence ends, the sequence stops and their waiting action cards are discarded.
+
+\*\*Completing Flip 7\*\*
+
+Flip 7 means collecting seven different number cards in one round. Modifier and action cards do not count toward the seven. Completing it awards 15 bonus points and ends the round immediately for everyone.
+
+The player who completed Flip 7 scores their number cards, Double and additive modifiers normally, then adds the 15-point bonus. Every other player who had already stopped—or was still active when the round ended—also scores their area. Busted players score nothing.
+
+\*\*Between Rounds\*\*
+
+After scoring, all face-up cards go to the discard pile and the next dealer begins a new round. If the draw pile runs out, the discard pile is shuffled to form a new draw pile; cards still in player areas remain where they are.
+
+\*\*Following The Game\*\*
+
+\* \*\*Review my area:\*\* Hear your current status, number cards, other face-up cards, and round score.
+\* \*\*Review table:\*\* Open a live view of the current phase and every player's public cards, round status, round score, and match total. The completed round remains visible while its scores are being announced.
+\* \*\*Check deck:\*\* Hear the number of cards in the draw and discard piles.
+\* \*\*Check scores:\*\* Hear the accumulated match scores.
+\* \*\*Whose turn:\*\* Hear who may act. While the game is dealing or resolving a card, choice, Flip Three, bank, or round result, hear that phase and the player involved instead.
+
+\*\*Table Option\*\*
+
+\* \*\*Target score:\*\* Choose the match score needed to win, from 50 to 1000. The official default is 200.
 
 \*\*Keyboard Shortcuts\*\*
 
-* \*\*Space:\*\* Draw a card.
-* \*\*H:\*\* Stop and bank.
-* \*\*C:\*\* Check your area.
-* \*\*Shift+C:\*\* Check the table.
-* \*\*D:\*\* Check the deck.
-* \*\*S:\*\* Check scores.
-* \*\*Shift+S:\*\* Open detailed scores.
-* \*\*T:\*\* Check whose turn it is.
+\* \*\*Space:\*\* Flip a card.
+\* \*\*H:\*\* Stop and bank.
+\* \*\*C:\*\* Hear your area.
+\* \*\*Shift+C:\*\* Review the table.
+\* \*\*D:\*\* Check the deck.
+\* \*\*S:\*\* Check scores.
+\* \*\*Shift+S:\*\* Open detailed scores.
+\* \*\*T:\*\* Check whose turn it is.

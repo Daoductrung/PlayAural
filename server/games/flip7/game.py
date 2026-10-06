@@ -3,8 +3,8 @@
 Each round every player collects number and modifier cards. Drawing a number
 already in your area busts the round for you unless a Second Chance is set
 aside. Seven unique numbers score the Flip 7 bonus and end the round for
-everybody at once. Freeze and Flip Three cards target another player, and
-Second Chance cards are given away while the round runs.
+everybody at once. Action cards can target active players, including the
+player who revealed them.
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ from ...game_utils.stats_helpers import (
 )
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
+from ...users.base import MenuItem, User
 from ..base import Game, GameOptions, Player
 from ..registry import register_game
 from . import audio
@@ -56,6 +57,11 @@ from .constants import (
     FLIP_SEVEN_BONUS,
     FLIP_SEVEN_TARGET,
     FLIP_THREE_COUNT,
+    FLOW_BANK,
+    FLOW_CARD,
+    FLOW_DEAL_CARD,
+    FLOW_DEAL_START,
+    FLOW_FLIP_THREE,
     MAX_NUMBER,
     MIN_REVEAL_SPEECH_TICKS,
     MODIFIER_VALUES,
@@ -89,6 +95,7 @@ EFFECT_GAP_TICKS = TICKS_PER_SECOND // 2
 # leading beat and a continuation, so it lives on as a string.
 FLIP_BUST_ABORT = "flip_bust_abort"
 AFTER_CHOICE = "after_choice"
+DEAL_STEP = "deal_step"
 
 
 @dataclass
@@ -105,8 +112,8 @@ class Flip7Choice(DataClassJSONMixin):
     """A pending targeted choice one player still has to make."""
 
     kind: str
-    actor_id: str = ""
-    card: Flip7Card | None = None
+    actor_id: str
+    card: Flip7Card
 
 
 @dataclass
@@ -123,6 +130,7 @@ class Flip7FlipState(DataClassJSONMixin):
     """In-progress Flip Three reveal."""
 
     target_id: str
+    card: Flip7Card
     remaining: int = FLIP_THREE_COUNT
     pending_action_count: int = 0
 
@@ -197,15 +205,24 @@ class Flip7Game(Game):
     pending_actions: list[Flip7PendingAction] = field(default_factory=list)
     flip_state: Flip7FlipState | None = None
     drawn_card: Flip7Card | None = None
+    drawn_card_revealed: bool = False
+    flow_kind: str = ""
+    flow_player_id: str = ""
+    round_awards: dict[str, int] = field(default_factory=dict)
 
     @classmethod
     def __post_deserialize__(cls, self):
+        if self.drawn_card_revealed and self.drawn_card is None:
+            raise ValueError("Revealed Flip 7 card is missing")
         cards = self._physical_cards()
-        if cards:
-            expected = {c.uid: (c.kind, c.value) for c in self.build_deck()}
-            actual = {c.uid: (c.kind, c.value) for c in cards}
-            if len(cards) != len(expected) or actual != expected:
-                raise ValueError("Invalid Flip 7 physical deck")
+        # Round zero is also used by framework-owned generic game-state
+        # operations before a concrete match has constructed its deck.
+        if not cards and self.round == 0:
+            return self
+        expected = {c.uid: (c.kind, c.value) for c in self.build_deck()}
+        actual = {c.uid: (c.kind, c.value) for c in cards}
+        if len(cards) != len(expected) or actual != expected:
+            raise ValueError("Invalid Flip 7 physical deck")
         return self
 
     # ------------------------------------------------------------------
@@ -248,9 +265,7 @@ class Flip7Game(Game):
     # ------------------------------------------------------------------
 
     def _active(self) -> list[Flip7Player]:
-        return [
-            p for p in self.get_active_players() if isinstance(p, Flip7Player)
-        ]
+        return [p for p in self.get_active_players() if isinstance(p, Flip7Player)]
 
     def _locale_of(self, player: Player | None) -> str:
         user = self.get_user(player) if player else None
@@ -258,9 +273,7 @@ class Flip7Game(Game):
 
     def _playing_players(self) -> list[Flip7Player]:
         return [
-            player
-            for player in self._active()
-            if player.round_status == STATUS_PLAYING
+            player for player in self._active() if player.round_status == STATUS_PLAYING
         ]
 
     def _choice_actor(self) -> Flip7Player | None:
@@ -271,16 +284,27 @@ class Flip7Game(Game):
             return player
         return None
 
+    def _flow_player(self) -> Flip7Player | None:
+        player = self.get_player_by_id(self.flow_player_id)
+        if isinstance(player, Flip7Player):
+            return player
+        return None
+
+    def _set_flow_status(self, kind: str, player: Flip7Player) -> None:
+        self.flow_kind = kind
+        self.flow_player_id = player.id
+
+    def _clear_flow_status(self) -> None:
+        self.flow_kind = ""
+        self.flow_player_id = ""
+
     def _choice_targets(self) -> list[Flip7Player]:
         if self.pending_choice is None:
             return []
         kind = self.pending_choice.kind
-        actor = self._choice_actor()
         targets: list[Flip7Player] = []
         for player in self._playing_players():
-            if kind == CHOICE_SECOND_CHANCE and (
-                player is actor or player.second_chance
-            ):
+            if kind == CHOICE_SECOND_CHANCE and player.second_chance:
                 continue
             targets.append(player)
         return targets
@@ -301,9 +325,11 @@ class Flip7Game(Game):
         for player in self.players:
             cards.extend(player.cards)
         cards.extend(pending.card for pending in self.pending_actions)
+        if self.flip_state is not None:
+            cards.append(self.flip_state.card)
         if self.drawn_card is not None:
             cards.append(self.drawn_card)
-        if self.pending_choice is not None and self.pending_choice.card is not None:
+        if self.pending_choice is not None:
             cards.append(self.pending_choice.card)
         return cards
 
@@ -419,6 +445,9 @@ class Flip7Game(Game):
         self.pending_actions = []
         self.flip_state = None
         self.drawn_card = None
+        self.drawn_card_revealed = False
+        self._clear_flow_status()
+        self.round_awards = {}
 
         active = self._active()
         for player in active:
@@ -558,7 +587,7 @@ class Flip7Game(Game):
         if callback_id == "card_effect":
             self._apply_card_effect(payload)
             return
-        if callback_id == "deal_step":
+        if callback_id == DEAL_STEP:
             self._deal_step()
             return
         if callback_id == "start_round":
@@ -674,9 +703,7 @@ class Flip7Game(Game):
                         ),
                     ],
                 ),
-                SequenceBeat(
-                    ops=[SequenceOperation.callback_op(continuation)]
-                ),
+                SequenceBeat(ops=[SequenceOperation.callback_op(continuation)]),
             ]
         if outcome == OUTCOME_BUST:
             to_continue = FLIP_BUST_ABORT if forced else continuation
@@ -695,9 +722,7 @@ class Flip7Game(Game):
                         ),
                     ],
                 ),
-                SequenceBeat(
-                    ops=[SequenceOperation.callback_op(to_continue, payload)]
-                ),
+                SequenceBeat(ops=[SequenceOperation.callback_op(to_continue, payload)]),
             ]
         if outcome == OUTCOME_FLIP7:
             # The following beat keeps the sequence alive past the cue so the
@@ -737,9 +762,7 @@ class Flip7Game(Game):
                         ),
                     ],
                 ),
-                SequenceBeat(
-                    ops=[SequenceOperation.callback_op(continuation)]
-                ),
+                SequenceBeat(ops=[SequenceOperation.callback_op(continuation)]),
             ]
         # OK / PENDING: nothing else to show, just move on.
         return [SequenceBeat(ops=[SequenceOperation.callback_op(continuation)])]
@@ -755,6 +778,13 @@ class Flip7Game(Game):
     ) -> None:
         """Start one timed reveal flow for the given card and recipient."""
         self.drawn_card = card
+        self.drawn_card_revealed = False
+        if forced:
+            self._set_flow_status(FLOW_FLIP_THREE, player)
+        elif continuation == DEAL_STEP:
+            self._set_flow_status(FLOW_DEAL_CARD, player)
+        else:
+            self._set_flow_status(FLOW_CARD, player)
         player.cards_drawn += 1
         self.broadcast_personal_l(
             player,
@@ -776,6 +806,7 @@ class Flip7Game(Game):
                             "target_id": player.id,
                             "kind": card.kind,
                             "value": card.value,
+                            "uid": card.uid,
                             "sound": reveal_sound,
                         },
                     )
@@ -819,6 +850,7 @@ class Flip7Game(Game):
             lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
             pause_bots=True,
         )
+        self.refresh_menus()
 
     def _get_card_outcome(
         self,
@@ -844,11 +876,9 @@ class Flip7Game(Game):
             return OUTCOME_OK
         if card.kind == CARD_SECOND_CHANCE:
             # Second Chance is never deferred, not even while a Flip Three is
-            # still revealing: the official rule lets it be set aside and spend
-            # itself on a duplicate later in that same Flip Three. Only Flip
-            # Three and Freeze wait for the three flips to finish.
-            if not player.second_chance:
-                return OUTCOME_OK
+            # still revealing: its recipient is chosen immediately, so it may
+            # protect that player from a duplicate later in the same sequence.
+            # Only Flip Three and Freeze wait for the three flips to finish.
             return OUTCOME_CHOICE
         if card.kind == CARD_FREEZE:
             if forced:
@@ -865,10 +895,10 @@ class Flip7Game(Game):
         player = self.get_player_by_id(str(payload.get("target_id", "")))
         if not isinstance(player, Flip7Player):
             return
-        card = Flip7Card(
-            kind=str(payload.get("kind", "")),
-            value=int(payload.get("value", 0)),
-        )
+        card = self.drawn_card
+        if card is None or card.uid != int(payload.get("uid", -1)):
+            return
+        self.drawn_card_revealed = True
         sound = str(payload.get("sound", ""))
         if sound:
             self._play_reveal_sound(sound)
@@ -879,6 +909,7 @@ class Flip7Game(Game):
             buffer="game",
             card=lambda locale: self._card_label(card, locale),
         )
+        self.refresh_menus()
 
     def _apply_card_effect(self, payload: dict) -> None:
         card = self.drawn_card
@@ -887,9 +918,11 @@ class Flip7Game(Game):
         # Transfer ownership before invoking effects, which may synchronously
         # draw another card or finish the round. Stale callbacks cannot clone it.
         self.drawn_card = None
+        self.drawn_card_revealed = False
         player = self.get_player_by_id(str(payload.get("target_id", "")))
         if not isinstance(player, Flip7Player):
             self.discard.append(card)
+            self.refresh_menus()
             return
         outcome = str(payload.get("outcome", OUTCOME_OK))
 
@@ -912,6 +945,7 @@ class Flip7Game(Game):
                 )
                 self.pending_actions.insert(insert_at, pending)
                 state.pending_action_count += 1
+            self.refresh_menus()
             return
 
         if card.kind == CARD_NUMBER:
@@ -924,6 +958,7 @@ class Flip7Game(Game):
             self._apply_freeze(player, card, outcome)
         elif card.kind == CARD_FLIP_THREE:
             self._apply_flip_three(player, card, outcome)
+        self.refresh_menus()
 
     def _apply_number(self, player: Flip7Player, card: Flip7Card, outcome: str) -> None:
         if outcome in (OUTCOME_SAVED, OUTCOME_BUST):
@@ -938,31 +973,18 @@ class Flip7Game(Game):
             return
         player.cards.append(card)
 
-    def _set_second_chance(self, player: Flip7Player, card: Flip7Card) -> None:
-        player.cards.append(card)
-        self.broadcast_personal_l(
-            player,
-            "flip7-you-set-second-chance",
-            "flip7-player-sets-second-chance",
-            buffer="game",
-        )
-
     def _apply_second_chance(
         self, player: Flip7Player, card: Flip7Card, outcome: str
     ) -> None:
-        if not player.second_chance:
-            self._set_second_chance(player, card)
-            return
         if outcome != OUTCOME_CHOICE:
             return
         self._resolve_choice_open(CHOICE_SECOND_CHANCE, player, card)
 
-    def _apply_freeze(
-        self, player: Flip7Player, card: Flip7Card, outcome: str
-    ) -> None:
+    def _apply_freeze(self, player: Flip7Player, card: Flip7Card, outcome: str) -> None:
         if outcome == OUTCOME_STOP_ALONE:
             player.round_status = STATUS_STAYED
             self.discard.append(card)
+            self._set_flow_status(FLOW_BANK, player)
             return
         if outcome == OUTCOME_CHOICE:
             self._resolve_choice_open(CHOICE_FREEZE, player, card)
@@ -1026,7 +1048,11 @@ class Flip7Game(Game):
     def _award_flip_seven(self, player: Flip7Player) -> None:
         player.flip_sevens += 1
         self.broadcast_personal_l(
-            player, "flip7-flip-seven-you", "flip7-flip-seven", buffer="game"
+            player,
+            "flip7-flip-seven-you",
+            "flip7-flip-seven",
+            buffer="game",
+            bonus=FLIP_SEVEN_BONUS,
         )
 
     def _discard_pending_actions_for(self, owner_id: str) -> list[Flip7PendingAction]:
@@ -1044,7 +1070,10 @@ class Flip7Game(Game):
         return dropped
 
     def _flip_bust_abort(self, target_id: str) -> None:
+        state = self.flip_state
         self.flip_state = None
+        if state is not None:
+            self.discard.append(state.card)
         # A bust only voids the action cards that busted recipient revealed.
         # An outer player's queued Freeze stays queued and resolvable.
         if self._discard_pending_actions_for(target_id):
@@ -1067,33 +1096,28 @@ class Flip7Game(Game):
         kind: str,
         actor: Flip7Player,
         *,
-        card: Flip7Card | None = None,
+        card: Flip7Card,
     ) -> str:
-        self.pending_choice = Flip7Choice(
-            kind=kind, actor_id=actor.id, card=card
-        )
+        self.pending_choice = Flip7Choice(kind=kind, actor_id=actor.id, card=card)
         targets = self._choice_targets()
 
         if not targets:
-            if card is not None:
-                self.discard.append(card)
+            self.discard.append(card)
             self._announce_discarded_action(actor, kind, card)
             self.pending_choice = None
             return OUTCOME_OK
-        if kind in (CHOICE_FREEZE, CHOICE_FLIP_THREE) and len(targets) == 1:
+        if len(targets) == 1:
             self._consume_choice(actor, targets[0])
             return OUTCOME_FLOW
         self._arm_bot()
-        self.refresh_menus(actor)
+        self.refresh_menus()
         if not actor.is_bot and actor.id:
             first = targets[0]
-            self.request_menu_focus(
-                actor, f"choose_{kind}_{first.id}"
-            )
+            self.request_menu_focus(actor, f"choose_{kind}_{first.id}")
         return OUTCOME_CHOICE
 
     def _announce_discarded_action(
-        self, actor: Flip7Player, kind: str, card: Flip7Card | None
+        self, actor: Flip7Player, kind: str, card: Flip7Card
     ) -> None:
         if kind == CHOICE_SECOND_CHANCE:
             self.broadcast_personal_l(
@@ -1103,16 +1127,12 @@ class Flip7Game(Game):
                 buffer="game",
             )
             return
-        if card is not None:
-            action = lambda locale: self._card_label(card, locale)
-        else:
-            action = lambda locale: Localization.get(locale, "flip7-card-freeze")
         self.broadcast_personal_l(
             actor,
             "flip7-you-discard-action",
             "flip7-player-discards-action",
             buffer="game",
-            action=action,
+            action=lambda locale: self._card_label(card, locale),
         )
 
     def _consume_choice(self, actor: Flip7Player, target: Flip7Player) -> None:
@@ -1121,6 +1141,7 @@ class Flip7Game(Game):
             return
         card = choice.card
         self.pending_choice = None
+        self.refresh_menus()
         if self._apply_choice(actor, target, card, choice.kind):
             return
         self._after_choice_flow()
@@ -1129,13 +1150,12 @@ class Flip7Game(Game):
         self,
         actor: Flip7Player,
         target: Flip7Player,
-        card: Flip7Card | None,
+        card: Flip7Card,
         kind: str,
     ) -> bool:
         """Resolve one choice; return True when a flow/flip now owns progress."""
         if kind == CHOICE_FREEZE:
-            if card is not None:
-                self.discard.append(card)
+            self.discard.append(card)
             target.round_status = STATUS_STAYED
             points = self.round_points(target)
             self.play_sound(audio.SOUND_STAY)
@@ -1159,8 +1179,6 @@ class Flip7Game(Game):
             self._start_bank_flow(AFTER_CHOICE, target)
             return True
         if kind == CHOICE_FLIP_THREE:
-            if card is not None:
-                self.discard.append(card)
             if target is actor:
                 self.broadcast_personal_l(
                     actor,
@@ -1176,21 +1194,29 @@ class Flip7Game(Game):
                     buffer="game",
                     target=target,
                 )
-            self._start_flip_three(target)
+            self._start_flip_three(target, card)
             return True
         # CHOICE_SECOND_CHANCE
-        if card is not None:
-            target.cards.append(card)
-        self.broadcast_personal_l(
-            actor,
-            "flip7-you-give-second-chance",
-            "flip7-player-gives-second-chance",
-            buffer="game",
-            target=target,
-        )
+        target.cards.append(card)
+        if target is actor:
+            self.broadcast_personal_l(
+                actor,
+                "flip7-you-set-second-chance",
+                "flip7-player-sets-second-chance",
+                buffer="game",
+            )
+        else:
+            self.broadcast_personal_l(
+                actor,
+                "flip7-you-give-second-chance",
+                "flip7-player-gives-second-chance",
+                buffer="game",
+                target=target,
+            )
         return False
 
     def _start_bank_flow(self, continuation: str, player: Flip7Player) -> None:
+        self._set_flow_status(FLOW_BANK, player)
         self.start_sequence(
             self._flow_id(SEQUENCE_CARD_FLOW_PREFIX, player, suffix="bank"),
             [
@@ -1201,6 +1227,7 @@ class Flip7Game(Game):
             lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
             pause_bots=True,
         )
+        self.refresh_menus()
 
     def _after_choice_flow(self) -> None:
         if self.flip_state is not None:
@@ -1244,8 +1271,9 @@ class Flip7Game(Game):
     # Flip Three
     # ------------------------------------------------------------------
 
-    def _start_flip_three(self, target: Flip7Player) -> None:
-        self.flip_state = Flip7FlipState(target_id=target.id)
+    def _start_flip_three(self, target: Flip7Player, card: Flip7Card) -> None:
+        self.flip_state = Flip7FlipState(target_id=target.id, card=card)
+        self._set_flow_status(FLOW_FLIP_THREE, target)
         self._flip_draw()
 
     def _flip_draw(self) -> None:
@@ -1253,17 +1281,14 @@ class Flip7Game(Game):
         if state is None:
             return
         if state.remaining <= 0:
-            self.flip_state = None
             self._flip_finish()
             return
 
         target = self.get_player_by_id(state.target_id)
         if not isinstance(target, Flip7Player):
-            self.flip_state = None
-            self._continue_flow()
+            self._flip_bust_abort(state.target_id)
             return
         if target.round_status != STATUS_PLAYING:
-            self.flip_state = None
             self._flip_bust_abort(target.id)
             return
 
@@ -1278,7 +1303,10 @@ class Flip7Game(Game):
         )
 
     def _flip_finish(self) -> None:
+        state = self.flip_state
         self.flip_state = None
+        if state is not None:
+            self.discard.append(state.card)
         if self.pending_actions:
             self._resolve_pending_flow()
         else:
@@ -1293,10 +1321,8 @@ class Flip7Game(Game):
         self._discard_pending_cards()
         self.round += 1
         self.phase = PHASE_PLAYING
-        self.pending_choice = None
-        self.pending_actions = []
-        self.flip_state = None
-        self.drawn_card = None
+        self._clear_flow_status()
+        self.round_awards = {}
 
         active = self._active()
         for player in self.players:
@@ -1315,13 +1341,16 @@ class Flip7Game(Game):
         ordered = [active[(self.dealer_index + 1 + i) % count] for i in range(count)]
         self.deal_order = [p.id for p in ordered]
         self.deal_index = 0
+        self._set_flow_status(FLOW_DEAL_START, dealer)
 
         self.play_sound(audio.SOUND_ROUND_START)
-        self.broadcast_l(
+        self.broadcast_personal_l(
+            dealer,
+            "flip7-round-start-you",
             "flip7-round-start",
             buffer="game",
             round=self.round,
-            dealer=dealer.name,
+            dealer=dealer,
         )
         self.start_sequence(
             self._flow_id(SEQUENCE_ROUND_START_PREFIX, dealer, suffix="deal"),
@@ -1329,12 +1358,13 @@ class Flip7Game(Game):
                 # Sequence ops run at the START of a beat, so the cue needs its
                 # own beat before the first card may be dealt.
                 SequenceBeat.after_audio(audio.sound_ticks(audio.SOUND_ROUND_START)),
-                SequenceBeat(ops=[SequenceOperation.callback_op("deal_step")]),
+                SequenceBeat(ops=[SequenceOperation.callback_op(DEAL_STEP)]),
             ],
             tag=TAG_FLOW,
             lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
             pause_bots=True,
         )
+        self.refresh_menus()
 
     def _deal_step(self) -> None:
         if self.deal_index >= len(self.deal_order):
@@ -1353,18 +1383,17 @@ class Flip7Game(Game):
             return
 
         card = self._draw_card()
-        self._resolve_card(player, card, forced=False, continuation="deal_step")
+        self._resolve_card(player, card, forced=False, continuation=DEAL_STEP)
 
     def _begin_turn_order(self) -> None:
         ordered = [
             player
-            for player in (
-                self.get_player_by_id(pid) for pid in self.deal_order
-            )
+            for player in (self.get_player_by_id(pid) for pid in self.deal_order)
             if isinstance(player, Flip7Player)
         ]
         self.deal_index = len(self.deal_order)
         self.set_turn_players(ordered)
+        self._clear_flow_status()
         index = self._next_playing_slot(-1)
         if index < 0:
             self._end_round()
@@ -1387,6 +1416,7 @@ class Flip7Game(Game):
         if self.deal_index < len(self.deal_order):
             self._deal_step()
             return
+        self._clear_flow_status()
         index = self._next_playing_slot(self.turn_index)
         if index < 0:
             self._end_round()
@@ -1401,8 +1431,12 @@ class Flip7Game(Game):
     # ------------------------------------------------------------------
 
     def _schedule_start_round(self) -> None:
+        active = self._active()
+        if not active:
+            self.refresh_menus()
+            return
         self.start_sequence(
-            self._flow_id(SEQUENCE_ROUND_START_PREFIX, self._active()[0], suffix="next"),
+            self._flow_id(SEQUENCE_ROUND_START_PREFIX, active[0], suffix="next"),
             [
                 SequenceBeat.after_audio(audio.sound_ticks(audio.SOUND_ROUND_END)),
                 SequenceBeat(ops=[SequenceOperation.callback_op("start_round")]),
@@ -1414,20 +1448,23 @@ class Flip7Game(Game):
 
     def _discard_pending_cards(self) -> None:
         if self.pending_choice is not None:
-            if self.pending_choice.card is not None:
-                self.discard.append(self.pending_choice.card)
+            self.discard.append(self.pending_choice.card)
             self.pending_choice = None
         for pending in self.pending_actions:
             self.discard.append(pending.card)
         self.pending_actions = []
+        if self.flip_state is not None:
+            self.discard.append(self.flip_state.card)
+        self.flip_state = None
         if self.drawn_card is not None:
             self.discard.append(self.drawn_card)
         self.drawn_card = None
+        self.drawn_card_revealed = False
 
     def _end_round(self, *, flip_seven: Flip7Player | None = None) -> None:
         self.cancel_sequences_by_tag(TAG_FLOW)
         self.phase = PHASE_ROUND_END
-        self.flip_state = None
+        self._clear_flow_status()
         self._discard_pending_cards()
 
         awards: list[tuple[Flip7Player, int]] = []
@@ -1441,9 +1478,7 @@ class Flip7Game(Game):
             player.total_score += points
             self._team_manager.add_to_team_score(player.name, points)
             awards.append((player, points))
-
-        for player in self.players:
-            self._return_area_cards(player)
+        self.round_awards = {player.id: points for player, points in awards}
 
         self.play_sound(audio.SOUND_ROUND_END)
         self.broadcast_l("flip7-round-end", buffer="game", round=self.round)
@@ -1454,7 +1489,6 @@ class Flip7Game(Game):
                     "flip7-round-bust-you",
                     "flip7-round-bust",
                     buffer="game",
-                    points=points,
                 )
             else:
                 self.broadcast_personal_l(
@@ -1492,8 +1526,10 @@ class Flip7Game(Game):
                 lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
                 pause_bots=True,
             )
+            self.refresh_menus()
             return
         self._schedule_start_round()
+        self.refresh_menus()
 
     def _announce_match_win(self, payload: dict) -> None:
         winner = self.get_player_by_id(str(payload.get("winner_id", "")))
@@ -1530,18 +1566,21 @@ class Flip7Game(Game):
                 # make every before_menu_build() destroy and rebuild the set.
                 return ["hit", "stay"]
             return [
-                f"choose_{choice.kind}_{target.id}"
-                for target in self._choice_targets()
+                f"choose_{choice.kind}_{target.id}" for target in self._choice_targets()
             ]
         return ["hit", "stay"]
 
     def before_menu_build(self, player: Player) -> None:
-        """Keep the turn action set in sync with the current choice state.
+        """Keep device ordering and targeted choices in sync.
 
-        The turn menu changes shape entirely when a targeted choice opens, and
-        turn action sets are otherwise only built once when the player joins.
+        Rebuilding the standard set lets a live desktop/touch handover move in
+        either direction. The turn set changes shape only for the player who
+        must answer a targeted choice.
         """
         super().before_menu_build(player)
+        if self.get_action_set(player, "standard") is not None:
+            self.remove_action_set(player, "standard")
+            self.add_action_set(player, self.create_standard_action_set(player))
         if player.is_spectator:
             return
         desired = self._desired_turn_action_ids(player)
@@ -1609,12 +1648,15 @@ class Flip7Game(Game):
         target_key = CHOICE_KEY_SUFFIX[kind]
         for target in self._choice_targets():
             action_id = f"choose_{kind}_{target.id}"
+            label_key = f"flip7-target-{target_key}"
+            if kind == CHOICE_SECOND_CHANCE and target is player:
+                label_key = "flip7-target-second-chance-self"
             action_set.add(
                 Action(
                     id=action_id,
                     label=Localization.get(
                         locale,
-                        f"flip7-target-{target_key}",
+                        label_key,
                         target=target.name,
                         points=self.round_points(target),
                     ),
@@ -1640,19 +1682,24 @@ class Flip7Game(Game):
             return Visibility.HIDDEN
         return Visibility.VISIBLE
 
-    def _is_hit_enabled(self, player: Player) -> str | None:
+    def _turn_action_disabled_reason(self, player: Player) -> str | None:
         if self.status != "playing" or self.phase != PHASE_PLAYING:
             return "action-not-playing"
         if player.is_spectator:
             return "action-spectator"
-        if self.is_sequence_gameplay_locked():
-            return "flip7-error-wait-card"
         if self.pending_choice is not None:
             return "flip7-error-wait-choice"
-        if self.flip_state is not None:
+        if self.flip_state is not None or self.flow_kind == FLOW_FLIP_THREE:
             return "flip7-error-wait-flip-three"
-        if self.deal_index < len(self.deal_order):
+        if self.deal_index < len(self.deal_order) or self.flow_kind in (
+            FLOW_DEAL_START,
+            FLOW_DEAL_CARD,
+        ):
             return "flip7-error-wait-dealing"
+        if self.is_sequence_gameplay_locked():
+            if self.flow_kind == FLOW_BANK:
+                return "flip7-error-wait-banking"
+            return "flip7-error-wait-card"
         if self.current_player is not player:
             return "action-not-your-turn"
         flip_player: Flip7Player = player  # type: ignore[assignment]
@@ -1660,24 +1707,14 @@ class Flip7Game(Game):
             return "flip7-error-not-playing-round"
         return None
 
+    def _is_hit_enabled(self, player: Player) -> str | None:
+        return self._turn_action_disabled_reason(player)
+
     def _is_stay_enabled(self, player: Player) -> str | None:
-        if self.status != "playing" or self.phase != PHASE_PLAYING:
-            return "action-not-playing"
-        if player.is_spectator:
-            return "action-spectator"
-        if self.is_sequence_gameplay_locked():
-            return "flip7-error-wait-card"
-        if self.pending_choice is not None:
-            return "flip7-error-wait-choice"
-        if self.flip_state is not None:
-            return "flip7-error-wait-flip-three"
-        if self.deal_index < len(self.deal_order):
-            return "flip7-error-wait-dealing"
-        if self.current_player is not player:
-            return "action-not-your-turn"
+        reason = self._turn_action_disabled_reason(player)
+        if reason is not None:
+            return reason
         flip_player: Flip7Player = player  # type: ignore[assignment]
-        if flip_player.round_status != STATUS_PLAYING:
-            return "flip7-error-not-playing-round"
         if not flip_player.cards:
             return "flip7-error-no-cards-to-bank"
         return None
@@ -1692,7 +1729,7 @@ class Flip7Game(Game):
         if self._choice_actor() is not player:
             return "action-not-your-turn"
         if self.is_sequence_gameplay_locked():
-            return "flip7-error-wait-card"
+            return "flip7-error-choice-not-ready"
         return None
 
     def _get_hit_label(self, player: Player, action_id: str) -> str:
@@ -1715,9 +1752,7 @@ class Flip7Game(Game):
             return
         flip_player: Flip7Player = player  # type: ignore[assignment]
         card = self._draw_card()
-        self._resolve_card(
-            flip_player, card, forced=False, continuation=CONTINUE_FLOW
-        )
+        self._resolve_card(flip_player, card, forced=False, continuation=CONTINUE_FLOW)
 
     def _action_stay(self, player: Player, action_id: str) -> None:
         if self._is_stay_enabled(player) is not None:
@@ -1727,7 +1762,7 @@ class Flip7Game(Game):
         # Repaint this player's persistent control immediately so its label no
         # longer advertises points that have already been banked.  The turn
         # advances only after the bank cue finishes.
-        self.refresh_menus(flip_player)
+        self.refresh_menus()
         points = self.round_points(flip_player)
         self.play_sound(audio.SOUND_STAY)
         self.broadcast_personal_l(
@@ -1753,15 +1788,111 @@ class Flip7Game(Game):
     # Information actions
     # ------------------------------------------------------------------
 
+    def _turn_status_line(self, viewer: Player, locale: str) -> str:
+        """Render the real decision or sequence owner for one listener."""
+
+        if self.status != "playing":
+            return Localization.get(locale, self.no_turn_announcement_key)
+        if self.phase == PHASE_MATCH_END:
+            return Localization.get(locale, "flip7-whose-turn-match-end")
+        if self.phase == PHASE_ROUND_END:
+            return Localization.get(
+                locale,
+                "flip7-whose-turn-round-end",
+                round=self.round,
+            )
+
+        choice = self.pending_choice
+        actor = self._choice_actor()
+        if choice is not None and actor is not None:
+            key = (
+                "flip7-whose-turn-choice-you"
+                if actor.id == viewer.id
+                else "flip7-whose-turn-choice-player"
+            )
+            return Localization.get(
+                locale,
+                key,
+                player=actor.name,
+                action=self._card_label(choice.card, locale),
+            )
+
+        flow_player = self._flow_player()
+        if flow_player is not None:
+            personal = flow_player.id == viewer.id
+            key_by_flow = {
+                FLOW_BANK: (
+                    "flip7-whose-turn-banking-you",
+                    "flip7-whose-turn-banking-player",
+                ),
+                FLOW_CARD: (
+                    "flip7-whose-turn-card-you",
+                    "flip7-whose-turn-card-player",
+                ),
+                FLOW_DEAL_CARD: (
+                    "flip7-whose-turn-deal-card-you",
+                    "flip7-whose-turn-deal-card-player",
+                ),
+                FLOW_DEAL_START: (
+                    "flip7-whose-turn-dealing-you",
+                    "flip7-whose-turn-dealing-player",
+                ),
+                FLOW_FLIP_THREE: (
+                    "flip7-whose-turn-flip-three-you",
+                    "flip7-whose-turn-flip-three-player",
+                ),
+            }
+            keys = key_by_flow.get(self.flow_kind)
+            if keys is not None:
+                return Localization.get(
+                    locale,
+                    keys[0] if personal else keys[1],
+                    player=flow_player.name,
+                    round=self.round,
+                )
+
+        if self.is_sequence_gameplay_locked():
+            return Localization.get(locale, "flip7-whose-turn-resolving")
+
+        current = self.current_player
+        if current is None:
+            return Localization.get(locale, self.no_turn_announcement_key)
+        key = (
+            self.turn_announcement_personal_key
+            if current.id == viewer.id
+            else self.turn_announcement_others_key
+        )
+        return Localization.get(locale, key, player=current.name)
+
+    def _action_whose_turn(self, player: Player, action_id: str) -> None:
+        del action_id
+        user = self.get_user(player)
+        if user is not None:
+            user.speak(
+                self._turn_status_line(player, user.locale),
+                buffer="game",
+            )
+
     def create_standard_action_set(self, player: Player) -> ActionSet:
         action_set = super().create_standard_action_set(player)
         user = self.get_user(player)
         locale = user.locale if user else "en"
+        for action_id, label_key in (
+            ("check_scores", "flip7-check-scores"),
+            ("check_scores_detailed", "flip7-review-scores"),
+        ):
+            action = action_set.get_action(action_id)
+            if action is not None:
+                action.label = Localization.get(locale, label_key)
 
         action_set.add(
             Action(
                 id="check_area",
                 label=Localization.get(locale, "flip7-check-area"),
+                description=Localization.get(
+                    locale,
+                    "flip7-check-area-description",
+                ),
                 handler="_action_check_area",
                 is_enabled="_is_check_area_enabled",
                 is_hidden="_is_check_area_hidden",
@@ -1771,6 +1902,10 @@ class Flip7Game(Game):
             Action(
                 id="check_table",
                 label=Localization.get(locale, "flip7-check-table"),
+                description=Localization.get(
+                    locale,
+                    "flip7-check-table-description",
+                ),
                 handler="_action_check_table",
                 is_enabled="_is_check_table_enabled",
                 is_hidden="_is_check_table_hidden",
@@ -1781,6 +1916,10 @@ class Flip7Game(Game):
             Action(
                 id="check_deck",
                 label=Localization.get(locale, "flip7-check-deck"),
+                description=Localization.get(
+                    locale,
+                    "flip7-check-deck-description",
+                ),
                 handler="_action_check_deck",
                 is_enabled="_is_check_deck_enabled",
                 is_hidden="_is_check_deck_hidden",
@@ -1790,8 +1929,14 @@ class Flip7Game(Game):
         if self.is_touch_client(user):
             self._order_touch_standard_actions(
                 action_set,
-                ["check_area", "check_table", "check_deck", "check_scores",
-                 "whose_turn", "whos_at_table"],
+                [
+                    "check_area",
+                    "check_table",
+                    "check_deck",
+                    "check_scores",
+                    "whose_turn",
+                    "whos_at_table",
+                ],
             )
         return action_set
 
@@ -1848,47 +1993,83 @@ class Flip7Game(Game):
             return Visibility.VISIBLE
         return super()._is_check_scores_hidden(player)
 
-    def _area_line(
-        self, player: Flip7Player, locale: str, is_self: bool = True
-    ) -> str:
+    def _area_line(self, player: Flip7Player, locale: str, is_self: bool = True) -> str:
         """Build a compact, complete summary of one public player area."""
         who = Localization.get(locale, "flip7-you-label") if is_self else player.name
-        status = ""
-        if player.round_status == STATUS_STAYED:
-            status = Localization.get(locale, "flip7-area-status-stayed")
-        elif player.round_status == STATUS_BUSTED:
-            status = Localization.get(locale, "flip7-area-status-busted")
+        if player.round_status == STATUS_PLAYING and self.phase != PHASE_PLAYING:
+            status_key = "flip7-area-status-scored"
+        else:
+            status_key = {
+                STATUS_PLAYING: "flip7-area-status-playing",
+                STATUS_STAYED: "flip7-area-status-stayed",
+                STATUS_BUSTED: "flip7-area-status-busted",
+            }.get(player.round_status, "flip7-area-status-playing")
+        status = Localization.get(locale, status_key)
         if player.numbers:
             numbers = self._read_list(locale, [str(n) for n in player.numbers])
         else:
             numbers = Localization.get(locale, "flip7-area-numbers-none")
-        bonuses: list[str] = []
-        bonuses.extend(
+        specials: list[str] = []
+        specials.extend(
             Localization.get(locale, "flip7-card-modifier", value=m)
             for m in player.modifiers
         )
         if player.has_double:
-            bonuses.append(Localization.get(locale, "flip7-card-double"))
+            specials.append(Localization.get(locale, "flip7-card-double"))
         if player.second_chance:
-            bonuses.append(Localization.get(locale, "flip7-card-second-chance"))
-        if bonuses:
-            return Localization.get(
+            specials.append(Localization.get(locale, "flip7-card-second-chance"))
+        if self.flip_state is not None and self.flip_state.target_id == player.id:
+            specials.append(self._card_label(self.flip_state.card, locale))
+        specials.extend(
+            self._card_label(pending.card, locale)
+            for pending in self.pending_actions
+            if pending.owner_id == player.id
+        )
+        if (
+            self.pending_choice is not None
+            and self.pending_choice.actor_id == player.id
+        ):
+            specials.append(self._card_label(self.pending_choice.card, locale))
+
+        # Once a player busts, their exposed cards remain reviewable until the
+        # next round, but their actual round score is zero.
+        if self.phase != PHASE_PLAYING and player.id in self.round_awards:
+            points = self.round_awards[player.id]
+        else:
+            points = (
+                0 if player.round_status == STATUS_BUSTED else self.round_points(player)
+            )
+        if specials:
+            area = Localization.get(
                 locale,
-                "flip7-area-inline-with-bonuses",
+                "flip7-area-inline-with-specials",
                 who=who,
                 status=status,
                 numbers=numbers,
-                points=self.round_points(player),
-                bonuses=self._read_list(locale, bonuses),
+                points=points,
+                specials=self._read_list(locale, specials),
             )
-        return Localization.get(
-            locale,
-            "flip7-area-inline",
-            who=who,
-            status=status,
-            numbers=numbers,
-            points=self.round_points(player),
-        )
+        else:
+            area = Localization.get(
+                locale,
+                "flip7-area-inline",
+                who=who,
+                status=status,
+                numbers=numbers,
+                points=points,
+            )
+        if (
+            self.drawn_card_revealed
+            and self.drawn_card is not None
+            and self.flow_player_id == player.id
+        ):
+            return Localization.get(
+                locale,
+                "flip7-area-resolving-card",
+                area=area,
+                card=self._card_label(self.drawn_card, locale),
+            )
+        return area
 
     def _read_list(self, locale: str, items: list[str]) -> str:
         return Localization.format_list_and(locale, items)
@@ -1903,33 +2084,52 @@ class Flip7Game(Game):
         user.speak(self._area_line(flip_player, user.locale), buffer="game")
 
     def _action_check_table(self, player: Player, action_id: str) -> None:
-        user = self.get_user(player)
-        if user is None:
-            return
+        del action_id
+        self.live_status_box(
+            player,
+            "flip7_table",
+            self._build_table_status,
+            focus_id="table_header",
+        )
+
+    def _build_table_status(
+        self,
+        viewer: Player,
+        user: User,
+    ) -> list[MenuItem]:
         locale = user.locale
-        lines = [
-            Localization.get(
-                locale,
-                "flip7-check-round",
-                round=self.round,
-                target=self.options.target_score,
-            )
+        items = [
+            MenuItem(
+                text=Localization.get(
+                    locale,
+                    "flip7-check-round",
+                    round=self.round,
+                    target=self.options.target_score,
+                ),
+                id="table_header",
+            ),
+            MenuItem(
+                text=self._turn_status_line(viewer, locale),
+                id="turn_status",
+            ),
         ]
         for other in self._active():
-            lines.append(
-                Localization.get(
-                    locale,
-                    "flip7-table-line",
-                    area=self._area_line(
-                        other,
+            items.append(
+                MenuItem(
+                    text=Localization.get(
                         locale,
-                        is_self=other is player,
+                        "flip7-table-line",
+                        area=self._area_line(
+                            other,
+                            locale,
+                            is_self=other.id == viewer.id,
+                        ),
+                        total=other.total_score,
                     ),
-                    total=other.total_score,
+                    id=f"area:{other.id}",
                 )
             )
-        for line in lines:
-            user.speak(line, buffer="game")
+        return items
 
     def _action_check_deck(self, player: Player, action_id: str) -> None:
         user = self.get_user(player)
@@ -2017,9 +2217,7 @@ class Flip7Game(Game):
             game_type=self.get_type(),
             timestamp=datetime.now(timezone.utc).isoformat(),
             duration_ticks=self.sound_scheduler_tick,
-            player_results=[
-                PlayerResult.from_player(p) for p in self._active()
-            ],
+            player_results=[PlayerResult.from_player(p) for p in self._active()],
             custom_data={
                 "winner_name": winner.name if winner else None,
                 "winner_ids": [winner.id] if winner else [],

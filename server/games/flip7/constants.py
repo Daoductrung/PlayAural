@@ -26,6 +26,14 @@ PHASE_PLAYING = "playing"
 PHASE_ROUND_END = "round_end"
 PHASE_MATCH_END = "match_end"
 
+# Public flow context used by accessible status reporting while the ordinary
+# turn owner is temporarily suspended by a timed sequence.
+FLOW_BANK = "bank"
+FLOW_CARD = "card"
+FLOW_DEAL_CARD = "deal_card"
+FLOW_DEAL_START = "deal_start"
+FLOW_FLIP_THREE = "flip_three"
+
 CHOICE_FREEZE = "freeze"
 CHOICE_FLIP_THREE = "flip_three"
 CHOICE_SECOND_CHANCE = "second_chance"

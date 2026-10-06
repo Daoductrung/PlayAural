@@ -32,10 +32,10 @@ from ..games.flip7.game import (
     CONTINUE_FLOW,
     FLIP_SEVEN_BONUS,
     FLIP_SEVEN_TARGET,
+    FLOW_DEAL_CARD,
     MAX_NUMBER,
     MODIFIER_VALUES,
     OUTCOME_CHOICE,
-    OUTCOME_OK,
     OUTCOME_PENDING,
     PHASE_MATCH_END,
     PHASE_PLAYING,
@@ -203,7 +203,13 @@ def test_flip7_localization_and_documentation_are_present():
     for locale in ("en", "es", "pt", "vi"):
         ftl = ROOT / "server" / "locales" / locale / "flip7.ftl"
         doc = (
-            ROOT / "server" / "documentation" / "content" / locale / "games" / "flip7.md"
+            ROOT
+            / "server"
+            / "documentation"
+            / "content"
+            / locale
+            / "games"
+            / "flip7.md"
         )
         assert ftl.exists(), ftl
         assert doc.exists(), doc
@@ -221,8 +227,7 @@ def test_flip7_deck_composition():
     assert len({c.uid for c in deck}) == 94
 
     kinds = {
-        kind: [c for c in deck if c.kind == kind]
-        for kind in {c.kind for c in deck}
+        kind: [c for c in deck if c.kind == kind] for kind in {c.kind for c in deck}
     }
     numbers = kinds[CARD_NUMBER]
     assert len(numbers) == 1 + sum(range(1, MAX_NUMBER + 1))
@@ -276,9 +281,7 @@ def test_flip7_hit_draws_a_card_into_the_area():
     game.before_menu_build(actor)
     game.execute_action(actor, "hit")
     assert actor.cards_drawn == 2
-    assert advance_until(
-        game, lambda: game.drawn_card is None and 9 in actor.numbers
-    )
+    assert advance_until(game, lambda: game.drawn_card is None and 9 in actor.numbers)
     assert 9 in actor.numbers
     assert actor.round_status == STATUS_PLAYING
 
@@ -286,7 +289,7 @@ def test_flip7_hit_draws_a_card_into_the_area():
 def test_flip7_hit_disabled_while_dealing():
     game = _make_game(player_count=2)
     for player in game.players:
-        assert game._is_hit_enabled(player) == "flip7-error-wait-card"
+        assert game._is_hit_enabled(player) == "flip7-error-wait-dealing"
 
 
 def test_flip7_hit_disabled_for_waiting_player_after_deal():
@@ -362,7 +365,12 @@ def test_flip7_seven_unique_numbers_scores_bonus_and_ends_round():
     assert advance_until(game, lambda: game.phase != PHASE_PLAYING)
     assert first.flip_sevens == 1
     assert first.total_score == sum(range(1, 8)) + FLIP_SEVEN_BONUS
-    assert first.numbers == []
+    assert first.numbers == list(range(1, 8))
+    assert first.id in game.round_awards
+    assert f"Round score: {first.total_score} points" in game._area_line(
+        first,
+        "en",
+    )
     assert game.phase in (PHASE_ROUND_END, PHASE_MATCH_END)
 
 
@@ -405,11 +413,19 @@ def test_flip7_freeze_alone_stops_the_last_playing_player():
     assert game.pending_choice is None
 
 
-def test_flip7_second_chance_sets_aside_when_not_held():
+def test_flip7_second_chance_can_be_kept_or_given_when_not_held():
     game = _make_game(player_count=2, start=False)
     _deal_number_cards(game, [3, 4])
     actor = game.players[0]
     _resolve(game, actor, _card(CARD_SECOND_CHANCE, uid=1))
+
+    assert game.pending_choice is not None
+    assert game._choice_targets() == game.players
+    game.before_menu_build(actor)
+    own_action = game.find_action(actor, f"choose_second_chance_{actor.id}")
+    assert game.resolve_action(actor, own_action).label == "Keep Second Chance"
+    game.execute_action(actor, f"choose_second_chance_{actor.id}")
+
     assert actor.second_chance is True
     assert game.pending_choice is None
 
@@ -440,6 +456,20 @@ def test_flip7_given_second_chance_lands_on_a_target():
     assert game.pending_choice is None
 
 
+def test_flip7_extra_second_chance_auto_targets_the_only_eligible_player():
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [3, 4, 5])
+    actor, recipient, unavailable = game.players
+    actor.cards.append(_card(CARD_SECOND_CHANCE, uid=50))
+    unavailable.round_status = STATUS_STAYED
+
+    _resolve(game, actor, _card(CARD_SECOND_CHANCE, uid=51))
+
+    assert game.pending_choice is None
+    assert recipient.second_chance is True
+    assert not unavailable.second_chance
+
+
 # ---------------------------------------------------------------------------
 # Flip Three
 # ---------------------------------------------------------------------------
@@ -450,7 +480,7 @@ def test_flip7_flip_three_forced_draws_apply_cards():
     _deal_number_cards(game, [3, 4])
     target = game.players[1]
     game.deck = [_card(CARD_NUMBER, v, uid=10 + v) for v in (3, 5, 6)]
-    game._start_flip_three(target)
+    game._start_flip_three(target, _card(CARD_FLIP_THREE, uid=902))
     assert game.flip_state is not None
     assert advance_until(game, lambda: game.flip_state is None)
     assert sorted(c.value for c in target.cards) == [3, 4, 5, 6]
@@ -469,17 +499,20 @@ def test_flip7_forced_action_cards_defer_only_flip_three_and_freeze():
     assert game._get_card_outcome(target, flip_three, forced=True) == OUTCOME_PENDING
     # A Second Chance is never deferred, so it can still spend itself on a
     # duplicate later in the very same Flip Three.
-    assert game._get_card_outcome(target, chance, forced=True) == OUTCOME_OK
+    assert game._get_card_outcome(target, chance, forced=True) == OUTCOME_CHOICE
 
     game.drawn_card = freeze
     game._apply_card_effect(_effect_payload(target, freeze, uid=1))
     game.drawn_card = chance
-    game._apply_card_effect(_effect_payload(target, chance, uid=2, outcome=OUTCOME_OK))
+    game._apply_card_effect(
+        _effect_payload(target, chance, uid=2, outcome=OUTCOME_CHOICE)
+    )
 
     assert [p.kind for p in game.pending_actions] == [CARD_FREEZE]
     assert all(p.owner_id == target.id for p in game.pending_actions)
-    assert chance in target.cards
-    assert game.pending_choice is None
+    assert game.pending_choice is not None
+    assert game.pending_choice.kind == CHOICE_SECOND_CHANCE
+    assert chance not in target.cards
 
 
 def test_flip7_forced_second_chance_saves_a_duplicate_in_the_same_flip_three():
@@ -493,7 +526,16 @@ def test_flip7_forced_second_chance_saves_a_duplicate_in_the_same_flip_three():
         _card(CARD_NUMBER, 7, uid=2),
         _card(CARD_SECOND_CHANCE, uid=1),
     ]
-    game._start_flip_three(target)
+    game._start_flip_three(target, _card(CARD_FLIP_THREE, uid=900))
+    assert advance_until(
+        game,
+        lambda: (
+            game.pending_choice is not None
+            and game.pending_choice.kind == CHOICE_SECOND_CHANCE
+        ),
+    )
+    game.before_menu_build(target)
+    game.execute_action(target, f"choose_second_chance_{target.id}")
     assert advance_until(game, lambda: game.flip_state is None)
 
     assert target.round_status == STATUS_PLAYING
@@ -513,7 +555,7 @@ def test_flip7_forced_second_chance_opens_a_choice_when_already_held():
         _card(CARD_NUMBER, 3, uid=2),
         _card(CARD_SECOND_CHANCE, uid=1),
     ]
-    game._start_flip_three(target)
+    game._start_flip_three(target, _card(CARD_FLIP_THREE, uid=903))
     assert advance_until(game, lambda: game.pending_choice is not None)
 
     assert game.pending_choice is not None
@@ -546,7 +588,7 @@ def test_flip7_forced_extra_second_chance_without_a_target_resumes_flip_three():
         extra,
     ]
 
-    game._start_flip_three(target)
+    game._start_flip_three(target, _card(CARD_FLIP_THREE, uid=904))
 
     assert advance_until(
         game, lambda: game.flip_state is None and game.drawn_card is None
@@ -630,7 +672,7 @@ def test_flip7_flip_three_forced_bust_aborts_the_flow():
     _deal_number_cards(game, [11, 9])
     target = game.players[1]
     game.deck = [_card(CARD_NUMBER, v, uid=v) for v in (9, 10)]
-    game._start_flip_three(target)
+    game._start_flip_three(target, _card(CARD_FLIP_THREE, uid=905))
     assert game.flip_state is not None
     assert advance_until(game, lambda: game.flip_state is None)
     assert target.round_status == STATUS_BUSTED
@@ -642,9 +684,12 @@ def test_flip7_flip_three_queue_opens_choice_for_the_recipient():
     game = _make_game(player_count=3, start=False)
     _deal_number_cards(game, [11, 4, 12])
     target = game.players[1]
-    game.deck = [_card(CARD_FREEZE, uid=1), _card(CARD_NUMBER, 7, uid=2),
-                 _card(CARD_NUMBER, 8, uid=3)]
-    game._start_flip_three(target)
+    game.deck = [
+        _card(CARD_FREEZE, uid=1),
+        _card(CARD_NUMBER, 7, uid=2),
+        _card(CARD_NUMBER, 8, uid=3),
+    ]
+    game._start_flip_three(target, _card(CARD_FLIP_THREE, uid=906))
     assert advance_until(
         game,
         lambda: (
@@ -664,7 +709,7 @@ def test_flip7_flip_three_discover_of_seven_ends_flow_with_award():
     target = game.players[1]
     target.cards = [_card(CARD_NUMBER, v, uid=10 + v) for v in range(1, 7)]
     game.deck = [_card(CARD_NUMBER, FLIP_SEVEN_TARGET, uid=7)]
-    game._start_flip_three(target)
+    game._start_flip_three(target, _card(CARD_FLIP_THREE, uid=907))
     assert advance_until(game, lambda: game.phase != PHASE_PLAYING)
     assert game.flip_state is None
     assert target.flip_sevens == 1
@@ -695,8 +740,9 @@ def test_flip7_end_round_scores_stayers_and_zeroes_busters():
     assert second.total_score == 0
     assert game._team_manager.get_team(first.name).total_score == 10
     assert game.phase == PHASE_ROUND_END
-    assert first.numbers == [] and first.modifiers == []
-    assert second.numbers == []
+    # Public areas remain reviewable while round scores are announced.
+    assert first.numbers == [3, 5] and first.modifiers == [2]
+    assert second.numbers == [4]
 
 
 def test_flip7_match_leader_is_the_unique_score_above_target():
@@ -749,6 +795,161 @@ def test_flip7_round_end_cue_completes_before_the_first_card_is_dealt():
     assert game.drawn_card is not None
 
 
+def test_flip7_round_start_uses_personal_dealer_perspective():
+    game = _make_game(player_count=3, start=False)
+    for player in game.players:
+        game.get_user(player).clear_messages()
+
+    game.on_start()
+
+    dealer = game.players[0]
+    assert "Round 1. You deal." in _spoken(game.get_user(dealer))
+    for observer in game.players[1:]:
+        assert "Round 1. Player1 deals." in _spoken(game.get_user(observer))
+
+
+def test_flip7_whose_turn_tracks_dealer_then_opening_card_recipient():
+    game = _make_game(player_count=3, start=False)
+    game.on_start()
+    dealer = game.players[0]
+    observer = game.players[1]
+    dealer_user = game.get_user(dealer)
+    observer_user = game.get_user(observer)
+    dealer_user.clear_messages()
+    observer_user.clear_messages()
+
+    game.execute_action(dealer, "whose_turn")
+    game.execute_action(observer, "whose_turn")
+
+    assert _spoken(dealer_user) == ["Round 1: you are dealing."]
+    assert _spoken(observer_user) == ["Round 1: Player1 is dealing."]
+
+    assert advance_until(game, lambda: game.flow_kind == FLOW_DEAL_CARD)
+    recipient = game._flow_player()
+    recipient_user = game.get_user(recipient)
+    recipient_user.clear_messages()
+    dealer_user.clear_messages()
+    game.execute_action(recipient, "whose_turn")
+    game.execute_action(dealer, "whose_turn")
+
+    assert _spoken(recipient_user) == ["Round 1: your opening card is resolving."]
+    assert _spoken(dealer_user) == [
+        f"Round 1: {recipient.name}'s opening card is resolving."
+    ]
+
+
+def test_flip7_whose_turn_reports_normal_turn_with_listener_perspective():
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [3, 4, 5])
+    actor = game.current_player
+    observer = next(player for player in game.players if player is not actor)
+    actor_user = game.get_user(actor)
+    observer_user = game.get_user(observer)
+    actor_user.clear_messages()
+    observer_user.clear_messages()
+
+    game.execute_action(actor, "whose_turn")
+    game.execute_action(observer, "whose_turn")
+
+    assert _spoken(actor_user) == ["It is your turn."]
+    assert _spoken(observer_user) == [f"It is {actor.name}'s turn."]
+
+
+def test_flip7_whose_turn_reports_the_card_sequence_recipient():
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [3, 4, 5])
+    actor = game.current_player
+    observer = next(player for player in game.players if player is not actor)
+    actor_user = game.get_user(actor)
+    observer_user = game.get_user(observer)
+    game._resolve_card(
+        actor,
+        _card(CARD_NUMBER, 9, uid=109),
+        forced=False,
+        continuation=CONTINUE_FLOW,
+    )
+    actor_user.clear_messages()
+    observer_user.clear_messages()
+
+    game.execute_action(actor, "whose_turn")
+    game.execute_action(observer, "whose_turn")
+
+    assert _spoken(actor_user) == ["Your card is resolving."]
+    assert _spoken(observer_user) == [f"{actor.name}'s card is resolving."]
+
+
+def test_flip7_whose_turn_reports_flip_three_target_not_suspended_turn_owner():
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [3, 4, 5])
+    turn_owner = game.current_player
+    target = next(player for player in game.players if player is not turn_owner)
+    observer = next(
+        player for player in game.players if player not in (turn_owner, target)
+    )
+    game.deck = [_card(CARD_NUMBER, value, uid=120 + value) for value in (7, 8, 9)]
+    game._start_flip_three(target, _card(CARD_FLIP_THREE, uid=901))
+    turn_user = game.get_user(turn_owner)
+    target_user = game.get_user(target)
+    observer_user = game.get_user(observer)
+    for user in (turn_user, target_user, observer_user):
+        user.clear_messages()
+
+    game.execute_action(turn_owner, "whose_turn")
+    game.execute_action(target, "whose_turn")
+    game.execute_action(observer, "whose_turn")
+
+    assert _spoken(turn_user) == [f"{target.name} is flipping three cards."]
+    assert _spoken(target_user) == ["You are flipping three cards."]
+    assert _spoken(observer_user) == [f"{target.name} is flipping three cards."]
+
+
+def test_flip7_whose_turn_reports_target_choice_and_banking_sequence():
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [3, 4, 5])
+    actor = game.current_player
+    observer = next(player for player in game.players if player is not actor)
+    actor_user = game.get_user(actor)
+    observer_user = game.get_user(observer)
+    game._open_choice(CHOICE_FREEZE, actor, card=_card(CARD_FREEZE, uid=130))
+    actor_user.clear_messages()
+    observer_user.clear_messages()
+
+    game.execute_action(actor, "whose_turn")
+    game.execute_action(observer, "whose_turn")
+
+    assert _spoken(actor_user) == ["You are choosing a target for Freeze."]
+    assert _spoken(observer_user) == [f"{actor.name} is choosing a target for Freeze."]
+
+    game.cancel_sequences_by_tag(TAG_FLOW)
+    game.pending_choice = None
+    actor.round_status = STATUS_STAYED
+    game._start_bank_flow(CONTINUE_FLOW, actor)
+    actor_user.clear_messages()
+    observer_user.clear_messages()
+    game.execute_action(actor, "whose_turn")
+    game.execute_action(observer, "whose_turn")
+
+    assert _spoken(actor_user) == ["You are stopping and banking."]
+    assert _spoken(observer_user) == [f"{actor.name} is stopping and banking."]
+
+
+def test_flip7_whose_turn_reports_round_and_match_settlement():
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [3, 4, 5])
+    viewer = game.players[0]
+    user = game.get_user(viewer)
+    game._end_round()
+    user.clear_messages()
+
+    game.execute_action(viewer, "whose_turn")
+    assert _spoken(user) == ["Round 1 is settling."]
+
+    game.phase = PHASE_MATCH_END
+    user.clear_messages()
+    game.execute_action(viewer, "whose_turn")
+    assert _spoken(user) == ["The winner is being announced."]
+
+
 def test_flip7_match_win_cue_precedes_the_end_screen():
     game = _make_game(player_count=2, start=False)
     _deal_number_cards(game, [11, 12])
@@ -765,9 +966,7 @@ def test_flip7_match_win_cue_precedes_the_end_screen():
         game.on_tick()
         game.flush_menus()
     said = [
-        message
-        for message in game.get_user(winner).messages
-        if message.type == "speak"
+        message for message in game.get_user(winner).messages if message.type == "speak"
     ]
     assert said
 
@@ -845,6 +1044,38 @@ def test_flip7_information_actions_touch_visibility():
     assert {"check_area", "check_table", "check_deck"} <= desktop_actions
 
 
+def test_flip7_vietnamese_information_labels_match_view_behavior():
+    game = _make_game(
+        player_count=3,
+        start=False,
+        mobile_user=True,
+        locales=["vi", "vi", "vi"],
+    )
+    player = game.players[0]
+    game.before_menu_build(player)
+    labels = {
+        action_id: game.resolve_action(
+            player,
+            game.find_action(player, action_id),
+        ).label
+        for action_id in (
+            "check_area",
+            "check_table",
+            "check_deck",
+            "check_scores",
+            "check_scores_detailed",
+        )
+    }
+
+    assert labels == {
+        "check_area": "Nghe khu vực của tôi",
+        "check_table": "Xem bàn chơi",
+        "check_deck": "Nghe bộ bài",
+        "check_scores": "Nghe điểm",
+        "check_scores_detailed": "Xem điểm chi tiết",
+    }
+
+
 def test_flip7_information_actions_are_disabled_before_play_starts():
     game = _make_game(player_count=3, start=False)
     player = game.players[0]
@@ -873,10 +1104,150 @@ def test_flip7_table_review_includes_every_public_face_up_card():
 
     game.execute_action(viewer, "check_table")
 
-    other_line = next(text for text in _spoken(user) if other.name in text)
+    status = user.menus["status_box"]
+    assert status["selection_id"] == "table_header"
+    by_id = {item.id: item.text for item in status["items"]}
+    assert list(by_id) == [
+        "table_header",
+        "turn_status",
+        f"area:{viewer.id}",
+        f"area:{other.id}",
+        f"area:{game.players[2].id}",
+    ]
+    other_line = by_id[f"area:{other.id}"]
     for public_value in ("4", "+6", "Double", "Second Chance", "14", "17"):
         assert public_value in other_line
-    assert "stopped this round" in other_line
+    assert "stopped" in other_line
+    assert _spoken(user) == []
+
+
+def test_flip7_area_review_speaks_without_opening_a_status_view():
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [3, 4, 5])
+    viewer = game.players[0]
+    user = game.get_user(viewer)
+    user.clear_messages()
+
+    game.execute_action(viewer, "check_area")
+
+    assert any("Round score: 3 points" in text for text in _spoken(user))
+    assert getattr(user, "active_status_box", None) is None
+
+
+def test_flip7_area_review_includes_held_actions_and_zeroes_a_bust():
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [3, 4, 5])
+    player = game.players[0]
+    player.cards.extend(
+        [
+            _card(CARD_MODIFIER, 6, uid=30),
+            _card(CARD_SECOND_CHANCE, uid=31),
+        ]
+    )
+    game.pending_actions.append(
+        Flip7PendingAction(
+            kind=CARD_FREEZE,
+            owner_id=player.id,
+            card=_card(CARD_FREEZE, uid=32),
+        )
+    )
+
+    line = game._area_line(player, "en")
+
+    assert "still playing" in line
+    assert "Number cards: 3" in line
+    for special in ("+6", "Second Chance", "Freeze"):
+        assert special in line
+    assert "Round score: 9 points" in line
+
+    player.round_status = STATUS_BUSTED
+    busted = game._area_line(player, "en")
+    assert "busted" in busted
+    assert "Round score: 0 points" in busted
+
+
+def test_flip7_completed_round_areas_remain_reviewable_until_next_round():
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [3, 4, 5])
+    viewer = game.players[0]
+    game.players[1].round_status = STATUS_STAYED
+    game.players[2].round_status = STATUS_BUSTED
+
+    game._end_round()
+
+    rows = {
+        item.id: item.text
+        for item in game._build_table_status(viewer, game.get_user(viewer))
+    }
+    assert "Number cards: 3" in rows[f"area:{game.players[0].id}"]
+    assert "scored" in rows[f"area:{game.players[0].id}"]
+    assert "Number cards: 4" in rows[f"area:{game.players[1].id}"]
+    assert "stopped" in rows[f"area:{game.players[1].id}"]
+    assert "Number cards: 5" in rows[f"area:{game.players[2].id}"]
+    assert "Round score: 0 points" in rows[f"area:{game.players[2].id}"]
+
+
+def test_flip7_english_point_labels_handle_singular_values():
+    assert Localization.get("en", "flip7-stay", points=1) == ("Stop and bank 1 point")
+    assert (
+        Localization.get(
+            "en",
+            "flip7-round-score-you",
+            points=1,
+            total=1,
+        )
+        == "You score 1 point this round. Match total: 1 point."
+    )
+
+
+def test_flip7_open_table_view_updates_when_a_card_becomes_public():
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [3, 4, 5])
+    actor = game.current_player
+    viewer = game.players[0]
+    user = game.get_user(viewer)
+    game.execute_action(viewer, "check_table")
+    card = _card(CARD_NUMBER, 9, uid=109)
+
+    game._resolve_card(actor, card, forced=False, continuation=CONTINUE_FLOW)
+    assert advance_until(game, lambda: game.drawn_card_revealed)
+
+    row = next(
+        item.text
+        for item in user.menus["status_box"]["items"]
+        if item.id == f"area:{actor.id}"
+    )
+    assert "Resolving card: 9" in row
+    assert "9" not in actor.numbers
+    assert user.menus["status_box"]["selection_id"] is None
+
+
+def test_flip7_standard_action_order_tracks_live_device_handover():
+    game = _make_game(player_count=3, start=False)
+    player = game.players[0]
+    user = game.get_user(player)
+    tracked = [
+        "check_area",
+        "check_table",
+        "check_deck",
+        "check_scores",
+        "whose_turn",
+        "whos_at_table",
+    ]
+
+    user.client_type = "mobile"
+    game.before_menu_build(player)
+    standard = game.get_action_set(player, "standard")
+    assert [
+        action_id for action_id in standard._order if action_id in tracked
+    ] == tracked
+
+    user.client_type = "desktop"
+    game.before_menu_build(player)
+    standard = game.get_action_set(player, "standard")
+    assert [
+        action_id for action_id in standard._order if action_id in tracked
+    ] != tracked
 
 
 def test_flip7_banked_and_busted_players_get_stable_stop_labels():
@@ -886,9 +1257,7 @@ def test_flip7_banked_and_busted_players_get_stable_stop_labels():
 
     assert game._get_stay_label(player, "stay") == "Stop and bank 3 points"
     player.round_status = STATUS_STAYED
-    assert game._get_stay_label(player, "stay") == (
-        "Stop and bank (already banked)"
-    )
+    assert game._get_stay_label(player, "stay") == ("Stop and bank (already stopped)")
     player.round_status = STATUS_BUSTED
     assert game._get_stay_label(player, "stay") == "Stop and bank"
 
@@ -911,7 +1280,7 @@ def test_flip7_banking_repaints_the_persistent_stop_label_immediately():
     banked = next(
         item for item in user.menus["turn_menu"]["items"] if item.id == "stay"
     )
-    assert banked.text == "Stop and bank (already banked)"
+    assert banked.text == "Stop and bank (already stopped)"
 
 
 # ---------------------------------------------------------------------------
@@ -953,7 +1322,7 @@ def test_flip7_keybind_c_speaks_the_area_even_though_standalone():
         for message in user.messages
         if message.type == "speak" and message.data.get("buffer") == "game"
     ]
-    assert any("Total" in text for text in spoken)
+    assert any("Round score" in text for text in spoken)
 
 
 def test_flip7_modifier_reveals_use_the_exact_value_cue():
@@ -1032,8 +1401,7 @@ def test_flip7_deal_reveals_announce_cards_and_schedule_sound():
     # opening reveals are deterministic and no dealt action card pauses the
     # deal waiting for a human choice.
     game.deck = [
-        _card(CARD_NUMBER, value, uid=300 + value)
-        for value in (12, 11, 10, 9, 8, 7)
+        _card(CARD_NUMBER, value, uid=300 + value) for value in (12, 11, 10, 9, 8, 7)
     ]
     for player in game.players:
         game.get_user(player).clear_messages()
@@ -1055,13 +1423,11 @@ def test_flip7_deal_reveals_announce_cards_and_schedule_sound():
         spoken = [
             message.data["text"]
             for message in game.get_user(player).messages
-            if message.type == "speak"
-            and message.data.get("buffer") == "game"
+            if message.type == "speak" and message.data.get("buffer") == "game"
         ]
         assert any("Card:" in text for text in spoken), spoken
         assert any(
-            message.type == "play_sound"
-            for message in game.get_user(player).messages
+            message.type == "play_sound" for message in game.get_user(player).messages
         )
 
 
@@ -1080,6 +1446,7 @@ def test_flip7_game_state_serializes_round_trip():
     ]
     first.total_score = 33
     first.round_status = STATUS_STAYED
+    game.round_awards = {first.id: 15}
 
     raw = game.to_json()
     data = json.loads(raw)
@@ -1092,6 +1459,47 @@ def test_flip7_game_state_serializes_round_trip():
     assert loaded_first.modifiers == [4]
     assert loaded_first.total_score == 33
     assert loaded_first.round_status == STATUS_STAYED
+    assert loaded.round_awards == {first.id: 15}
+
+
+def test_flip7_revealed_card_and_flow_status_survive_save_restore():
+    game = _make_game(player_count=3)
+    game.cancel_sequences_by_tag(TAG_FLOW)
+    game.deal_index = len(game.deal_order)
+    game._clear_flow_status()
+    actor = game.current_player
+    card = _take_from_deck(game, CARD_NUMBER, 9)
+    game._resolve_card(actor, card, forced=False, continuation=CONTINUE_FLOW)
+    assert advance_until(game, lambda: game.drawn_card_revealed)
+
+    loaded = Flip7Game.from_json(game.to_json())
+    loaded_actor = loaded.get_player_by_id(actor.id)
+
+    assert loaded.drawn_card_revealed is True
+    assert loaded.drawn_card is not None and loaded.drawn_card.uid == card.uid
+    assert loaded.flow_player_id == actor.id
+    assert loaded._turn_status_line(loaded_actor, "en") == "Your card is resolving."
+
+
+def test_flip7_stale_reveal_callback_cannot_publish_the_wrong_card():
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [3, 4, 5])
+    actor = game.current_player
+    card = _card(CARD_NUMBER, 9, uid=109)
+    game.drawn_card = card
+    user = game.get_user(actor)
+    user.clear_messages()
+
+    game._announce_revealed_card(
+        {
+            "target_id": actor.id,
+            "uid": 999,
+            "sound": audio.SOUND_CARD_NUMBER_FAMILY,
+        }
+    )
+
+    assert game.drawn_card_revealed is False
+    assert _spoken(user) == []
 
 
 # ---------------------------------------------------------------------------
@@ -1140,9 +1548,7 @@ def test_flip7_bot_measures_exact_next_draw_risk_and_stop_value():
     assert metrics.bust_probability == 0.25
     assert metrics.expected_stop_score == 6.0
 
-    protected = next_draw_metrics(
-        _bot_policy_observation(second_chance=True)
-    )
+    protected = next_draw_metrics(_bot_policy_observation(second_chance=True))
     assert protected.bust_probability == 0.0
     assert protected.expected_stop_score == 7.0
 
@@ -1242,10 +1648,7 @@ def test_flip7_bot_target_policy_uses_risk_without_helping_the_leader():
 
     assert choose_target(CHOICE_FLIP_THREE, targets) == "exposed"
     assert choose_target(CHOICE_FREEZE, targets) == "low"
-    assert (
-        choose_target(CHOICE_FREEZE, targets, actor_should_stay=True)
-        == "actor"
-    )
+    assert choose_target(CHOICE_FREEZE, targets, actor_should_stay=True) == "actor"
 
 
 def test_flip7_bot_uses_safe_self_flip_three_to_chase_flip_seven():
@@ -1285,6 +1688,24 @@ def test_flip7_bot_gives_extra_second_chance_where_it_has_least_value():
     )
 
     assert choose_target(CHOICE_SECOND_CHANCE, (threatened, safe)) == "safe"
+
+
+def test_flip7_bot_keeps_second_chance_when_it_is_eligible():
+    actor = _target_policy_observation(
+        "actor",
+        is_actor=True,
+        number_count=2,
+        round_points=9,
+        bust_probability=0.1,
+    )
+    safe = _target_policy_observation(
+        "safe",
+        number_count=1,
+        round_points=2,
+        bust_probability=0.02,
+    )
+
+    assert choose_target(CHOICE_SECOND_CHANCE, (actor, safe)) == "actor"
 
 
 def test_flip7_bot_observation_does_not_expose_shuffled_order():
@@ -1344,7 +1765,7 @@ def test_flip7_bot_choice_waits_for_gameplay_sequence_to_unlock():
     game.flush_menus()
     assert game._choice_actor() is actor
     assert game.is_sequence_bot_paused() is True
-    assert game._is_choose_target_enabled(actor) == "flip7-error-wait-card"
+    assert game._is_choose_target_enabled(actor) == "flip7-error-choice-not-ready"
 
     for _ in range(50):
         game.on_tick()
@@ -1363,9 +1784,7 @@ def test_flip7_bot_choice_waits_for_gameplay_sequence_to_unlock():
 
 def _spoken(user):
     return [
-        message.data["text"]
-        for message in user.messages
-        if message.type == "speak"
+        message.data["text"] for message in user.messages if message.type == "speak"
     ]
 
 
@@ -1382,7 +1801,7 @@ def test_flip7_nested_flip_three_resolves_the_inner_choice_before_the_queue():
         + [_card(CARD_NUMBER, v, uid=10 + v) for v in (5, 6)]
         + [_card(CARD_FLIP_THREE, uid=1)]
     )
-    game._start_flip_three(target)
+    game._start_flip_three(target, _card(CARD_FLIP_THREE, uid=908))
     assert advance_until(
         game,
         lambda: (
@@ -1420,12 +1839,8 @@ def test_flip7_nested_flip_three_actions_resolve_before_outer_queue_remainder():
     outer_freeze = _card(CARD_FREEZE, uid=2)
     nested_freeze = _card(CARD_FREEZE, uid=3)
     game.pending_actions = [
-        Flip7PendingAction(
-            kind=CARD_FLIP_THREE, owner_id=outer.id, card=outer_flip
-        ),
-        Flip7PendingAction(
-            kind=CARD_FREEZE, owner_id=outer.id, card=outer_freeze
-        ),
+        Flip7PendingAction(kind=CARD_FLIP_THREE, owner_id=outer.id, card=outer_flip),
+        Flip7PendingAction(kind=CARD_FREEZE, owner_id=outer.id, card=outer_freeze),
     ]
     game.deck = [
         _card(CARD_NUMBER, 6, uid=6),
@@ -1466,11 +1881,14 @@ def test_flip7_freeze_targeting_self_uses_personal_and_third_person_forms():
 
     assert actor.round_status == STATUS_STAYED
     # The actor hears the first-person form; everyone else the third-person one.
-    assert any("You stop yourself and keep" in t for t in _spoken(actor_user))
-    assert not any("stop yourself" in t for t in _spoken(observer_user))
+    assert any("You freeze yourself" in t for t in _spoken(actor_user))
+    assert not any("freeze yourself" in t for t in _spoken(observer_user))
     # The Vietnamese observer receives the same fact localized, not English.
-    assert any("d\u1eebng l\u1ea1i" in t for t in _spoken(observer_user))
-    assert all("You stop yourself" not in t for t in _spoken(observer_user))
+    assert any(
+        "\u0110\u00f3ng b\u0103ng l\u00ean ch\u00ednh m\u00ecnh" in text
+        for text in _spoken(observer_user)
+    )
+    assert all("You freeze yourself" not in t for t in _spoken(observer_user))
 
 
 def test_flip7_flip_three_targeting_self_uses_personal_and_third_person_forms():
@@ -1572,9 +1990,7 @@ def test_flip7_pending_choice_keeps_unrelated_players_turn_rows_stable():
         assert game._is_stay_enabled(player) == "flip7-error-wait-choice"
 
     # The actor alone sees the decision menu, and it still focuses a target.
-    actor_items = [
-        item.id for item in game.get_user(actor).menus["turn_menu"]["items"]
-    ]
+    actor_items = [item.id for item in game.get_user(actor).menus["turn_menu"]["items"]]
     assert actor_items[0].startswith("choose_freeze_")
 
 
@@ -1589,9 +2005,7 @@ def test_flip7_pending_choice_repeated_builds_preserve_set_order_and_focus():
     _resolve(game, actor, _card(CARD_FREEZE, uid=1))
 
     def snapshot(user):
-        return [
-            item.id for item in user.menus["turn_menu"]["items"]
-        ]
+        return [item.id for item in user.menus["turn_menu"]["items"]]
 
     first = snapshot(observer_user)
     assert first[:2] == ["hit", "stay"]
@@ -1630,7 +2044,7 @@ def test_flip7_spectators_read_public_information_but_not_private_areas():
 
     user.clear_messages()
     game.execute_action(watcher, "check_deck")
-    assert any("Deck:" in text for text in _spoken(user))
+    assert any("Draw pile:" in text for text in _spoken(user))
 
 
 def test_flip7_result_binds_winner_and_players_to_immutable_account_ids():
@@ -1678,7 +2092,7 @@ def test_flip7_empty_deck_reshuffles_the_discard_pile():
     assert card is not None
     assert len(game.deck) == 1
     assert game.discard == []
-    assert any("reshuffled" in text for text in _spoken(user))
+    assert any("shuffled into a new draw pile" in text for text in _spoken(user))
     assert any("shuffle" in name for name in user.get_sounds_played())
 
 

@@ -144,8 +144,10 @@ def choose_target(
     opponents = tuple(target for target in targets if not target.is_actor)
 
     if kind == CHOICE_SECOND_CHANCE:
-        # An extra Second Chance must help somebody else. Give it where its
-        # immediate protective value and current stake are both smallest.
+        # Keeping protection never helps an opponent. If the actor already
+        # has one, give the extra where it has the least defensive value.
+        if actor is not None:
+            return actor.player_id
         return min(
             targets,
             key=lambda target: (

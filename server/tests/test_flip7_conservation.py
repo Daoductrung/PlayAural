@@ -40,8 +40,9 @@ def make_game():
 
 
 def take(game, kind, value=None):
-    card = next(c for c in game.deck if c.kind == kind and
-                (value is None or c.value == value))
+    card = next(
+        c for c in game.deck if c.kind == kind and (value is None or c.value == value)
+    )
     game.deck.remove(card)
     return card
 
@@ -51,7 +52,9 @@ def inventory(game):
     cards = list(game.deck) + list(game.discard)
     cards += [c for p in game.players for c in p.cards]
     cards += [p.card for p in game.pending_actions]
-    if game.pending_choice and game.pending_choice.card:
+    if game.flip_state:
+        cards.append(game.flip_state.card)
+    if game.pending_choice:
         cards.append(game.pending_choice.card)
     if game.drawn_card:
         cards.append(game.drawn_card)
@@ -79,25 +82,31 @@ def tick_until(game, condition):
 
 
 def reveal(game, player, card, *, forced=False):
-    game._resolve_card(player, card, forced=forced, continuation=CONTINUE_FLOW,
-                       pending_owner=player.id)
+    game._resolve_card(
+        player, card, forced=forced, continuation=CONTINUE_FLOW, pending_owner=player.id
+    )
     conserved(game, restore=True)
     tick_until(game, lambda: game.drawn_card is None)
     conserved(game, restore=True)
 
 
-@pytest.mark.parametrize("kind", [CARD_NUMBER, CARD_MODIFIER, CARD_DOUBLE,
-                                 CARD_SECOND_CHANCE])
+@pytest.mark.parametrize(
+    "kind", [CARD_NUMBER, CARD_MODIFIER, CARD_DOUBLE, CARD_SECOND_CHANCE]
+)
 def test_reveal_keeps_exact_object_and_round_cleanup(kind):
     game = make_game()
     player = game.players[0]
     card = take(game, kind)
     reveal(game, player, card)
+    if kind == CARD_SECOND_CHANCE:
+        game._consume_choice(player, player)
     assert any(c is card for c in player.cards)
     game._end_round()
-    assert any(c is card for c in game.discard)
+    # The completed area stays public during score announcements.
+    assert any(c is card for c in player.cards)
     conserved(game, restore=True)
     game._start_round()
+    assert any(c is card for c in game.discard)
     conserved(game, restore=True)
 
 
@@ -148,8 +157,14 @@ def test_action_card_is_discarded_once_after_saved_choice(kind):
     numbers = [take(game, CARD_NUMBER, value) for value in (2, 3, 4)]
     game.deck.extend(numbers)
     game._consume_choice(game.players[0], game.players[1])
-    assert sum(c.uid == card.uid for c in game.discard) == 1
+    if kind == CARD_FLIP_THREE:
+        assert game.flip_state is not None
+        assert game.flip_state.card.uid == card.uid
+        assert all(c.uid != card.uid for c in game.discard)
+    else:
+        assert sum(c.uid == card.uid for c in game.discard) == 1
     tick_until(game, lambda: game.flip_state is None and game.drawn_card is None)
+    assert sum(c.uid == card.uid for c in game.discard) == 1
     conserved(game, restore=True)
 
 
@@ -234,14 +249,21 @@ def test_forced_pending_cards_survive_save_and_early_abort(kind):
     conserved(game, restore=True)
 
 
-def test_forced_second_chance_is_assigned_and_survives_save_restore():
-    # A Second Chance revealed during Flip Three is never deferred, so it must
-    # reach its owner's hand instead of the pending queue.
+def test_forced_second_chance_choice_is_immediate_and_survives_save_restore():
+    # Second Chance is never deferred during Flip Three, but its recipient is
+    # still chosen under the ordinary action-card targeting rule.
     game = make_game()
     player = game.players[0]
     card = take(game, CARD_SECOND_CHANCE)
     reveal(game, player, card, forced=True)
     assert game.pending_actions == []
+
+    assert game.pending_choice is not None
+    assert game.pending_choice.kind == CHOICE_SECOND_CHANCE
+    game = conserved(game, restore=True)
+    player = game.players[0]
+    game._consume_choice(player, player)
+
     assert card in player.cards
     conserved(game, restore=True)
 
@@ -265,11 +287,38 @@ def test_saved_active_flip_three_preserves_reveals_and_held_cards():
     target = game.players[1]
     target.cards.extend([take(game, CARD_NUMBER, 7), take(game, CARD_SECOND_CHANCE)])
     game.deck.extend([take(game, CARD_NUMBER, v) for v in (8, 9, 7)])
-    game._start_flip_three(target)
+    game._start_flip_three(target, take(game, CARD_FLIP_THREE))
     game = conserved(game, restore=True)
     tick_until(game, lambda: game.flip_state is None and game.drawn_card is None)
     assert game.players[1].numbers == [7, 8, 9]
     assert not game.players[1].second_chance
+    conserved(game, restore=True)
+
+
+def test_active_flip_three_card_cannot_be_reshuffled_mid_sequence():
+    game = make_game()
+    target = game.players[1]
+    action = take(game, CARD_FLIP_THREE)
+    first_draw = take(game, CARD_NUMBER, 0)
+    game.discard = list(game.deck)
+    game.deck = [first_draw]
+
+    game._start_flip_three(target, action)
+    conserved(game, restore=True)
+    tick_until(
+        game,
+        lambda: game.flip_state is not None and game.flip_state.remaining == 1,
+    )
+
+    assert game.flip_state is not None
+    assert game.flip_state.card is action
+    assert all(card.uid != action.uid for card in game.deck)
+    assert all(card.uid != action.uid for card in game.discard)
+    conserved(game, restore=True)
+
+    game._end_round()
+    assert game.flip_state is None
+    assert sum(card.uid == action.uid for card in game.discard) == 1
     conserved(game, restore=True)
 
 
@@ -280,7 +329,7 @@ def test_flip_three_forced_action_card_belongs_to_the_recipient():
     chooser, target, _ = game.players
     freeze = take(game, CARD_FREEZE)
     game.deck.extend([freeze, take(game, CARD_NUMBER, 7), take(game, CARD_NUMBER, 8)])
-    game._start_flip_three(target)
+    game._start_flip_three(target, take(game, CARD_FLIP_THREE))
     assert game.flip_state is not None and game.flip_state.target_id == target.id
     game = conserved(game, restore=True)
     tick_until(game, lambda: game.flip_state is None and game.drawn_card is None)
@@ -297,7 +346,7 @@ def test_flip_three_self_targeted_action_card_belongs_to_the_actor():
     actor, _, _ = game.players
     freeze = take(game, CARD_FREEZE)
     game.deck.extend([freeze, take(game, CARD_NUMBER, 7), take(game, CARD_NUMBER, 8)])
-    game._start_flip_three(actor)
+    game._start_flip_three(actor, take(game, CARD_FLIP_THREE))
     game = conserved(game, restore=True)
     tick_until(game, lambda: game.flip_state is None and game.drawn_card is None)
     assert game.pending_choice is not None
@@ -328,4 +377,22 @@ def test_unsafe_save_is_rejected_without_guessing_cards(damage):
     else:
         data["deck"][0] = data["deck"][1]
     with pytest.raises(ValueError):
+        Flip7Game.from_dict(data)
+
+
+def test_playing_save_cannot_omit_the_entire_physical_deck():
+    data = json.loads(Flip7Game().to_json())
+    data["status"] = "playing"
+    data["game_active"] = True
+    data["round"] = 1
+
+    with pytest.raises(ValueError, match="Invalid Flip 7 physical deck"):
+        Flip7Game.from_dict(data)
+
+
+def test_save_cannot_mark_a_missing_drawn_card_as_revealed():
+    data = json.loads(Flip7Game().to_json())
+    data["drawn_card_revealed"] = True
+
+    with pytest.raises(ValueError, match="Revealed Flip 7 card is missing"):
         Flip7Game.from_dict(data)

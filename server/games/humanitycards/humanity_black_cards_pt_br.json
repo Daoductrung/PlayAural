@@ -1,0 +1,556 @@
+{
+  "questions": [
+    {
+      "id": 0,
+      "pick": 1,
+      "draw": 0,
+      "text": "Resolução da ANAC agora proíbe $ em aeronaves"
+    },
+    {
+      "id": 1,
+      "pick": 1,
+      "draw": 0,
+      "text": "É uma pena que as crianças hoje em dia estejam envolvidas em $"
+    },
+    {
+      "id": 2,
+      "pick": 1,
+      "draw": 0,
+      "text": "Em 1000 anos, quando o dinheiro de papel for apenas uma lembrança distante, $ será a nossa moeda"
+    },
+    {
+      "id": 3,
+      "pick": 1,
+      "draw": 0,
+      "text": "CBF proíbe $ por proporcionar vantagem desleal aos jogadores"
+    },
+    {
+      "id": 4,
+      "pick": 1,
+      "draw": 0,
+      "text": "Qual é o prazer proibido do Batman? $"
+    },
+    {
+      "id": 5,
+      "pick": 1,
+      "draw": 0,
+      "text": "Vem aí o novo livro de J. K. Rowling: Harry Potter e a câmara de $"
+    },
+    {
+      "id": 6,
+      "pick": 1,
+      "draw": 0,
+      "text": "Desculpe, professora, mas é que eu não pude terminar o dever de casa por causa de $"
+    },
+    {
+      "id": 7,
+      "pick": 1,
+      "draw": 0,
+      "text": "O que eu trouxe do Paraguai? $"
+    },
+    {
+      "id": 8,
+      "pick": 1,
+      "draw": 0,
+      "text": "$? Tem um app pra isso"
+    },
+    {
+      "id": 9,
+      "pick": 1,
+      "draw": 0,
+      "text": "$. Aposto que um só não te satisfaz"
+    },
+    {
+      "id": 10,
+      "pick": 1,
+      "draw": 0,
+      "text": "Qual é meu anti-droga? $"
+    },
+    {
+      "id": 11,
+      "pick": 1,
+      "draw": 0,
+      "text": "Enquanto os Estados Unidos e a União Soviétiva competiam na corrida espacial, o governo brasileiro investia pesado em $"
+    },
+    {
+      "id": 12,
+      "pick": 1,
+      "draw": 0,
+      "text": "No novo filme da Disney, Hanna Montana enfrenta $ pela primeira vez"
+    },
+    {
+      "id": 13,
+      "pick": 1,
+      "draw": 0,
+      "text": "Qual é meu poder secreto? $"
+    },
+    {
+      "id": 14,
+      "pick": 1,
+      "draw": 0,
+      "text": "Qual é a dieta do momento? $"
+    },
+    {
+      "id": 15,
+      "pick": 1,
+      "draw": 0,
+      "text": "O que o Vin Diesel teve no jantar? $"
+    },
+    {
+      "id": 16,
+      "pick": 1,
+      "draw": 0,
+      "text": "Quando o faraó permaneceu imóvel, Moisés invocou dos céus a praga dos $"
+    },
+    {
+      "id": 17,
+      "pick": 1,
+      "draw": 0,
+      "text": "Como estou mantendo minha atual relação amorosa? $"
+    },
+    {
+      "id": 18,
+      "pick": 1,
+      "draw": 0,
+      "text": "Qual é o cúmulo da porquice? $"
+    },
+    {
+      "id": 19,
+      "pick": 1,
+      "draw": 0,
+      "text": "Dizem que em Bangu 3 se troca dez maços de cigarro por $"
+    },
+    {
+      "id": 20,
+      "pick": 1,
+      "draw": 0,
+      "text": "Depois do terremoto, o Elon Musk levou $ ao Haití"
+    },
+    {
+      "id": 21,
+      "pick": 1,
+      "draw": 0,
+      "text": "No próximo natal o Papai Noel vai dar $ pra criança que não se comportar"
+    },
+    {
+      "id": 22,
+      "pick": 1,
+      "draw": 0,
+      "text": "A vida dos índios americanos mudou para sempre quando o homem branco lhes apresentou $"
+    },
+    {
+      "id": 23,
+      "pick": 2,
+      "draw": 0,
+      "text": "O que o Ministério da Educação está usando para inspirar os estudantes do interior a serem bem sucedidos? $ e $"
+    },
+    {
+      "id": 24,
+      "pick": 1,
+      "draw": 0,
+      "text": "Talvez ela tenha nascido assim. Talvez seja $"
+    },
+    {
+      "id": 25,
+      "pick": 1,
+      "draw": 0,
+      "text": "Em seus momentos finais, Michael Jackson pensou em $"
+    },
+    {
+      "id": 26,
+      "pick": 1,
+      "draw": 0,
+      "text": "Homem branco gosta de $"
+    },
+    {
+      "id": 27,
+      "pick": 1,
+      "draw": 0,
+      "text": "Por que estou todo doído? $"
+    },
+    {
+      "id": 281,
+      "pick": 1,
+      "draw": 0,
+      "text": "Um jantar romântico à luz de velas seria incompleto sem $"
+    },
+    {
+      "id": 29,
+      "pick": 1,
+      "draw": 0,
+      "text": "O que eu levaria ao passado para convencer as pessoas de que eu sou um mágico poderoso? $"
+    },
+    {
+      "id": 30,
+      "pick": 1,
+      "draw": 0,
+      "text": "Em breve, numa livraria perto de você, $"
+    },
+    {
+      "id": 31,
+      "pick": 1,
+      "draw": 0,
+      "text": "A excursão escolar foi um diasco devido a $"
+    },
+    {
+      "id": 32,
+      "pick": 1,
+      "draw": 0,
+      "text": "Qual é o melhor amigo de uma garota? $"
+    },
+    {
+      "id": 33,
+      "pick": 1,
+      "draw": 0,
+      "text": "Doutor Drauzio, estou tendo problemas com $ e gostaria de ouvir seu conselho"
+    },
+    {
+      "id": 34,
+      "pick": 1,
+      "draw": 0,
+      "text": "Quando eu for presidente, criarei o Departamento de $"
+    },
+    {
+      "id": 35,
+      "pick": 1,
+      "draw": 0,
+      "text": "O que os meus pais estão escondendo de mim? $"
+    },
+    {
+      "id": 36,
+      "pick": 1,
+      "draw": 0,
+      "text": "O que é que nunca falha em deixar uma festa mais animada? $"
+    },
+    {
+      "id": 37,
+      "pick": 1,
+      "draw": 0,
+      "text": "O que é que fica melhor quando envelhece? $"
+    },
+    {
+      "id": 38,
+      "pick": 1,
+      "draw": 0,
+      "text": "$: bom até a última gota"
+    },
+    {
+      "id": 39,
+      "pick": 1,
+      "draw": 0,
+      "text": "Estou com 99 problemas, mas $ não é um deles"
+    },
+    {
+      "id": 40,
+      "pick": 1,
+      "draw": 0,
+      "text": "$. É uma armadilha!"
+    },
+    {
+      "id": 41,
+      "pick": 1,
+      "draw": 0,
+      "text": "Novo reality-show da MTV apresenta oito celebridades desgastadas morando com $"
+    },
+    {
+      "id": 42,
+      "pick": 1,
+      "draw": 0,
+      "text": "O que é que vovô acharia perturbador, mas estranhamente charmoso? $"
+    },
+    {
+      "id": 43,
+      "pick": 1,
+      "draw": 0,
+      "text": "O que é mais EMO? $"
+    },
+    {
+      "id": 44,
+      "pick": 1,
+      "draw": 0,
+      "text": "Durante o sexo, gosto de pensar em $"
+    },
+    {
+      "id": 45,
+      "pick": 1,
+      "draw": 0,
+      "text": "O que causou o fim da minha última relação? $"
+    },
+    {
+      "id": 46,
+      "pick": 1,
+      "draw": 0,
+      "text": "Que som é esse? $"
+    },
+    {
+      "id": 47,
+      "pick": 1,
+      "draw": 0,
+      "text": "$. É assim que eu espero morrer."
+    },
+    {
+      "id": 48,
+      "pick": 1,
+      "draw": 0,
+      "text": "Por que minha pele está pegajosa? $"
+    },
+    {
+      "id": 49,
+      "pick": 1,
+      "draw": 0,
+      "text": "Qual é o próximo brinde do McLanche Feliz? $"
+    },
+    {
+      "id": 50,
+      "pick": 1,
+      "draw": 0,
+      "text": "O que é que tem à vontade no Céu? $"
+    },
+    {
+      "id": 51,
+      "pick": 1,
+      "draw": 0,
+      "text": "Não sei com que armas se lutará a terceira guerra mundial, mas a quarta será com $"
+    },
+    {
+      "id": 52,
+      "pick": 1,
+      "draw": 0,
+      "text": "O que é tiro-e-queda para se conseguir sexo? $"
+    },
+    {
+      "id": 53,
+      "pick": 1,
+      "draw": 0,
+      "text": "$: testado pelas crianças, aprovado pelas mães"
+    },
+    {
+      "id": 54,
+      "pick": 1,
+      "draw": 0,
+      "text": "Por que não consigo dormir à noite? $"
+    },
+    {
+      "id": 55,
+      "pick": 1,
+      "draw": 0,
+      "text": "Que cheiro é esse? $"
+    },
+    {
+      "id": 56,
+      "pick": 1,
+      "draw": 0,
+      "text": "O que ajuda o Obama a relaxar depois do trabalho? $"
+    },
+    {
+      "id": 57,
+      "pick": 1,
+      "draw": 0,
+      "text": "Assim expira o mundo / Assim expira o mundo / Não com uma explosão, mas com $"
+    },
+    {
+      "id": 58,
+      "pick": 1,
+      "draw": 0,
+      "text": "Chega à Broadway nesta temporada o musical $"
+    },
+    {
+      "id": 59,
+      "pick": 1,
+      "draw": 0,
+      "text": "Antropólogos recentemente descobriram uma tribo primitiva que cultua $"
+    },
+    {
+      "id": 60,
+      "pick": 1,
+      "draw": 0,
+      "text": "Mas, antes de matá-lo, Sr. Bond, preciso te mostrar $"
+    },
+    {
+      "id": 61,
+      "pick": 1,
+      "draw": 0,
+      "text": "Estudo mostra que ratos de laboratório atravessam labirintos 50% mais rápido depois de serem expostos à $"
+    },
+    {
+      "id": 62,
+      "pick": 2,
+      "draw": 0,
+      "text": "Qual é a próxima dupla super-herói e ajudante? $ e $"
+    },
+    {
+      "id": 63,
+      "pick": 1,
+      "draw": 0,
+      "text": "A seguir, na ESPN2: Campeonato Mundial de $"
+    },
+    {
+      "id": 64,
+      "pick": 1,
+      "draw": 0,
+      "text": "Quando eu for bilionário, manderei fazer uma estátua de 15 metros de altura para celebrar $"
+    },
+    {
+      "id": 65,
+      "pick": 1,
+      "draw": 0,
+      "text": "Buscando aumentar sua audiência, o Museu de História Natural abriu uma exposição interativa sobre $"
+    },
+    {
+      "id": 66,
+      "pick": 1,
+      "draw": 0,
+      "text": "Guerra? pra que serve? $"
+    },
+    {
+      "id": 67,
+      "pick": 1,
+      "draw": 0,
+      "text": "O quue me causa gases incontroláveis? $"
+    },
+    {
+      "id": 68,
+      "pick": 1,
+      "draw": 0,
+      "text": "Idosos têm cheiro de quê? $"
+    },
+    {
+      "id": 69,
+      "pick": 1,
+      "draw": 0,
+      "text": "O que vou deixar de fazer na quaresma? $"
+    },
+    {
+      "id": 70,
+      "pick": 1,
+      "draw": 0,
+      "text": "A medicina alternativa agora está explorando os poderes curativos de $"
+    },
+    {
+      "id": 71,
+      "pick": 1,
+      "draw": 0,
+      "text": "O que os Estados Unidos jogaram, de avião, nas crianças do Afeganistão? $"
+    },
+    {
+      "id": 72,
+      "pick": 1,
+      "draw": 0,
+      "text": "O que o Fernando Collor prefere? $"
+    },
+    {
+      "id": 73,
+      "pick": 1,
+      "draw": 0,
+      "text": "Historiadores encontram dezenas de cadernos de Picasso com esboços de $"
+    },
+    {
+      "id": 74,
+      "pick": 1,
+      "draw": 0,
+      "text": "O que você espera não achar em seu prato de comida chinesa? $"
+    },
+    {
+      "id": 75,
+      "pick": 1,
+      "draw": 0,
+      "text": "Bebo pra esquecer $"
+    },
+    {
+      "id": 76,
+      "pick": 1,
+      "draw": 0,
+      "text": "$. Tô dentro!"
+    },
+    {
+      "id": 77,
+      "pick": 1,
+      "draw": 0,
+      "text": "$. As mina pira, véi"
+    },
+    {
+      "id": 78,
+      "pick": 1,
+      "draw": 0,
+      "text": "$. véi, na moral..."
+    },
+    {
+      "id": 79,
+      "pick": 2,
+      "draw": 0,
+      "text": "E o prêmio $ vai para $"
+    },
+    {
+      "id": 80,
+      "pick": 2,
+      "draw": 0,
+      "text": "E para meu próximo número, tirarei $ de $"
+    },
+    {
+      "id": 81,
+      "pick": 2,
+      "draw": 0,
+      "text": "Passo 1: $. \nPasso 2: $. \nPasso 3: Lucrar"
+    },
+    {
+      "id": 82,
+      "pick": 2,
+      "draw": 0,
+      "text": "Quando eu estava viajando no LSD, $ se transformou em $"
+    },
+    {
+      "id": 83,
+      "pick": 2,
+      "draw": 0,
+      "text": "$ é uma ladeira escorregadia que leva direto para $"
+    },
+    {
+      "id": 84,
+      "pick": 2,
+      "draw": 0,
+      "text": "Em um mundo devastado por $, nosso único consolo é $"
+    },
+    {
+      "id": 85,
+      "pick": 2,
+      "draw": 0,
+      "text": "No próximo Tropa de Elite, Capitão Nascimento descobre que os milicianos estavam usando $ para $"
+    },
+    {
+      "id": 86,
+      "pick": 2,
+      "draw": 0,
+      "text": "Nunca de fato entendi $, até encontrar $"
+    },
+    {
+      "id": 87,
+      "pick": 2,
+      "draw": 0,
+      "text": "Dizem as más línguas que o prato predileto do Vladimir Putin é $ recheado com $"
+    },
+    {
+      "id": 88,
+      "pick": 2,
+      "draw": 0,
+      "text": "Globo Filmes apresenta $, a história de $"
+    },
+    {
+      "id": 89,
+      "pick": 2,
+      "draw": 0,
+      "text": "Sim, eu matei $. Como? $"
+    },
+    {
+      "id": 90,
+      "pick": 3,
+      "draw": 2,
+      "text": "$ + $ = $"
+    },
+    {
+      "id": 91,
+      "pick": 3,
+      "draw": 2,
+      "text": "Faça um poema de três versos.\n $ $ $"
+    }
+  ]
+}

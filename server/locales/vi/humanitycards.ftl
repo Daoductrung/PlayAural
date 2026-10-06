@@ -13,9 +13,23 @@ hc-enter-hand-size = Nhập số bài trên tay:
 hc-option-changed-hand-size = Số bài trên tay đã đặt thành { $count }.
 hc-desc-hand-size = Số lá bài trả lời mỗi người chơi giữ sau mỗi lần bốc bù. Tay bài lớn hơn có nhiều lựa chọn hơn nhưng vòng chơi có thể kéo dài hơn (mặc định 10, phạm vi 5-15).
 
+hc-set-card-language = Ngôn ngữ lá bài: { $language }
+hc-select-card-language = Chọn ngôn ngữ lá bài
+hc-option-changed-card-language = Ngôn ngữ lá bài đã đặt thành { $language }.
+hc-desc-card-language = Quy định ngôn ngữ của mọi lá câu hỏi và câu trả lời trong ván, độc lập với ngôn ngữ giao diện của từng người chơi (mặc định Tiếng Anh; các lựa chọn gồm Tiếng Anh, Tiếng Tây Ban Nha và Tiếng Bồ Đào Nha (Brazil)).
+hc-card-language-pt-br = Tiếng Bồ Đào Nha (Brazil)
+hc-card-blank = chỗ trống
+hc-card-same-again = lặp lại chính lá bài đó
+
 hc-set-card-packs = Bộ bài (đã chọn { $count } trên { $total })
 hc-option-changed-card-packs = Đã thay đổi lựa chọn bộ bài.
-hc-desc-card-packs = Chọn các bộ bài câu hỏi và câu trả lời sẽ được xào vào ván. Phải giữ lại ít nhất một bộ bài.
+hc-desc-card-packs = Chọn các bộ bài câu hỏi và câu trả lời tiếng Anh sẽ được xào vào ván. Những lá trùng khớp hoàn toàn giữa các bộ chỉ được đưa vào một lần. Phải giữ lại ít nhất một bộ bài.
+hc-pack-group-current = Bộ chính Hoa Kỳ hiện hành
+hc-pack-group-main-decks = Các phiên bản bộ chính
+hc-pack-group-official-add-ons = Các bản mở rộng và bộ bài chính thức
+hc-pack-group-family = Phiên bản gia đình
+hc-pack-group-community = Các bộ bài cộng đồng
+hc-pack-group-all = Tất cả bộ bài
 
 hc-set-czar-selection = Cách chọn trọng tài: { $mode }
 hc-select-czar-selection = Chọn cách chỉ định trọng tài
@@ -43,10 +57,10 @@ hc-judge-is = { $judges } { $count ->
 }.
 hc-you-are-judge = Bạn là trọng tài vòng này.
 hc-you-and-others-are-judges = Bạn và { $judges } là các trọng tài vòng này.
-hc-you-are-not-judge = Bạn không phải trọng tài vòng này.
 
 # Lá bài đen
 hc-black-card = Câu hỏi là: { $text }
+hc-black-card-draw = Trước tiên, bốc thêm { $count } lá.
 hc-black-card-pick = Chọn { $count } lá.
 hc-view-black-card = Xem lá bài câu hỏi
 
@@ -56,10 +70,10 @@ hc-select-cards = Chọn { $count } { $count ->
    *[other] lá bài
 } từ tay bạn.
 hc-card-selected = { $text }, đã chọn
+hc-card-selected-position = { $text }, đã chọn ở vị trí { $position }
 hc-card-not-selected = { $text }
 hc-submit-cards = Nộp bài (đã chọn { $selected } trên { $required })
 hc-submission-progress = { $submitted } trên { $total } người chơi đã nộp bài.
-hc-waiting-for-submissions = Đang chờ mọi người nộp bài...
 hc-already-submitted = Bạn đã nộp bài rồi.
 hc-you-submitted = Bạn đã nộp bài.
 hc-player-submitted = { $player } đã nộp bài { GENDER_TERM($player_gender, "possessive-determiner") }.
@@ -72,12 +86,12 @@ hc-wrong-card-count = Bạn cần chọn đúng { $count } { $count ->
     [one] lá bài
    *[other] lá bài
 }.
+hc-selection-full = Bạn đã chọn đủ { $count } lá bài. Hãy bỏ chọn một lá trước khi chọn lá khác.
 
 # Giai đoạn chấm bài
 hc-judging-start = Đã đủ bài! Đến lúc chấm.
 hc-choose-best-card = Chọn lá bài hay nhất
 hc-choose-best-card-for = Chọn lá bài hay nhất khớp với: { $prompt }
-hc-select-winner-prompt = Chọn bài thắng cuộc
 hc-card-number = Lá bài { $number }
 hc-submission-number = Bài nộp { $number }
 hc-only-judges-pick = Chỉ trọng tài mới có thể chọn bài thắng cuộc.
@@ -104,11 +118,17 @@ hc-view-submission = Xem bài nộp của bạn
 hc-preview-submission-text = Xem trước: { $text }
 hc-your-submission = Bài nộp của bạn: { $text }
 hc-select-cards-first = Hãy chọn ít nhất 1 lá bài trước.
+hc-review-hand = Xem bài trên tay
+hc-hand-empty = Bạn chưa có bài trên tay.
+hc-hand-card = Lá { $number }: { $text }
+hc-hand-card-selected = Lá { $number }: { $text }, đã chọn ở vị trí { $position }
+hc-review-answers = Xem lại các câu trả lời
+hc-answer-line = Câu trả lời { $number }: { $text }
+hc-no-answers-to-review = Hiện không có câu trả lời nào để xem lại.
 
 # Chiến thắng
 hc-game-winner = { $player } thắng với { $score } điểm!
 hc-you-win = Bạn thắng với { $score } điểm!
-hc-english-content-note = Lưu ý: nội dung câu hỏi và câu trả lời hiện chỉ hỗ trợ tiếng Anh.
 
 # Quản lý bộ bài
 hc-deck-reshuffled = Chồng bài trắng đã bỏ được xáo lại vào bộ bài.

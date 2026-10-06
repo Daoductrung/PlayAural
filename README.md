@@ -38,9 +38,9 @@ PlayAural is designed so the full state of the platform can be followed without 
 
 ## Game Catalog
 
-PlayAural currently includes **50 games** across backend categories:
+PlayAural currently includes **51 games** across backend categories:
 
-- Card games such as BANG! The Bullet, Blackjack, Crazy Eights, UNO, Skip-Bo, Exploding Kittens, Pusoy Dos, Tien Len, Scopa, Ninety Nine, Mile by Mile, Citadels, Coup, Dead Man's Deck, Dominos, Nine, 21, Cards Against Humanity, and Age of Heroes
+- Card games such as BANG! The Bullet, Blackjack, Crazy Eights, UNO, Skip-Bo, Flip 7, Exploding Kittens, Pusoy Dos, Tien Len, Scopa, Ninety Nine, Mile by Mile, Citadels, Coup, Dead Man's Deck, Dominos, Nine, 21, Cards Against Humanity, and Age of Heroes
 - Poker games such as Texas Hold'em, Five Card Draw, and Dead Man's Poker
 - Dice games such as Zombie Dice, Dead Man's Dice, Farkle, Bunko, Yahtzee, Pig, Left Center Right, Color Game, Toss Up, Tradeoff, Threes, and 1-4-24
 - Board games such as Breach Point, Monopoly, Chess, Battleship, Backgammon, Senet, Sorry!, Ludo, and Snakes and Ladders
@@ -65,7 +65,7 @@ PlayAural currently supports the following languages:
 - English (EN) - official default language, maintained by the PlayAural core team
 - Vietnamese (VI) - official default language, maintained by Trung and the PlayAural core team
 - Persian (FA) - community translation, maintained by Hamid Rezaei
-- Spanish (ES) - community translation, maintained by UnDuende
+- Spanish (ES) - community translation, maintained by UnDuende and Tadeu Junior
 - Portuguese (PT) - community translation, maintained by Tadeu Junior
 
 Community translators should follow [TRANSLATING.md](TRANSLATING.md). Partial
@@ -98,9 +98,9 @@ PlayAural is released as open-source software. Public source code and release bu
 
 ## License
 
-This project is licensed under the **GNU General Public License, version 2
-only**. See [LICENSE](LICENSE) for the full text. That license covers
+This project is licensed under the **GNU General Public License, version 3 or
+any later version**. See [LICENSE](LICENSE) for the full text. That license covers
 PlayAural-authored software; it does not relicense third-party code, audio, or
 other assets. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the
-software inventory, vendored notices, compatibility warning, and asset-license
+software inventory, vendored notices, compatibility guidance, and asset-license
 scope.

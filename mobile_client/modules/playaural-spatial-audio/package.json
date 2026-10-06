@@ -3,5 +3,5 @@
   "version": "1.0.0",
   "private": true,
   "main": "index.ts",
-  "license": "GPL-2.0-only"
+  "license": "GPL-3.0-or-later"
 }

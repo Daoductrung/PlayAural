@@ -1,5 +1,19 @@
 Nhật ký thay đổi
 
+Thứ Ba 6 Tháng Mười 2026
+
+Tính năng mới:
+
+* Skip-Bo đã được thêm cho 2 đến 6 người chơi, với chế độ cá nhân và chế độ đồng đội hai người một đội tại bàn 4 hoặc 6 người. Hãy đánh hết kho bài bằng cách xếp các chồng bài xây dùng chung từ 1 đến 12 với bài trên tay, kho bài và chồng bài bỏ của mình, hoặc các chồng bài công khai của đồng đội; lá Skip-Bo vạn năng có thể thay cho bất kỳ số nào đang thiếu. Chủ bàn có thể chọn kho bài Tiêu chuẩn hoặc ván nhanh, thể thức Một ván hoặc Trận tính điểm, cùng mốc thắng trận. Trò chơi có bot chiến thuật, lựa chọn lá và đích đến ổn định, khả năng xem bài trên tay ngoài lượt, các bảng xem chồng bài chi tiết, điều khiển bằng bàn phím và cảm ứng, nhạc nền, cùng tài liệu cho người mới bằng tiếng Anh và tiếng Việt; toàn bộ trò chơi và tài liệu cũng đã có bằng tiếng Tây Ban Nha.
+* Xúc Xắc Tử Thần đã được thêm cho 2 đến 4 người chơi. Mỗi người giấu năm viên xúc xắc dưới cốc, liên tục tăng lời cược của cả bàn, hoặc chọn Vạch mặt hay Gọi Chính xác trước khi liều độc thứ hai loại mình khỏi cuộc chơi. Bàn có thể dùng Luật Truyền thống với mặt một là mặt hoang hoặc Luật Cơ bản chỉ tính đúng từng mặt. Trò chơi còn có bot chỉ dựa trên thông tin hợp lệ, thao tác ra cược và xem tình hình dễ tiếp cận, tài liệu cho người mới bằng tiếng Anh và tiếng Việt, cùng không gian quán rượu ba chiều với tiếng cốc, xúc xắc, độc dược và cú ngã cuối cùng.
+* Zombie Dice đã được thêm cho 2 đến 8 người chơi. Mỗi lần gieo ba viên, bạn giữ não, gieo lại dấu chân và tự quyết định lúc Dừng và ghi điểm trước khi ba phát súng xóa sạch số não trong lượt. Trò chơi có đúng cốc mười ba viên, vòng cuối bảo đảm số lượt công bằng, các vòng phân thắng bại chỉ dành cho nhóm dẫn đầu, mốc thắng tùy chỉnh, bot khó nhằn, bảng chi tiết lượt và tình hình bàn cập nhật trực tiếp, điều khiển bằng bàn phím và cảm ứng, cùng tài liệu cho người mới bằng tiếng Anh và tiếng Việt. Không gian đầm lầy ba chiều bao quanh bàn với zombie di chuyển, tiếng gieo xúc xắc, cắn, súng, va chạm và nhạc nền ăn khớp với diễn biến.
+* Flip 7 đã được thêm cho 3 đến 10 người chơi. Hãy tiếp tục Lật một lá để kiếm thêm điểm hoặc Dừng lại và giữ điểm trước khi một lá số trùng khiến bạn cháy bài; lá Nhân đôi, các lá cộng điểm, Cơ hội thứ hai, Đóng băng và Lật 3 có thể đảo ngược cả vòng. Thu đủ bảy lá số khác nhau sẽ nhận điểm thưởng Flip 7 và kết thúc vòng ngay. Trò chơi có trọn bộ 94 lá, Điểm mục tiêu tùy chỉnh, luật chơi tiếp khi nhóm dẫn đầu hòa, bot chỉ dùng thông tin công khai, bảng xem bàn theo đúng giai đoạn, điều khiển bằng bàn phím và cảm ứng, cùng toàn bộ nội dung trò chơi và tài liệu cho người mới bằng tiếng Anh, tiếng Việt, tiếng Tây Ban Nha và tiếng Bồ Đào Nha (Brazil).
+
+Cải thiện:
+
+* Poker Tử Thần giờ chỉ cho dùng Đổi bài một lần trong cả trận. Nhóm bài thay thế bí mật giảm từ bốn lá xuống ba rồi hai khi bài chung dần được lật; sau khi đổi, người chơi phải Theo hoặc Bỏ bài thay vì Tất tay ngay trong cùng lượt. Bot quyết định tốt hơn từ những thông tin chúng thực sự được biết, và vị trí mở ván tiếp tục xoay đúng sau khi có người bị loại.
+* Bàn Cards Against Humanity giờ có thể chọn bài tiếng Anh, tiếng Tây Ban Nha hoặc tiếng Bồ Đào Nha (Brazil) độc lập với ngôn ngữ giao diện. Tiếng Anh mặc định dùng bộ chính Hoa Kỳ phiên bản 3.0 hiện hành, đồng thời cho phép trộn các bộ chính thức, lịch sử, gia đình và cộng đồng mà không lặp lá. Thứ tự câu trả lời nhiều lá, phần Xem bài trên tay riêng tư, Xem lại các câu trả lời ẩn danh, thao tác của trọng tài, cách chơi bằng bàn phím và cảm ứng, cùng tài liệu cho người mới cũng đã được hoàn thiện; tài liệu giờ cảnh báo rõ về nội dung dành cho người trưởng thành và có thể gây khó chịu.
+
 Thứ Sáu 2 Tháng Mười 2026
 
 Tính năng mới:
@@ -95,7 +109,6 @@ Cải thiện:
 * Các bàn cờ lớn như Tàu Chiến giờ giữ kích thước chạm dễ dùng và cuộn mượt theo mọi hướng trên web lẫn di động, gồm cả thao tác kéo bằng hai ngón với TalkBack. Ô đang được chọn sẽ tự hiện vào vùng nhìn mà không làm chậm con trỏ hoặc lời đọc.
 * Đọc người dùng trực tuyến giờ đọc tổng số trước, rồi đến nhà phát triển, quản trị viên và những người dùng khác. Mở danh sách người dùng trực tuyến cũng dùng thứ tự này, giữ nguyên trang hiện tại khi tự làm mới và luôn cho phép mở các thao tác tài khoản phù hợp khi có người trực tuyến, ngoại tuyến hoặc thay đổi vai trò.
 * Văn bản trong các ngôn ngữ viết từ phải sang trái giờ hiển thị đúng chiều trên phần mềm máy tính, web và di động, trong khi bố cục cùng thứ tự điều hướng quen thuộc vẫn giữ nguyên.
-* Bản dịch Tiếng Bồ Đào Nha đã được cập nhật toàn diện về tên trò chơi, thuật ngữ, trình đơn, thông báo và tài liệu người chơi, gồm tên đấu sĩ và chiêu trong Đấu Trường Chiến Kỹ cùng cách diễn đạt Cờ thỏ cáo đã được làm mới.
 
 Sửa lỗi:
 
@@ -145,7 +158,6 @@ Thứ Ba 18 Tháng Tám 2026
 Cải thiện:
 
 * Cờ tỷ phú giờ có bản dịch tiếng Tây Ban Nha đầy đủ, gồm bàn cờ, trình đơn, thông báo và tài liệu cho người mới, nhờ đóng góp của dịch giả cộng đồng UnDuende (Storm Demoner).
-* Các màn hình tài khoản bằng tiếng Tây Ban Nha giờ hướng dẫn ký tự được phép dùng khi đăng ký và giải thích rõ cách nhập tên của tài khoản cũ khi nhiều cách viết hoa, viết thường cùng khớp.
 * Trình đơn lựa chọn giờ có thể tự cập nhật ngay khi đang mở mà không làm mất tiêu điểm trình đọc màn hình. Lựa chọn, tên mục, mô tả và số tiền luôn theo trạng thái hiện tại; sau khi xác nhận hoặc hủy, tiêu điểm trở về nút đã mở lời nhắc; ô nhập văn bản không bị đặt lại bởi cập nhật nền; lời đọc hoặc âm thanh mở trình đơn không lặp lại trong các lần cập nhật ấy. Nhờ đó, các lựa chọn Xem tài sản của mọi người, Quản lý bất động sản và Đề nghị trao đổi trong Cờ tỷ phú, chọn hướng triển khai thủ công trong Tàu Chiến, lời nhắc lá không đánh được trong Đường Đua Ngàn Dặm và chọn Lá Biến trong 21 (Luật Sinh Tồn) vẫn ổn định khi ván cập nhật hoặc kết nối lại.
 * Các nút đấu giá trong Cờ tỷ phú giờ luôn hiện với mọi người còn tham gia, tự cập nhật mức giá tối thiểu hiện tại và tạm thời không dùng được trong lúc người khác đặt giá. Chúng chỉ đóng khi bạn rời cuộc đấu giá hoặc cuộc đấu giá kết thúc.
 * Khi thanh toán tiền thuê trong Cờ tỷ phú, chủ bất động sản, người trả tiền và những người còn lại giờ mỗi bên chỉ nghe một thông báo ngắn gọn đúng theo góc nhìn của mình. Thông báo ngắn gọn vẫn súc tích hơn và các lời báo tiền thuê trùng lặp đã được loại bỏ.
@@ -167,7 +179,6 @@ Tính năng mới:
 Cải thiện:
 
 * Trò chuyện thoại trên phần mềm máy tính giờ giữ âm thanh mượt hơn khi nhiều người cùng nói hoặc kết nối chập chờn trong thời gian ngắn, giảm tiếng rè, ngắt quãng, mất đầu hoặc cuối câu và độ trễ, đồng thời vẫn giữ chất lượng âm thanh nổi nhận vào.
-* Người chơi dùng tiếng Tây Ban Nha giờ thấy các đấu sĩ mẫu và kỹ năng của Đấu Trường Chiến Kỹ bằng tiếng Tây Ban Nha; tên phím tắt cũng đã được thống nhất trong tài liệu người chơi tiếng Tây Ban Nha.
 
 Sửa lỗi:
 
@@ -236,7 +247,6 @@ Tính năng mới:
 
 Cải thiện:
 
-* Bản dịch và tài liệu tiếng Việt của Đường Đua Ngàn Dặm giờ dùng thuật ngữ đua xe rõ ràng, thống nhất hơn và thông báo ngắn gọn hơn cho trình đọc màn hình.
 * Âm thanh tung xúc xắc giờ đa dạng hơn trong Pig, Farkle, Yahtzee, và các trò chơi xúc xắc khác.
 
 Chủ Nhật 5 Tháng Bảy 2026
@@ -328,7 +338,6 @@ Sửa lỗi:
 * Phần mềm trên máy tính giờ áp dụng thay đổi ngôn ngữ từ máy chủ ngay lập tức mà không cần khởi động lại.
 * Khi chỉnh âm lượng hiệu ứng âm thanh trên phần mềm máy tính, âm lượng mới giờ tác động cả hiệu ứng đang phát.
 * Trình đơn chọn giọng đọc TTS trên di động giờ chọn đúng giọng hệ thống và giữ an toàn giọng đã lưu khi Android tạm thời trả về danh sách giọng trống.
-* Thông báo phiên bản không khớp trên web giờ được dịch đúng thay vì hiện dòng tiếng Anh thô từ máy chủ.
 
 Thứ Năm 25 Tháng Sáu 2026
 
@@ -365,7 +374,6 @@ Sửa lỗi:
 * ARIA live và Web Speech trên web giờ tránh bỏ sót thông báo đáng tin cậy hơn.
 * Phím đọc bộ đệm trên web giờ hoạt động trong chế độ Web Speech.
 * Phần chọn giọng nói và tốc độ đọc trên web giờ rõ hơn trên Windows, Android và macOS.
-* Bản dịch và thông báo kết nối trên web giờ rõ hơn bằng tiếng Anh và tiếng Việt.
 
 Chủ Nhật 21 Tháng Sáu 2026
 
@@ -375,7 +383,6 @@ Tính năng mới:
 * Yahtzee giờ cho phép người chơi và khán giả nhấn Shift+C để xem bảng điểm của bất kỳ người chơi nào.
 * Cổng Dịch Chuyển trong Hải Tặc: Những Vùng Biển Thất Lạc giờ có điểm đến Ngẫu nhiên, có thể chọn bất kỳ ô hợp lệ nào trên bản đồ, kể cả vùng biển trống.
 * Bóng Lăn giờ có các bộ bóng phong phú và chính xác hơn, gồm Vòng quanh thế giới và Hành trình Việt Nam.
-* Tài liệu Bóng Lăn giờ ghi rõ nguồn gốc từ dự án mã nguồn mở PlayPalace.
 * Gấu Cuồng Loạn giờ hỗ trợ Thông báo ngắn gọn.
 * Điểm mục tiêu mặc định của Farkle giờ là 1000.
 
@@ -393,12 +400,11 @@ Sửa lỗi:
 * Kiểm tra điểm chuẩn của Yahtzee giờ hiển thị đúng tổng điểm Yahtzee.
 * Khi ghi điểm trong Yahtzee, tiêu điểm cảm ứng giờ quay lại Gieo xúc xắc.
 * Chấp nhận xin đi lại trong Cờ vua không còn xử lý nhầm thành cờ hòa.
-* Lịch sử đi lại trong Cờ vua giờ được dọn đúng cách.
+* Cờ vua giờ chỉ cho xin đi lại nước gần nhất và tự xóa yêu cầu khi ván kết thúc.
 * Cờ vua giữ Nhập nước cờ làm điểm bám tiêu điểm và đưa tiêu điểm cảm ứng về đó sau khi nhập nước.
 * Trực Giác Thủy Thủ trong Hải Tặc: Những Vùng Biển Thất Lạc không còn tạo lựa chọn trống.
 * Người máy trong Hải Tặc: Những Vùng Biển Thất Lạc giờ có chiến thuật tốt hơn và dùng kỹ năng thông minh hơn.
 * Cân bằng kỹ năng, thông báo kỹ năng, và lời giải thích khóa hành động của Cổng Dịch Chuyển trong Hải Tặc: Những Vùng Biển Thất Lạc giờ rõ hơn.
-* Luật, tài liệu, thuật ngữ bộ bóng, và thông báo của Bóng Lăn giờ rõ hơn bằng tiếng Anh và tiếng Việt.
 * Đường Đua Ngàn Dặm giờ giải thích giới hạn lá cự ly rõ ràng và cho đánh các lá hợp lệ nếu không vượt đích.
 * Đường Đua Ngàn Dặm giờ tôn trọng đúng tùy chọn Phải về đích đúng cự ly và cho phép vượt đích khi tùy chọn đó cho phép.
 * Lời nhắc Bỏ lá trong Đường Đua Ngàn Dặm giờ khôi phục tiêu điểm về lá bạn vừa chọn.
@@ -478,7 +484,6 @@ Sửa lỗi:
 * Kiểm tra điểm cơ bản giờ đọc riêng từng người chơi hoặc từng đội.
 * Kiểm tra điểm chi tiết giờ dùng màn hình trạng thái từng dòng khi phù hợp.
 * Trình đơn Bảng xếp hạng giờ ẩn những trò không hỗ trợ Bảng xếp hạng.
-* Dữ liệu Bảng xếp hạng cũ không còn phù hợp giờ được dọn an toàn.
 * Lời mời bàn không còn bị từ chối khi bấm vào tiêu đề.
 * Lời mời bàn đến trong lúc bạn nhập văn bản giờ chờ bạn nhập xong rồi mới hiện.
 * Bộ lọc thể loại trong trình đơn Chơi không còn ảnh hưởng nhầm sang Tài liệu, Bảng xếp hạng, hoặc Thống kê của tôi.
@@ -534,7 +539,6 @@ Sửa lỗi:
 * Tiến Lên giờ bám sát hơn luật miền Nam và miền Bắc.
 * Tiến Lên giờ hỗ trợ chơi tiếp để xếp hạng, thắng trắng, chặt, thuật ngữ miền Nam, và tính điểm bằng xu.
 * Pusoy Dos giờ kiểm tra luật chặt hơn.
-* Pusoy Dos giờ có thông báo dịch rõ hơn.
 * Người máy trong Pusoy Dos giờ quyết định tốt hơn.
 * Bỏ lượt rủi ro trong Pusoy Dos giờ được xử lý an toàn hơn.
 * Poker Rút năm lá giữ các hành động thông tin hữu ích trên thiết bị cảm ứng trong suốt ván.
@@ -598,8 +602,7 @@ Thứ Ba 28 Tháng Tư 2026
 
 Tính năng mới:
 
-* Bộ Bài Tử Thần đã được thêm với tài liệu dành cho người mới.
-* Bộ Bài Tử Thần được dịch đầy đủ bằng tiếng Anh và tiếng Việt.
+* Bộ Bài Tử Thần đã được thêm với tài liệu dành cho người mới và toàn bộ nội dung trò chơi bằng tiếng Anh lẫn tiếng Việt.
 
 Chủ Nhật 26 Tháng Tư 2026
 
@@ -620,8 +623,7 @@ Thứ Năm 23 Tháng Tư 2026
 
 Tính năng mới:
 
-* Thành Phố Trung Cổ đã được thêm với tài liệu đầy đủ.
-* Thành Phố Trung Cổ được dịch đầy đủ bằng tiếng Anh và tiếng Việt.
+* Thành Phố Trung Cổ đã được thêm với tài liệu đầy đủ và toàn bộ nội dung trò chơi bằng tiếng Anh lẫn tiếng Việt.
 * Ứng dụng di động có thêm hỗ trợ thử nghiệm để chạy nền.
 
 Sửa lỗi:
@@ -680,8 +682,7 @@ Thứ Hai 13 Tháng Tư 2026
 
 Tính năng mới:
 
-* Đấu Trường Chiến Kỹ đã được thêm với tài liệu cho người mới.
-* Đấu Trường Chiến Kỹ được dịch đầy đủ bằng tiếng Anh và tiếng Việt.
+* Đấu Trường Chiến Kỹ đã được thêm với tài liệu cho người mới và toàn bộ nội dung trò chơi bằng tiếng Anh lẫn tiếng Việt.
 * Ứng dụng di động giờ cho phép tắt chế độ tự đọc để dùng trình đọc màn hình hệ thống của thiết bị.
 * Ứng dụng di động hiển thị nút Trò chuyện và Phím tắt tiêu chuẩn khi tắt chế độ tự đọc.
 
@@ -702,8 +703,7 @@ Thứ Năm 9 Tháng Tư 2026
 
 Tính năng mới:
 
-* Xúc xắc màu đã được thêm với tài liệu dành cho người mới.
-* Xúc xắc màu được dịch đầy đủ bằng tiếng Anh và tiếng Việt.
+* Xúc xắc màu đã được thêm với tài liệu dành cho người mới và toàn bộ nội dung trò chơi bằng tiếng Anh lẫn tiếng Việt.
 
 Sửa lỗi:
 
@@ -715,22 +715,19 @@ Thứ Ba 7 Tháng Tư 2026
 
 Tính năng mới:
 
-* Tiến Lên đã được thêm với luật miền Nam và miền Bắc.
-* Tiến Lên được dịch đầy đủ bằng tiếng Anh và tiếng Việt.
+* Tiến Lên đã được thêm với luật miền Nam và miền Bắc cùng toàn bộ nội dung trò chơi bằng tiếng Anh lẫn tiếng Việt.
 
 Thứ Hai 6 Tháng Tư 2026
 
 Tính năng mới:
 
-* Bunko đã được thêm với luật đầy đủ và tài liệu cho người mới.
-* Bunko được dịch đầy đủ bằng tiếng Anh và tiếng Việt.
+* Bunko đã được thêm với luật đầy đủ, tài liệu cho người mới và toàn bộ nội dung trò chơi bằng tiếng Anh lẫn tiếng Việt.
 
 Thứ Sáu 3 Tháng Tư 2026
 
 Tính năng mới:
 
-* Sorry! đã được thêm với luật đầy đủ và tài liệu cho người mới.
-* Sorry! được dịch đầy đủ bằng tiếng Anh và tiếng Việt.
+* Sorry! đã được thêm với luật đầy đủ, tài liệu cho người mới và toàn bộ nội dung trò chơi bằng tiếng Anh lẫn tiếng Việt.
 
 Thứ Năm 2 Tháng Tư 2026
 
@@ -748,19 +745,14 @@ Thứ Tư 1 Tháng Tư 2026
 
 Tính năng mới:
 
-* Cờ vua đã được thêm với luật và tài liệu đầy đủ.
-* Cờ thỏ cáo đã được thêm với luật và tài liệu đầy đủ.
-* Cờ vua có đồng hồ bấm giờ, đề nghị hòa, xin đi lại, và tự động nhận diện hòa.
-* Cờ thỏ cáo có khối nhân đôi điểm và luật thi đấu quốc tế.
-* Cờ vua được dịch đầy đủ bằng tiếng Anh và tiếng Việt.
-* Cờ thỏ cáo được dịch đầy đủ bằng tiếng Anh và tiếng Việt.
+* Cờ vua đã được thêm với luật và tài liệu đầy đủ, đồng hồ bấm giờ, đề nghị hòa, xin đi lại, khả năng tự động nhận diện hòa và toàn bộ nội dung trò chơi bằng tiếng Anh lẫn tiếng Việt.
+* Cờ thỏ cáo đã được thêm với luật và tài liệu đầy đủ, khối nhân đôi điểm, luật thi đấu quốc tế và toàn bộ nội dung trò chơi bằng tiếng Anh lẫn tiếng Việt.
 
 Thứ Ba 31 Tháng Ba 2026
 
 Tính năng mới:
 
-* Cờ cá ngựa đã được thêm với luật và tài liệu đầy đủ.
-* Cờ cá ngựa dùng thuật ngữ tiếng Anh và tiếng Việt tự nhiên, quen thuộc.
+* Cờ cá ngựa đã được thêm với luật, tài liệu đầy đủ và thuật ngữ tiếng Anh lẫn tiếng Việt tự nhiên, quen thuộc.
 
 Chủ Nhật 29 Tháng Ba 2026
 

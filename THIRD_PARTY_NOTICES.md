@@ -1,7 +1,7 @@
 # Third-party software notices
 
 PlayAural-authored source code is distributed under the GNU General Public
-License, version 2 only. See [LICENSE](LICENSE). That grant does not cover or
+License, version 3 or any later version. See [LICENSE](LICENSE). That grant does not cover or
 relicense third-party software, audio, or other assets. Each third-party work
 remains under its own license or permission.
 
@@ -22,17 +22,17 @@ be reviewed before publishing the resulting source or binary distribution.
 Every resolved Web and mobile npm package currently declares its license in the
 corresponding lockfile; repository tests fail if that metadata is omitted.
 
-## Compatibility and distribution warning
+## Compatibility and distribution guidance
 
 This file is an inventory, not a legal opinion or a declaration that every
 possible binary combination is license-compatible. In particular, the Apache
 Software Foundation and the Free Software Foundation state that Apache-2.0 is
 compatible with GPLv3 but not GPLv2 for a combined derivative work. PlayAural
-is GPL-2.0-only and uses Apache-2.0 components, including Steam Audio and
-LiveKit. Before publishing a combined application binary, distributors must
-determine whether their specific packaging creates a combined derivative work
-and obtain qualified legal advice, an additional permission, or another valid
-licensing solution where required.
+is GPL-3.0-or-later and uses Apache-2.0 components, including Steam Audio and
+LiveKit. The project license therefore permits a GPLv3-compatible combination,
+provided distributors comply with the applicable GPLv3 and Apache-2.0 terms
+and preserve every required third-party notice. Distributors remain responsible
+for reviewing the licenses and packaging of the binaries they publish.
 
 References:
 
@@ -41,7 +41,7 @@ References:
 
 ## Audio and other assets
 
-The GPL-2.0-only grant for PlayAural-authored software does not automatically
+The GPL-3.0-or-later grant for PlayAural-authored software does not automatically
 cover sound files, music, artwork, game data, or other third-party assets in
 the repository. No repository-wide, per-asset provenance and permission
 inventory currently exists for the checked-in sound packs. A file's presence

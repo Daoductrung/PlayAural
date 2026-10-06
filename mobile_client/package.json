@@ -2,7 +2,7 @@
   "name": "playaural-mobile-client",
   "version": "1.0.5.3",
   "private": true,
-  "license": "GPL-2.0-only",
+  "license": "GPL-3.0-or-later",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",

@@ -7,7 +7,7 @@ conflict, follow `CLAUDE.md` and update `AGENTS.md`.
 ## Project
 
 PlayAural is an audio-first multiplayer gaming platform for screen reader users.
-It is GPL-licensed and has four first-party components:
+It is licensed under GPL-3.0-or-later and has four first-party components:
 
 - `server/`: Python 3.11 asyncio WebSocket server, games, auth, tables,
   persistence, localization, ratings, voice authorization.
@@ -121,7 +121,7 @@ cd mobile_client && cmd /c npm run typecheck && npx expo start
 
 ## Core Architecture
 
-- `server/games/` currently registers 50 games. Categories are `cards`, `dice`,
+- `server/games/` currently registers 51 games. Categories are `cards`, `dice`,
   `board`, `poker`, `arcade`, and `misc`; user-facing category labels must be
   localized. The Play menu uses dynamic counts, not hardcoded category counts.
 - Games are `@dataclass` classes registered with `@register_game`, inherit from

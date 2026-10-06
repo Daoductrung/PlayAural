@@ -13,9 +13,23 @@ hc-enter-hand-size = تعداد کارت در دست را وارد کنید:
 hc-option-changed-hand-size = تعداد کارت در دست روی { $count } تنظیم شد.
 hc-desc-hand-size = تعداد کارت‌های پاسخ که هر بازیکن پس از هر پر کردن مجدد در دست دارد. دست‌های بزرگ‌تر انتخاب‌های بیشتری می‌دهند اما دورها را طولانی‌تر می‌کنند (پیش‌فرض ۱۰، محدوده ۵-۱۵).
 
+hc-set-card-language = زبان کارت‌ها: { $language }
+hc-select-card-language = زبان کارت‌ها را انتخاب کنید
+hc-option-changed-card-language = زبان کارت‌ها روی { $language } تنظیم شد.
+hc-desc-card-language = زبان همه‌ی کارت‌های سوال و پاسخ مسابقه را تعیین می‌کند و مستقل از زبان رابط هر بازیکن است (پیش‌فرض انگلیسی؛ گزینه‌ها انگلیسی، اسپانیایی و پرتغالی برزیلی هستند).
+hc-card-language-pt-br = پرتغالی برزیلی
+hc-card-blank = جای خالی
+hc-card-same-again = همان کارت دوباره
+
 hc-set-card-packs = بسته‌های کارت ({ $count } از { $total } انتخاب شده)
 hc-option-changed-card-packs = انتخاب بسته‌های کارت تغییر کرد.
-hc-desc-card-packs = انتخاب کنید که کدام بسته‌های پاسخ و سوال در بازی با هم مخلوط شوند. حداقل یک بسته باید انتخاب شده بماند.
+hc-desc-card-packs = بسته‌های پاسخ و سوال انگلیسی را برای مخلوط شدن در بازی انتخاب کنید. کارت‌های کاملاً یکسان از بسته‌های هم‌پوشان فقط یک بار وارد بازی می‌شوند. حداقل یک بسته باید انتخاب شده بماند.
+hc-pack-group-current = دسته‌ی اصلی فعلی آمریکا
+hc-pack-group-main-decks = نسخه‌های دسته‌ی اصلی
+hc-pack-group-official-add-ons = افزونه‌ها و بسته‌های رسمی
+hc-pack-group-family = نسخه‌ی خانوادگی
+hc-pack-group-community = بسته‌های انجمن
+hc-pack-group-all = همه‌ی بسته‌ها
 
 hc-set-czar-selection = انتخاب کارت تزار: { $mode }
 hc-select-czar-selection = حالت انتخاب کارت تزار را انتخاب کنید
@@ -43,10 +57,10 @@ hc-judge-is = { $judges } { $count ->
 }.
 hc-you-are-judge = شما در این دور کارت تزار هستید.
 hc-you-and-others-are-judges = شما و { $judges } در این دور کارت تزار هستید.
-hc-you-are-not-judge = شما در این دور کارت تزار نیستید.
 
 # کارت سیاه
 hc-black-card = سوال این است: { $text }
+hc-black-card-draw = ابتدا { $count } کارت اضافه بکشید.
 hc-black-card-pick = { $count } کارت انتخاب کنید.
 hc-view-black-card = مشاهده‌ی کارت سوال
 
@@ -56,10 +70,10 @@ hc-select-cards = { $count } { $count ->
    *[other] کارت
 } از دست خود انتخاب کنید.
 hc-card-selected = { $text }، انتخاب شد
+hc-card-selected-position = { $text }، به عنوان پاسخ { $position } انتخاب شد
 hc-card-not-selected = { $text }
 hc-submit-cards = ارسال ({ $selected } از { $required } انتخاب شد)
 hc-submission-progress = { $submitted } از { $total } بازیکن ارسال کردند.
-hc-waiting-for-submissions = در انتظار ارسال‌ها...
 hc-already-submitted = شما قبلاً کارت‌های خود را ارسال کرده‌اید.
 hc-you-submitted = شما کارت‌های خود را ارسال کردید.
 hc-player-submitted = { $player } کارت‌های خود را ارسال کرد.
@@ -72,12 +86,12 @@ hc-wrong-card-count = باید دقیقاً { $count } { $count ->
     [one] کارت
    *[other] کارت
 } انتخاب کنید.
+hc-selection-full = شما { $count } کارت مورد نیاز را انتخاب کرده‌اید. پیش از انتخاب کارت دیگر، یکی را لغو انتخاب کنید.
 
 # مرحله‌ی داوری
 hc-judging-start = همه‌ی کارت‌ها رسیدند! زمان داوری است.
 hc-choose-best-card = بهترین کارت را انتخاب کنید
 hc-choose-best-card-for = بهترین کارت را انتخاب کنید که با این سوال مطابقت دارد: { $prompt }
-hc-select-winner-prompt = ارسال برنده را انتخاب کنید
 hc-card-number = کارت { $number }
 hc-submission-number = ارسال { $number }
 hc-only-judges-pick = فقط کارت تزار می‌تواند ارسال برنده را انتخاب کند.
@@ -107,11 +121,17 @@ hc-view-submission = مشاهده‌ی ارسال خود
 hc-preview-submission-text = پیش‌نمایش: { $text }
 hc-your-submission = ارسال شما: { $text }
 hc-select-cards-first = ابتدا حداقل ۱ کارت انتخاب کنید.
+hc-review-hand = مرور کارت‌های دست
+hc-hand-empty = دست شما خالی است.
+hc-hand-card = { $number }. { $text }
+hc-hand-card-selected = { $number }. { $text }، به عنوان پاسخ { $position } انتخاب شد
+hc-review-answers = مرور پاسخ‌ها
+hc-answer-line = پاسخ { $number }: { $text }
+hc-no-answers-to-review = در حال حاضر پاسخی برای مرور وجود ندارد.
 
 # برد
 hc-game-winner = { $player } با { $score } امتیاز برنده شد!
 hc-you-win = شما با { $score } امتیاز برنده شدید!
-hc-english-content-note = توجه: متن کارت‌های سوال و پاسخ در حال حاضر فقط از انگلیسی پشتیبانی می‌کند.
 
 # مدیریت دسته
 hc-deck-reshuffled = توده‌ی دور ریخته‌ی کارت‌های سفید دوباره به دسته برگردانده شد.

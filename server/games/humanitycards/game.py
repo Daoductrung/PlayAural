@@ -1,25 +1,18 @@
-"""
-Humanity Cards Game Implementation for PlayAural.
+"""Cards Against Humanity game implementation for PlayAural."""
 
-A party game where a judge reads a black card prompt and other players
-submit white cards to fill in blanks. The judge picks the funniest submission.
-
-Ported from PlayPalace v11. Card pack selection uses a MultiSelectOption: the
-preset pack groups (Base Set, All Packs, Family Edition, etc.) become the
-navigable group layer, and each group exposes per-pack on/off toggles.
-"""
-
-from dataclasses import dataclass, field
-from datetime import datetime
+import html
 import json
 import random
+import re
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from functools import cache
 from pathlib import Path
 
-from ..base import Game, Player, GameOptions
-from ..registry import register_game
 from ...game_utils.actions import Action, ActionSet, Visibility
 from ...game_utils.bot_helper import BotHelper
 from ...game_utils.game_result import GameResult, PlayerResult
+from ...game_utils.menu_management_mixin import MenuBuild
 from ...game_utils.options import (
     IntOption,
     MenuOption,
@@ -27,109 +20,421 @@ from ...game_utils.options import (
     multi_select_field,
     option_field,
 )
+from ...game_utils.sequence_runner_mixin import SequenceBeat, SequenceOperation
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
-
+from ...users.base import MenuItem
+from ..base import Game, GameOptions, Player
+from ..registry import register_game
 
 # ==========================================================================
 # Pack loading (cached globally)
 # ==========================================================================
 
-_humanity_packs: list[dict] | None = None
+_humanity_packs: dict[str, list[dict]] = {}
 CAH_SOUND_DIR = "game_humanitycards"
+CARD_LANGUAGES = ("en", "es", "pt-BR")
+DEFAULT_ENGLISH_PACK = "CAH Main Deck: US v3.0"
+MIN_PLAYERS = 3
+MAX_PLAYERS = 10
+DEFAULT_WINNING_SCORE = 7
+MIN_WINNING_SCORE = 3
+MAX_WINNING_SCORE = 20
+DEFAULT_HAND_SIZE = 10
+MIN_HAND_SIZE = 5
+MAX_HAND_SIZE = 15
+DEFAULT_JUDGE_COUNT = 1
+MIN_JUDGE_COUNT = 1
+MAX_JUDGE_COUNT = 3
+DIRECT_CARD_KEY_COUNT = 10
+TICKS_PER_SECOND = 20
+NEXT_ROUND_DELAY_SECONDS = 5
+NEXT_ROUND_DELAY_TICKS = NEXT_ROUND_DELAY_SECONDS * TICKS_PER_SECOND
+BOT_SUBMISSION_DELAY_TICKS = (TICKS_PER_SECOND, 2 * TICKS_PER_SECOND)
+BOT_JUDGE_DELAY_TICKS = (
+    3 * TICKS_PER_SECOND // 2,
+    5 * TICKS_PER_SECOND // 2,
+)
+NEXT_ROUND_SEQUENCE_ID = "humanitycards_next_round"
+NEXT_ROUND_SEQUENCE_TAG = "humanitycards_round_transition"
+_REPEAT_DIRECTIVE_RE = re.compile(
+    r"_?\s*\((?:same\s+card\s+again|repeat)\)\s*_?",
+    re.IGNORECASE,
+)
+_REPEAT_TOKEN = "\N{OBJECT REPLACEMENT CHARACTER}repeat\N{OBJECT REPLACEMENT CHARACTER}"
+_MECHANIC_DIRECTIVE_RE = re.compile(
+    r"(?:"
+    r"pick\s+(?P<pick_first>\d+)\s*,?\s*draw\s+(?P<draw_second>\d+)"
+    r"|"
+    r"draw\s+(?P<draw_first>\d+)\s*,?\s*pick\s+(?P<pick_second>\d+)"
+    r")\)?\.?$",
+    re.IGNORECASE,
+)
+_BREAK_TAG_RE = re.compile(r"<br\s*/?>", re.IGNORECASE)
+_SOFT_HYPHEN_BLANK_RE = re.compile("\N{SOFT HYPHEN}{2,}")
+_STRIKETHROUGH_TAG_RE = re.compile(
+    r"<(?:s|strike|strikethrough)>(.*?)</(?:s|strike|strikethrough)>",
+    re.IGNORECASE | re.DOTALL,
+)
+_EMPHASIS_TAG_RE = re.compile(r"</?(?:em|i)>", re.IGNORECASE)
+_HTML_TAG_RE = re.compile(r"<[^>]+>")
+_HTML_ENTITY_RE = re.compile(r"&(?:[A-Za-z]+|#\d+|#x[0-9A-Fa-f]+);")
+_INVALID_CARD_TEXT_RE = re.compile(r"[\u00AD\uFFFD\x00-\x09\x0B-\x1F]")
+_LEGACY_ENGLISH_PACK_ALIASES = {
+    "Bad Campaign, The Presidential Party Game!": "Bad Campaign",
+    "Black Box Press Kit": "Cards Against Humanity: Blackbox Press Kit",
+    "CAH Base Set": "Cards Against Humanity: Main Deck (All Versions)",
+    "CAH: Main Deck": "Cards Against Humanity: Main Deck (All Versions)",
+    "CAH: Box Expansion": "Cards Against Humanity: Bigger Blacker Box/Box Expansion",
+    "Cads About Maternity - A game for bad mommies": "Cads About Maternity",
+    "Crabs Adjust Humidity: Volume 1": (
+        "Crabs Adjust Humidity: Volume 1 (also in Omniclaw)"
+    ),
+    "Crabs Adjust Humidity: Volume 2": (
+        "Crabs Adjust Humidity: Volume 2 (also in Omniclaw)"
+    ),
+    "Crabs Adjust Humidity: Volume 3": (
+        "Crabs Adjust Humidity: Volume 3 (also in Asylum Pack)"
+    ),
+    "Crabs Adjust Humidity: Volume 4": (
+        "Crabs Adjust Humidity: Volume 4 (also in Omniclaw)"
+    ),
+    "Crabs Adjust Humidity: Volume 5": (
+        "Crabs Adjust Humidity: Volume 5 (also in Omniclaw)"
+    ),
+    "Dirty Nasty Filthy": "Dirty Nasty Filthy - A Card Game for Twisted Minds",
+    "Disgruntled Decks: Marine Corps/Jarhead Edition": (
+        "Disgrunteld Decks: Marine Corps/Jarhead Edition"
+    ),
+    "Gen Con 2018 Midterm Election Pack": (
+        "Cards Against Humanity: Gen Con 2018 Midterm Elections Pack"
+    ),
+    "Guards Against Insanity, Edition 1": (
+        "Guards Against Insanity, Edition 1 (also in Asylum Pack)"
+    ),
+    "Guards Against Insanity, Edition 2": (
+        "Guards Against Insanity, Edition 2 (also in Asylum Pack)"
+    ),
+    "Guards Against Insanity, Edition 3": (
+        "Guards Against Insanity, Edition 3 (also in Asylum Pack)"
+    ),
+    "Guards Against Insanity, Edition 4": (
+        "Guards Against Insanity, Edition 4 (also in Asylum Pack)"
+    ),
+    "KinderPerfect (Commercial Set)": "KinderPerfect (Commerical Set)",
+    "KinderPerfect: A Timeout For Parents (Kickstarter Set)": (
+        "KinderPerfect (Kickstarter Set)"
+    ),
+    'PAX 2010 "Oops" Kit': 'Cards Against Humanity: PAX 2012 "Oops" Kit',
+    "Personally Incorrect - Expansion 2 [Yellow Box]": (
+        "Personally Incorrect - Expansion 2"
+    ),
+    "Personally Incorrect - Expansion [Red Box]": ("Personally Incorrect - Expansion"),
+    "Retail Mini Pack": "Cards Against Humanity: Retail Promo/Mini Pack",
+    "The Catholic Card Game: Base Deck": "The Catholic Card Game: Base Set",
+    "The Catholic Card Game: Life Teen Expansion Pack": (
+        "The Catholic Card Game: Teen Life Expansion Pack"
+    ),
+    "Trumped UpCards: Astonishlingly Excellent Wealthcare! Expansion Pack": (
+        "Trumped UpCards: Astonishingly Excellent Wealthcare! Expansion Pack"
+    ),
+}
 
 
-def load_humanity_packs() -> list[dict]:
-    """Load card packs from JSON file. Results are cached."""
-    global _humanity_packs
-    if _humanity_packs is None:
-        packs_path = Path(__file__).parent / "humanity_packs.json"
-        with open(packs_path, "r", encoding="utf-8") as f:
-            _humanity_packs = json.load(f)
-    return _humanity_packs
+def _read_card_json(filename: str) -> object:
+    path = Path(__file__).parent / filename
+    with open(path, "r", encoding="utf-8") as file:
+        return json.load(file)
+
+
+def _plain_card_text(value: object) -> object:
+    """Decode source text and convert supported presentation tags to plain text."""
+    if not isinstance(value, str):
+        return value
+    text = html.unescape(value).replace("\r\n", "\n").replace("\r", "\n")
+    text = _BREAK_TAG_RE.sub("\n", text)
+    text = _SOFT_HYPHEN_BLANK_RE.sub("_", text)
+    text = _STRIKETHROUGH_TAG_RE.sub(lambda match: f"{match.group(1).strip()},", text)
+    return _EMPHASIS_TAG_RE.sub("", text)
+
+
+def _card_mechanics(card: dict) -> tuple[object, object]:
+    """Return structured pick/draw counts, honoring explicit printed directives."""
+    pick = card.get("pick")
+    draw = card.get("draw", 0)
+    text = card.get("text")
+    if isinstance(text, str) and (match := _MECHANIC_DIRECTIVE_RE.search(text)):
+        pick = int(match.group("pick_first") or match.group("pick_second"))
+        draw = int(match.group("draw_first") or match.group("draw_second"))
+    return pick, draw
+
+
+def _normalize_pack_text(packs: list[object]) -> list[dict]:
+    """Return pack copies with readable text while retaining source metadata."""
+    normalized: list[dict] = []
+    for pack in packs:
+        if not isinstance(pack, dict):
+            raise TypeError(f"Card pack must be an object, not {type(pack).__name__}")
+        normalized_pack = dict(pack)
+        normalized_pack["name"] = _plain_card_text(pack.get("name"))
+        for color in ("white", "black"):
+            cards = pack.get(color, [])
+            if not isinstance(cards, list):
+                normalized_pack[color] = cards
+                continue
+            normalized_cards = []
+            for card in cards:
+                if not isinstance(card, dict):
+                    normalized_cards.append(card)
+                    continue
+                normalized_card = dict(card)
+                normalized_card["text"] = _plain_card_text(card.get("text"))
+                if color == "black":
+                    pick, draw = _card_mechanics(normalized_card)
+                    normalized_card["pick"] = pick
+                    normalized_card["draw"] = draw
+                normalized_cards.append(normalized_card)
+            normalized_pack[color] = normalized_cards
+        normalized.append(normalized_pack)
+    return normalized
+
+
+def _load_english_packs() -> list[dict]:
+    data = _read_card_json("humanity_packs.json")
+    if not isinstance(data, list):
+        raise TypeError("English Cards Against Humanity data must be a pack list")
+    return _normalize_pack_text(data)
+
+
+def _load_spanish_packs() -> list[dict]:
+    data = _read_card_json("humanity_packs_es.json")
+    if not isinstance(data, dict):
+        raise TypeError("Spanish Cards Against Humanity data must be an object")
+    white_cards = data.get("whiteCards")
+    black_cards = data.get("blackCards")
+    if not isinstance(white_cards, list) or not isinstance(black_cards, list):
+        raise TypeError("Spanish Cards Against Humanity card lists are invalid")
+    return _normalize_pack_text(
+        [
+            {
+                "name": data.get("name", "Cartas contra la humanidad"),
+                "official": False,
+                "white": [{"text": text} for text in white_cards],
+                "black": [
+                    {
+                        "text": card.get("text"),
+                        "pick": card.get("pick"),
+                        "draw": card.get("draw", 0),
+                    }
+                    if isinstance(card, dict)
+                    else card
+                    for card in black_cards
+                ],
+            }
+        ]
+    )
+
+
+def _load_brazilian_portuguese_packs() -> list[dict]:
+    black_data = _read_card_json("humanity_black_cards_pt_br.json")
+    white_data = _read_card_json("humanity_white_cards_pt_br.json")
+    if not isinstance(black_data, dict) or not isinstance(white_data, dict):
+        raise TypeError("Brazilian Portuguese Cards Against Humanity data is invalid")
+    questions = black_data.get("questions")
+    answers = white_data.get("answers")
+    if not isinstance(questions, list) or not isinstance(answers, list):
+        raise TypeError("Brazilian Portuguese card lists are invalid")
+    return _normalize_pack_text(
+        [
+            {
+                "name": "Cartas Contra a Humanidade (Brasil)",
+                "official": False,
+                "white": [{"text": text} for text in answers],
+                "black": [
+                    {
+                        "text": (
+                            card.get("text", "").replace("$", "_")
+                            if isinstance(card.get("text"), str)
+                            else card.get("text")
+                        ),
+                        "pick": card.get("pick"),
+                        "draw": card.get("draw", 0),
+                    }
+                    if isinstance(card, dict)
+                    else card
+                    for card in questions
+                ],
+            }
+        ]
+    )
+
+
+_PACK_LOADERS = {
+    "en": _load_english_packs,
+    "es": _load_spanish_packs,
+    "pt-BR": _load_brazilian_portuguese_packs,
+}
+
+
+def _validated_source_text(value: object, context: str) -> str:
+    """Return clean source text or fail before it can reach a player."""
+    if not isinstance(value, str):
+        raise TypeError(f"Invalid {context}: {value!r}")
+    if not value.strip():
+        raise ValueError(f"Empty {context}")
+    if value != value.strip():
+        raise ValueError(f"Leading or trailing whitespace in {context}")
+    if (
+        _HTML_TAG_RE.search(value)
+        or _HTML_ENTITY_RE.search(value)
+        or _INVALID_CARD_TEXT_RE.search(value)
+    ):
+        raise ValueError(f"Invalid text in {context}")
+    return value
+
+
+def _validate_packs(language: str, packs: list[dict]) -> None:
+    """Fail fast when vendored card data is malformed or ambiguous."""
+    names: set[str] = set()
+    for pack in packs:
+        if not isinstance(pack, dict):
+            raise TypeError(f"Invalid {language} card pack: {pack!r}")
+        name = _validated_source_text(pack.get("name"), f"{language} pack name")
+        if name in names:
+            raise ValueError(f"Duplicate {language} card pack name: {name!r}")
+        names.add(name)
+        if not isinstance(pack.get("official"), bool):
+            raise TypeError(f"Invalid official flag in {language} pack {name!r}")
+        if language == "en":
+            _validated_source_text(
+                pack.get("sheetName"), f"sheet name in {language} pack {name!r}"
+            )
+        white_cards = pack.get("white", [])
+        black_cards = pack.get("black", [])
+        if not isinstance(white_cards, list) or not isinstance(black_cards, list):
+            raise TypeError(f"Invalid card lists in {language} pack {name!r}")
+        for card in white_cards:
+            if not isinstance(card, dict):
+                raise TypeError(f"Invalid white card in {language} pack {name!r}")
+            _validated_source_text(
+                card.get("text"), f"white card in {language} pack {name!r}"
+            )
+        for card in black_cards:
+            if not isinstance(card, dict):
+                raise TypeError(f"Invalid black card in {language} pack {name!r}")
+            _validated_source_text(
+                card.get("text"), f"black card in {language} pack {name!r}"
+            )
+            pick = card.get("pick")
+            draw = card.get("draw")
+            if isinstance(pick, bool) or not isinstance(pick, int):
+                raise TypeError(f"Invalid pick count in {language} pack {name!r}")
+            if pick < 1:
+                raise ValueError(f"Invalid pick count in {language} pack {name!r}")
+            if isinstance(draw, bool) or not isinstance(draw, int):
+                raise TypeError(f"Invalid draw count in {language} pack {name!r}")
+            if draw < 0:
+                raise ValueError(f"Invalid draw count in {language} pack {name!r}")
+
+
+def load_humanity_packs(language: str = "en") -> list[dict]:
+    """Load and validate one language's vendored card packs once."""
+    if language not in _PACK_LOADERS:
+        return []
+    if language not in _humanity_packs:
+        packs = _PACK_LOADERS[language]()
+        _validate_packs(language, packs)
+        _humanity_packs[language] = packs
+    return _humanity_packs[language]
+
+
+@cache
+def get_max_draw_count() -> int:
+    """Return the largest temporary hand expansion in any available deck."""
+    return max(
+        (
+            card["draw"]
+            for language in CARD_LANGUAGES
+            for pack in load_humanity_packs(language)
+            for card in pack["black"]
+        ),
+        default=0,
+    )
 
 
 def get_pack_names() -> list[str]:
-    """Get list of all pack names."""
-    return [pack["name"] for pack in load_humanity_packs()]
+    """Get non-empty English pack names for the pack selector."""
+    return [
+        pack["name"]
+        for pack in load_humanity_packs("en")
+        if pack.get("white") or pack.get("black")
+    ]
+
+
+def _pack_name_key(name: str) -> str:
+    """Normalize historical source prefixes and punctuation for save migration."""
+    value = name.casefold()
+    for prefix in ("cards against humanity:", "cards against humanity", "cah:"):
+        if value.startswith(prefix):
+            value = value[len(prefix) :]
+            break
+    return re.sub(r"[^a-z0-9]+", " ", value).strip()
+
+
+def _resolve_english_pack_names(selected: list[str]) -> list[str]:
+    """Map pack names from the previously shipped corpus to current names."""
+    current_names = get_pack_names()
+    current_set = set(current_names)
+    by_key: dict[str, list[str]] = {}
+    for name in current_names:
+        by_key.setdefault(_pack_name_key(name), []).append(name)
+
+    resolved: list[str] = []
+    for original in selected:
+        candidate = _LEGACY_ENGLISH_PACK_ALIASES.get(original, original)
+        if candidate not in current_set:
+            matches = by_key.get(_pack_name_key(candidate), [])
+            candidate = matches[0] if len(matches) == 1 else ""
+        if candidate and candidate not in resolved:
+            resolved.append(candidate)
+    return resolved
 
 
 def get_pack_groups() -> dict[str, list[str]]:
-    """Get preset groupings of packs for the options UI."""
-    all_names = get_pack_names()
-
-    # Define groups based on known pack prefixes/names
-    base_set = []
-    base_plus_expansions = []
-    family_edition = []
-    holiday_packs = []
-    nostalgia_packs = []
-
-    for name in all_names:
-        lower = name.lower()
-        if name == "CAH Base Set":
-            base_set.append(name)
-            base_plus_expansions.append(name)
-        elif lower.startswith("cah:") and "expansion" in lower:
-            base_plus_expansions.append(name)
-        elif "family" in lower:
-            family_edition.append(name)
-        elif (
-            "holiday" in lower
-            or "christmas" in lower
-            or "greeting" in lower
-            or "seasons" in lower
-            or "hanukkah" in lower
-        ):
-            holiday_packs.append(name)
-        elif "nostalgia" in lower or "90s" in lower or "2000s" in lower:
-            nostalgia_packs.append(name)
-
-    # base_set group also includes base + official expansions
-    if not base_set:
-        # Fallback: first pack is base
-        base_set = [all_names[0]] if all_names else []
-    if not base_plus_expansions:
-        base_plus_expansions = list(base_set)
-
-    groups = {"All Packs": all_names}
-    if base_set:
-        groups["Base Set"] = base_set
-    if base_plus_expansions:
-        groups["Base + Expansions"] = base_plus_expansions
-    if family_edition:
-        groups["Family Edition"] = family_edition
-    if holiday_packs:
-        groups["Holiday Packs"] = holiday_packs
-    if nostalgia_packs:
-        groups["Nostalgia Packs"] = nostalgia_packs
-
-    return groups
+    """Group the English catalog by source metadata rather than name guesses."""
+    packs = [
+        pack
+        for pack in load_humanity_packs("en")
+        if pack.get("white") or pack.get("black")
+    ]
+    current = [pack["name"] for pack in packs if pack["name"] == DEFAULT_ENGLISH_PACK]
+    main_decks = [
+        pack["name"] for pack in packs if pack.get("sheetName") == "CAH Main Deck"
+    ]
+    family = [
+        pack["name"] for pack in packs if pack.get("sheetName") == "CAH Family Edition"
+    ]
+    official_add_ons = [
+        pack["name"]
+        for pack in packs
+        if pack.get("official")
+        and pack.get("sheetName") not in {"CAH Main Deck", "CAH Family Edition"}
+    ]
+    community = [pack["name"] for pack in packs if not pack.get("official")]
+    return {
+        "current": current,
+        "main_decks": main_decks,
+        "official_add_ons": official_add_ons,
+        "family": family,
+        "community": community,
+        "all": [pack["name"] for pack in packs],
+    }
 
 
 def _get_default_packs() -> list[str]:
-    """Get the default selected packs (the Base Set group)."""
-    groups = get_pack_groups()
-    return list(groups.get("Base Set", get_pack_names()[:1]))
-
-
-def _black_card_pick_count(text: str) -> int:
-    """Return how many white cards a black card requires."""
-    return max(1, text.count("_"))
-
-
-# ==========================================================================
-# Card ID counter
-# ==========================================================================
-
-_next_card_id = 0
-
-
-def _make_card_id() -> int:
-    """Generate a unique card ID for this session."""
-    global _next_card_id
-    _next_card_id += 1
-    return _next_card_id
+    """Use the newest complete US main deck by default."""
+    names = get_pack_names()
+    return [DEFAULT_ENGLISH_PACK] if DEFAULT_ENGLISH_PACK in names else names[:1]
 
 
 # ==========================================================================
@@ -142,8 +447,10 @@ class HumanityCardsPlayer(Player):
     """Player state for Humanity Cards game."""
 
     score: int = 0
-    hand: list[dict] = field(default_factory=list)  # {"text": str, "pack": str, "id": int}
-    submitted_cards: list[str] | None = None  # Text of submitted cards (None = not submitted)
+    hand: list[dict] = field(default_factory=list)  # {"text": str, "pack": str}
+    submitted_cards: list[str] | None = (
+        None  # Text of submitted cards (None = not submitted)
+    )
     selected_indices: list[int] = field(default_factory=list)  # Indices into hand
 
 
@@ -153,9 +460,9 @@ class HumanityCardsOptions(GameOptions):
 
     winning_score: int = option_field(
         IntOption(
-            default=7,
-            min_val=3,
-            max_val=20,
+            default=DEFAULT_WINNING_SCORE,
+            min_val=MIN_WINNING_SCORE,
+            max_val=MAX_WINNING_SCORE,
             value_key="score",
             label="hc-set-winning-score",
             prompt="hc-enter-winning-score",
@@ -165,14 +472,30 @@ class HumanityCardsOptions(GameOptions):
     )
     hand_size: int = option_field(
         IntOption(
-            default=10,
-            min_val=5,
-            max_val=15,
+            default=DEFAULT_HAND_SIZE,
+            min_val=MIN_HAND_SIZE,
+            max_val=MAX_HAND_SIZE,
             value_key="count",
             label="hc-set-hand-size",
             prompt="hc-enter-hand-size",
             change_msg="hc-option-changed-hand-size",
             description="hc-desc-hand-size",
+        )
+    )
+    card_language: str = option_field(
+        MenuOption(
+            default="en",
+            choices=list(CARD_LANGUAGES),
+            value_key="language",
+            label="hc-set-card-language",
+            prompt="hc-select-card-language",
+            change_msg="hc-option-changed-card-language",
+            description="hc-desc-card-language",
+            choice_labels={
+                "en": "language-en",
+                "es": "language-es",
+                "pt-BR": "hc-card-language-pt-br",
+            },
         )
     )
     card_packs: list[str] = multi_select_field(
@@ -185,6 +508,14 @@ class HumanityCardsOptions(GameOptions):
             min_selected=1,
             show_bulk_actions=True,
             groups=get_pack_groups,
+            group_labels={
+                "current": "hc-pack-group-current",
+                "main_decks": "hc-pack-group-main-decks",
+                "official_add_ons": "hc-pack-group-official-add-ons",
+                "family": "hc-pack-group-family",
+                "community": "hc-pack-group-community",
+                "all": "hc-pack-group-all",
+            },
         )
     )
     czar_selection: str = option_field(
@@ -205,9 +536,9 @@ class HumanityCardsOptions(GameOptions):
     )
     num_judges: int = option_field(
         IntOption(
-            default=1,
-            min_val=1,
-            max_val=3,
+            default=DEFAULT_JUDGE_COUNT,
+            min_val=MIN_JUDGE_COUNT,
+            max_val=MAX_JUDGE_COUNT,
             value_key="count",
             label="hc-set-num-judges",
             prompt="hc-enter-num-judges",
@@ -215,6 +546,11 @@ class HumanityCardsOptions(GameOptions):
             description="hc-desc-num-judges",
         )
     )
+
+    def is_option_visible(self, name: str) -> bool:
+        if name == "card_packs" and self.card_language != "en":
+            return False
+        return super().is_option_visible(name)
 
 
 # ==========================================================================
@@ -242,12 +578,33 @@ class HumanityCardsGame(Game):
     black_deck: list[dict] = field(default_factory=list)
     white_discard: list[dict] = field(default_factory=list)
     black_discard: list[dict] = field(default_factory=list)
-    current_black_card: dict | None = None  # {"text": str, "pick": int, "pack": str}
-    judge_indices: list[int] = field(default_factory=list)  # Indices into active players
+    # {"text": str, "pick": int, "draw": int, "pack": str}
+    current_black_card: dict | None = None
+    judge_indices: list[int] = field(
+        default_factory=list
+    )  # Indices into active players
     last_winner_index: int = -1  # For "Most Recent Winner" czar selection
-    submissions: list[dict] = field(default_factory=list)  # [{"player_id": str, "cards": [str]}]
-    submission_order: list[int] = field(default_factory=list)  # Shuffled indices into submissions
-    round_end_ticks: int = 0  # Countdown ticks before next round starts
+    submissions: list[dict] = field(
+        default_factory=list
+    )  # [{"player_id": str, "cards": [str]}]
+    submission_order: list[int] = field(
+        default_factory=list
+    )  # Shuffled indices into submissions
+    # Retained only to migrate saved matches from the former tick countdown.
+    round_end_ticks: int = 0
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.options.card_language == "en" and self.options.card_packs:
+            migrated = _resolve_english_pack_names(self.options.card_packs)
+            self.options.card_packs = migrated or _get_default_packs()
+        if (
+            self.phase == "round_end"
+            and self.round_end_ticks > 0
+            and not self.has_active_sequence(sequence_id=NEXT_ROUND_SEQUENCE_ID)
+        ):
+            self._schedule_next_round(self.round_end_ticks)
+            self.round_end_ticks = 0
 
     @classmethod
     def get_name(cls) -> str:
@@ -263,17 +620,19 @@ class HumanityCardsGame(Game):
 
     @classmethod
     def get_min_players(cls) -> int:
-        return 3
+        return MIN_PLAYERS
 
     @classmethod
     def get_max_players(cls) -> int:
-        return 10
+        return MAX_PLAYERS
 
     @classmethod
     def get_supported_leaderboards(cls) -> list[str]:
         return ["wins", "total_score", "high_score", "rating", "games_played"]
 
-    def create_player(self, player_id: str, name: str, is_bot: bool = False) -> HumanityCardsPlayer:
+    def create_player(
+        self, player_id: str, name: str, is_bot: bool = False
+    ) -> HumanityCardsPlayer:
         return HumanityCardsPlayer(id=player_id, name=name, is_bot=is_bot)
 
     def prestart_validate(self) -> list[str | tuple[str, dict]]:
@@ -298,7 +657,10 @@ class HumanityCardsGame(Game):
         elif stats["black"] == 0:
             errors.append("hc-error-no-black-cards")
 
-        total_whites_needed = active_count * self.options.hand_size
+        non_judge_count = max(0, active_count - self.options.num_judges)
+        total_whites_needed = (
+            active_count * self.options.hand_size + non_judge_count * stats["max_draw"]
+        )
         if active_count and stats["white"] < total_whites_needed:
             errors.append(
                 (
@@ -325,21 +687,20 @@ class HumanityCardsGame(Game):
         return errors
 
     def _selected_pack_stats(self) -> dict[str, int]:
-        selected = set(self._get_active_packs())
-        stats = {"selected": 0, "white": 0, "black": 0, "max_pick": 0}
-        for pack in load_humanity_packs():
-            if pack["name"] not in selected:
-                continue
-            stats["selected"] += 1
-            stats["white"] += len(pack.get("white", []))
-            black_cards = pack.get("black", [])
-            stats["black"] += len(black_cards)
-            for card in black_cards:
-                stats["max_pick"] = max(
-                    stats["max_pick"],
-                    _black_card_pick_count(card.get("text", "")),
-                )
-        return stats
+        selected_count, white_cards, black_cards = self._selected_pack_cards()
+        return {
+            "selected": selected_count,
+            "white": len(white_cards),
+            "black": len(black_cards),
+            "max_pick": max(
+                (card["pick"] for _, card in black_cards),
+                default=0,
+            ),
+            "max_draw": max(
+                (card["draw"] for _, card in black_cards),
+                default=0,
+            ),
+        }
 
     # ==========================================================================
     # Deck management
@@ -347,42 +708,64 @@ class HumanityCardsGame(Game):
 
     def _get_active_packs(self) -> list[str]:
         """Get the list of selected pack names."""
-        return list(self.options.card_packs)
+        language = self.options.card_language
+        if language == "en":
+            return list(self.options.card_packs)
+        return [pack["name"] for pack in load_humanity_packs(language)]
+
+    def _selected_pack_cards(
+        self,
+    ) -> tuple[int, list[tuple[str, dict]], list[tuple[str, dict]]]:
+        """Collect selected cards, removing exact duplicates across overlapping packs."""
+        packs = load_humanity_packs(self.options.card_language)
+        active_pack_names = set(self._get_active_packs())
+        selected_count = 0
+        white_cards: list[tuple[str, dict]] = []
+        black_cards: list[tuple[str, dict]] = []
+        seen_white: set[str] = set()
+        seen_black: set[tuple[str, int, int]] = set()
+
+        for pack in packs:
+            pack_name = pack["name"]
+            if pack_name not in active_pack_names:
+                continue
+            selected_count += 1
+            for card in pack.get("white", []):
+                text = card["text"]
+                if text in seen_white:
+                    continue
+                seen_white.add(text)
+                white_cards.append((pack_name, card))
+            for card in pack.get("black", []):
+                key = (card["text"], card["pick"], card["draw"])
+                if key in seen_black:
+                    continue
+                seen_black.add(key)
+                black_cards.append((pack_name, card))
+
+        return selected_count, white_cards, black_cards
 
     def _build_decks(self) -> None:
         """Build white and black decks from selected packs."""
-        packs = load_humanity_packs()
-        active_pack_names = set(self._get_active_packs())
+        _, selected_white, selected_black = self._selected_pack_cards()
 
         self.white_deck = []
         self.black_deck = []
         self.white_discard = []
         self.black_discard = []
 
-        for pack in packs:
-            if pack["name"] not in active_pack_names:
-                continue
-            pack_name = pack["name"]
+        for pack_name, card in selected_white:
+            self.white_deck.append({"text": card["text"], "pack": pack_name})
 
-            for card in pack.get("white", []):
-                text = card["text"].rstrip(".")
-                self.white_deck.append(
-                    {
-                        "text": text,
-                        "pack": pack_name,
-                        "id": _make_card_id(),
-                    }
-                )
-
-            for card in pack.get("black", []):
-                text = card["text"]
-                self.black_deck.append(
-                    {
-                        "text": text,
-                        "pick": _black_card_pick_count(text),
-                        "pack": pack_name,
-                    }
-                )
+        for pack_name, card in selected_black:
+            self.black_deck.append(
+                {
+                    "text": card["text"],
+                    "pick": card["pick"],
+                    "draw": card["draw"],
+                    "pack": pack_name,
+                }
+            )
 
         random.shuffle(self.white_deck)  # nosec B311
         random.shuffle(self.black_deck)  # nosec B311
@@ -423,20 +806,51 @@ class HumanityCardsGame(Game):
             player.hand.extend(cards)
 
     def _fill_in_blanks(self, black_text: str, white_cards: list[str]) -> str:
-        """Replace underscores in black card with white card texts."""
-        result = black_text
-        for card_text in white_cards:
-            # Trim trailing period from white card for insertion
-            insert = card_text.rstrip(".")
-            if "_" in result:
-                result = result.replace("_", insert, 1)
+        """Fill a prompt while preserving the stored card text."""
+        prompt = _REPEAT_DIRECTIVE_RE.sub(_REPEAT_TOKEN, black_text)
+        card_index = 0
+        last_card = ""
+        parts: list[str] = []
+        position = 0
+        slot_pattern = re.compile(rf"_+|{re.escape(_REPEAT_TOKEN)}")
+
+        for match in slot_pattern.finditer(prompt):
+            parts.append(prompt[position : match.start()])
+            is_repeat = match.group() == _REPEAT_TOKEN
+            if is_repeat and last_card:
+                card_text = last_card
+            elif card_index < len(white_cards):
+                card_text = white_cards[card_index]
+                card_index += 1
+                last_card = card_text
+            elif last_card:
+                card_text = last_card
             else:
-                result += f" {insert}"
+                parts.append(match.group())
+                position = match.end()
+                continue
+
+            following = prompt[match.end() :]
+            insert = card_text
+            if following and card_text.endswith(".") and not card_text.endswith(".."):
+                insert = card_text[:-1]
+            parts.append(insert)
+            position = match.end()
+
+        parts.append(prompt[position:])
+        result = "".join(parts)
+
+        for card_text in white_cards[card_index:]:
+            result = f"{result.rstrip()} {card_text}".strip()
         return result
 
     def _speech_friendly_black(self, text: str) -> str:
-        """Replace underscores with 'blank' for screen reader speech."""
-        return text.replace("_", "blank")
+        """Render prompt mechanics in the selected card language for speech."""
+        language = self.options.card_language
+        repeat = Localization.get(language, "hc-card-same-again")
+        blank = Localization.get(language, "hc-card-blank")
+        text = _REPEAT_DIRECTIVE_RE.sub(repeat, text)
+        return re.sub(r"_+", blank, text)
 
     # ==========================================================================
     # Judge management (supports multiple judges)
@@ -474,7 +888,9 @@ class HumanityCardsGame(Game):
     def _select_judges(self) -> None:
         """Select judge(s) for the current round based on czar_selection option."""
         active = self.get_active_players()
-        num_judges = min(self.options.num_judges, len(active) - 1)  # At least 1 non-judge
+        num_judges = min(
+            self.options.num_judges, len(active) - 1
+        )  # At least 1 non-judge
         if num_judges < 1:
             num_judges = 1
 
@@ -501,10 +917,12 @@ class HumanityCardsGame(Game):
             # Rotating (default)
             self._select_judges_rotating(active, num_judges)
 
-    def _select_judges_rotating(self, active: list[HumanityCardsPlayer], num_judges: int) -> None:
+    def _select_judges_rotating(
+        self, active: list[HumanityCardsPlayer], num_judges: int
+    ) -> None:
         """Rotating judge selection: advance from current position."""
         if not self.judge_indices:
-            self.judge_indices = [0]
+            self.judge_indices = [random.randrange(len(active))]  # nosec B311
         else:
             # Advance the first judge index
             first = (self.judge_indices[0] + 1) % len(active)
@@ -528,13 +946,13 @@ class HumanityCardsGame(Game):
 
         action_set = ActionSet(name="turn")
 
-        # Card toggle actions (0-14) — non-judges during submitting
-        for i in range(15):
+        # Card toggle actions — non-judges during submitting
+        for i in range(MAX_HAND_SIZE + get_max_draw_count()):
             action_set.add(
                 Action(
                     id=f"toggle_card_{i}",
                     label=Localization.get(locale, "hc-card-number", number=i + 1),
-                    handler=f"_action_toggle_card_{i}",
+                    handler="_action_toggle_card",
                     is_enabled="_is_toggle_card_enabled",
                     is_hidden="_is_toggle_card_hidden",
                     get_label="_get_toggle_card_label",
@@ -542,26 +960,15 @@ class HumanityCardsGame(Game):
                 )
             )
 
-        # Judge prompt header (static, non-actionable) — shown at top of judge menu
-        action_set.add(
-            Action(
-                id="judge_prompt_header",
-                label=Localization.get(locale, "hc-choose-best-card"),
-                handler="_action_noop",
-                is_enabled="_is_judge_prompt_header_enabled",
-                is_hidden="_is_judge_prompt_header_hidden",
-                get_label="_get_judge_prompt_header_label",
-                show_in_actions_menu=False,
-            )
-        )
-
-        # Judge pick actions (0-19) — judges during judging, inline in menu
-        for i in range(20):
+        # At most one fewer submission than the table's maximum player count.
+        for i in range(MAX_PLAYERS - 1):
             action_set.add(
                 Action(
                     id=f"judge_pick_{i}",
-                    label=Localization.get(locale, "hc-submission-number", number=i + 1),
-                    handler=f"_action_judge_pick_{i}",
+                    label=Localization.get(
+                        locale, "hc-submission-number", number=i + 1
+                    ),
+                    handler="_action_judge_pick",
                     is_enabled="_is_judge_pick_enabled",
                     is_hidden="_is_judge_pick_hidden",
                     get_label="_get_judge_pick_label",
@@ -586,7 +993,9 @@ class HumanityCardsGame(Game):
         action_set.add(
             Action(
                 id="submit_cards",
-                label=Localization.get(locale, "hc-submit-cards", selected=0, required=1),
+                label=Localization.get(
+                    locale, "hc-submit-cards", selected=0, required=1
+                ),
                 handler="_action_submit_cards",
                 is_enabled="_is_submit_enabled",
                 is_hidden="_is_submit_hidden",
@@ -596,6 +1005,42 @@ class HumanityCardsGame(Game):
         )
 
         return action_set
+
+    def build_menu_items(self, player: Player, user) -> MenuBuild:
+        """Add a genuine read-only prompt above a judge's submissions."""
+        menu = super().build_menu_items(player, user)
+        if (
+            self.status != "playing"
+            or self.phase != "judging"
+            or not isinstance(player, HumanityCardsPlayer)
+            or not self._is_judge(player)
+        ):
+            return menu
+
+        prompt = (
+            self._speech_friendly_black(self.current_black_card["text"])
+            if self.current_black_card
+            else Localization.get(user.locale, "hc-choose-best-card")
+        )
+        header = MenuItem(
+            text=Localization.get(
+                user.locale,
+                "hc-choose-best-card-for",
+                prompt=prompt,
+            ),
+            id="judge_prompt_header",
+            read_only=True,
+        )
+        insert_at = next(
+            (
+                index
+                for index, item in enumerate(menu.items)
+                if item.id and item.id.startswith("judge_pick_")
+            ),
+            0,
+        )
+        menu.items.insert(insert_at, header)
+        return menu
 
     def create_standard_action_set(self, player: Player) -> ActionSet:
         """Create standard info actions for Cards Against Humanity."""
@@ -618,8 +1063,27 @@ class HumanityCardsGame(Game):
                 id="whose_judge",
                 label=Localization.get(locale, "hc-whose-judge"),
                 handler="_action_whose_judge",
-                is_enabled="_is_view_scores_enabled",
+                is_enabled="_is_check_scores_enabled",
                 is_hidden="_is_whose_judge_hidden",
+                include_spectators=True,
+            )
+        )
+        action_set.add(
+            Action(
+                id="review_hand",
+                label=Localization.get(locale, "hc-review-hand"),
+                handler="_action_review_hand",
+                is_enabled="_is_review_hand_enabled",
+                is_hidden="_is_review_hand_hidden",
+            )
+        )
+        action_set.add(
+            Action(
+                id="review_answers",
+                label=Localization.get(locale, "hc-review-answers"),
+                handler="_action_review_answers",
+                is_enabled="_is_review_answers_enabled",
+                is_hidden="_is_review_answers_hidden",
                 include_spectators=True,
             )
         )
@@ -629,6 +1093,8 @@ class HumanityCardsGame(Game):
                 action_set,
                 [
                     "view_black_card",
+                    "review_hand",
+                    "review_answers",
                     "whose_judge",
                     "check_scores",
                     "whose_turn",
@@ -643,7 +1109,7 @@ class HumanityCardsGame(Game):
         super().setup_keybinds()
 
         # Number keys 1-9, 0 for cards 1-10
-        for i in range(10):
+        for i in range(DIRECT_CARD_KEY_COUNT):
             key = str((i + 1) % 10)  # 1,2,3,...,9,0
             self.define_keybind(
                 key,
@@ -688,11 +1154,28 @@ class HumanityCardsGame(Game):
             include_spectators=True,
         )
 
+        self.define_keybind(
+            "h",
+            Localization.get("en", "hc-review-hand"),
+            ["review_hand"],
+            state=KeybindState.ACTIVE,
+        )
+
+        self.define_keybind(
+            "shift+v",
+            Localization.get("en", "hc-review-answers"),
+            ["review_answers"],
+            state=KeybindState.ACTIVE,
+            include_spectators=True,
+        )
+
     # ==========================================================================
     # is_enabled callbacks
     # ==========================================================================
 
-    def _is_toggle_card_enabled(self, player: Player, action_id: str) -> str | None:
+    def _is_toggle_card_enabled(
+        self, player: Player, action_id: str
+    ) -> str | tuple[str, dict] | None:
         if self.status != "playing":
             return "action-not-playing"
         if player.is_spectator:
@@ -707,6 +1190,9 @@ class HumanityCardsGame(Game):
         idx = int(action_id.removeprefix("toggle_card_"))
         if idx >= len(hcp.hand):
             return "hc-card-not-in-hand"
+        required = self.current_black_card["pick"] if self.current_black_card else 1
+        if idx not in hcp.selected_indices and len(hcp.selected_indices) >= required:
+            return ("hc-selection-full", {"count": required})
         return None
 
     def _is_toggle_card_hidden(self, player: Player, action_id: str) -> Visibility:
@@ -733,6 +1219,14 @@ class HumanityCardsGame(Game):
             return Localization.get(locale, "hc-card-number", number=idx + 1)
         card = hcp.hand[idx]
         if idx in hcp.selected_indices:
+            required = self.current_black_card["pick"] if self.current_black_card else 1
+            if required > 1:
+                return Localization.get(
+                    locale,
+                    "hc-card-selected-position",
+                    text=card["text"],
+                    position=hcp.selected_indices.index(idx) + 1,
+                )
             return Localization.get(locale, "hc-card-selected", text=card["text"])
         return Localization.get(locale, "hc-card-not-selected", text=card["text"])
 
@@ -812,60 +1306,13 @@ class HumanityCardsGame(Game):
             if sub_idx < len(self.submissions):
                 sub = self.submissions[sub_idx]
                 if self.current_black_card:
-                    return self._fill_in_blanks(self.current_black_card["text"], sub["cards"])
+                    return self._fill_in_blanks(
+                        self.current_black_card["text"], sub["cards"]
+                    )
                 return ", ".join(sub["cards"])
         user = self.get_user(player)
         locale = user.locale if user else "en"
         return Localization.get(locale, "hc-submission-number", number=idx + 1)
-
-    # ==========================================================================
-    # Judge prompt header callbacks (static text)
-    # ==========================================================================
-
-    def _action_noop(self, player: Player, action_id: str) -> None:
-        """No-op handler for static text actions."""
-        pass
-
-    def _is_judge_prompt_header_enabled(self, player: Player, action_id: str) -> str | None:
-        return "action-not-available"
-
-    def _is_judge_prompt_header_hidden(self, player: Player, action_id: str) -> Visibility:
-        if self.status != "playing" or self.phase != "judging":
-            return Visibility.HIDDEN
-        hcp: HumanityCardsPlayer = player  # type: ignore
-        if not self._is_judge(hcp):
-            return Visibility.HIDDEN
-        return Visibility.VISIBLE
-
-    def _get_judge_prompt_header_label(self, player: Player, action_id: str) -> str:
-        user = self.get_user(player)
-        locale = user.locale if user else "en"
-        if self.current_black_card:
-            prompt_text = self._speech_friendly_black(self.current_black_card["text"])
-            return Localization.get(locale, "hc-choose-best-card-for", prompt=prompt_text)
-        return Localization.get(locale, "hc-choose-best-card")
-
-    def _get_submission_options(self, player: Player) -> list[str]:
-        """Get submission options for judge's menu."""
-        options = []
-        for idx in self.submission_order:
-            if idx < len(self.submissions):
-                sub = self.submissions[idx]
-                if self.current_black_card:
-                    filled = self._fill_in_blanks(self.current_black_card["text"], sub["cards"])
-                else:
-                    filled = ", ".join(sub["cards"])
-                options.append(filled)
-        return options
-
-    # ==========================================================================
-    # View scores callbacks
-    # ==========================================================================
-
-    def _is_view_scores_enabled(self, player: Player) -> str | None:
-        if self.status != "playing":
-            return "action-not-playing"
-        return None
 
     # ==========================================================================
     # Whose judge / whose turn overrides
@@ -889,6 +1336,41 @@ class HumanityCardsGame(Game):
         if self.is_touch_client(user):
             return Visibility.VISIBLE
         return super()._is_whos_at_table_hidden(player)
+
+    def _is_review_hand_enabled(self, player: Player) -> str | None:
+        if self.status != "playing":
+            return "action-not-playing"
+        if player.is_spectator:
+            return "action-spectator"
+        return None
+
+    def _is_review_hand_hidden(self, player: Player) -> Visibility:
+        user = self.get_user(player)
+        if (
+            self.status == "playing"
+            and not player.is_spectator
+            and self.is_touch_client(user)
+        ):
+            return Visibility.VISIBLE
+        return Visibility.HIDDEN
+
+    def _is_review_answers_enabled(self, player: Player) -> str | None:
+        if self.status != "playing":
+            return "action-not-playing"
+        if self.phase != "judging" or not self.submission_order:
+            return "hc-no-answers-to-review"
+        return None
+
+    def _is_review_answers_hidden(self, player: Player) -> Visibility:
+        user = self.get_user(player)
+        if (
+            self.status == "playing"
+            and self.phase == "judging"
+            and self.submission_order
+            and self.is_touch_client(user)
+        ):
+            return Visibility.VISIBLE
+        return Visibility.HIDDEN
 
     def _format_names(self, locale: str, names: list[str]) -> str:
         """Format a player-name list with the listener's locale rules."""
@@ -937,7 +1419,9 @@ class HumanityCardsGame(Game):
 
         if self.phase == "submitting":
             # List who hasn't submitted
-            waiting = [p.name for p in self._get_non_judges() if p.submitted_cards is None]
+            waiting = [
+                p.name for p in self._get_non_judges() if p.submitted_cards is None
+            ]
             if waiting:
                 user.speak_l(
                     "hc-waiting-for",
@@ -945,9 +1429,13 @@ class HumanityCardsGame(Game):
                     names=self._format_names(user.locale, waiting),
                 )
             else:
-                user.speak_l("hc-all-submitted-waiting-judge", buffer="game", judge=judge_names)
+                user.speak_l(
+                    "hc-all-submitted-waiting-judge", buffer="game", judge=judge_names
+                )
         elif self.phase == "judging":
-            user.speak_l("hc-all-submitted-waiting-judge", buffer="game", judge=judge_names)
+            user.speak_l(
+                "hc-all-submitted-waiting-judge", buffer="game", judge=judge_names
+            )
         else:
             user.speak_l("game-no-turn", buffer="game")
 
@@ -1003,7 +1491,7 @@ class HumanityCardsGame(Game):
         return Localization.get(locale, "hc-preview-submission")
 
     # ==========================================================================
-    # Toggle card action handlers (0-14)
+    # Card and submission action handlers
     # ==========================================================================
 
     def _toggle_card(self, player: Player, index: int) -> None:
@@ -1025,120 +1513,89 @@ class HumanityCardsGame(Game):
                 user.play_sound(f"{CAH_SOUND_DIR}/cardunselect.ogg")
         else:
             if len(hcp.selected_indices) >= required:
-                # Deselect first to make room
-                hcp.selected_indices.pop(0)
+                return
             hcp.selected_indices.append(index)
             if user:
                 user.play_sound(f"{CAH_SOUND_DIR}/cardselect.ogg")
 
         self.refresh_menus(player)
 
-    # Per-index toggle handlers
-    def _action_toggle_card_0(self, player: Player, action_id: str) -> None:
-        self._toggle_card(player, 0)
+    def _action_toggle_card(self, player: Player, action_id: str) -> None:
+        self._toggle_card(player, int(action_id.removeprefix("toggle_card_")))
 
-    def _action_toggle_card_1(self, player: Player, action_id: str) -> None:
-        self._toggle_card(player, 1)
+    def _action_judge_pick(self, player: Player, action_id: str) -> None:
+        self._judge_pick(player, int(action_id.removeprefix("judge_pick_")))
 
-    def _action_toggle_card_2(self, player: Player, action_id: str) -> None:
-        self._toggle_card(player, 2)
+    def _action_review_hand(self, player: Player, action_id: str) -> None:
+        if not isinstance(player, HumanityCardsPlayer) or player.is_spectator:
+            return
+        user = self.get_user(player)
+        if not user:
+            return
+        if not player.hand:
+            user.speak_l("hc-hand-empty", buffer="game")
+            return
 
-    def _action_toggle_card_3(self, player: Player, action_id: str) -> None:
-        self._toggle_card(player, 3)
+        lines: list[str] = []
+        for index, card in enumerate(player.hand):
+            if index in player.selected_indices:
+                lines.append(
+                    Localization.get(
+                        user.locale,
+                        "hc-hand-card-selected",
+                        number=index + 1,
+                        position=player.selected_indices.index(index) + 1,
+                        text=card["text"],
+                    )
+                )
+            else:
+                lines.append(
+                    Localization.get(
+                        user.locale,
+                        "hc-hand-card",
+                        number=index + 1,
+                        text=card["text"],
+                    )
+                )
+        self.status_box(player, lines)
 
-    def _action_toggle_card_4(self, player: Player, action_id: str) -> None:
-        self._toggle_card(player, 4)
+    def _ordered_answer_texts(self) -> list[str]:
+        """Complete the anonymous answers in their judging order."""
+        if not self.current_black_card:
+            return []
+        texts: list[str] = []
+        for submission_index in self.submission_order:
+            if submission_index >= len(self.submissions):
+                continue
+            texts.append(
+                self._fill_in_blanks(
+                    self.current_black_card["text"],
+                    self.submissions[submission_index]["cards"],
+                )
+            )
+        return texts
 
-    def _action_toggle_card_5(self, player: Player, action_id: str) -> None:
-        self._toggle_card(player, 5)
+    def _answer_lines(self, locale: str) -> list[str]:
+        """Localize the current anonymous answers for a status view."""
+        return [
+            Localization.get(
+                locale,
+                "hc-answer-line",
+                number=number,
+                text=text,
+            )
+            for number, text in enumerate(self._ordered_answer_texts(), 1)
+        ]
 
-    def _action_toggle_card_6(self, player: Player, action_id: str) -> None:
-        self._toggle_card(player, 6)
-
-    def _action_toggle_card_7(self, player: Player, action_id: str) -> None:
-        self._toggle_card(player, 7)
-
-    def _action_toggle_card_8(self, player: Player, action_id: str) -> None:
-        self._toggle_card(player, 8)
-
-    def _action_toggle_card_9(self, player: Player, action_id: str) -> None:
-        self._toggle_card(player, 9)
-
-    def _action_toggle_card_10(self, player: Player, action_id: str) -> None:
-        self._toggle_card(player, 10)
-
-    def _action_toggle_card_11(self, player: Player, action_id: str) -> None:
-        self._toggle_card(player, 11)
-
-    def _action_toggle_card_12(self, player: Player, action_id: str) -> None:
-        self._toggle_card(player, 12)
-
-    def _action_toggle_card_13(self, player: Player, action_id: str) -> None:
-        self._toggle_card(player, 13)
-
-    def _action_toggle_card_14(self, player: Player, action_id: str) -> None:
-        self._toggle_card(player, 14)
-
-    # Per-index judge pick handlers
-    def _action_judge_pick_0(self, player: Player, action_id: str) -> None:
-        self._judge_pick(player, 0)
-
-    def _action_judge_pick_1(self, player: Player, action_id: str) -> None:
-        self._judge_pick(player, 1)
-
-    def _action_judge_pick_2(self, player: Player, action_id: str) -> None:
-        self._judge_pick(player, 2)
-
-    def _action_judge_pick_3(self, player: Player, action_id: str) -> None:
-        self._judge_pick(player, 3)
-
-    def _action_judge_pick_4(self, player: Player, action_id: str) -> None:
-        self._judge_pick(player, 4)
-
-    def _action_judge_pick_5(self, player: Player, action_id: str) -> None:
-        self._judge_pick(player, 5)
-
-    def _action_judge_pick_6(self, player: Player, action_id: str) -> None:
-        self._judge_pick(player, 6)
-
-    def _action_judge_pick_7(self, player: Player, action_id: str) -> None:
-        self._judge_pick(player, 7)
-
-    def _action_judge_pick_8(self, player: Player, action_id: str) -> None:
-        self._judge_pick(player, 8)
-
-    def _action_judge_pick_9(self, player: Player, action_id: str) -> None:
-        self._judge_pick(player, 9)
-
-    def _action_judge_pick_10(self, player: Player, action_id: str) -> None:
-        self._judge_pick(player, 10)
-
-    def _action_judge_pick_11(self, player: Player, action_id: str) -> None:
-        self._judge_pick(player, 11)
-
-    def _action_judge_pick_12(self, player: Player, action_id: str) -> None:
-        self._judge_pick(player, 12)
-
-    def _action_judge_pick_13(self, player: Player, action_id: str) -> None:
-        self._judge_pick(player, 13)
-
-    def _action_judge_pick_14(self, player: Player, action_id: str) -> None:
-        self._judge_pick(player, 14)
-
-    def _action_judge_pick_15(self, player: Player, action_id: str) -> None:
-        self._judge_pick(player, 15)
-
-    def _action_judge_pick_16(self, player: Player, action_id: str) -> None:
-        self._judge_pick(player, 16)
-
-    def _action_judge_pick_17(self, player: Player, action_id: str) -> None:
-        self._judge_pick(player, 17)
-
-    def _action_judge_pick_18(self, player: Player, action_id: str) -> None:
-        self._judge_pick(player, 18)
-
-    def _action_judge_pick_19(self, player: Player, action_id: str) -> None:
-        self._judge_pick(player, 19)
+    def _action_review_answers(self, player: Player, action_id: str) -> None:
+        user = self.get_user(player)
+        if not user:
+            return
+        lines = self._answer_lines(user.locale)
+        if not lines:
+            user.speak_l("hc-no-answers-to-review", buffer="game")
+            return
+        self.status_box(player, lines)
 
     # ==========================================================================
     # Submit / Judge action handlers
@@ -1178,7 +1635,7 @@ class HumanityCardsGame(Game):
         hcp.selected_indices = []
 
         # Sound + announcement
-        self.play_sound(f"{CAH_SOUND_DIR}/submit{random.randint(1, 2)}.ogg")  # nosec B311
+        self.play_sound_family(f"{CAH_SOUND_DIR}/submit")
         self.broadcast_personal_l(
             player,
             "hc-you-submitted",
@@ -1226,7 +1683,9 @@ class HumanityCardsGame(Game):
         # Award point
         hc_winner.score += 1
         active = self.get_active_players()
-        self.last_winner_index = next((i for i, p in enumerate(active) if p.id == winner.id), -1)
+        self.last_winner_index = next(
+            (i for i, p in enumerate(active) if p.id == winner.id), -1
+        )
 
         # Announce winner
         winning_text = self._fill_in_blanks(
@@ -1235,9 +1694,7 @@ class HumanityCardsGame(Game):
         )
 
         # Play judge choice sound
-        self.play_sound(
-            f"{CAH_SOUND_DIR}/judgechoice{random.randint(1, 3)}.ogg"  # nosec B311
-        )
+        self.play_sound_family(f"{CAH_SOUND_DIR}/judgechoice")
 
         self.broadcast_personal_l(
             winner,
@@ -1268,22 +1725,34 @@ class HumanityCardsGame(Game):
                 self._broadcast_submission_reveal(sub_player, filled, winning=False)
 
         # Play draw card sound as players receive new cards
-        self.play_sound(f"game_cards/draw{random.randint(1, 4)}.ogg")  # nosec B311
+        self.play_sound_family("game_cards/draw")
 
         # Check win condition
         if hc_winner.score >= self.options.winning_score:
             self._end_game(hc_winner)
         else:
-            # Transition to round_end with delay before next round
+            # Keep the reveal readable before the next prompt begins.
             self.phase = "round_end"
-            self.round_end_ticks = 100  # ~5 seconds at 20 ticks/sec
 
             # Discard current black card
             if self.current_black_card:
                 self.black_discard.append(self.current_black_card)
                 self.current_black_card = None
 
+            self._schedule_next_round(NEXT_ROUND_DELAY_TICKS)
             self.refresh_menus()
+
+    def _schedule_next_round(self, delay_ticks: int) -> None:
+        self.start_sequence(
+            NEXT_ROUND_SEQUENCE_ID,
+            [
+                SequenceBeat.pause(delay_ticks),
+                SequenceBeat(ops=[SequenceOperation.callback_op("start_next_round")]),
+            ],
+            tag=NEXT_ROUND_SEQUENCE_TAG,
+            lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
+            pause_bots=True,
+        )
 
     def _action_view_black_card(self, player: Player, action_id: str) -> None:
         """View the current black card prompt."""
@@ -1301,17 +1770,23 @@ class HumanityCardsGame(Game):
             return
 
         if hcp.submitted_cards is not None and self.current_black_card:
-            filled = self._fill_in_blanks(self.current_black_card["text"], hcp.submitted_cards)
+            filled = self._fill_in_blanks(
+                self.current_black_card["text"], hcp.submitted_cards
+            )
             user.speak_l("hc-your-submission", buffer="game", text=filled)
         elif hcp.selected_indices and self.current_black_card:
             # Preview current selection
-            cards = [hcp.hand[i]["text"] for i in hcp.selected_indices if i < len(hcp.hand)]
+            cards = [
+                hcp.hand[i]["text"] for i in hcp.selected_indices if i < len(hcp.hand)
+            ]
             filled = self._fill_in_blanks(self.current_black_card["text"], cards)
             user.speak_l("hc-preview-submission-text", buffer="game", text=filled)
         else:
             user.speak_l("hc-select-cards-first", buffer="game")
 
-    def _broadcast_submission_reveal(self, player: Player, text: str, *, winning: bool) -> None:
+    def _broadcast_submission_reveal(
+        self, player: Player, text: str, *, winning: bool
+    ) -> None:
         """Reveal one submission with personal wording for its owner."""
         if winning:
             self.broadcast_personal_l(
@@ -1401,6 +1876,7 @@ class HumanityCardsGame(Game):
 
         self.status = "playing"
         self.game_active = True
+        self.cancel_sequences_by_tag(NEXT_ROUND_SEQUENCE_TAG)
         self.round = 0
         self.judge_indices = []
         self.last_winner_index = -1
@@ -1420,11 +1896,9 @@ class HumanityCardsGame(Game):
 
         # Deal initial hands
         self.broadcast_l("hc-game-starting", buffer="game")
-        for p in active_players:
-            user = self.get_user(p)
-            if user and user.locale.startswith("vi"):
-                user.speak_l("hc-english-content-note", buffer="game")
-        self.broadcast_l("hc-dealing-cards", buffer="game", count=self.options.hand_size)
+        self.broadcast_l(
+            "hc-dealing-cards", buffer="game", count=self.options.hand_size
+        )
         for p in active_players:
             hp: HumanityCardsPlayer = p  # type: ignore
             self._deal_to_hand_size(hp)
@@ -1437,6 +1911,7 @@ class HumanityCardsGame(Game):
 
     def _start_round(self) -> None:
         """Start a new round."""
+        self.cancel_sequences_by_tag(NEXT_ROUND_SEQUENCE_TAG)
         self.round += 1
         self.phase = "submitting"
         self.submissions = []
@@ -1466,6 +1941,11 @@ class HumanityCardsGame(Game):
             return
 
         pick_count = self.current_black_card.get("pick", 1)
+        draw_count = self.current_black_card.get("draw", 0)
+
+        if draw_count:
+            for player in self._get_non_judges():
+                player.hand.extend(self._draw_white(draw_count))
 
         # Announce round
         self.broadcast_l("hc-round-start", buffer="game", round=self.round)
@@ -1479,6 +1959,8 @@ class HumanityCardsGame(Game):
         # Announce black card
         black_text = self._speech_friendly_black(self.current_black_card["text"])
         self.broadcast_l("hc-black-card", buffer="game", text=black_text)
+        if draw_count:
+            self.broadcast_l("hc-black-card-draw", buffer="game", count=draw_count)
         if pick_count > 1:
             self.broadcast_l("hc-black-card-pick", buffer="game", count=pick_count)
 
@@ -1496,7 +1978,10 @@ class HumanityCardsGame(Game):
         # Jolt bots
         for p in active_players:
             if p.is_bot and not self._is_judge(p):
-                BotHelper.jolt_bot(p, ticks=random.randint(20, 40))  # nosec B311
+                BotHelper.jolt_bot(
+                    p,
+                    ticks=random.randint(*BOT_SUBMISSION_DELAY_TICKS),  # nosec B311
+                )
 
         self.refresh_menus()
 
@@ -1522,11 +2007,21 @@ class HumanityCardsGame(Game):
         self.play_sound(f"{CAH_SOUND_DIR}/judging.ogg")
         self._play_judge_turn_sounds()
         self.broadcast_l("hc-judging-start", buffer="game")
+        for number, text in enumerate(self._ordered_answer_texts(), 1):
+            self.broadcast_l(
+                "hc-answer-line",
+                buffer="game",
+                number=number,
+                text=text,
+            )
 
         # Jolt judge bots
         for j in self._get_judges():
             if j.is_bot:
-                BotHelper.jolt_bot(j, ticks=random.randint(30, 50))  # nosec B311
+                BotHelper.jolt_bot(
+                    j,
+                    ticks=random.randint(*BOT_JUDGE_DELAY_TICKS),  # nosec B311
+                )
 
         self.refresh_menus()
 
@@ -1555,7 +2050,11 @@ class HumanityCardsGame(Game):
 
             # Select random cards if not enough selected
             if len(player.selected_indices) < required:
-                available = [i for i in range(len(player.hand)) if i not in player.selected_indices]
+                available = [
+                    i
+                    for i in range(len(player.hand))
+                    if i not in player.selected_indices
+                ]
                 if available:
                     pick = random.choice(available)  # nosec B311
                     return f"toggle_card_{pick}"
@@ -1569,15 +2068,12 @@ class HumanityCardsGame(Game):
     def on_tick(self) -> None:
         """Called every tick."""
         super().on_tick()
+        self.process_scheduled_sounds()
+        self.process_sequences()
 
         if not self.game_active:
             return
-
-        # Round end delay before starting next round
-        if self.phase == "round_end":
-            self.round_end_ticks -= 1
-            if self.round_end_ticks <= 0:
-                self._start_round()
+        if self.is_sequence_bot_paused():
             return
 
         # Process bot actions
@@ -1585,6 +2081,14 @@ class HumanityCardsGame(Game):
             self._process_submission_bots()
         elif self.phase == "judging":
             self._process_judging_bots()
+
+    def on_sequence_callback(
+        self, sequence_id: str, callback_id: str, payload: dict
+    ) -> None:
+        if sequence_id == NEXT_ROUND_SEQUENCE_ID and callback_id == "start_next_round":
+            self._start_round()
+            return
+        super().on_sequence_callback(sequence_id, callback_id, payload)
 
     def _process_submission_bots(self) -> None:
         """Process all bot actions during submission phase."""
@@ -1598,7 +2102,9 @@ class HumanityCardsGame(Game):
             BotHelper.process_bot_action(
                 player,
                 think_fn=lambda p=hcp: self.bot_think(p),
-                execute_fn=lambda action_id, p=player: self.execute_action(p, action_id),
+                execute_fn=lambda action_id, p=player: self.execute_action(
+                    p, action_id
+                ),
             )
 
     def _process_judging_bots(self) -> None:
@@ -1649,12 +2155,9 @@ class HumanityCardsGame(Game):
 
         return GameResult(
             game_type=self.get_type(),
-            timestamp=datetime.now().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             duration_ticks=self.sound_scheduler_tick,
-            player_results=[
-                PlayerResult.from_player(p)
-                for p in active_players
-            ],
+            player_results=[PlayerResult.from_player(p) for p in active_players],
             custom_data={
                 "winner_name": winner.name if winner else None,
                 "winner_ids": winner_ids,
@@ -1671,7 +2174,9 @@ class HumanityCardsGame(Game):
         final_scores = result.custom_data.get("final_scores", {})
         for i, (name, score) in enumerate(final_scores.items(), 1):
             lines.append(
-                Localization.get(locale, "hc-final-score-line", rank=i, player=name, score=score)
+                Localization.get(
+                    locale, "hc-final-score-line", rank=i, player=name, score=score
+                )
             )
 
         return lines

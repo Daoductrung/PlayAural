@@ -3,7 +3,7 @@
 The PlayAural mobile client is an Android-first Expo and React Native application for the PlayAural multiplayer game platform. It uses the same WebSocket protocol and sound directory layout as the other clients while providing self-voicing navigation, gesture-driven gameplay, and accessible text entry for mobile devices.
 
 PlayAural-authored mobile-client software is licensed under the **GNU General
-Public License, version 2 only**. Third-party code and assets retain their own
+Public License, version 3 or any later version**. Third-party code and assets retain their own
 terms; see [License](#license).
 
 ## Current Scope
@@ -508,10 +508,11 @@ The repository tracks source files, configuration files, locale files, and the g
 
 ## License
 
-PlayAural is licensed under the **GNU General Public License, version 2 only**.
+PlayAural is licensed under the **GNU General Public License, version 3 or any
+later version**.
 See `../LICENSE` for the full text. That license covers PlayAural-authored
 software and does not relicense third-party code, audio, or other assets.
 Direct dependency licenses and the complete notices for checked-in Cosmos,
 miniaudio, stb_vorbis, Steam Audio, and patched Expo source are documented in
-`../THIRD_PARTY_NOTICES.md`; read its Apache-2.0/GPL-2.0 compatibility warning
+`../THIRD_PARTY_NOTICES.md`; read its compatibility and distribution guidance
 before distributing a native binary.

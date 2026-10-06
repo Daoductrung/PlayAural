@@ -56,11 +56,11 @@ Cosmos MIT license does not relicense Steam Audio or its bundled dependencies.
 
 Apache-2.0 is compatible with GPLv3, but the Apache Software Foundation and the
 Free Software Foundation both state that it is not compatible with GPLv2 for a
-combined derivative work. PlayAural is GPL-2.0-only, so this document must not
-claim blanket compatibility. Release distributors must review the way each
-Apache-2.0 component is combined and distributed, and obtain qualified legal
-advice or an appropriate licensing solution where required. The authoritative
-inventory and upstream notices are in `THIRD_PARTY_NOTICES.md`.
+combined derivative work. PlayAural is GPL-3.0-or-later, so its project license
+supports GPLv3-compatible combinations with Apache-2.0 components. Release
+distributors must still comply with both licenses, preserve required notices,
+and review the way each component is packaged. The authoritative inventory and
+upstream notices are in `THIRD_PARTY_NOTICES.md`.
 
 ## 2. Design decisions
 

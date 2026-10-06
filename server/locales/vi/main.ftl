@@ -190,6 +190,7 @@ option-select-all = Chọn tất cả
 option-deselect-all = Bỏ chọn tất cả
 option-selected-count = Đã chọn { $count }
 option-deselected-count = Đã bỏ chọn { $count }
+option-multiselect-group = { $group } (đã chọn { $count } trên { $total })
 option-min-selected = Bạn phải chọn ít nhất { $count }.
 option-max-selected = Bạn chỉ được chọn tối đa { $count }.
 

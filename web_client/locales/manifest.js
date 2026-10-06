@@ -23,7 +23,7 @@ export const LOCALE_METADATA = {
   es: {
     name: "Spanish",
     nativeName: "Español",
-    contributors: ["UnDuende"],
+    contributors: ["UnDuende", "Tadeu Junior"],
     official: false,
   },
   pt: {

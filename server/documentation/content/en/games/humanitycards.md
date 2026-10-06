@@ -1,112 +1,103 @@
 \*\*Cards Against Humanity\*\*
 
+\*\*What Is Cards Against Humanity?\*\*
 
+Cards Against Humanity is an adult fill-in-the-blank party game for 3 to 10 players. Each round, one player becomes the Card Czar and presents a black prompt card. Everyone else answers anonymously with one or more white cards, and the Card Czar awards the point to whichever answer they like best. There is no objectively correct answer; timing, absurdity, surprise, and the tastes of the people at your table decide what wins.
 
-Cards Against Humanity is a party game for 3 to 10 players where one player serves as the Card Czar each round, reading a black prompt card aloud while everyone else competes to fill in the blanks with the funniest white card from their hand.
+The game grew out of a New Year's Eve party game created by eight longtime friends from Highland Park, Illinois. After releasing an early print-at-home version, its creators funded a professionally printed edition through Kickstarter in 2010. The first boxed copies shipped in 2011.
 
-The interface, announcements, and documentation are localized, but the question and answer card text currently supports English only.
+\*\*Content Warning\*\*
 
+Cards Against Humanity contains sensitive, mature, sexually suggestive, and deliberately offensive material. Cards may involve profanity, sex, violence, discrimination, religion, politics, illness, death, and other upsetting subjects. Player discretion is advised. Make sure everyone at the table is comfortable with the selected material before playing.
 
+The default English deck is the adult game. The separate Family Edition is milder, but selecting it does not remove adult content from any other packs mixed with it. Community packs vary widely and may be more explicit than the official decks.
 
-\*\*Gameplay\*\*
+\*\*How To Win\*\*
 
+Win rounds to score points. The first player to reach the table's winning score wins the match. The default target is 7 points.
 
+\*\*The Two Kinds Of Cards\*\*
 
-The game uses two decks: black cards containing a sentence or question with one or more blanks, and white cards containing words or phrases used to fill those blanks.
+\* \*\*Black cards:\*\* Questions, sentences with blanks, or instructions that set up the joke. A black card also specifies how many white cards each player must submit.
+\* \*\*White cards:\*\* Answers, names, objects, or phrases used to complete the prompt.
 
-At the start of the game, each player is dealt a hand of white cards (10 by default). A Card Czar is selected, and a black prompt card is drawn and read to everyone.
+At the start of the match, every player receives a private hand of white cards. The default hand size is 10. The first Card Czar is chosen randomly.
 
+\*\*Playing A Round\*\*
 
+Each round has a submission phase and a judging phase.
 
-Each round has two phases:
+During the submission phase, the black card is announced to everyone. Every player who is not a Card Czar chooses exactly the number of white cards requested. Your hand is private, and other players cannot see which cards you are considering.
 
+Select or deselect cards from your hand, then submit when the combination is ready. You may preview the completed answer first. Once submitted, an answer is locked for the rest of the round. The table hears who has submitted and how many submissions are still outstanding, but not the contents or authors of those answers.
 
+When every eligible player has submitted, the judging phase begins. All answers are shuffled, announced in a random order, and kept anonymous. The Card Czar chooses a favorite. That answer's author scores 1 point, all authors are revealed, and each player draws back to the configured hand size before the next round.
 
-\*\*Submission phase.\*\* Every player except the Card Czar selects white cards from their hand to fill the blanks on the black card. If the prompt has one blank, you pick one card; if it has two blanks, you pick two, and so on. The number of cards required is announced at the start of each round.
+\*\*Prompts That Need Several Cards\*\*
 
-Use the number keys to toggle cards in and out of your selection. When you are satisfied with your choice, press Space to submit. You can preview how your answer will read before submitting by pressing V. Once you submit, your cards are locked in and cannot be changed.
+Some black cards request two, three, or occasionally four white cards. The order matters: the first card you select becomes the first answer, the second becomes the second answer, and so on. Selected cards identify their answer position. To change the combination after filling every position, deselect a card before choosing its replacement.
 
-As players submit, the game announces running progress. Submissions are anonymous to the Card Czar.
+Not every prompt contains a printed blank. For prompts such as "Make a haiku," the selected cards are read after the instruction in selection order. A prompt may also tell the game to repeat the same answer in another blank; that repeated text does not require an extra card.
 
+Some prompts tell each answering player to draw extra white cards before choosing. Keep those cards for the round, submit the requested number in order, and draw back to the normal hand size after judging.
 
+\*\*The Card Czar\*\*
 
-\*\*Judging phase.\*\* Once all players have submitted, the Card Czar hears all submissions read aloud with the white cards filled into the black card's blanks. The submissions are presented in a random order so the Card Czar cannot tell who played what. The Card Czar picks the one they like best. The player who submitted that answer scores one point.
+Card Czars do not submit white cards during the rounds they judge. They still keep their hands and may review them at any time.
 
+The table can choose how the role moves:
 
+\* \*\*Rotating:\*\* After a randomly chosen first Card Czar, the role advances through the seating order each round.
+\* \*\*Random:\*\* A fresh random choice is made every round. The same player may judge consecutive rounds.
+\* \*\*Most Recent Winner:\*\* The player who won the previous round judges the next one. The first round uses the rotating method.
 
-After the Card Czar picks a winner, the winning answer is announced along with who played it. Then all other submissions are revealed with their authors. Players are dealt new white cards to refill their hands, and a new round begins with a new Card Czar.
+A table may use up to three simultaneous Card Czars. All of them sit out the submission phase, and the first judge to choose an answer decides the winner. Because every judge removes one possible submission, this setting works best with larger groups.
 
-The game ends when a player reaches the target score.
+With several Card Czars, Rotating uses consecutive seats and moves the group forward each round; Random chooses the whole group at random; Most Recent Winner starts with the previous winner and fills the remaining judge seats in seating order.
 
+\*\*Card Languages And Packs\*\*
 
+Card language is separate from interface language. A player may use PlayAural in Vietnamese while the table plays with Spanish cards, for example.
 
-\*\*Game Options\*\*
+\* \*\*English:\*\* Choose one or more packs. The current US 3.0 main deck is selected by default. The catalog also contains historical main-deck editions, official expansions, the Family Edition, and community-created packs. Exact duplicate cards from overlapping packs enter the game only once.
+\* \*\*Spanish:\*\* Uses the complete included Spanish community deck.
+\* \*\*Brazilian Portuguese:\*\* Uses the complete included Brazilian Portuguese community deck.
 
+The pack selector appears only for English because Spanish and Brazilian Portuguese each have one included deck.
 
+\*\*Keeping Track Of The Game\*\*
 
-The host can configure these settings at the table before starting:
+\* \*\*Review your hand:\*\* Open a private list of every white card you currently hold.
+\* \*\*View the question card:\*\* Hear the current black prompt again.
+\* \*\*Preview or view your submission:\*\* Hear the answer you are assembling, or the answer already locked in for this round.
+\* \*\*Review the answers:\*\* During judging, open the numbered anonymous answers in their shuffled order.
+\* \*\*Who is judging:\*\* Hear the current Card Czar or Card Czars.
+\* \*\*Whose turn:\*\* During submissions, hear who has not submitted; during judging, hear who must choose the winner.
+\* \*\*Scores:\*\* Hear the standings or open the detailed score view.
 
-\* \*\*Winning Score:\*\* The number of points needed to win (default 7, range 3 to 20).
+Bots choose cards and winning answers at random because judging humor is subjective.
 
-\* \*\*Hand Size:\*\* The number of white cards each player holds at a time (default 10, range 5 to 15).
+\*\*Table Options\*\*
 
-\* \*\*Card Packs:\*\* Which packs of cards to include. The game ships with many packs including the base set, expansions, family edition, holiday packs, and nostalgia packs. You can mix and match freely, but at least one pack must be selected. Available pack groups are:
+\* \*\*Winning score:\*\* 3 to 20 points; default 7.
+\* \*\*Hand size:\*\* 5 to 15 white cards; default 10. A match cannot start if a selected prompt needs more cards than the configured hand size.
+\* \*\*Card language:\*\* English, Spanish, or Brazilian Portuguese; default English.
+\* \*\*Card packs:\*\* The English packs included in the match. At least one pack containing playable cards must remain selected.
+\* \*\*Card Czar selection:\*\* Rotating, Random, or Most Recent Winner; default Rotating.
+\* \*\*Number of judges:\*\* 1 to 3; default 1. There must always be at least one non-judge available to submit.
 
-&#x20;   \* \*\*Base Set:\*\* The original Cards Against Humanity base set only (default).
-
-&#x20;   \* \*\*Base + Expansions:\*\* The base set combined with all official numbered expansion packs.
-
-&#x20;   \* \*\*Family Edition:\*\* Packs from the family-friendly version of the game.
-
-&#x20;   \* \*\*Holiday Packs:\*\* Themed packs for seasonal and holiday occasions.
-
-&#x20;   \* \*\*Nostalgia Packs:\*\* Packs with retro and decade-specific content.
-
-&#x20;   \* \*\*All Packs:\*\* Every available pack combined into one enormous deck.
-
-\* \*\*Card Czar Selection:\*\* How the Card Czar is chosen each round. Three modes are available:
-
-&#x20;   \* \*\*Rotating:\*\* The role passes around the table in order, so everyone gets a turn (default).
-
-&#x20;   \* \*\*Random:\*\* A random player is chosen each round. Someone might judge twice in a row.
-
-&#x20;   \* \*\*Most Recent Winner:\*\* The player who won the last round becomes the next Card Czar. The winner sits out the next round as a trade-off for their success. On the first round, this falls back to rotating.
-
-\* \*\*Number of Judges:\*\* How many players serve as Card Czar simultaneously. The game must always have at least one non-judge submitting answers, so the selected judge count must be lower than the number of players at the table. With multiple judges, any one of them can pick the winner. More judges means fewer players submitting answers each round, so this option works best with larger groups (default 1, range 1 to 3).
-
-
-
-\*\*Example Round\*\*
-
-
-
-Five players are in the game: Alice, Bob, Carol, Dan, and Eve. The winning score is 7, and Alice is the Card Czar this round.
-
-A black card is drawn: "What is Batman's guilty pleasure?"
-
-The other four players look at their hands. Bob picks "Soup that is too hot." He presses \*\*3\*\* to select his third card, then presses \*\*Space\*\* to submit. Carol, Dan, and Eve do the same with their own picks.
-
-Once all four have submitted, Alice enters the judging phase. She hears the submissions in random order, then picks the one she finds funniest. The game announces that Eve wins the round and reveals everyone's answers. All players are dealt replacement cards, and the Card Czar rotates to Bob for the next round.
-
-
+The game checks the chosen packs, hand size, judge count, and number of players before the match begins. If the decks cannot deal every opening hand, cover the largest extra draw requested by a prompt, or provide a black prompt, the host must adjust the options first.
 
 \*\*Keyboard Shortcuts\*\*
 
-
-
-\* \*\*1 through 0:\*\* Toggle white cards 1 through 10 in your hand, selecting or deselecting them for submission. The first card you select fills the first blank; the second fills the second. If the hand size is above 10, use the action menu to select the later cards.
-
-\* \*\*Space:\*\* Submit your selected cards.
-
-\* \*\*C:\*\* Read the current black card prompt aloud.
-
-\* \*\*V:\*\* Preview or view your submission. Before submitting, reads how your current selection would sound in the prompt. After submitting, reads your locked-in answer.
-
-\* \*\*J:\*\* Announce who the current Card Czar is.
-
-\* \*\*T:\*\* Check whose turn it is, or who has not yet submitted.
-
+\* \*\*1 through 0:\*\* Select or deselect white cards 1 through 10. Use the turn menu for any later cards.
+\* \*\*Space:\*\* Submit the selected answer.
+\* \*\*H:\*\* Review your hand.
+\* \*\*C:\*\* Hear the current black card.
+\* \*\*V:\*\* Preview or review your submission.
+\* \*\*Shift+V:\*\* Review every anonymous answer during judging.
+\* \*\*J:\*\* Hear who is judging.
+\* \*\*T:\*\* Hear who has not submitted or who is judging.
 \* \*\*S:\*\* Check scores.
-
-\* \*\*Shift+S:\*\* View detailed scores.
-
+\* \*\*Shift+S:\*\* Open detailed scores.
+\* \*\*Ctrl+U:\*\* Hear who is at the table.

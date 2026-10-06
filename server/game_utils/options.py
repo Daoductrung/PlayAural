@@ -477,6 +477,7 @@ class MultiSelectOption(OptionMeta):
         min_selected: Minimum number of choices that must remain selected.
         max_selected: Maximum number of choices that can be selected (0 = no limit).
         choice_labels: Optional mapping of choice -> localization key for display.
+        group_labels: Optional mapping of group id -> localization key for display.
         show_bulk_actions: If True, show "Select all" / "Deselect all" in the toggle list.
         groups: Optional grouping of choices. When set, the top-level multi-select
             shows group names as navigable sub-menus instead of individual choices.
@@ -488,6 +489,7 @@ class MultiSelectOption(OptionMeta):
     min_selected: int = 1
     max_selected: int = 0  # 0 = no limit (all choices can be selected)
     choice_labels: dict[str, str] | None = None
+    group_labels: dict[str, str] | None = None
     show_bulk_actions: bool = False
     groups: dict[str, list[str]] | Callable[[], dict[str, list[str]]] | None = None
 
@@ -509,6 +511,12 @@ class MultiSelectOption(OptionMeta):
         """Get the localized display text for a choice value."""
         if self.choice_labels and value in self.choice_labels:
             return Localization.get(locale, self.choice_labels[value])
+        return value
+
+    def get_localized_group(self, value: str, locale: str) -> str:
+        """Get the localized display text for a stable group id."""
+        if self.group_labels and value in self.group_labels:
+            return Localization.get(locale, self.group_labels[value])
         return value
 
     def get_label(self, locale: str, value: Any) -> str:
@@ -771,9 +779,12 @@ class GameOptions(DataClassJSONMixin):
                             1 for c in group_choices if c in current_selections
                         )
                         total_count = len(group_choices)
-                        label = (
-                            f"{group_name} "
-                            f"({selected_count} of {total_count} selected)"
+                        label = Localization.get(
+                            locale,
+                            "option-multiselect-group",
+                            group=meta.get_localized_group(group_name, locale),
+                            count=selected_count,
+                            total=total_count,
                         )
                         action_set.add(
                             _option_action(

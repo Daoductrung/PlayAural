@@ -190,6 +190,7 @@ option-select-all = Select all
 option-deselect-all = Deselect all
 option-selected-count = { $count } selected
 option-deselected-count = { $count } deselected
+option-multiselect-group = { $group } ({ $count } of { $total } selected)
 option-min-selected = You must select at least { $count }.
 option-max-selected = You can select at most { $count }.
 

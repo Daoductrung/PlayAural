@@ -13,9 +13,23 @@ hc-enter-hand-size = Enter hand size:
 hc-option-changed-hand-size = Hand size set to { $count }.
 hc-desc-hand-size = How many answer cards each player holds after each refill. Larger hands give more choices but make rounds take longer (default 10, range 5-15).
 
+hc-set-card-language = Card language: { $language }
+hc-select-card-language = Select the card language
+hc-option-changed-card-language = Card language set to { $language }.
+hc-desc-card-language = Sets the language of every prompt and answer card in the match. This is independent of each player's interface language (default English; choices English, Spanish, and Brazilian Portuguese).
+hc-card-language-pt-br = Brazilian Portuguese
+hc-card-blank = blank
+hc-card-same-again = same card again
+
 hc-set-card-packs = Card packs ({ $count } of { $total } selected)
 hc-option-changed-card-packs = Card pack selection changed.
-hc-desc-card-packs = Choose which answer and prompt packs are shuffled into the game. At least one pack must stay selected.
+hc-desc-card-packs = Choose which English answer and prompt packs are shuffled into the game. Exact duplicate cards from overlapping packs are included only once. At least one pack must stay selected.
+hc-pack-group-current = Current US main deck
+hc-pack-group-main-decks = Main deck editions
+hc-pack-group-official-add-ons = Official expansions and packs
+hc-pack-group-family = Family Edition
+hc-pack-group-community = Community packs
+hc-pack-group-all = All packs
 
 hc-set-czar-selection = Card Czar selection: { $mode }
 hc-select-czar-selection = Select Card Czar selection mode
@@ -43,10 +57,13 @@ hc-judge-is = { $judges } { $count ->
 }.
 hc-you-are-judge = You are the Card Czar this round.
 hc-you-and-others-are-judges = You and { $judges } are the Card Czars this round.
-hc-you-are-not-judge = You are not the Card Czar this round.
 
 # Black card
 hc-black-card = The prompt is: { $text }
+hc-black-card-draw = Draw { $count } extra { $count ->
+    [one] card
+   *[other] cards
+} first.
 hc-black-card-pick = Pick { $count }.
 hc-view-black-card = View the question card
 
@@ -56,10 +73,10 @@ hc-select-cards = Select { $count } { $count ->
    *[other] cards
 } from your hand.
 hc-card-selected = { $text }, selected
+hc-card-selected-position = { $text }, selected as answer { $position }
 hc-card-not-selected = { $text }
 hc-submit-cards = Submit ({ $selected } of { $required } selected)
 hc-submission-progress = { $submitted } of { $total } players submitted.
-hc-waiting-for-submissions = Waiting for submissions...
 hc-already-submitted = You already submitted your cards.
 hc-you-submitted = You submitted your cards.
 hc-player-submitted = { $player } submitted { GENDER_TERM($player_gender, "possessive-determiner") } cards.
@@ -72,12 +89,15 @@ hc-wrong-card-count = You need to select exactly { $count } { $count ->
     [one] card
    *[other] cards
 }.
+hc-selection-full = You already selected { $count } { $count ->
+    [one] card
+   *[other] cards
+}. Deselect one before choosing another.
 
 # Judging phase
 hc-judging-start = All cards are in! Time to judge.
 hc-choose-best-card = Choose the best card
 hc-choose-best-card-for = Choose the best card that matches: { $prompt }
-hc-select-winner-prompt = Select the winning submission
 hc-card-number = Card { $number }
 hc-submission-number = Submission { $number }
 hc-only-judges-pick = Only the Card Czar can choose the winning submission.
@@ -107,11 +127,17 @@ hc-view-submission = View your submission
 hc-preview-submission-text = Preview: { $text }
 hc-your-submission = Your submission: { $text }
 hc-select-cards-first = Select at least 1 card first.
+hc-review-hand = Review your hand
+hc-hand-empty = Your hand is empty.
+hc-hand-card = { $number }. { $text }
+hc-hand-card-selected = { $number }. { $text }, selected as answer { $position }
+hc-review-answers = Review the answers
+hc-answer-line = Answer { $number }: { $text }
+hc-no-answers-to-review = There are no answers to review right now.
 
 # Win
 hc-game-winner = { $player } wins with { $score } points!
 hc-you-win = You win with { $score } points!
-hc-english-content-note = Note: the question and answer card text currently supports English only.
 
 # Deck management
 hc-deck-reshuffled = White card discard pile reshuffled into the deck.

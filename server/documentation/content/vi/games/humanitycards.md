@@ -1,85 +1,103 @@
 \*\*Cards Against Humanity\*\*
 
-Cards Against Humanity là trò chơi tiệc tùng dành cho 3 đến 10 người. Mỗi vòng có một hoặc nhiều người làm trọng tài, rút một lá bài đen có câu hỏi hoặc câu còn thiếu chỗ trống. Những người còn lại chọn lá bài trắng từ tay mình để tạo câu trả lời hài hước nhất.
+\*\*Cards Against Humanity Là Gì?\*\*
 
-\*\*Lưu ý về ngôn ngữ\*\*
+Cards Against Humanity là trò chơi tiệc tùng điền vào chỗ trống dành cho người lớn, hỗ trợ từ 3 đến 10 người. Mỗi vòng, một người làm trọng tài và đưa ra lá bài đen. Những người còn lại bí mật nộp một hoặc nhiều lá bài trắng; trọng tài trao điểm cho câu trả lời mình thích nhất. Trò chơi không có đáp án đúng tuyệt đối: cách gây bất ngờ, sự vô lý, đúng thời điểm và gu hài hước của cả bàn sẽ quyết định bài nào thắng.
 
-Giao diện, thông báo và tài liệu của trò chơi có tiếng Việt. Tuy nhiên, nội dung lá bài đen và lá bài trắng hiện chỉ hỗ trợ tiếng Anh.
+Trò chơi bắt nguồn từ một hoạt động trong bữa tiệc đêm Giao thừa do tám người bạn lâu năm ở Highland Park, bang Illinois, sáng tạo. Sau khi phát hành một phiên bản tự in tại nhà, nhóm tác giả gây quỹ trên Kickstarter vào năm 2010 để sản xuất bản in chuyên nghiệp. Những hộp đầu tiên được giao vào năm 2011.
 
-\*\*Cách chơi\*\*
+\*\*Cảnh Báo Nội Dung\*\*
 
-Trò chơi dùng hai loại bài:
+Cards Against Humanity có nội dung nhạy cảm, dành cho người trưởng thành, mang tính gợi dục và cố ý gây sốc. Các lá bài có thể đề cập đến lời lẽ tục tĩu, tình dục, bạo lực, phân biệt đối xử, tôn giáo, chính trị, bệnh tật, cái chết và nhiều chủ đề dễ gây khó chịu khác. Người chơi nên cân nhắc trước khi tham gia. Hãy bảo đảm mọi người ở bàn đều chấp nhận nội dung đã chọn.
 
-\* \*\*Bài đen:\*\* Câu hỏi hoặc câu có chỗ trống.
+Bộ bài tiếng Anh mặc định thuộc phiên bản dành cho người lớn. Phiên bản gia đình nhẹ nhàng hơn, nhưng chọn bộ này không loại bỏ nội dung người lớn khỏi các bộ khác đang được trộn chung. Nội dung của các bộ bài cộng đồng rất đa dạng và có thể táo bạo hơn các bộ chính thức.
 
-\* \*\*Bài trắng:\*\* Từ hoặc cụm từ dùng để trả lời hoặc điền vào chỗ trống.
+\*\*Cách Thắng\*\*
 
-Khi ván bắt đầu, mỗi người được chia một số lá bài trắng, mặc định là 10 lá. Trò chơi chọn trọng tài của vòng và rút một lá bài đen cho tất cả cùng nghe.
+Thắng vòng để ghi điểm. Người đầu tiên đạt số điểm mà bàn đã đặt sẽ thắng cả ván. Mốc mặc định là 7 điểm.
 
-Mỗi vòng có hai giai đoạn.
+\*\*Hai Loại Bài\*\*
 
-\*\*Giai đoạn nộp bài.\*\* Mọi người trừ trọng tài chọn đủ số lá trắng theo yêu cầu của lá đen. Lá đen có một chỗ trống thì chọn một lá; có hai chỗ trống thì chọn hai lá; và tương tự với các lá cần nhiều câu trả lời hơn.
+\* \*\*Bài đen:\*\* Câu hỏi, câu có chỗ trống hoặc yêu cầu dùng để tạo tình huống gây cười. Lá bài đen cũng quy định mỗi người phải nộp bao nhiêu lá bài trắng.
+\* \*\*Bài trắng:\*\* Câu trả lời, tên gọi, sự vật hoặc cụm từ dùng để hoàn chỉnh bài đen.
 
-Dùng các phím số để chọn hoặc bỏ chọn lá bài. Khi đã chọn xong, nhấn \*\*Dấu cách\*\* để nộp. Bạn có thể nhấn \*\*V\*\* để nghe trước câu trả lời của mình. Sau khi nộp, bài bị khóa và không thể đổi.
+Khi ván bắt đầu, mỗi người nhận một tay bài trắng riêng tư. Số bài mặc định là 10 lá. Trọng tài đầu tiên được chọn ngẫu nhiên.
 
-Trong giai đoạn này, trọng tài không biết ai đã nộp lá nào.
+\*\*Diễn Biến Một Vòng\*\*
 
-\*\*Giai đoạn chấm bài.\*\* Khi mọi người đã nộp, trọng tài nghe các câu trả lời theo thứ tự ngẫu nhiên. Trọng tài chọn câu mình thích nhất. Người nộp câu đó được 1 điểm.
+Mỗi vòng gồm giai đoạn nộp bài và giai đoạn chấm bài.
 
-Sau khi chọn xong, trò chơi công bố câu thắng và người thắng vòng. Các câu còn lại cũng được tiết lộ cùng tên người chơi. Mọi người được bù bài trắng lên đủ số lá trên tay, rồi vòng mới bắt đầu với trọng tài mới.
+Trong giai đoạn nộp bài, lá bài đen được đọc cho cả bàn. Mọi người không làm trọng tài phải chọn đúng số lá bài trắng được yêu cầu. Bài trên tay của bạn là thông tin riêng; người khác không thể biết bạn đang cân nhắc những lá nào.
 
-Trò chơi kết thúc khi có người đạt điểm mục tiêu.
+Chọn hoặc bỏ chọn các lá trên tay, rồi nộp khi đã hài lòng với tổ hợp của mình. Bạn có thể nghe trước câu trả lời hoàn chỉnh. Sau khi nộp, bài sẽ bị khóa đến hết vòng. Cả bàn biết ai đã nộp và còn chờ bao nhiêu người, nhưng chưa biết nội dung hay tác giả của từng bài.
 
-\*\*Tùy chọn trò chơi\*\*
+Khi mọi người đủ điều kiện đều đã nộp, giai đoạn chấm bài bắt đầu. Các câu trả lời được xáo, đọc theo thứ tự ngẫu nhiên và giữ kín tên người nộp. Trọng tài chọn một câu mình thích nhất. Người nộp câu đó ghi 1 điểm, tác giả của mọi bài được công bố, rồi mỗi người bốc bù đến đủ số bài trên tay trước khi sang vòng mới.
 
-\* \*\*Điểm để thắng:\*\* Số điểm cần đạt để thắng ván (mặc định 7, phạm vi từ 3 đến 20).
+\*\*Lá Bài Cần Nhiều Câu Trả Lời\*\*
 
-\* \*\*Số lá trên tay:\*\* Số lá bài trắng mỗi người giữ (mặc định 10, phạm vi từ 5 đến 15).
+Một số lá bài đen yêu cầu hai, ba hoặc đôi khi bốn lá bài trắng. Thứ tự rất quan trọng: lá bạn chọn đầu tiên trở thành câu trả lời thứ nhất, lá tiếp theo trở thành câu trả lời thứ hai, và cứ thế tiếp tục. Mỗi lá đã chọn đều cho biết vị trí của nó. Nếu đã chọn đủ mà muốn đổi bài, hãy bỏ chọn một lá rồi mới chọn lá thay thế.
 
-\* \*\*Bộ bài:\*\* Chọn bộ nội dung dùng trong ván. Có thể kết hợp nhiều bộ, nhưng phải bật ít nhất một bộ (mặc định Bộ cơ bản).
+Không phải bài đen nào cũng có chỗ trống được in sẵn. Với yêu cầu như “Làm một bài haiku”, các lá đã chọn sẽ được đọc sau yêu cầu theo đúng thứ tự lựa chọn. Một số câu còn yêu cầu lặp lại cùng một đáp án ở chỗ trống khác; phần lặp đó không cần thêm lá bài.
 
-\* \*\*Cách chọn trọng tài:\*\* Cách chọn trọng tài mỗi vòng (mặc định Luân phiên, lựa chọn: Luân phiên, Ngẫu nhiên, hoặc Người thắng vòng trước).
+Một số đề bài yêu cầu mỗi người nộp bài bốc thêm bài trắng trước khi chọn. Giữ những lá đó trong vòng hiện tại, nộp đủ số lá theo đúng thứ tự rồi bốc bù về số bài trên tay thông thường sau khi chấm xong.
 
-\* \*\*Số trọng tài:\*\* Số người cùng làm trọng tài trong một vòng. Ván luôn phải còn ít nhất một người không phải trọng tài để nộp bài, nên số trọng tài phải thấp hơn số người chơi trong bàn. Khi có nhiều trọng tài, bất kỳ trọng tài nào cũng có thể chọn bài thắng. Nhiều trọng tài phù hợp hơn với nhóm đông vì sẽ có ít người nộp bài hơn mỗi vòng (mặc định 1, phạm vi từ 1 đến 3).
+\*\*Trọng Tài\*\*
 
-\*\*Các nhóm bộ bài\*\*
+Trọng tài không nộp bài trắng trong vòng mình chấm. Họ vẫn giữ bài trên tay và có thể xem lại bất cứ lúc nào.
 
-\* \*\*Bộ cơ bản:\*\* Bộ Cards Against Humanity gốc (mặc định).
+Bàn có thể chọn cách luân chuyển vai trò này:
 
-\* \*\*Bộ cơ bản và mở rộng:\*\* Bộ cơ bản cùng các gói mở rộng chính thức được đánh số.
+\* \*\*Luân phiên:\*\* Sau khi trọng tài đầu tiên được chọn ngẫu nhiên, vai trò chuyển lần lượt theo thứ tự chỗ ngồi qua mỗi vòng.
+\* \*\*Ngẫu nhiên:\*\* Mỗi vòng đều chọn lại ngẫu nhiên. Một người có thể chấm hai vòng liên tiếp.
+\* \*\*Người thắng gần nhất:\*\* Người thắng vòng trước làm trọng tài vòng sau. Vòng đầu dùng cách luân phiên.
 
-\* \*\*Phiên bản gia đình:\*\* Các gói thuộc phiên bản phù hợp với gia đình.
+Một bàn có thể có tối đa ba trọng tài cùng lúc. Tất cả đều không nộp bài trong vòng đó, và trọng tài nào chọn trước sẽ quyết định bài thắng. Vì mỗi trọng tài làm giảm một bài nộp, tùy chọn này phù hợp nhất với nhóm đông.
 
-\* \*\*Gói theo mùa lễ:\*\* Các gói theo chủ đề ngày lễ và dịp đặc biệt.
+Khi có nhiều trọng tài, Luân phiên chọn các vị trí liền nhau rồi dịch cả nhóm sang một vị trí ở vòng sau; Ngẫu nhiên chọn toàn bộ nhóm ngẫu nhiên; Người thắng gần nhất bắt đầu từ người thắng vòng trước rồi đi tiếp theo thứ tự chỗ ngồi để đủ số trọng tài.
 
-\* \*\*Gói hoài cổ:\*\* Các gói về các thập niên cũ và văn hóa retro.
+\*\*Ngôn Ngữ Và Bộ Bài\*\*
 
-\* \*\*Tất cả bộ bài:\*\* Gộp toàn bộ bộ bài hiện có.
+Ngôn ngữ lá bài độc lập với ngôn ngữ giao diện. Chẳng hạn, bạn có thể dùng PlayAural bằng tiếng Việt trong khi cả bàn chơi với bài tiếng Tây Ban Nha.
 
-\*\*Ví dụ một vòng\*\*
+\* \*\*Tiếng Anh:\*\* Chọn một hoặc nhiều bộ bài. Bộ chính Hoa Kỳ phiên bản 3.0 hiện hành được chọn mặc định. Danh mục còn có các phiên bản bộ chính trước đây, bản mở rộng chính thức, phiên bản gia đình và các bộ do cộng đồng sáng tạo. Lá trùng khớp hoàn toàn giữa những bộ được chọn chỉ xuất hiện một lần trong ván.
+\* \*\*Tiếng Tây Ban Nha:\*\* Dùng trọn bộ bài cộng đồng tiếng Tây Ban Nha đi kèm.
+\* \*\*Tiếng Bồ Đào Nha (Brazil):\*\* Dùng trọn bộ bài cộng đồng tiếng Bồ Đào Nha (Brazil) đi kèm.
 
-Năm người đang chơi: Trung, Lan, Hoa, Đức và Minh. Điểm thắng là 7, và Trung là trọng tài vòng này.
+Trình đơn chọn bộ bài chỉ xuất hiện với tiếng Anh vì hai ngôn ngữ còn lại hiện có một bộ đi kèm cho mỗi ngôn ngữ.
 
-Trò chơi rút một lá bài đen bằng tiếng Anh: "What's Batman's guilty pleasure?"
+\*\*Theo Dõi Ván Chơi\*\*
 
-Bốn người còn lại chọn lá bài trắng từ tay mình. Lan chọn một lá, nhấn phím số tương ứng để chọn, rồi nhấn \*\*Dấu cách\*\* để nộp. Hoa, Đức và Minh cũng nộp bài.
+\* \*\*Xem bài trên tay:\*\* Mở danh sách riêng tư gồm mọi lá bài trắng bạn đang giữ.
+\* \*\*Xem lá bài câu hỏi:\*\* Nghe lại lá bài đen hiện tại.
+\* \*\*Xem trước hoặc xem bài đã nộp:\*\* Nghe tổ hợp bạn đang chuẩn bị hoặc câu trả lời đã khóa trong vòng này.
+\* \*\*Xem lại các câu trả lời:\*\* Trong lúc chấm bài, mở danh sách câu trả lời ẩn danh theo đúng thứ tự đã xáo.
+\* \*\*Ai đang làm trọng tài:\*\* Nghe tên trọng tài hiện tại.
+\* \*\*Kiểm tra lượt:\*\* Trong giai đoạn nộp bài, nghe ai chưa nộp; trong giai đoạn chấm bài, nghe ai phải chọn bài thắng.
+\* \*\*Điểm:\*\* Nghe bảng điểm hoặc mở bảng điểm chi tiết.
 
-Khi đã đủ bài, Trung nghe các câu trả lời theo thứ tự ngẫu nhiên và chọn câu thắng. Trò chơi công bố Minh thắng vòng này, tiết lộ tất cả câu trả lời, bù bài cho mọi người, rồi chuyển vai trò trọng tài sang người tiếp theo theo đúng tùy chọn đang dùng.
+Bot chọn bài và chấm bài ngẫu nhiên vì gu hài hước không thể được đánh giá khách quan.
 
-\*\*Phím tắt\*\*
+\*\*Tùy Chọn Tại Bàn\*\*
 
-\* \*\*1 đến 0:\*\* Chọn hoặc bỏ chọn các lá trắng từ 1 đến 10 trên tay. Nếu số bài trên tay lớn hơn 10, hãy dùng trình đơn hành động để chọn các lá ở vị trí phía sau.
+\* \*\*Điểm để thắng:\*\* Từ 3 đến 20 điểm; mặc định 7.
+\* \*\*Số bài trên tay:\*\* Từ 5 đến 15 lá bài trắng; mặc định 10. Ván không thể bắt đầu nếu bộ bài đã chọn có yêu cầu cần nhiều lá hơn số bài trên tay.
+\* \*\*Ngôn ngữ lá bài:\*\* Tiếng Anh, Tiếng Tây Ban Nha hoặc Tiếng Bồ Đào Nha (Brazil); mặc định Tiếng Anh.
+\* \*\*Bộ bài:\*\* Các bộ bài tiếng Anh được dùng trong ván. Phải giữ lại ít nhất một bộ có bài hợp lệ.
+\* \*\*Cách chọn trọng tài:\*\* Luân phiên, Ngẫu nhiên hoặc Người thắng gần nhất; mặc định Luân phiên.
+\* \*\*Số trọng tài:\*\* Từ 1 đến 3; mặc định 1. Bàn luôn phải còn ít nhất một người không làm trọng tài để nộp bài.
 
-\* \*\*Dấu cách:\*\* Nộp các lá đã chọn.
+Trước khi bắt đầu, trò chơi kiểm tra bộ bài, số bài trên tay, số trọng tài và số người chơi. Nếu bộ bài không đủ để chia tay bài ban đầu, đáp ứng lượt bốc thêm lớn nhất mà một đề bài yêu cầu hoặc cung cấp bài đen, chủ bàn phải điều chỉnh tùy chọn.
 
-\* \*\*C:\*\* Đọc lá bài đen hiện tại.
+\*\*Phím Tắt\*\*
 
-\* \*\*V:\*\* Xem trước hoặc nghe lại bài nộp của bạn.
-
-\* \*\*J:\*\* Kiểm tra ai đang làm trọng tài.
-
-\* \*\*T:\*\* Kiểm tra lượt hiện tại hoặc ai chưa nộp bài.
-
+\* \*\*1 đến 0:\*\* Chọn hoặc bỏ chọn các lá bài trắng từ 1 đến 10. Dùng trình đơn lượt cho những lá phía sau.
+\* \*\*Dấu cách:\*\* Nộp câu trả lời đã chọn.
+\* \*\*H:\*\* Xem bài trên tay.
+\* \*\*C:\*\* Nghe lá bài đen hiện tại.
+\* \*\*V:\*\* Xem trước hoặc nghe lại bài đã nộp.
+\* \*\*Shift+V:\*\* Xem lại mọi câu trả lời ẩn danh trong lúc chấm bài.
+\* \*\*J:\*\* Nghe ai đang làm trọng tài.
+\* \*\*T:\*\* Nghe ai chưa nộp bài hoặc ai đang chấm bài.
 \* \*\*S:\*\* Kiểm tra điểm.
-
-\* \*\*Shift+S:\*\* Xem điểm chi tiết.
+\* \*\*Shift+S:\*\* Mở bảng điểm chi tiết.
+\* \*\*Ctrl+U:\*\* Nghe ai đang ở bàn.

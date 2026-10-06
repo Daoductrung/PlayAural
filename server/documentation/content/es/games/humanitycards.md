@@ -1,111 +1,103 @@
 \*\*Cartas contra la Humanidad\*\*
 
+\*\*¿Qué Es Cartas contra la Humanidad?\*\*
 
+Cartas contra la Humanidad es un juego de fiesta para adultos, basado en completar frases, para 3 a 10 jugadores. En cada ronda, una persona es el Zar de la Carta y presenta una carta negra. Los demás responden de forma anónima con una o más cartas blancas, y el Zar concede el punto a la respuesta que más le guste. No existe una respuesta objetivamente correcta: ganan la sorpresa, el absurdo y el sentido del humor de la mesa.
 
-Cartas contra la Humanidad es un juego de fiesta para 3 a 10 jugadores donde un jugador actúa como Zar de la Carta en cada ronda, leyendo en voz alta una carta negra de pregunta mientras todos los demás compiten por completar los espacios en blanco con la carta blanca más graciosa de su mano.
+El juego nació como una actividad de Nochevieja creada por ocho amigos de Highland Park, Illinois. Tras publicar una primera versión para imprimir en casa, sus autores financiaron una edición profesional mediante Kickstarter en 2010. Las primeras cajas se enviaron en 2011.
 
-La interfaz, los anuncios, y la documentación están localizados, pero el texto de las cartas de pregunta y respuesta por ahora solo está disponible en inglés.
+\*\*Advertencia De Contenido\*\*
 
+Cartas contra la Humanidad contiene material sensible, adulto, sexualmente sugerente y deliberadamente ofensivo. Las cartas pueden tratar lenguaje vulgar, sexo, violencia, discriminación, religión, política, enfermedad, muerte y otros temas perturbadores. Se recomienda discreción. Antes de jugar, asegúrense de que todas las personas de la mesa aceptan el contenido seleccionado.
 
+El mazo inglés predeterminado pertenece al juego para adultos. La Edición familiar es más suave, pero elegirla no elimina el contenido adulto de otros paquetes mezclados con ella. Los paquetes de la comunidad varían mucho y pueden ser más explícitos que los oficiales.
 
-\*\*Jugabilidad\*\*
+\*\*Cómo Ganar\*\*
 
+Gana rondas para sumar puntos. La primera persona que alcance la puntuación fijada por la mesa gana la partida. El objetivo predeterminado es 7 puntos.
 
+\*\*Los Dos Tipos De Cartas\*\*
 
-El juego usa dos mazos: cartas negras con una oración o pregunta con uno o más espacios en blanco, y cartas blancas con palabras o frases usadas para llenar esos espacios.
+\* \*\*Cartas negras:\*\* Preguntas, frases con espacios en blanco o instrucciones que preparan el chiste. También indican cuántas cartas blancas debe enviar cada participante.
+\* \*\*Cartas blancas:\*\* Respuestas, nombres, objetos o frases que completan la carta negra.
 
-Al inicio de la partida, a cada jugador se le reparte una mano de cartas blancas (10 por defecto). Se elige un Zar de la Carta, y se roba y lee a todos una carta negra de pregunta.
+Al comenzar, cada jugador recibe una mano privada de cartas blancas. El tamaño predeterminado es de 10 cartas. El primer Zar de la Carta se elige al azar.
 
+\*\*Cómo Se Juega Una Ronda\*\*
 
+Cada ronda tiene una fase de envío y una fase de juicio.
 
-Cada ronda tiene dos fases:
+Durante el envío, toda la mesa oye la carta negra. Quienes no sean Zares eligen exactamente la cantidad solicitada de cartas blancas. Tu mano es privada; nadie puede ver qué cartas estás considerando.
 
+Selecciona o deselecciona cartas y envía la combinación cuando esté lista. Antes puedes escuchar una vista previa. Una vez enviada, la respuesta queda bloqueada hasta el final de la ronda. La mesa sabe quién ha enviado y cuántas respuestas faltan, pero no conoce su contenido ni su autoría.
 
+Cuando todas las personas que pueden responder han enviado, comienza el juicio. Las respuestas se barajan, se anuncian en orden aleatorio y permanecen anónimas. El Zar elige su favorita. Su autor obtiene 1 punto, se revelan todas las autorías y cada persona roba hasta recuperar el tamaño de mano configurado antes de la ronda siguiente.
 
-\*\*Fase de envío.\*\* Todos los jugadores excepto el Zar de la Carta seleccionan cartas blancas de su mano para llenar los espacios en blanco de la carta negra. Si la pregunta tiene un espacio en blanco, eliges una carta; si tiene dos, eliges dos, y así sucesivamente. La cantidad de cartas requeridas se anuncia al inicio de cada ronda.
+\*\*Preguntas Que Requieren Varias Cartas\*\*
 
-Usa las teclas numéricas para alternar cartas dentro y fuera de tu selección. Cuando estés satisfecho con tu elección, presiona Espacio para enviar. Puedes previsualizar cómo se leerá tu respuesta antes de enviar presionando V. Una vez que envías, tus cartas quedan fijadas y no se pueden cambiar.
+Algunas cartas negras piden dos, tres o, en ocasiones, cuatro cartas blancas. El orden importa: la primera carta seleccionada será la primera respuesta, la segunda ocupará la segunda posición, y así sucesivamente. Cada carta seleccionada indica su posición. Si ya llenaste todas las posiciones y quieres cambiar una carta, deselecciónala antes de elegir su reemplazo.
 
-A medida que los jugadores envían, el juego anuncia el progreso en curso. Los envíos son anónimos para el Zar de la Carta.
+No todas las cartas negras muestran un espacio en blanco. En instrucciones como «Haz un haiku», las cartas elegidas se leen después de la instrucción y en el orden seleccionado. Una pregunta también puede repetir la misma respuesta en otro espacio; esa repetición no requiere una carta adicional.
 
+Algunas preguntas indican que cada persona que responde debe robar cartas blancas adicionales antes de elegir. Conserva esas cartas durante la ronda, envía la cantidad solicitada en orden y vuelve al tamaño de mano normal después del juicio.
 
+\*\*El Zar De La Carta\*\*
 
-\*\*Fase de juicio.\*\* Una vez que todos los jugadores han enviado, el Zar de la Carta escucha todos los envíos leídos en voz alta con las cartas blancas insertadas en los espacios en blanco de la carta negra. Los envíos se presentan en orden aleatorio para que el Zar de la Carta no pueda saber quién jugó qué. El Zar de la Carta elige el que más le gusta. El jugador que envió esa respuesta anota un punto.
+Los Zares no envían cartas blancas durante las rondas que juzgan. Conservan su mano y pueden revisarla en cualquier momento.
 
+La mesa puede elegir cómo se asigna el papel:
 
+\* \*\*Rotativo:\*\* Después de elegir al primer Zar al azar, el papel avanza por el orden de los asientos.
+\* \*\*Aleatorio:\*\* Se realiza una nueva elección al azar en cada ronda. La misma persona puede juzgar dos rondas seguidas.
+\* \*\*Ganador más reciente:\*\* Quien ganó la ronda anterior juzga la siguiente. La primera ronda usa el método rotativo.
 
-Después de que el Zar de la Carta elige un ganador, se anuncia la respuesta ganadora junto con quién la jugó. Luego se revelan todos los demás envíos con sus autores. A los jugadores se les reparten cartas blancas nuevas para rellenar su mano, y comienza una nueva ronda con un nuevo Zar de la Carta.
+Puede haber hasta tres Zares a la vez. Todos se abstienen de enviar y el primer juez que elija una respuesta decide el ganador. Como cada juez reduce la cantidad de respuestas, esta opción funciona mejor con grupos grandes.
 
-La partida termina cuando un jugador llega a la puntuación objetivo.
+Con varios Zares, Rotativo usa asientos consecutivos y mueve el grupo una posición en cada ronda; Aleatorio elige a todo el grupo al azar; Ganador más reciente comienza con quien ganó la ronda anterior y completa los demás puestos según el orden de los asientos.
 
+\*\*Idiomas Y Paquetes\*\*
 
+El idioma de las cartas es independiente del idioma de la interfaz.
 
-\*\*Opciones de partida\*\*
+\* \*\*Inglés:\*\* Permite combinar uno o más paquetes. El mazo principal actual de EE. UU., versión 3.0, viene seleccionado por defecto. También hay ediciones históricas, expansiones oficiales, la Edición familiar y paquetes de la comunidad. Las cartas idénticas de paquetes superpuestos se incluyen una sola vez.
+\* \*\*Español:\*\* Usa el mazo comunitario completo incluido.
+\* \*\*Portugués de Brasil:\*\* Usa el mazo comunitario brasileño completo incluido.
 
+El selector de paquetes solo aparece con las cartas en inglés, ya que los otros idiomas disponen de un mazo incluido cada uno.
 
+\*\*Cómo Consultar La Partida\*\*
 
-El anfitrión puede configurar lo siguiente en la mesa antes de empezar:
+\* \*\*Revisar tu mano:\*\* Abre una lista privada de las cartas blancas que tienes.
+\* \*\*Ver la carta de pregunta:\*\* Vuelve a escuchar la carta negra actual.
+\* \*\*Previsualizar o ver tu respuesta:\*\* Escucha la combinación que estás preparando o la que ya enviaste.
+\* \*\*Revisar las respuestas:\*\* Durante el juicio, abre las respuestas anónimas numeradas en su orden barajado.
+\* \*\*Quién está juzgando:\*\* Escucha quiénes son los Zares actuales.
+\* \*\*De quién es el turno:\*\* Durante el envío, escucha quién falta; durante el juicio, quién debe elegir.
+\* \*\*Puntuaciones:\*\* Escucha la clasificación o abre la vista detallada.
 
-\* \*\*Puntuación para ganar:\*\* La cantidad de puntos necesarios para ganar (por defecto 7, rango de 3 a 20).
+Los bots eligen sus cartas y respuestas ganadoras al azar, porque el humor es subjetivo.
 
-\* \*\*Tamaño de mano:\*\* La cantidad de cartas blancas que tiene cada jugador a la vez (por defecto 10, rango de 5 a 15).
+\*\*Opciones De La Mesa\*\*
 
-\* \*\*Paquetes de cartas:\*\* Qué paquetes de cartas incluir. El juego viene con muchos paquetes, incluido el conjunto base, expansiones, edición familiar, paquetes festivos, y paquetes de nostalgia. Puedes combinarlos libremente, pero se debe seleccionar al menos un paquete. Los grupos de paquetes disponibles son:
+\* \*\*Puntuación para ganar:\*\* De 3 a 20 puntos; 7 por defecto.
+\* \*\*Tamaño de mano:\*\* De 5 a 15 cartas blancas; 10 por defecto.
+\* \*\*Idioma de las cartas:\*\* Inglés, español o portugués de Brasil; inglés por defecto.
+\* \*\*Paquetes de cartas:\*\* Los paquetes ingleses usados en la partida. Debe quedar seleccionado al menos uno con cartas jugables.
+\* \*\*Selección del Zar:\*\* Rotativo, Aleatorio o Ganador más reciente; Rotativo por defecto.
+\* \*\*Número de jueces:\*\* De 1 a 3; 1 por defecto. Siempre debe quedar al menos una persona que pueda enviar.
 
-&#x20;   \* \*\*Conjunto base:\*\* Solo el conjunto base original de Cartas contra la Humanidad (por defecto).
+Antes de empezar, el juego comprueba los paquetes, el tamaño de mano, la cantidad de jueces y el número de jugadores. Si no hay suficientes cartas para repartir las manos iniciales, cubrir el mayor robo adicional pedido por una pregunta o proporcionar una carta negra, el anfitrión debe ajustar las opciones.
 
-&#x20;   \* \*\*Base + Expansiones:\*\* El conjunto base combinado con todos los paquetes de expansión numerados oficiales.
+\*\*Atajos De Teclado\*\*
 
-&#x20;   \* \*\*Edición familiar:\*\* Paquetes de la versión apta para toda la familia del juego.
-
-&#x20;   \* \*\*Paquetes festivos:\*\* Paquetes temáticos para ocasiones de temporada y festividades.
-
-&#x20;   \* \*\*Paquetes de nostalgia:\*\* Paquetes con contenido retro específico de cada década.
-
-&#x20;   \* \*\*Todos los paquetes:\*\* Todos los paquetes disponibles combinados en un mazo enorme.
-
-\* \*\*Selección del Zar de la Carta:\*\* Cómo se elige al Zar de la Carta en cada ronda. Hay tres modos disponibles:
-
-&#x20;   \* \*\*Rotativo:\*\* El rol pasa por la mesa en orden, así que todos tienen su turno (por defecto).
-
-&#x20;   \* \*\*Aleatorio:\*\* Se elige un jugador al azar en cada ronda. Alguien podría juzgar dos veces seguidas.
-
-&#x20;   \* \*\*Ganador más reciente:\*\* El jugador que ganó la última ronda se convierte en el próximo Zar de la Carta. El ganador se queda fuera de la siguiente ronda como contrapartida por su éxito. En la primera ronda, esto recurre al modo rotativo.
-
-\* \*\*Número de jueces:\*\* Cuántos jugadores actúan como Zar de la Carta al mismo tiempo. El juego siempre debe tener al menos un jugador que no sea juez enviando respuestas, así que la cantidad de jueces seleccionada debe ser menor que la cantidad de jugadores en la mesa. Con varios jueces, cualquiera de ellos puede elegir al ganador. Más jueces significa menos jugadores enviando respuestas en cada ronda, así que esta opción funciona mejor con grupos más grandes (por defecto 1, rango de 1 a 3).
-
-
-
-\*\*Ejemplo de ronda\*\*
-
-
-
-Hay cinco jugadores en la partida: Alicia, Roberto, Carolina, Daniel, y Eva. La puntuación para ganar es 7, y Alicia es el Zar de la Carta en esta ronda.
-
-Se roba una carta negra: "¿Cuál es el placer culpable de Batman?"
-
-Los otros cuatro jugadores miran sus manos. Roberto elige "Sopa que está demasiado caliente." Presiona \*\*3\*\* para seleccionar su tercera carta, y luego presiona \*\*Espacio\*\* para enviar. Carolina, Daniel, y Eva hacen lo mismo con sus propias elecciones.
-
-Una vez que los cuatro han enviado, Alicia entra a la fase de juicio. Escucha los envíos en orden aleatorio, y luego elige el que le parece más gracioso. El juego anuncia que Eva gana la ronda y revela las respuestas de todos. A todos los jugadores se les reparten cartas de reemplazo, y el Zar de la Carta rota a Roberto para la siguiente ronda.
-
-
-
-\*\*Atajos de teclado\*\*
-
-
-
-\* \*\*1 al 0:\*\* Alternar las cartas blancas 1 a 10 de tu mano, seleccionándolas o deseleccionándolas para el envío. La primera carta que selecciones llena el primer espacio en blanco; la segunda llena el segundo. Si el tamaño de mano supera 10, usa el menú de acciones para seleccionar las cartas posteriores.
-
-\* \*\*Espacio:\*\* Enviar tus cartas seleccionadas.
-
-\* \*\*C:\*\* Leer en voz alta la carta negra actual.
-
-\* \*\*V:\*\* Previsualizar o ver tu envío. Antes de enviar, lee cómo sonaría tu selección actual en la pregunta. Después de enviar, lee tu respuesta ya fijada.
-
-\* \*\*J:\*\* Anunciar quién es el Zar de la Carta actual.
-
-\* \*\*T:\*\* Consultar de quién es el turno, o quién todavía no ha enviado.
-
-\* \*\*S:\*\* Consultar puntuaciones.
-
-\* \*\*Shift+S:\*\* Ver puntuaciones detalladas.
+\* \*\*1 a 0:\*\* Seleccionar o deseleccionar las cartas blancas 1 a 10. Usa el menú del turno para las cartas posteriores.
+\* \*\*Espacio:\*\* Enviar la respuesta seleccionada.
+\* \*\*H:\*\* Revisar tu mano.
+\* \*\*C:\*\* Escuchar la carta negra actual.
+\* \*\*V:\*\* Previsualizar o revisar tu respuesta.
+\* \*\*Shift+V:\*\* Revisar todas las respuestas anónimas durante el juicio.
+\* \*\*J:\*\* Escuchar quién juzga.
+\* \*\*T:\*\* Escuchar quién falta por enviar o quién debe juzgar.
+\* \*\*S:\*\* Consultar las puntuaciones.
+\* \*\*Shift+S:\*\* Abrir las puntuaciones detalladas.
+\* \*\*Ctrl+U:\*\* Escuchar quién está en la mesa.

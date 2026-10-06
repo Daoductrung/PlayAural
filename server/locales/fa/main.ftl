@@ -147,6 +147,7 @@ option-select-all = انتخاب همه
 option-deselect-all = لغو انتخاب همه
 option-selected-count = { $count } انتخاب شده
 option-deselected-count = { $count } انتخاب نشده
+option-multiselect-group = { $group } ({ $count } از { $total } انتخاب شده)
 option-min-selected = حداقل باید { $count } گزینه را انتخاب کنید.
 option-max-selected = حداکثر می‌توانید { $count } گزینه را انتخاب کنید.
 

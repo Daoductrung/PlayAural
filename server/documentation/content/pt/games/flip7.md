@@ -13,11 +13,9 @@ No início de cada rodada, cada jogador que ainda está na rodada recebe uma car
 * \*\*Vire uma carta:\*\* Vira mais uma carta e resolve seu efeito.
 * \*\*Pare e garanta:\*\* Encerra sua participação na rodada com segurança e garante seus pontos quando a rodada terminar.
 
-Sua área aparece abaixo das ações principais. Ela mostra suas cartas de número, seu total atual da rodada e os bônus. As áreas dos outros jogadores também aparecem para ajudar você a avaliar o risco.
+A rodada termina quando todos os jogadores pararam ou estouraram, ou quando alguém completa o Flip 7.
 
-A rodada termina quando todos os jogadores pararam ou estouraram, quando não resta nenhuma carta para virar, ou quando alguém completa o Flip 7.
-
-Quando o baralho acaba, o descarte é embaralhado de novo e volta a ser o baralho, e a rodada continua. Uma rodada só termina por falta de cartas quando não resta nenhuma carta nem no baralho nem no descarte.
+Quando o baralho acaba, o descarte é embaralhado de novo e volta a ser o baralho, e a rodada continua.
 
 \*\*Cartas\*\*
 
@@ -32,7 +30,7 @@ Quem vira uma carta de ação é quem escolhe o alvo dela, seja a carta distribu
 
 \*\*Vira 3\*\*
 
-O jogador escolhido vira três cartas seguidas, e cada uma é resolvida assim que é virada. As cartas Congelar e Vira 3 que saem durante um Vira 3 ficam guardadas e são resolvidas depois das três voltas, na ordem em que foram viradas, então cada uma pode abrir a sua própria escolha. Segunda Chance é resolvida imediatamente: se o jogador que está virando ainda não tiver uma, ele a guarda e pode usá-la contra um número repetido posterior no mesmo Vira 3; se já tiver uma, precisa entregar a nova a outro jogador elegível antes de continuar com as cartas restantes. Se o jogador que está virando estourar no meio, ele para de virar e as cartas Congelar ou Vira 3 guardadas são descartadas. Se o baralho acabar antes das três voltas terminarem, a rodada acaba mais cedo. Durante um Vira 3, o jogador que está virando não pode escolher virar outra carta nem parar.
+O jogador escolhido vira três cartas seguidas, e cada uma é resolvida assim que é virada. As cartas Congelar e Vira 3 que saem durante um Vira 3 ficam guardadas e são resolvidas depois das três voltas, na ordem em que foram viradas, então cada uma pode abrir a sua própria escolha. Segunda Chance é resolvida imediatamente: se o jogador que está virando ainda não tiver uma, ele a guarda e pode usá-la contra um número repetido posterior no mesmo Vira 3; se já tiver uma, precisa entregar a nova a outro jogador elegível antes de continuar com as cartas restantes. Se o jogador que está virando estourar no meio, ele para de virar e as cartas Congelar ou Vira 3 guardadas são descartadas. Durante um Vira 3, o jogador que está virando não pode escolher virar outra carta nem parar.
 
 \*\*Pontuação\*\*
 
@@ -51,7 +49,7 @@ Depois de cada rodada completa, o jogador com a maior pontuação acumulada é o
 \*\*Ações de informação\*\*
 
 * \*\*Verificar minha área:\*\* Fala suas cartas atuais, bônus e total da rodada.
-* \*\*Verificar a mesa:\*\* Fala a rodada, a pontuação-alvo e o estado e total de cada jogador.
+* \*\*Verificar a mesa:\*\* Fala a rodada, a pontuação-alvo e as cartas viradas para cima, os bônus, o estado, o total da rodada e o total da partida de cada jogador.
 * \*\*Verificar o baralho:\*\* Fala quantas cartas há no baralho e no descarte.
 * \*\*Verificar pontuações:\*\* Fala as pontuações acumuladas da partida.
 

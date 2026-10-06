@@ -54,8 +54,6 @@ De más fuerte a más débil, las manos de póker son:
 
 Si dos jugadores tienen el mismo tipo de mano, los rangos más altos deciden al ganador. Por ejemplo, un par de reyes le gana a un par de reinas. Si los rangos principales son iguales, deciden las siguientes cartas extra más altas. Si las mejores manos están exactamente empatadas, esos jugadores empatan por la mejor mano.
 
-El juego anuncia esta mano más fuerte como Escalera Real.
-
 \*\*Preparación de la mano\*\*
 
 Al inicio de cada mano:
@@ -105,7 +103,11 @@ Solo puedes usarlo una vez por partida, y solo en tu primera decisión de una ma
 
 Cambiar carta se puede usar una sola vez por partida. Una vez que lo uses, no volverá a estar disponible en las manos siguientes.
 
-Elige una de tus dos cartas privadas y después escoge su reemplazo de una selección que solo tú conoces. Antes del flop puedes elegir entre 4 cartas; después del flop, entre 3; y después de la cuarta carta comunitaria, entre 2.
+Elige una de tus dos cartas privadas y después escoge su reemplazo de una pequeña selección privada. Actuar pronto te da más opciones, mientras que esperar te da más información:
+
+\* Antes de que se revelen las primeras cartas comunitarias, eliges entre 4 reemplazos.
+\* Después de que se revelen las primeras 3 cartas comunitarias, eliges entre 3 reemplazos.
+\* Después de que se revele la cuarta carta comunitaria, eliges entre 2 reemplazos.
 
 Cambiar no gasta tu decisión de apuesta. Después del cambio sigue siendo tu turno, pero debes Igualar o Retirarte. No puedes Cambiar carta y después ir all-in en el mismo turno.
 
@@ -118,6 +120,8 @@ No puedes cambiar después de que se revela la carta comunitaria final, y no pue
 All-in significa que llevas tus balas comprometidas hasta 8.
 
 All-in solo está disponible desde la ronda de apuestas 2 en adelante, después de que se hayan revelado las primeras tres cartas comunitarias. La ronda de apertura es para las primeras decisiones de compromiso, así que los jugadores no pueden forzar de inmediato a la mesa a 8 balas antes de que nadie vea el flop.
+
+Si usaste Cambiar carta en este turno, no puedes ser quien declare All-in. Debes terminar el turno actual con Igualar o Retirarte. Esto no te impide igualar el all-in de otro jugador si lo declara más tarde en la ronda.
 
 Cuando alguien va all-in, las apuestas normales se detienen. Cada otro jugador activo debe elegir:
 

@@ -13,11 +13,9 @@ Ghi điểm bằng cách giữ các lá số trong khu vực của bạn. Bạn 
 * \*\*Lật một lá:\*\* Lật thêm một lá bài và áp dụng hiệu ứng của nó.
 * \*\*Dừng lại và giữ điểm:\*\* Kết thúc lượt chơi trong vòng một cách an toàn và giữ điểm khi vòng kết thúc.
 
-Khu vực của bạn được hiển thị bên dưới các hành động chính. Nó cho biết các lá số, tổng điểm hiện tại trong vòng, và các phần thưởng. Khu vực của người chơi khác cũng được hiển thị để bạn đánh giá rủi ro.
+Vòng kết thúc khi tất cả người chơi đã dừng lại hoặc cháy bài, hoặc khi có người hoàn thành Flip 7.
 
-Vòng kết thúc khi tất cả người chơi đã dừng lại hoặc cháy bài, khi không còn lá bài nào để lật, hoặc khi có người hoàn thành Flip 7.
-
-Khi bộ bài hết, đống bỏ được trộn lại thành bộ bài mới và vòng đấu tiếp tục. Vòng chỉ kết thúc vì hết bài khi cả bộ bài lẫn đống bỏ đều không còn lá nào.
+Khi bộ bài hết, đống bỏ được trộn lại thành bộ bài mới và vòng đấu tiếp tục.
 
 \*\*Các lá bài\*\*
 
@@ -32,7 +30,7 @@ Người lật ra lá hành động là người chọn mục tiêu cho lá đó
 
 \*\*Lật 3\*\*
 
-Người chơi bị chọn sẽ lật ba lá liên tiếp, mỗi lá được áp dụng ngay khi lật. Những lá Đóng băng và Lật 3 xuất hiện trong chuỗi Lật 3 được giữ lại và xử lý sau khi lật đủ ba lá, theo đúng thứ tự đã lật, nên mỗi lá vẫn có thể mở ra lựa chọn riêng. Cơ hội thứ hai được xử lý ngay: nếu người đang lật chưa có lá này, họ đặt nó sang một bên và có thể dùng nó để tránh một số bị lặp về sau trong cùng chuỗi Lật 3; nếu đã có một lá, họ phải trao lá mới cho một người chơi hợp lệ khác trước khi tiếp tục lật những lá còn lại. Nếu người đang lật bị cháy bài giữa chừng, họ dừng lật và mọi lá Đóng băng hoặc Lật 3 đang giữ đều bị loại bỏ. Nếu bộ bài hết trước khi lật đủ ba lá, vòng kết thúc sớm. Trong chuỗi Lật 3, người đang lật không thể chọn lật thêm hay dừng lại.
+Người chơi bị chọn sẽ lật ba lá liên tiếp, mỗi lá được áp dụng ngay khi lật. Những lá Đóng băng và Lật 3 xuất hiện trong chuỗi Lật 3 được giữ lại và xử lý sau khi lật đủ ba lá, theo đúng thứ tự đã lật, nên mỗi lá vẫn có thể mở ra lựa chọn riêng. Cơ hội thứ hai được xử lý ngay: nếu người đang lật chưa có lá này, họ đặt nó sang một bên và có thể dùng nó để tránh một số bị lặp về sau trong cùng chuỗi Lật 3; nếu đã có một lá, họ phải trao lá mới cho một người chơi hợp lệ khác trước khi tiếp tục lật những lá còn lại. Nếu người đang lật bị cháy bài giữa chừng, họ dừng lật và mọi lá Đóng băng hoặc Lật 3 đang giữ đều bị loại bỏ. Trong chuỗi Lật 3, người đang lật không thể chọn lật thêm hay dừng lại.
 
 \*\*Tính điểm\*\*
 
@@ -51,7 +49,7 @@ Sau mỗi vòng đã hoàn thành, người chơi có tổng điểm trận đ�
 \*\*Hành động thông tin\*\*
 
 * \*\*Xem khu vực của tôi:\*\* Đọc các lá hiện tại, phần thưởng, và tổng điểm vòng của bạn.
-* \*\*Xem bàn chơi:\*\* Đọc vòng hiện tại, điểm mục tiêu, trạng thái từng người chơi, và tổng điểm của họ.
+* \*\*Xem bàn chơi:\*\* Đọc vòng hiện tại, điểm mục tiêu, các lá đang ngửa, phần thưởng, trạng thái, điểm vòng, và tổng điểm trận đấu của từng người chơi.
 * \*\*Xem bộ bài:\*\* Đọc số lá còn trong bộ bài và đống bỏ.
 * \*\*Xem điểm:\*\* Đọc tổng điểm trận đấu.
 

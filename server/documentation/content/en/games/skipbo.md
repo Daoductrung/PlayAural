@@ -118,7 +118,7 @@ Your hand remains visible when another player has the turn. Those card rows keep
 
 After a successful building play, focus first follows another legal play to the same building pile when one exists. Otherwise it moves to the next useful legal play or hand-card action. Pile status windows also keep one stable row for each pile while their values change.
 
-Desktop clients keep pile-inspection commands in the actions menu and on keyboard shortcuts, leaving the turn menu focused on cards. Touch clients also place those useful inspection commands in the turn menu.
+Desktop clients keep pile-inspection commands in the actions menu and on keyboard shortcuts, leaving the turn menu focused on cards. Touch clients also place those commands in the turn menu, followed by Check scores when relevant, Whose turn, and Who's at the table.
 
 \*\*Information actions\*\*
 
@@ -133,6 +133,8 @@ Desktop clients keep pile-inspection commands in the actions menu and on keyboar
 \* \*\*Check scores:\*\* Available in a scored match. The brief and detailed score views show progress toward the match target.
 
 \* \*\*Whose turn:\*\* Reports the current player.
+
+\* \*\*Who's at the table:\*\* Lists the players and spectators currently at the table.
 
 \*\*Keyboard shortcuts\*\*
 
@@ -149,6 +151,8 @@ Desktop clients keep pile-inspection commands in the actions menu and on keyboar
 \* \*\*Shift+S:\*\* Open detailed scores during a scored match.
 
 \* \*\*T:\*\* Check whose turn it is.
+
+\* \*\*Ctrl+U:\*\* Hear who's at the table.
 
 \* \*\*Escape:\*\* Open the actions menu.
 

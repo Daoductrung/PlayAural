@@ -13,9 +13,23 @@ hc-enter-hand-size = Ingresa el tamaño de mano:
 hc-option-changed-hand-size = Tamaño de mano establecido en { $count }.
 hc-desc-hand-size = Cuántas cartas de respuesta tiene cada jugador después de cada recarga. Manos más grandes dan más opciones pero alargan las rondas (por defecto 10, rango 5-15).
 
+hc-set-card-language = Idioma de las cartas: { $language }
+hc-select-card-language = Selecciona el idioma de las cartas
+hc-option-changed-card-language = Idioma de las cartas establecido en { $language }.
+hc-desc-card-language = Establece el idioma de todas las cartas de pregunta y respuesta de la partida, independientemente del idioma de la interfaz de cada jugador (por defecto inglés; opciones: inglés, español y portugués de Brasil).
+hc-card-language-pt-br = Portugués de Brasil
+hc-card-blank = espacio en blanco
+hc-card-same-again = la misma carta otra vez
+
 hc-set-card-packs = Paquetes de cartas ({ $count } de { $total } seleccionados)
 hc-option-changed-card-packs = Se cambió la selección de paquetes de cartas.
-hc-desc-card-packs = Elige qué paquetes de respuestas y preguntas se mezclan en la partida. Debe quedar seleccionado al menos un paquete.
+hc-desc-card-packs = Elige qué paquetes de respuestas y preguntas en inglés se mezclan en la partida. Las cartas idénticas de paquetes superpuestos se incluyen una sola vez. Debe quedar seleccionado al menos un paquete.
+hc-pack-group-current = Mazo principal actual de EE. UU.
+hc-pack-group-main-decks = Ediciones del mazo principal
+hc-pack-group-official-add-ons = Expansiones y paquetes oficiales
+hc-pack-group-family = Edición familiar
+hc-pack-group-community = Paquetes de la comunidad
+hc-pack-group-all = Todos los paquetes
 
 hc-set-czar-selection = Selección del Zar de la Carta: { $mode }
 hc-select-czar-selection = Selecciona el modo de selección del Zar de la Carta
@@ -43,10 +57,13 @@ hc-judge-is = { $judges } { $count ->
 }.
 hc-you-are-judge = Eres el Zar de la Carta esta ronda.
 hc-you-and-others-are-judges = Tú y { $judges } son los Zares de la Carta esta ronda.
-hc-you-are-not-judge = No eres el Zar de la Carta esta ronda.
 
 # Carta negra
 hc-black-card = La pregunta es: { $text }
+hc-black-card-draw = Primero, roba { $count } { $count ->
+    [one] carta adicional
+   *[other] cartas adicionales
+}.
 hc-black-card-pick = Elige { $count }.
 hc-view-black-card = Ver la carta de pregunta
 
@@ -56,10 +73,10 @@ hc-select-cards = Selecciona { $count } { $count ->
    *[other] cartas
 } de tu mano.
 hc-card-selected = { $text }, seleccionada
+hc-card-selected-position = { $text }, seleccionada como respuesta { $position }
 hc-card-not-selected = { $text }
 hc-submit-cards = Enviar ({ $selected } de { $required } seleccionadas)
 hc-submission-progress = { $submitted } de { $total } jugadores enviaron su respuesta.
-hc-waiting-for-submissions = Esperando envíos...
 hc-already-submitted = Ya enviaste tus cartas.
 hc-you-submitted = Enviaste tus cartas.
 hc-player-submitted = { $player } envió { GENDER_TERM($player_gender, "possessive-determiner") } cartas.
@@ -72,12 +89,15 @@ hc-wrong-card-count = Necesitas seleccionar exactamente { $count } { $count ->
     [one] carta
    *[other] cartas
 }.
+hc-selection-full = Ya seleccionaste { $count } { $count ->
+    [one] carta
+   *[other] cartas
+}. Deselecciona una antes de elegir otra.
 
 # Fase de juicio
 hc-judging-start = ¡Todas las cartas están listas! Hora de juzgar.
 hc-choose-best-card = Elige la mejor carta
 hc-choose-best-card-for = Elige la mejor carta para: { $prompt }
-hc-select-winner-prompt = Selecciona la respuesta ganadora
 hc-card-number = Carta { $number }
 hc-submission-number = Respuesta { $number }
 hc-only-judges-pick = Solo el Zar de la Carta puede elegir la respuesta ganadora.
@@ -107,11 +127,17 @@ hc-view-submission = Ver tu respuesta
 hc-preview-submission-text = Vista previa: { $text }
 hc-your-submission = Tu respuesta: { $text }
 hc-select-cards-first = Primero selecciona al menos 1 carta.
+hc-review-hand = Revisar tu mano
+hc-hand-empty = Tu mano está vacía.
+hc-hand-card = { $number }. { $text }
+hc-hand-card-selected = { $number }. { $text }, seleccionada como respuesta { $position }
+hc-review-answers = Revisar las respuestas
+hc-answer-line = Respuesta { $number }: { $text }
+hc-no-answers-to-review = No hay respuestas para revisar ahora.
 
 # Victoria
 hc-game-winner = ¡{ $player } gana con { $score } puntos!
 hc-you-win = ¡Ganas con { $score } puntos!
-hc-english-content-note = Nota: por ahora, el texto de las cartas de pregunta y respuesta solo está disponible en inglés.
 
 # Gestión del mazo
 hc-deck-reshuffled = El descarte de cartas blancas se volvió a barajar en el mazo.

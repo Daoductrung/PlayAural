@@ -5,6 +5,7 @@ from __future__ import annotations
 import random
 
 from .constants import (
+    CARD_NUMBER,
     CHOICE_FLIP_THREE,
     CHOICE_FREEZE,
     CHOICE_SECOND_CHANCE,
@@ -29,7 +30,7 @@ def _bust_risk(game, player) -> float:
     held = set(player.numbers)
     unsafe = 0
     for card in source:
-        if card.kind == "number" and card.value in held:
+        if card.kind == CARD_NUMBER and card.value in held:
             unsafe += 1
     return unsafe / total
 

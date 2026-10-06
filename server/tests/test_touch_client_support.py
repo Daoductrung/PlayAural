@@ -207,7 +207,15 @@ def test_touch_gameplay_info_actions_only_appear_after_start(
         (
             HumanityCardsGame,
             3,
-            ["view_black_card", "whose_judge", "check_scores", "whose_turn", "whos_at_table"],
+            [
+                "view_black_card",
+                "review_hand",
+                "review_answers",
+                "whose_judge",
+                "check_scores",
+                "whose_turn",
+                "whos_at_table",
+            ],
         ),
         (
             BackgammonGame,
@@ -298,7 +306,11 @@ def test_new_games_touch_standard_actions_follow_touch_order(
     ("game_cls", "player_count", "custom_actions"),
     [
         (AgeOfHeroesGame, 2, ["check_hand", "check_status", "check_status_detailed"]),
-        (HumanityCardsGame, 3, ["view_black_card", "whose_judge"]),
+        (
+            HumanityCardsGame,
+            3,
+            ["view_black_card", "whose_judge", "review_hand", "review_answers"],
+        ),
         (
             BackgammonGame,
             2,

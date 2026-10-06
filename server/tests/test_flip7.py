@@ -125,6 +125,11 @@ def _resolve(game, player, card, *, forced=False, continuation=CONTINUE_FLOW):
         pending_owner=player.id if forced else None,
     )
     assert advance_until(game, lambda: game.drawn_card is None)
+    if game.pending_choice is not None:
+        assert advance_until(
+            game,
+            lambda: not game.has_active_sequence(tag=TAG_FLOW),
+        )
 
 
 def _take_from_deck(game, kind, value=None):
@@ -780,7 +785,14 @@ def test_flip7_turn_menu_keeps_scoreboard_out_of_the_primary_action_list():
             mobile.current_player, mobile.get_user(mobile.current_player)
         ).items
     ]
-    assert mobile_ids[2:5] == ["check_area", "check_table", "check_deck"]
+    assert mobile_ids[2:8] == [
+        "check_area",
+        "check_table",
+        "check_deck",
+        "check_scores",
+        "whose_turn",
+        "whos_at_table",
+    ]
     assert mobile_ids[-2:] == ["web_actions_menu", "web_leave_table"]
 
 
@@ -820,6 +832,40 @@ def test_flip7_information_actions_touch_visibility():
         for resolved in desktop.get_all_enabled_actions(desktop.players[0])
     }
     assert {"check_area", "check_table", "check_deck"} <= desktop_actions
+
+
+def test_flip7_information_actions_are_disabled_before_play_starts():
+    game = _make_game(player_count=3, start=False)
+    player = game.players[0]
+
+    for action_id in ("check_area", "check_table", "check_deck"):
+        resolved = game.resolve_action(player, game.find_action(player, action_id))
+        assert resolved.enabled is False
+        assert resolved.disabled_reason == "action-not-playing"
+
+
+def test_flip7_table_review_includes_every_public_face_up_card():
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [3, 4, 5])
+    viewer, other, _ = game.players
+    other.cards.extend(
+        [
+            _card(CARD_MODIFIER, 6, uid=20),
+            _card(CARD_DOUBLE, uid=21),
+            _card(CARD_SECOND_CHANCE, uid=22),
+        ]
+    )
+    other.round_status = STATUS_STAYED
+    other.total_score = 17
+    user = game.get_user(viewer)
+    user.clear_messages()
+
+    game.execute_action(viewer, "check_table")
+
+    other_line = next(text for text in _spoken(user) if other.name in text)
+    for public_value in ("4", "+6", "Double", "Second Chance", "14", "17"):
+        assert public_value in other_line
+    assert "stopped this round" in other_line
 
 
 def test_flip7_banked_and_busted_players_get_stable_stop_labels():
@@ -911,7 +957,7 @@ def test_flip7_modifier_reveals_use_the_exact_value_cue():
     }
     for value, cue in expected.items():
         card = _card(CARD_MODIFIER, value, uid=value)
-        assert game._card_reveal_sound(card, forced=False) == cue
+        assert game._card_reveal_sound(card) == cue
 
 
 def test_flip7_forced_action_reveals_keep_their_own_cue():
@@ -924,8 +970,7 @@ def test_flip7_forced_action_reveals_keep_their_own_cue():
     }
     for kind, cue in expected.items():
         card = _card(kind, uid=1)
-        assert game._card_reveal_sound(card, forced=True) == cue
-        assert game._card_reveal_sound(card, forced=False) == cue
+        assert game._card_reveal_sound(card) == cue
 
 
 def test_flip7_audio_reuses_complete_shared_assets_with_exact_fallbacks():
@@ -1051,16 +1096,14 @@ def test_flip7_bots_play_a_full_match_to_finished():
     assert max(scores) >= 50
 
 
-def test_flip7_bot_current_player_answers_choice_while_sequences_pause_bots():
+def test_flip7_bot_choice_waits_for_gameplay_sequence_to_unlock():
     game = _make_game(player_count=3, start=True, bot_all=True)
     _deal_number_cards(game, [3, 4, 5])
     actor = game.current_player
     assert actor.is_bot is True
 
-    # A long trainer sequence keeps bot decision-making paused while the
-    # current player must answer a targetable card. During the initial deal
-    # or a Flip Three the reveal sequence similarly pauses bots, so the
-    # choice must not wait for BotHelper.on_tick to become live again.
+    # Target selection mutates the game, so neither a human nor a bot may
+    # answer while another gameplay-locking sequence is still active.
     game.start_sequence(
         "flip7_test_pause_bots",
         [
@@ -1076,7 +1119,14 @@ def test_flip7_bot_current_player_answers_choice_while_sequences_pause_bots():
     game.flush_menus()
     assert game._choice_actor() is actor
     assert game.is_sequence_bot_paused() is True
+    assert game._is_choose_target_enabled(actor) == "flip7-error-wait-card"
 
+    for _ in range(50):
+        game.on_tick()
+        game.flush_menus()
+    assert game.pending_choice is not None
+
+    game.cancel_sequence("flip7_test_pause_bots")
     assert advance_until(game, lambda: game.pending_choice is None, max_ticks=300)
     assert any(p.round_status == STATUS_STAYED for p in game.players)
 
@@ -1417,7 +1467,12 @@ def test_flip7_freeze_target_label_formats_target_name_in_portuguese():
     target = game.players[1]
     _resolve(game, actor, _card(CARD_FREEZE, uid=1))
 
-    label = Localization.get("pt", "flip7-target-freeze", target=target.name, points=game.round_points(target))
+    label = Localization.get(
+        "pt",
+        "flip7-target-freeze",
+        target=target.name,
+        points=game.round_points(target),
+    )
     assert target.name in label
     assert "Faça target" not in label
     assert f"Faça {target.name} congelar (5 pontos)" in label

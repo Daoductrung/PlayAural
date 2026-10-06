@@ -60,8 +60,6 @@ from server.users.bot import Bot
 from server.users.test_user import MockUser
 
 ROOT = Path(__file__).resolve().parents[2]
-
-
 BOARD = get_board("standard")
 LONDON_BOARD = get_board("london")
 PARIS_BOARD = get_board("paris")
@@ -3218,8 +3216,10 @@ def test_rent_prompt_is_private_and_payment_is_one_perspective_aware_message() -
     game._resolve_landing(tenant)
 
     assert owner_user.get_spoken_messages() == [
-        f"{tenant.name} landed on your Mediterranean Avenue. "
-        "You may claim $2 rent or waive it."
+        (
+            f"{tenant.name} landed on your Mediterranean Avenue. "
+            "You may claim $2 rent or waive it."
+        )
     ]
     assert tenant_user.get_spoken_messages() == []
     assert observer_user.get_spoken_messages() == []
@@ -3229,12 +3229,16 @@ def test_rent_prompt_is_private_and_payment_is_one_perspective_aware_message() -
     game._action_claim_rent(owner, "claim_rent")
 
     assert owner_user.get_spoken_messages() == [
-        f"You collect $2 rent from {tenant.name} for Mediterranean Avenue. "
-        "You now have $1,502."
+        (
+            f"You collect $2 rent from {tenant.name} for Mediterranean Avenue. "
+            "You now have $1,502."
+        )
     ]
     assert tenant_user.get_spoken_messages() == [
-        f"You pay $2 rent to {owner.name} for Mediterranean Avenue. "
-        "You have $1,498 left."
+        (
+            f"You pay $2 rent to {owner.name} for Mediterranean Avenue. "
+            "You have $1,498 left."
+        )
     ]
     assert observer_user.get_spoken_messages() == [
         f"{tenant.name} pays {owner.name} $2 rent for Mediterranean Avenue."

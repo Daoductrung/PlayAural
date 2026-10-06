@@ -1,65 +1,103 @@
 **Cartas contra a Humanidade**
 
-Cartas contra a Humanidade é um jogo de festa para 3 a 10 jogadores, onde um jogador atua como o Czar das Cartas (Card Czar) a cada rodada, lendo um cartão de instrução preto em voz alta enquanto todos os outros competem para preencher as lacunas com a carta branca mais engraçada de sua mão.
+**O Que É Cartas contra a Humanidade?**
 
-A interface, os anúncios e a documentação são localizados, mas o texto das cartas de perguntas e respostas atualmente suporta apenas o inglês.
+Cartas contra a Humanidade é um jogo de festa adulto de completar frases, para 3 a 10 jogadores. Em cada rodada, uma pessoa assume o papel de Czar das Cartas e apresenta uma carta preta. Todos os outros respondem anonimamente com uma ou mais cartas brancas, e o Czar dá o ponto à resposta de que mais gostar. Não existe uma resposta objetivamente certa: surpresa, absurdo, ritmo e o senso de humor da mesa decidem o vencedor.
 
-**Como Jogar**
+O jogo nasceu como uma brincadeira de Réveillon criada por oito amigos de longa data de Highland Park, Illinois. Depois de disponibilizar uma versão inicial para impressão caseira, o grupo financiou uma edição profissional pelo Kickstarter em 2010. As primeiras caixas foram enviadas em 2011.
 
-O jogo usa dois baralhos: cartas pretas contendo uma frase ou pergunta com uma ou mais lacunas, e cartas brancas contendo palavras ou frases usadas para preencher essas lacunas.
+**Aviso De Conteúdo**
 
-No início do jogo, cada jogador recebe uma mão de cartas brancas (10 por padrão). Um Czar das Cartas é selecionado, e uma carta de instrução preta é comprada e lida para todos.
+Cartas contra a Humanidade contém temas sensíveis, adultos, sexualmente sugestivos e deliberadamente ofensivos. As cartas podem abordar palavrões, sexo, violência, discriminação, religião, política, doenças, morte e outros assuntos perturbadores. Recomenda-se discrição. Antes de jogar, confirme que todas as pessoas da mesa estão confortáveis com o conteúdo selecionado.
 
-Cada rodada tem duas fases:
+O baralho inglês padrão pertence ao jogo adulto. A Edição para a família é mais leve, mas selecioná-la não remove o conteúdo adulto de outros pacotes misturados com ela. Pacotes da comunidade variam bastante e podem ser mais explícitos que os oficiais.
 
-**Fase de submissão.** Todos os jogadores, exceto o Czar das Cartas, selecionam cartas brancas de suas mãos para preencher as lacunas da carta preta. Se a instrução tiver uma lacuna, você escolhe uma carta; se tiver duas lacunas, você escolhe duas, e assim por diante. O número de cartas necessárias é anunciado no início de cada rodada.
+**Como Vencer**
 
-Use as teclas numéricas para alternar as cartas dentro e fora de sua seleção. Quando estiver satisfeito com sua escolha, pressione Espaço para enviar. Você pode visualizar como sua resposta será lida antes de enviar pressionando V. Uma vez enviadas, suas cartas são bloqueadas e não podem ser alteradas.
+Vença rodadas para marcar pontos. A primeira pessoa a alcançar a pontuação definida pela mesa vence a partida. O objetivo padrão é 7 pontos.
 
-À medida que os jogadores enviam, o jogo anuncia o progresso contínuo. As submissões são anônimas para o Czar das Cartas.
+**Os Dois Tipos De Carta**
 
-**Fase de julgamento.** Uma vez que todos os jogadores tenham enviado, o Czar das Cartas ouve todas as submissões lidas em voz alta com as cartas brancas preenchidas nas lacunas da carta preta. As submissões são apresentadas em ordem aleatória para que o Czar das Cartas não possa dizer quem jogou o quê. O Czar das Cartas escolhe a que mais gosta. O jogador que enviou essa resposta marca um ponto.
+* **Cartas pretas:** Perguntas, frases com lacunas ou instruções que preparam a piada. A carta preta também indica quantas cartas brancas cada pessoa deve enviar.
+* **Cartas brancas:** Respostas, nomes, objetos ou frases usados para completar a carta preta.
 
-Após o Czar das Cartas escolher um vencedor, a resposta vencedora é anunciada junto com quem a jogou. Em seguida, todas as outras submissões são reveladas com seus autores. Os jogadores recebem novas cartas brancas para reabastecer suas mãos, e uma nova rodada começa com um novo Czar das Cartas.
+No início da partida, cada jogador recebe uma mão privada de cartas brancas. O tamanho padrão é 10. O primeiro Czar das Cartas é escolhido aleatoriamente.
 
-O jogo termina quando um jogador atinge a pontuação alvo.
+**Como Funciona Uma Rodada**
 
-**Opções de Jogo**
+Cada rodada tem uma fase de envio e uma fase de julgamento.
 
-O anfitrião pode configurar estas configurações na mesa antes de começar:
+Durante o envio, todos ouvem a carta preta. Quem não for Czar escolhe exatamente a quantidade solicitada de cartas brancas. Sua mão é privada; ninguém vê as cartas que você está considerando.
 
-* **Pontuação para vencer:** O número de pontos necessários para vencer (padrão 7, intervalo de 3 a 20).
-* **Tamanho da Mão:** O número de cartas brancas que cada jogador segura de cada vez (padrão 10, intervalo de 5 a 15).
-* **Pacotes de Cartas:** Quais pacotes de cartas incluir. O jogo vem com muitos pacotes, incluindo o conjunto base, expansões, edição de família, pacotes de férias e pacotes de nostalgia. Você pode misturar e combinar livremente, mas pelo menos um pacote deve ser selecionado. Os grupos de pacotes disponíveis são:
-    * **Conjunto Base:** Apenas o conjunto base original de Cartas contra a Humanidade (padrão).
-    * **Base + Expansões:** O conjunto base combinado com todos os pacotes de expansão numerados oficiais.
-    * **Edição de Família:** Pacotes da versão para a família do jogo.
-    * **Pacotes de Férias:** Pacotes temáticos para ocasiões sazonais e feriados.
-    * **Pacotes de Nostalgia:** Pacotes com conteúdo retrô e específico de décadas.
-    * **Todos os Pacotes:** Todos os pacotes disponíveis combinados em um único baralho enorme.
-* **Seleção do Czar das Cartas:** Como o Czar das Cartas é escolhido a cada rodada. Três modos estão disponíveis:
-    * **Rotativo:** O papel passa ao redor da mesa em ordem, para que todos tenham um turno (padrão).
-    * **Aleatório:** Um jogador aleatório é escolhido a cada rodada. Alguém pode julgar duas vezes seguidas.
-    * **Vencedor Mais Recente:** O jogador que venceu a última rodada se torna o próximo Czar das Cartas. O vencedor fica de fora da próxima rodada como uma compensação pelo seu sucesso. Na primeira rodada, isso retorna ao modo rotativo.
-* **Número de Juízes:** Quantos jogadores atuam como Czar das Cartas simultaneamente. O jogo deve sempre ter pelo menos um não-juiz enviando respostas, portanto, a contagem de juízes selecionada deve ser menor que o número de jogadores na mesa. Com vários juízes, qualquer um deles pode escolher o vencedor. Mais juízes significa menos jogadores enviando respostas a cada rodada, então esta opção funciona melhor com grupos maiores (padrão 1, intervalo de 1 a 3).
+Selecione ou desmarque cartas e envie a combinação quando estiver pronta. Você pode ouvir uma prévia antes. Depois do envio, a resposta fica bloqueada até o fim da rodada. A mesa ouve quem já enviou e quantas respostas faltam, mas não conhece o conteúdo nem os autores.
 
-**Exemplo de Rodada**
+Quando todos os participantes aptos tiverem enviado, começa o julgamento. As respostas são embaralhadas, anunciadas em ordem aleatória e mantidas anônimas. O Czar escolhe sua favorita. O autor marca 1 ponto, todos os nomes são revelados e cada pessoa compra cartas até completar novamente o tamanho de mão configurado.
 
-Cinco jogadores estão no jogo: Alice, Bob, Carol, Dan e Eve. A pontuação vencedora é 7, e Alice é o Czar das Cartas nesta rodada.
+**Perguntas Que Pedem Várias Cartas**
 
-Uma carta preta é comprada: "Qual é o prazer culposo do Batman?"
+Algumas cartas pretas exigem duas, três ou, ocasionalmente, quatro cartas brancas. A ordem importa: a primeira carta selecionada ocupa a primeira posição, a segunda ocupa a segunda, e assim por diante. Cada carta selecionada informa sua posição. Se todas as posições já estiverem preenchidas, desmarque uma carta antes de escolher a substituta.
 
-Os outros quatro jogadores olham para suas mãos. Bob escolhe "Sopa que está muito quente." Ele pressiona **3** para selecionar sua terceira carta e, em seguida, pressiona **Espaço** para enviar. Carol, Dan e Eve fazem o mesmo com suas próprias escolhas.
+Nem toda carta preta mostra uma lacuna. Em instruções como “Faça um haicai”, as cartas escolhidas são lidas depois da instrução, na ordem selecionada. Uma pergunta também pode mandar repetir a mesma resposta em outra lacuna; essa repetição não exige outra carta.
 
-Assim que todos os quatro enviam, Alice entra na fase de julgamento. Ela ouve as submissões em ordem aleatória e, em seguida, escolhe a que acha mais engraçada. O jogo anuncia que Eve vence a rodada e revela as respostas de todos. Todos os jogadores recebem cartas de substituição, e o Czar das Cartas passa para Bob para a próxima rodada.
+Algumas perguntas mandam cada participante que responde comprar cartas brancas extras antes de escolher. Guarde essas cartas durante a rodada, envie a quantidade pedida na ordem correta e volte ao tamanho normal da mão depois do julgamento.
 
-**Atalhos de Teclado**
+**O Czar Das Cartas**
 
-* **1 a 0:** Alterna as cartas brancas de 1 a 10 em sua mão, selecionando ou deselecionando-as para envio. A primeira carta que você seleciona preenche a primeira lacuna; a segunda preenche a segunda. Se o tamanho da mão for superior a 10, use o menu de ações para selecionar as cartas posteriores.
-* **Espaço:** Envia suas cartas selecionadas.
-* **C:** Lê a instrução da carta preta atual em voz alta.
-* **V:** Visualiza ou exibe sua submissão. Antes de enviar, lê como sua seleção atual soaria na instrução. Após enviar, lê sua resposta bloqueada.
-* **J:** Anuncia quem é o Czar das Cartas atual.
-* **T:** Verifica de quem é o turno ou quem ainda não enviou.
-* **S:** Verifica as pontuações.
-* **Shift+S:** Exibe pontuações detalhadas.
+Os Czars não enviam cartas brancas nas rodadas em que julgam. Eles continuam com suas mãos e podem consultá-las a qualquer momento.
+
+A mesa pode escolher como o papel muda:
+
+* **Rotativo:** Depois de um primeiro Czar escolhido ao acaso, o papel avança pela ordem dos assentos.
+* **Aleatório:** Uma nova escolha aleatória ocorre a cada rodada. A mesma pessoa pode julgar duas vezes seguidas.
+* **Vencedor mais recente:** Quem venceu a rodada anterior julga a próxima. A primeira rodada usa o método rotativo.
+
+A mesa pode ter até três Czars ao mesmo tempo. Todos deixam de enviar nessa rodada, e o primeiro juiz a escolher uma resposta decide o vencedor. Como cada juiz reduz o número de respostas, essa opção funciona melhor com grupos maiores.
+
+Com vários Czars, Rotativo usa assentos consecutivos e move o grupo uma posição a cada rodada; Aleatório escolhe todo o grupo ao acaso; Vencedor mais recente começa com o vencedor da rodada anterior e preenche as demais vagas seguindo a ordem dos assentos.
+
+**Idiomas E Pacotes**
+
+O idioma das cartas é independente do idioma da interface.
+
+* **Inglês:** Permite combinar um ou mais pacotes. O baralho principal atual dos EUA, versão 3.0, vem selecionado por padrão. O catálogo também contém edições históricas, expansões oficiais, a Edição para a família e pacotes da comunidade. Cartas idênticas em pacotes sobrepostos entram na partida apenas uma vez.
+* **Espanhol:** Usa o baralho comunitário espanhol completo incluído.
+* **Português do Brasil:** Usa o baralho comunitário brasileiro completo incluído.
+
+O seletor de pacotes só aparece para cartas em inglês, pois os outros idiomas têm um baralho incluído cada um.
+
+**Acompanhando A Partida**
+
+* **Revisar sua mão:** Abre uma lista privada de todas as cartas brancas que você tem.
+* **Ver a carta de pergunta:** Ouve novamente a carta preta atual.
+* **Visualizar ou rever seu envio:** Ouve a combinação em preparação ou a resposta já enviada.
+* **Revisar as respostas:** Durante o julgamento, abra as respostas anônimas numeradas na ordem embaralhada.
+* **Quem está julgando:** Informa os Czars atuais.
+* **De quem é a vez:** Durante o envio, informa quem ainda falta; durante o julgamento, quem deve escolher.
+* **Pontuações:** Lê a classificação ou abre a visão detalhada.
+
+Os bots escolhem cartas e respostas vencedoras aleatoriamente, pois o humor é subjetivo.
+
+**Opções Da Mesa**
+
+* **Pontuação para vencer:** De 3 a 20 pontos; padrão 7.
+* **Tamanho da mão:** De 5 a 15 cartas brancas; padrão 10.
+* **Idioma das cartas:** Inglês, espanhol ou português do Brasil; inglês por padrão.
+* **Pacotes de cartas:** Os pacotes ingleses usados na partida. Pelo menos um pacote com cartas jogáveis deve permanecer selecionado.
+* **Seleção do Czar:** Rotativo, Aleatório ou Vencedor mais recente; Rotativo por padrão.
+* **Número de juízes:** De 1 a 3; padrão 1. Sempre deve haver pelo menos uma pessoa livre para enviar uma resposta.
+
+Antes do início, o jogo verifica os pacotes, o tamanho da mão, o número de juízes e a quantidade de jogadores. Se não houver cartas suficientes para as mãos iniciais, para a maior compra adicional exigida por uma pergunta ou para fornecer uma carta preta, o anfitrião deve ajustar as opções.
+
+**Atalhos De Teclado**
+
+* **1 a 0:** Selecionar ou desmarcar as cartas brancas 1 a 10. Use o menu do turno para as cartas posteriores.
+* **Espaço:** Enviar a resposta selecionada.
+* **H:** Revisar sua mão.
+* **C:** Ouvir a carta preta atual.
+* **V:** Visualizar ou rever seu envio.
+* **Shift+V:** Revisar todas as respostas anônimas durante o julgamento.
+* **J:** Ouvir quem está julgando.
+* **T:** Ouvir quem ainda não enviou ou quem deve julgar.
+* **S:** Consultar as pontuações.
+* **Shift+S:** Abrir as pontuações detalhadas.
+* **Ctrl+U:** Ouvir quem está na mesa.

@@ -25,7 +25,6 @@ flip7-player-stays = { $player } stops and banks { $points } points.
 # Round
 flip7-round-start = Round { $round }. { $dealer } deals.
 flip7-round-end = Round { $round } is over.
-flip7-round-end-deck = The deck ran out. The round is over.
 flip7-round-score = { $player } banks { $points } points, total { $total }.
 flip7-round-score-you = You bank { $points } points, total { $total }.
 flip7-round-bust = { $player } busted and scores nothing.
@@ -33,8 +32,6 @@ flip7-round-bust-you = You busted and score nothing this round.
 flip7-match-win = { $player } wins the match!
 flip7-match-win-you = You win the match!
 flip7-deck-reshuffled = The discard pile was reshuffled into the deck.
-flip7-you-pending-discarded = You are no longer playing this round, so your held action cards are discarded.
-flip7-player-pending-discarded = { $player } is no longer playing this round, so the held action cards are discarded.
 flip7-you-pending-bust-discarded = You busted, so your held action cards are discarded.
 flip7-player-pending-bust-discarded = { $player } busted, so the held action cards are discarded.
 
@@ -84,10 +81,7 @@ flip7-area-numbers-none = No number cards yet
 flip7-area-inline = { $who }{ $status }: { $numbers }. Total { $points } points.
 flip7-area-inline-with-bonuses = { $who }{ $status }: { $numbers }. Total { $points } points. Bonuses: { $bonuses }.
 flip7-check-round = Round { $round }. Target score { $target }.
-flip7-status-playing = still playing
-flip7-status-stayed = stopped
-flip7-status-busted = busted
-flip7-table-line = { $player }: { $status }, { $points } this round, { $total } total
+flip7-table-line = { $area } Match total { $total } points.
 flip7-deck-line = Deck: { $count ->
         [one] { $count } card
        *[other] { $count } cards
@@ -103,7 +97,6 @@ flip7-error-wait-choice = Wait until the current card choice is resolved.
 flip7-error-wait-flip-three = Wait until the Flip Three finishes.
 flip7-error-wait-dealing = Wait until the cards are dealt.
 flip7-error-not-playing-round = You are no longer playing this round.
-flip7-error-no-cards-left = There are no cards left to draw.
 flip7-error-no-cards-to-bank = You have no cards to bank yet.
 flip7-error-no-choice = There is no card choice to answer.
 

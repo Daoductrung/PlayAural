@@ -13,11 +13,9 @@ Al comienzo de cada ronda, cada jugador que sigue en la ronda recibe una carta, 
 * \*\*Voltea una carta:\*\* Voltea una carta más y resuelve su efecto.
 * \*\*Detente y guarda:\*\* Termina tu participación en la ronda con seguridad y guarda tus puntos cuando termine la ronda.
 
-Tu área aparece debajo de las acciones principales. Muestra tus cartas de número, tu total actual de la ronda y tus bonos. Las áreas de los demás jugadores también aparecen para ayudarte a evaluar el riesgo.
+La ronda termina cuando todos los jugadores se detuvieron o se pasaron, o cuando alguien completa Flip 7.
 
-La ronda termina cuando todos los jugadores se detuvieron o se pasaron, cuando no queda ninguna carta para voltear, o cuando alguien completa Flip 7.
-
-Cuando se acaba la baraja, el descarte se baraja de nuevo y vuelve a convertirse en la baraja, y la ronda continúa. Una ronda solo termina por falta de cartas cuando no queda ninguna carta ni en la baraja ni en el descarte.
+Cuando se acaba la baraja, el descarte se baraja de nuevo y vuelve a convertirse en la baraja, y la ronda continúa.
 
 \*\*Cartas\*\*
 
@@ -32,7 +30,7 @@ Quien voltea una carta de acción es quien elige su objetivo, sin importar si se
 
 \*\*Voltea 3\*\*
 
-El jugador elegido voltea tres cartas seguidas y cada una se resuelve en el momento. Las cartas Congelar y Voltea 3 que salen durante un Voltea 3 se guardan y se resuelven después de terminar las tres, en el orden en que se voltearon, así que cada una puede abrir su propia elección. Segunda oportunidad se resuelve de inmediato: si el jugador que está volteando no tiene una, la aparta y puede usarla para evitar un número repetido posterior dentro del mismo Voltea 3; si ya tiene una, debe entregar la nueva a otro jugador elegible antes de continuar con las cartas restantes. Si el jugador que está volteando se pasa a mitad del proceso, deja de voltear y las cartas Congelar o Voltea 3 guardadas se descartan. Si la baraja se acaba antes de completar las tres, la ronda termina antes de tiempo. Durante un Voltea 3, el jugador que está volteando no puede elegir voltear otra carta ni detenerse.
+El jugador elegido voltea tres cartas seguidas y cada una se resuelve en el momento. Las cartas Congelar y Voltea 3 que salen durante un Voltea 3 se guardan y se resuelven después de terminar las tres, en el orden en que se voltearon, así que cada una puede abrir su propia elección. Segunda oportunidad se resuelve de inmediato: si el jugador que está volteando no tiene una, la aparta y puede usarla para evitar un número repetido posterior dentro del mismo Voltea 3; si ya tiene una, debe entregar la nueva a otro jugador elegible antes de continuar con las cartas restantes. Si el jugador que está volteando se pasa a mitad del proceso, deja de voltear y las cartas Congelar o Voltea 3 guardadas se descartan. Durante un Voltea 3, el jugador que está volteando no puede elegir voltear otra carta ni detenerse.
 
 \*\*Puntuación\*\*
 
@@ -51,7 +49,7 @@ Después de cada ronda completa, el jugador con el total de partida más alto es
 \*\*Acciones de información\*\*
 
 * \*\*Revisar mi área:\*\* Dice tus cartas actuales, bonos y total de la ronda.
-* \*\*Revisar la mesa:\*\* Dice la ronda, la puntuación objetivo y el estado y total de cada jugador.
+* \*\*Revisar la mesa:\*\* Dice la ronda, la puntuación objetivo y las cartas boca arriba, los bonos, el estado, el total de la ronda y el total de la partida de cada jugador.
 * \*\*Revisar la baraja:\*\* Dice cuántas cartas hay en la baraja y en el descarte.
 * \*\*Revisar puntuaciones:\*\* Dice las puntuaciones acumuladas de la partida.
 

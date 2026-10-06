@@ -320,6 +320,7 @@ class TestGameRegistryIntegration:
             "coup": "cards",
             "crazyeights": "cards",
             "deadmansdeck": "cards",
+            "deadmansdice": "dice",
             "deadmanspoker": "poker",
             "dominos": "cards",
             "explodingkittens": "cards",
@@ -354,6 +355,7 @@ class TestGameRegistryIntegration:
             "twentyone": "cards",
             "uno": "cards",
             "yahtzee": "dice",
+            "zombiedice": "dice",
         }
 
         actual_categories = {

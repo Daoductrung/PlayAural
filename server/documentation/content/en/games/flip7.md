@@ -13,11 +13,9 @@ At the start of each round, every player still in the game receives one card, de
 * \*\*Draw a card:\*\* Turn over one more card and resolve it.
 * \*\*Stop and bank:\*\* End your round safely and bank your current points when the round ends.
 
-Your area is shown below the main actions. It lists your number cards, your current round total, and any bonuses. Other players' areas are also shown so you can judge how risky the round is.
+The round ends when all players have stopped or busted, or when someone completes Flip 7.
 
-The round ends when all players have stopped or busted, when no cards are left to draw, or when someone completes Flip 7.
-
-When the deck runs out, the discard pile is reshuffled back into the deck and play continues. A round only ends from an empty deck when there are no cards in either the deck or the discard pile.
+When the deck runs out, the discard pile is reshuffled back into the deck and play continues.
 
 \*\*Cards\*\*
 
@@ -32,7 +30,7 @@ Whoever draws an action card is the one who chooses its target, whether it was d
 
 \*\*Flip Three\*\*
 
-The chosen player flips three cards in a row, resolving each one as it is turned over. Freeze and Flip Three cards turned during a Flip Three are held and resolved after the three flips finish, in the order they were turned, so they can each open their own choice. Second Chance is resolved immediately: if the flipping player does not have one, it is set aside and can protect them from a later duplicate in the same Flip Three; if they already have one, they must give the new card to another eligible player before the remaining flips continue. If the flipping player busts partway through, they stop flipping and any held Freeze or Flip Three cards are discarded. If the deck runs out before all three flips finish, the round ends early. During a Flip Three the flipping player cannot choose to draw or stop.
+The chosen player flips three cards in a row, resolving each one as it is turned over. Freeze and Flip Three cards turned during a Flip Three are held and resolved after the three flips finish, in the order they were turned, so they can each open their own choice. Second Chance is resolved immediately: if the flipping player does not have one, it is set aside and can protect them from a later duplicate in the same Flip Three; if they already have one, they must give the new card to another eligible player before the remaining flips continue. If the flipping player busts partway through, they stop flipping and any held Freeze or Flip Three cards are discarded. During a Flip Three the flipping player cannot choose to draw or stop.
 
 \*\*Scoring\*\*
 
@@ -51,7 +49,7 @@ After each completed round, the player with the highest match total is the leade
 \*\*Information Actions\*\*
 
 * \*\*Check my area:\*\* Speaks your current cards, bonuses, and round total.
-* \*\*Check the table:\*\* Speaks the round, target score, and each player's round status and total score.
+* \*\*Check the table:\*\* Speaks the round, target score, and each player's face-up cards, bonuses, round status, round total, and match total.
 * \*\*Check the deck:\*\* Speaks how many cards are in the deck and discard pile.
 * \*\*Check scores:\*\* Speaks the accumulated match scores.
 

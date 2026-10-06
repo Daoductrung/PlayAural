@@ -183,6 +183,17 @@ def test_grouped_top_level_shows_group_openers():
     assert action_set.get_action("options_back") is not None
 
 
+def test_grouped_top_level_localizes_selection_summary():
+    options = _GroupedOptions()
+    game, player = _build(options)
+    game._options_path[player.id] = ["packs"]
+    action_set = options.create_options_action_set(game, player)
+
+    assert action_set.get_action("msgroup_packs_First").label == (
+        "First (1 of 2 selected)"
+    )
+
+
 def test_grouped_inside_group_shows_only_that_group_toggles():
     options = _GroupedOptions()
     game, player = _build(options)
@@ -221,11 +232,11 @@ def _turn_menu_selection_ids(user: MockUser) -> list[str | None]:
     ]
 
 
-def test_cah_default_packs_are_base_set():
+def test_cah_default_packs_are_current_main_deck():
     game, _, _ = _make_cah()
-    base_set = get_pack_groups()["Base Set"]
-    assert game.options.card_packs == base_set
-    assert game._get_active_packs() == base_set
+    current = get_pack_groups()["current"]
+    assert game.options.card_packs == current
+    assert game._get_active_packs() == current
 
 
 def test_cah_open_toggle_and_active_packs_update():
@@ -236,11 +247,11 @@ def test_cah_open_toggle_and_active_packs_update():
     assert game._options_path[player.id] == ["card_packs"]
 
     # Open a group, then toggle a pack inside it on.
-    game.execute_action(player, "msgroup_card_packs_Holiday Packs")
-    assert game._options_path[player.id][-1] == "group:Holiday Packs"
+    game.execute_action(player, "msgroup_card_packs_official_add_ons")
+    assert game._options_path[player.id][-1] == "group:official_add_ons"
 
-    holiday = get_pack_groups()["Holiday Packs"]
-    target = holiday[0]
+    official_add_ons = get_pack_groups()["official_add_ons"]
+    target = official_add_ons[0]
     assert target not in game.options.card_packs
     game.execute_action(player, f"mstoggle_card_packs_{target}")
     assert target in game.options.card_packs
@@ -254,23 +265,23 @@ def test_cah_open_toggle_and_active_packs_update():
 def test_cah_select_all_then_deselect_all_scoped_to_group():
     game, _, player = _make_cah()
     game.execute_action(player, "multiselect_card_packs")
-    game.execute_action(player, "msgroup_card_packs_Holiday Packs")
+    game.execute_action(player, "msgroup_card_packs_official_add_ons")
 
-    holiday = set(get_pack_groups()["Holiday Packs"])
+    official_add_ons = set(get_pack_groups()["official_add_ons"])
     game.execute_action(player, "mselectall_card_packs")
-    assert holiday.issubset(set(game.options.card_packs))
+    assert official_add_ons.issubset(set(game.options.card_packs))
 
     game.execute_action(player, "mdeselectall_card_packs")
-    assert holiday.isdisjoint(set(game.options.card_packs))
+    assert official_add_ons.isdisjoint(set(game.options.card_packs))
 
 
 def test_cah_back_refused_when_below_min_selected():
     game, _, player = _make_cah()
     game.execute_action(player, "multiselect_card_packs")  # path: [card_packs]
 
-    # Clear every selection by deselecting all inside the "All Packs" group
+    # Clear every selection by deselecting all inside the "all" group
     # (which contains every pack), then return to the group-selection level.
-    game.execute_action(player, "msgroup_card_packs_All Packs")
+    game.execute_action(player, "msgroup_card_packs_all")
     game.execute_action(player, "mdeselectall_card_packs")
     assert game.options.card_packs == []
     game.execute_action(player, "options_back")  # pop the group → [card_packs]
@@ -281,9 +292,9 @@ def test_cah_back_refused_when_below_min_selected():
     assert game._options_path[player.id] == ["card_packs"]
 
     # Re-select one pack inside a group; now back succeeds and pops to top level.
-    base = get_pack_groups()["Base Set"][0]
-    game.execute_action(player, "msgroup_card_packs_Base Set")
-    game.execute_action(player, f"mstoggle_card_packs_{base}")
+    current = get_pack_groups()["current"][0]
+    game.execute_action(player, "msgroup_card_packs_current")
+    game.execute_action(player, f"mstoggle_card_packs_{current}")
     game.execute_action(player, "options_back")  # pop group → [card_packs]
     game.execute_action(player, "options_back")  # pop option → []
     assert game._options_path[player.id] == []
@@ -292,7 +303,7 @@ def test_cah_back_refused_when_below_min_selected():
 def test_cah_pack_submenus_focus_first_item_and_restore_parent():
     game, user, player = _make_cah()
     groups = get_pack_groups()
-    group_name = "Base + Expansions"
+    group_name = "main_decks"
     first_group = next(iter(groups))
     first_pack = groups[group_name][0]
 

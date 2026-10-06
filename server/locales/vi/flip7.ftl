@@ -25,7 +25,6 @@ flip7-player-stays = { $player } dừng lại và giữ { $points } điểm.
 # Vòng đấu
 flip7-round-start = Vòng { $round }. { $dealer } chia bài.
 flip7-round-end = Vòng { $round } đã kết thúc.
-flip7-round-end-deck = Bộ bài đã hết. Vòng đấu kết thúc.
 flip7-round-score = { $player } giữ { $points } điểm, tổng cộng { $total }.
 flip7-round-score-you = Bạn giữ { $points } điểm, tổng cộng { $total }.
 flip7-round-bust = { $player } đã cháy bài và không được điểm.
@@ -33,8 +32,6 @@ flip7-round-bust-you = Bạn đã cháy bài và không được điểm trong v
 flip7-match-win = { $player } chiến thắng trận đấu!
 flip7-match-win-you = Bạn chiến thắng trận đấu!
 flip7-deck-reshuffled = Đống bài bỏ đã được xáo lại thành bộ bài mới.
-flip7-you-pending-discarded = Bạn không còn chơi trong vòng này, nên các lá hành động bạn đang giữ bị loại bỏ.
-flip7-player-pending-discarded = { $player } không còn chơi trong vòng này, nên các lá hành động đang giữ bị loại bỏ.
 flip7-you-pending-bust-discarded = Bạn đã cháy bài, nên các lá hành động bạn đang giữ bị loại bỏ.
 flip7-player-pending-bust-discarded = { $player } đã cháy bài, nên các lá hành động đang giữ bị loại bỏ.
 
@@ -84,10 +81,7 @@ flip7-area-numbers-none = Chưa có lá số nào
 flip7-area-inline = { $who }{ $status }: { $numbers }. Tổng { $points } điểm.
 flip7-area-inline-with-bonuses = { $who }{ $status }: { $numbers }. Tổng { $points } điểm. Phần thưởng: { $bonuses }.
 flip7-check-round = Vòng { $round }. Điểm mục tiêu { $target }.
-flip7-status-playing = vẫn đang chơi
-flip7-status-stayed = đã dừng
-flip7-status-busted = đã cháy bài
-flip7-table-line = { $player }: { $status }, { $points } vòng này, { $total } tổng
+flip7-table-line = { $area } Tổng điểm trận đấu: { $total }.
 flip7-deck-line = Bộ bài: { $count ->
         [one] { $count } lá
        *[other] { $count } lá
@@ -103,7 +97,6 @@ flip7-error-wait-choice = Hãy đợi lựa chọn lá bài hiện tại đượ
 flip7-error-wait-flip-three = Hãy đợi Lật 3 hoàn tất.
 flip7-error-wait-dealing = Hãy đợi việc chia bài hoàn tất.
 flip7-error-not-playing-round = Bạn không còn chơi trong vòng này.
-flip7-error-no-cards-left = Không còn lá bài nào để lật.
 flip7-error-no-cards-to-bank = Bạn chưa có lá bài nào để giữ điểm.
 flip7-error-no-choice = Không có lựa chọn lá bài nào cần trả lời.
 

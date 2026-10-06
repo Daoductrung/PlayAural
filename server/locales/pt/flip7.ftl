@@ -25,7 +25,6 @@ flip7-player-stays = { $player } para e garante { $points } pontos.
 # Rodada
 flip7-round-start = Rodada { $round }. { $dealer } distribui.
 flip7-round-end = A rodada { $round } terminou.
-flip7-round-end-deck = O baralho acabou. A rodada terminou.
 flip7-round-score = { $player } garante { $points } pontos, total de { $total }.
 flip7-round-score-you = Você garante { $points } pontos, total de { $total }.
 flip7-round-bust = { $player } estourou e não pontua nada.
@@ -33,8 +32,6 @@ flip7-round-bust-you = Você estourou e não pontua nada nesta rodada.
 flip7-match-win = { $player } venceu a partida!
 flip7-match-win-you = Você venceu a partida!
 flip7-deck-reshuffled = O descarte foi re-embaralhado para formar o baralho.
-flip7-you-pending-discarded = Você não está mais jogando nesta rodada, então suas cartas de ação guardadas são descartadas.
-flip7-player-pending-discarded = { $player } não está mais jogando nesta rodada, então as cartas de ação guardadas são descartadas.
 flip7-you-pending-bust-discarded = Você estourou, então suas cartas de ação guardadas são descartadas.
 flip7-player-pending-bust-discarded = { $player } estourou, então as cartas de ação guardadas são descartadas.
 
@@ -84,10 +81,7 @@ flip7-area-numbers-none = Nenhuma carta de número ainda
 flip7-area-inline = { $who }{ $status }: { $numbers }. Total { $points } pontos.
 flip7-area-inline-with-bonuses = { $who }{ $status }: { $numbers }. Total { $points } pontos. Bônus: { $bonuses }.
 flip7-check-round = Rodada { $round }. Pontuação-alvo { $target }.
-flip7-status-playing = ainda jogando
-flip7-status-stayed = parou
-flip7-status-busted = estourou
-flip7-table-line = { $player }: { $status }, { $points } nesta rodada, { $total } no total
+flip7-table-line = { $area } Total da partida: { $total } pontos.
 flip7-deck-line = Baralho: { $count ->
         [one] { $count } carta
        *[other] { $count } cartas
@@ -103,7 +97,6 @@ flip7-error-wait-choice = Espere a escolha de carta atual ser resolvida.
 flip7-error-wait-flip-three = Espere o Vira 3 terminar.
 flip7-error-wait-dealing = Espere a distribuição das cartas terminar.
 flip7-error-not-playing-round = Você não está mais jogando nesta rodada.
-flip7-error-no-cards-left = Não há mais cartas para virar.
 flip7-error-no-cards-to-bank = Você ainda não tem cartas para garantir.
 flip7-error-no-choice = Não há escolha de carta para responder.
 

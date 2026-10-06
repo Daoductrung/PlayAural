@@ -62,6 +62,7 @@ REMAINING_STOCK_CARD_POINTS = 5
 NEXT_ROUND_SEQUENCE_ID = "skipbo_next_round"
 NEXT_ROUND_SEQUENCE_TAG = "skipbo_round_transition"
 NEXT_ROUND_DELAY_TICKS = 3 * 20
+BOT_ACTION_DELAY_TICKS = 12
 SOUND_DRAW_FAMILY = "game_cards/draw"
 SOUND_PLAY_FAMILY = "game_cards/play"
 SOUND_DISCARD_FAMILY = "game_cards/discard"
@@ -575,7 +576,7 @@ class SkipBoGame(Game):
             return
         self.announce_turn()
         self._draw_to_five(player, reason="turn")
-        BotHelper.jolt_bot(player)
+        BotHelper.jolt_bot(player, ticks=BOT_ACTION_DELAY_TICKS)
         self.refresh_menus()
 
     def _advance_to_next_turn(self) -> None:
@@ -651,11 +652,14 @@ class SkipBoGame(Game):
         if not team or self.options.team_mode == "individual":
             return [player]
         members = set(team.members)
-        return [
+        partners = [
             candidate
             for candidate in self.get_active_players()
-            if isinstance(candidate, SkipBoPlayer) and candidate.name in members
+            if isinstance(candidate, SkipBoPlayer)
+            and candidate.id != player.id
+            and candidate.name in members
         ]
+        return [player, *partners]
 
     @staticmethod
     def _source_action_id(
@@ -859,7 +863,7 @@ class SkipBoGame(Game):
             self._draw_to_five(player, reason="refill")
 
         self._focus_after_play(player, choice.building_pile_index)
-        BotHelper.jolt_bot(player)
+        BotHelper.jolt_bot(player, ticks=BOT_ACTION_DELAY_TICKS)
         self.refresh_menus()
 
     def _execute_discard(
@@ -1140,7 +1144,7 @@ class SkipBoGame(Game):
         if building_choices:
             selected = choose_play(self, player, building_choices)
             return f"{BUILDING_MOVE_PREFIX}{selected.building_pile_index}"
-        return f"{DISCARD_MOVE_PREFIX}{choose_discard_pile(self, player, source.card)}"
+        return f"{DISCARD_MOVE_PREFIX}{choose_discard_pile(player, source.card)}"
 
     def _turn_action_guard(
         self, player: Player, action_id: str | None = None
@@ -1245,15 +1249,35 @@ class SkipBoGame(Game):
             return Visibility.HIDDEN
         return self._is_touch_public_info_hidden(player)
 
+    def _is_whose_turn_hidden(self, player: Player) -> Visibility:
+        user = self.get_user(player)
+        if self.status == "playing" and self.is_touch_client(user):
+            return Visibility.VISIBLE
+        return super()._is_whose_turn_hidden(player)
+
+    def _is_whos_at_table_hidden(self, player: Player) -> Visibility:
+        user = self.get_user(player)
+        if self.is_touch_client(user):
+            return Visibility.VISIBLE
+        return super()._is_whos_at_table_hidden(player)
+
+    def _is_check_scores_enabled(self, player: Player) -> str | None:
+        if self.options.scoring_mode != SCORING_MATCH:
+            return "action-not-available"
+        return super()._is_check_scores_enabled(player)
+
+    def _is_check_scores_detailed_enabled(self, player: Player) -> str | None:
+        if self.options.scoring_mode != SCORING_MATCH:
+            return "action-not-available"
+        return super()._is_check_scores_detailed_enabled(player)
+
     def _is_check_scores_hidden(self, player: Player) -> Visibility:
         if self.options.scoring_mode != SCORING_MATCH:
             return Visibility.HIDDEN
+        user = self.get_user(player)
+        if self.status == "playing" and self.is_touch_client(user):
+            return Visibility.VISIBLE
         return super()._is_check_scores_hidden(player)
-
-    def _is_check_scores_detailed_hidden(self, player: Player) -> Visibility:
-        if self.options.scoring_mode != SCORING_MATCH:
-            return Visibility.HIDDEN
-        return super()._is_check_scores_detailed_hidden(player)
 
     def get_score_target(self) -> int | None:
         return (

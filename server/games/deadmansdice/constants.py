@@ -1,0 +1,9 @@
+"""Shared rules constants for Dead Man's Dice."""
+
+RULESET_TRADITIONAL = "traditional"
+RULESET_BASIC = "basic"
+SUPPORTED_RULESETS = {RULESET_TRADITIONAL, RULESET_BASIC}
+
+DICE_PER_PLAYER = 5
+DIE_SIDES = 6
+MAX_POISON_DOSES = 2

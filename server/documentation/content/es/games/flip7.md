@@ -1,66 +1,98 @@
 \*\*Flip 7\*\*
 
-Flip 7 es un juego de cartas de arriesgar la suerte para 3 a 10 jugadores. En cada ronda, cada jugador que sigue en la ronda junta cartas de número y decide si voltea otra carta o si se detiene para guardar sus puntos. Después de una ronda completa, el único jugador con el total más alto que alcance o supere la puntuación objetivo gana la partida.
+\*\*¿Qué es Flip 7?\*\*
 
-\*\*Objetivo\*\*
+Diseñado por Eric Olsen y publicado por primera vez por The Op Games en 2024, Flip 7 es un rápido juego de cartas de arriesgar la suerte. En este tipo de juego decides cuánto tiempo sigues arriesgando lo que ya ganaste: cada carta segura puede subir tu puntuación, pero un solo número repetido puede borrar toda tu ronda.
 
-Anota puntos conservando cartas de número en tu área. Puedes detenerte para guardar el total actual de la ronda, pero si volteas un número que ya tienes, te pasas y no anotas nada en esa ronda.
+La versión de PlayAural es para 3 a 10 jugadores. Todos arman una fila pública de cartas boca arriba con la misma baraja. No hay ninguna mano privada que administrar.
 
-\*\*Cómo jugar\*\*
+\*\*Cómo ganar\*\*
 
-Al comienzo de cada ronda, cada jugador que sigue en la ronda recibe una carta, repartida por turnos después de quien reparte. Esa carta inicial se resuelve igual que una carta que volteas en tu turno, así que puede ser una carta de acción que apunte a otra persona. Después del reparto, los jugadores se turnan para elegir:
+La puntuación objetivo estándar es de 200 puntos. Las puntuaciones se resuelven al final de cada ronda. Cuando alguien alcanza el objetivo, gana el jugador con el total de partida más alto, siempre que sea uno solo. Alcanzar el objetivo no da la victoria si otro jugador tiene más puntos, y un empate en el primer lugar lleva a todos a otra ronda.
 
-* \*\*Voltea una carta:\*\* Voltea una carta más y resuelve su efecto.
-* \*\*Detente y guarda:\*\* Termina tu participación en la ronda con seguridad y guarda tus puntos cuando termine la ronda.
+\*\*La baraja\*\*
 
-La ronda termina cuando todos los jugadores se detuvieron o se pasaron, o cuando alguien completa Flip 7.
+Flip 7 usa 94 cartas. Sus cartas de número van del 0 al 12, pero los números no aparecen con la misma frecuencia:
 
-Cuando se acaba la baraja, el descarte se baraja de nuevo y vuelve a convertirse en la baraja, y la ronda continúa.
+\* hay un 0 y un 1;
+\* hay dos 2, tres 3, cuatro 4, y así sucesivamente;
+\* hay doce 12.
 
-\*\*Cartas\*\*
+Esta distribución es el corazón del juego. Los números más altos valen más, pero también es más probable que vuelvan a aparecer y te hagan pasarte. El 0 no da puntos, aunque cuenta como uno de los siete números diferentes que se necesitan para completar Flip 7.
 
-* \*\*Cartas de número:\*\* Entran en tu área y valen su número. Si volteas un número que ya tienes, te pasas, a menos que una Segunda oportunidad te salve.
-* \*\*Cartas modificadoras:\*\* Agregan puntos de bono, como +2 o +10.
-* \*\*Doble:\*\* Duplica el valor de tus cartas de número antes de sumar los modificadores.
-* \*\*Segunda oportunidad:\*\* Entrégala a cualquier jugador activo que aún no tenga una, incluido tú. Lo protege una vez contra un número repetido. Si nadie puede recibirla, se descarta.
-* \*\*Congelar:\*\* Elige un jugador que siga jugando la ronda. Ese jugador se detiene y guarda su total actual. Puedes elegirte a ti mismo, y si eres el único jugador que sigue en la ronda, te detienes automáticamente.
-* \*\*Voltea 3:\*\* Elige un jugador que debe voltear tres cartas seguidas.
+La baraja también contiene cinco modificadores aditivos (+2, +4, +6, +8 y +10), una carta Doble y tres copias de cada una de Segunda oportunidad, Congelar y Voltea 3.
 
-Quien voltea una carta de acción es quien elige su objetivo, sin importar si se repartió al comienzo de la ronda, se volteó en tu turno o llegó dentro de un Voltea 3.
+\*\*Comenzar una ronda\*\*
 
-\*\*Voltea 3\*\*
+Quien reparte cambia después de cada ronda. Empezando por el jugador que sigue a quien reparte, cada jugador que aún sigue en la ronda cuando le llega su turno recibe una carta boca arriba; quien reparte va al final. Una carta de acción repartida se resuelve de inmediato, antes de continuar con el reparto. Como las cartas de acción pueden hacer que se volteen más cartas, o sacar a alguien de la ronda, los jugadores pueden terminar el reparto inicial con distinta cantidad de cartas, o incluso sin ninguna.
 
-El jugador elegido voltea tres cartas seguidas y cada una se resuelve en el momento. Las cartas Congelar y Voltea 3 que salen durante un Voltea 3 se guardan y se resuelven después de terminar las tres, en el orden en que se voltearon, así que cada una puede abrir su propia elección. Segunda oportunidad se asigna de inmediato a cualquier jugador elegible; si quien está volteando se la queda, puede usarla para evitar un número repetido posterior dentro del mismo Voltea 3. Si el jugador que está volteando se pasa a mitad del proceso, deja de voltear y las cartas Congelar o Voltea 3 guardadas se descartan. Durante un Voltea 3, el jugador que está volteando no puede elegir voltear otra carta ni detenerse.
+Cuando termina el reparto inicial, el juego continúa en el mismo orden.
 
-\*\*Puntuación\*\*
+\*\*Tu turno\*\*
 
-El total de la ronda es la suma de tus cartas de número. Si tienes Doble, ese total de números se duplica. Las cartas modificadoras se suman después del Doble.
+Si sigues en la ronda, elige una de dos acciones:
 
-Si juntas siete números diferentes, completas Flip 7, ganas el bono de 15 puntos y la ronda termina inmediatamente para todos.
+\* \*\*Voltea una carta:\*\* Revela la siguiente carta y resuélvela.
+\* \*\*Detente y guarda:\*\* Sal de la ronda con seguridad y conserva tu puntuación actual de la ronda. Puedes detenerte siempre que haya al menos una carta en tu área, aunque esa carta valga 0 puntos.
 
-Los jugadores que se pasan anotan 0 en esa ronda. Los jugadores que se detuvieron o sobrevivieron hasta el final de la ronda guardan su total actual.
+Detenerte protege tu puntuación, pero ya no juegas más turnos en esa ronda. Si sigues volteando y revelas un número que ya está en tu área, te pasas. Un jugador que se pasa anota 0 en la ronda, sin importar las cartas de número o los modificadores que hubiera reunido antes del duplicado.
 
-Después de cada ronda completa, el jugador con el total de partida más alto es el líder. Si ese total más alto llega o supera la puntuación objetivo y solo un jugador lo tiene, ese jugador gana la partida. Si el total más alto está empatado entre varios jugadores, todavía no hay ganador y la partida continúa con otra ronda. Por ejemplo, con un objetivo de 200 y totales de 210 y 205, gana el jugador con 210 por ser el único líder.
+La ronda termina cuando nadie sigue en ella, o de inmediato cuando alguien completa Flip 7.
 
-\*\*Opciones\*\*
+\*\*Cartas modificadoras\*\*
 
-* \*\*Puntuación objetivo:\*\* El total de partida necesario para ganar después de una ronda completa (por defecto 200, rango de 50 a 1000).
+Las cartas modificadoras no pueden hacer que te pases y no cuentan para Flip 7.
 
-\*\*Acciones de información\*\*
+\* \*\*+2, +4, +6, +8 y +10:\*\* Suman la cantidad impresa a tu puntuación de la ronda.
+\* \*\*Doble:\*\* Duplica la suma de tus cartas de número. Suma los demás modificadores solo después de duplicar. Doble no multiplica los modificadores aditivos ni el bono de 15 puntos de Flip 7.
 
-* \*\*Revisar mi área:\*\* Dice tus cartas actuales, bonos y total de la ronda.
-* \*\*Revisar la mesa:\*\* Abre una vista en vivo de la ronda, el turno o la secuencia que se está resolviendo, y las cartas boca arriba, los bonos, el estado, el total de la ronda y el total de la partida de cada jugador.
-* \*\*Revisar la baraja:\*\* Dice cuántas cartas hay en la baraja y en el descarte.
-* \*\*Revisar puntuaciones:\*\* Dice las puntuaciones acumuladas de la partida.
-* \*\*Revisar de quién es el turno:\*\* Dice quién puede actuar. Durante un reparto, una revelación, un Voltea 3, una secuencia de guardado o el cierre de una ronda, informa esa fase y el jugador implicado.
+Por ejemplo, las cartas de número 3 y 8 con Doble y +4 suman 26 puntos: 3 más 8, duplicado a 22, y luego más 4.
+
+\*\*Cartas de acción\*\*
+
+El jugador que recibe una carta de acción elige su objetivo. Congelar y Voltea 3 pueden apuntar a cualquier jugador que siga en la ronda, incluido quien recibió la carta. Si solo queda un jugador en la ronda, debe apuntarse a sí mismo.
+
+\* \*\*Segunda oportunidad:\*\* Entrega esta carta a cualquier jugador activo que todavía no tenga una, incluido tú. La próxima vez que ese jugador revele un número repetido, se descartan tanto el duplicado como la Segunda oportunidad, y el jugador sigue en la ronda. No puede evitar Congelar. Si nadie puede recibirla, se descarta.
+\* \*\*Congelar:\*\* El jugador elegido se detiene de inmediato y guarda su puntuación actual de la ronda.
+\* \*\*Voltea 3:\*\* El jugador elegido debe aceptar tres cartas seguidas y no puede detenerse entre ellas.
+
+Recibir Segunda oportunidad no concede un turno extra. El juego se reanuda en el orden de turnos establecido después de que se hayan resuelto la carta y las decisiones que resulten de ella.
+
+\*\*Resolver Voltea 3\*\*
+
+Cada carta que revela Voltea 3 cuenta para sus tres cartas. Las cartas de número y las modificadoras surten efecto de inmediato. Una Segunda oportunidad revelada también se asigna de inmediato, así que el jugador que resuelve Voltea 3 puede quedársela y usarla contra un duplicado más adelante en la misma secuencia, o entregarla a otro jugador elegible.
+
+Las cartas Congelar y Voltea 3 reveladas durante la secuencia esperan a que se hayan volteado las tres cartas, y luego se resuelven en el orden en que se revelaron. El jugador que reveló cada acción en espera elige su objetivo. Si ese jugador se pasa o completa Flip 7 antes de que termine la secuencia, la secuencia se detiene y sus cartas de acción en espera se descartan.
+
+\*\*Completar Flip 7\*\*
+
+Flip 7 significa reunir siete cartas de número diferentes en una misma ronda. Las cartas modificadoras y de acción no cuentan para los siete. Completarlo otorga 15 puntos de bono y termina la ronda de inmediato para todos.
+
+El jugador que completó Flip 7 anota sus cartas de número, el Doble y los modificadores aditivos con normalidad, y luego suma el bono de 15 puntos. Todos los demás jugadores que ya se habían detenido, o que seguían en la ronda cuando terminó, también anotan su área. Los jugadores que se pasaron no anotan nada.
+
+\*\*Entre rondas\*\*
+
+Después de anotar, todas las cartas boca arriba van al descarte y quien reparte a continuación comienza una nueva ronda. Si la baraja se acaba, el descarte se baraja para formar una baraja nueva; las cartas que siguen en las áreas de los jugadores se quedan donde están.
+
+\*\*Seguir lo que pasa en la partida\*\*
+
+\* \*\*Revisar mi área:\*\* Escucha tu estado actual, tus cartas de número, las demás cartas boca arriba y tu puntuación de la ronda.
+\* \*\*Revisar la mesa:\*\* Abre una vista en vivo de la fase actual y de las cartas públicas, el estado en la ronda, la puntuación de la ronda y el total de partida de cada jugador. La ronda terminada sigue visible mientras se anuncian sus puntuaciones.
+\* \*\*Revisar la baraja:\*\* Escucha la cantidad de cartas que hay en la baraja y en el descarte.
+\* \*\*Revisar puntuaciones:\*\* Escucha las puntuaciones acumuladas de la partida.
+\* \*\*De quién es el turno:\*\* Escucha quién puede actuar. Mientras el juego reparte o resuelve una carta, una decisión, un Voltea 3, un guardado o el resultado de una ronda, escucha esa fase y al jugador implicado.
+
+\*\*Opción de la mesa\*\*
+
+\* \*\*Puntuación objetivo:\*\* Elige el total de partida necesario para ganar, de 50 a 1000. El valor oficial predeterminado es de 200.
 
 \*\*Atajos de teclado\*\*
 
-* \*\*Espacio:\*\* Voltea una carta.
-* \*\*H:\*\* Detente y guarda.
-* \*\*C:\*\* Revisar tu área.
-* \*\*Shift+C:\*\* Revisar la mesa.
-* \*\*D:\*\* Revisar la baraja.
-* \*\*S:\*\* Revisar puntuaciones.
-* \*\*Shift+S:\*\* Abrir puntuaciones detalladas.
-* \*\*T:\*\* Revisar de quién es el turno.
+\* \*\*Espacio:\*\* Voltea una carta.
+\* \*\*H:\*\* Detente y guarda.
+\* \*\*C:\*\* Escuchar tu área.
+\* \*\*Shift+C:\*\* Revisar la mesa.
+\* \*\*D:\*\* Revisar la baraja.
+\* \*\*S:\*\* Revisar puntuaciones.
+\* \*\*Shift+S:\*\* Abrir puntuaciones detalladas.
+\* \*\*T:\*\* Consultar de quién es el turno.

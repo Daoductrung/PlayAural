@@ -34,7 +34,7 @@ hc-pack-group-all = Todos los paquetes
 hc-set-czar-selection = Selección del Zar de la Carta: { $mode }
 hc-select-czar-selection = Selecciona el modo de selección del Zar de la Carta
 hc-option-changed-czar-selection = Selección del Zar de la Carta establecida en { $mode }.
-hc-desc-czar-selection = Controla quién juzga cada ronda: rotando por orden de asiento, elegido al azar, o el ganador más reciente de la ronda.
+hc-desc-czar-selection = Controla quién juzga cada ronda: rotando por orden de asiento, elegido al azar, o quien ganó la última ronda.
 
 hc-set-num-judges = Número de jueces: { $count }
 hc-enter-num-judges = Ingresa el número de jueces:
@@ -43,7 +43,7 @@ hc-desc-num-judges = Cuántos Zares de la Carta juzgan cada ronda. La cantidad d
 
 hc-czar-rotating = Rotativo
 hc-czar-random = Aleatorio
-hc-czar-winner = Ganador más reciente
+hc-czar-winner = Quien ganó la última ronda
 
 # Flujo de la partida
 hc-game-starting = Barajando los mazos...

@@ -80,6 +80,7 @@ flip7-flip-seven = { $player } hoàn thành Flip 7 và nhận thêm { $bonus } �
 flip7-flip-seven-you = Bạn hoàn thành Flip 7 và nhận thêm { $bonus } điểm!
 
 # Lựa chọn có mục tiêu
+flip7-choice-required = Hãy chọn mục tiêu cho lá { $action }.
 flip7-target-freeze = Đóng băng { $target } ({ $points } { $points ->
         [one] điểm
        *[other] điểm
@@ -171,6 +172,7 @@ flip7-whose-turn-resolving = Chuỗi lật bài hiện tại chưa kết thúc.
 
 # Lý do bị chặn
 flip7-error-wait-card = Hãy đợi lá bài hiện tại được xử lý xong.
+flip7-error-make-choice = Hãy chọn mục tiêu trước khi lật thêm hoặc dừng lại.
 flip7-error-wait-choice = Hãy đợi lựa chọn mục tiêu hiện tại hoàn tất.
 flip7-error-wait-flip-three = Hãy đợi Lật 3 hoàn tất.
 flip7-error-wait-dealing = Hãy đợi việc chia bài hoàn tất.

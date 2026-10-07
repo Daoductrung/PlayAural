@@ -35,6 +35,12 @@ SOUND_ROUND_END = "notify3.ogg"
 SOUND_MATCH_WIN = "game_uno/wingame.ogg"
 SOUND_PLAY_MUSIC = "game_3cardpoker/mus.ogg"
 
+# Flip 7's cues are feedback, not gates. Required reveal and result ordering
+# advances after the cue's initial transient while the authored tail continues
+# to play. Durations remain measured below so replacement assets scale this
+# pacing automatically instead of reintroducing fixed, file-specific delays.
+SEQUENCE_WAIT_RATIO = 0.20
+
 # Ceiling-rounded from the shipped files' OGG granules at 20 Hz.
 # Family entries carry the longest member so a family reveal can be sequenced.
 AUDIO_DURATIONS_TICKS = {

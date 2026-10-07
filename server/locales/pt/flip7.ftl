@@ -80,6 +80,7 @@ flip7-flip-seven = { $player } fez o Flip 7 e ganha o bônus de { $bonus } ponto
 flip7-flip-seven-you = Você fez o Flip 7 e ganha o bônus de { $bonus } pontos!
 
 # Escolhas com alvo
+flip7-choice-required = Escolha um alvo para { $action }.
 flip7-target-freeze = Faça { $target } congelar ({ $points } ponto{ $points ->
         [one] { "" }
        *[other] s
@@ -171,6 +172,7 @@ flip7-whose-turn-resolving = Uma sequência de cartas está sendo resolvida.
 
 # Motivos de bloqueio
 flip7-error-wait-card = Espere a carta revelada ser resolvida.
+flip7-error-make-choice = Escolha um alvo antes de virar outra carta ou parar.
 flip7-error-wait-choice = Espere a escolha de carta atual ser resolvida.
 flip7-error-wait-flip-three = Espere o Vira 3 terminar.
 flip7-error-wait-dealing = Espere a distribuição das cartas terminar.

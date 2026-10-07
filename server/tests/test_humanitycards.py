@@ -1,5 +1,6 @@
 """Tests for Cards Against Humanity data, gameplay, and audio routing."""
 
+import hashlib
 import re
 from pathlib import Path
 
@@ -7,6 +8,7 @@ from ..games.humanitycards.game import (
     DEFAULT_ENGLISH_PACK,
     NEXT_ROUND_DELAY_TICKS,
     NEXT_ROUND_SEQUENCE_ID,
+    SOUND_MUSIC,
     HumanityCardsGame,
     HumanityCardsOptions,
     load_humanity_packs,
@@ -31,6 +33,26 @@ def _white_card(text: str = "a good answer") -> dict:
 
 
 def test_humanitycards_vendored_datasets_are_clean_and_complete() -> None:
+    data_dir = Path(__file__).parent.parent / "games" / "humanitycards"
+    expected_hashes = {
+        "humanity_packs.json": (
+            "57c7c6c29380daa05ddff7d4afce562042befc0b1a2123ec584a71406f840247"
+        ),
+        "humanity_packs_es.json": (
+            "ff51192e6528a153bce57169e4ae6277b41bd1fd25b981288bef49bb39fe8ed3"
+        ),
+        "humanity_black_cards_pt_br.json": (
+            "f8feca521c559cda060119c67ec5902c3ba37841f819e0c2b12e04d944949e42"
+        ),
+        "humanity_white_cards_pt_br.json": (
+            "dd15dc1dc2edc04d1a84a69055753344f1b4935c981cd30d00fe4ebe7b3bf0a2"
+        ),
+    }
+    for filename, expected_hash in expected_hashes.items():
+        assert hashlib.sha256((data_dir / filename).read_bytes()).hexdigest() == (
+            expected_hash
+        )
+
     expected_counts = {
         "en": (427, 65_563, 18_743),
         "es": (1, 399, 60),
@@ -293,6 +315,44 @@ def test_humanitycards_selection_sounds_use_humanitycards_pack() -> None:
         "game_humanitycards/cardselect.ogg",
         "game_humanitycards/cardunselect.ogg",
     ]
+
+
+def test_humanitycards_game_music_is_replayable_after_serialization() -> None:
+    game = HumanityCardsGame()
+    game.setup_keybinds()
+    _add_three_players(game)
+
+    game.on_start()
+
+    assert any(
+        state.kind == "music" and state.asset == SOUND_MUSIC
+        for state in game.active_audio.values()
+    )
+
+    restored = HumanityCardsGame.from_json(game.to_json())
+    restored.rebuild_runtime_state()
+    restored_user = MockUser("Alice", uuid="hc-sound-1")
+    restored.attach_user("hc-sound-1", restored_user)
+
+    assert any(
+        message.type == "play_music" and message.data["name"] == SOUND_MUSIC
+        for message in restored_user.messages
+    )
+
+
+def test_humanitycards_question_shortcut_reports_between_rounds() -> None:
+    game = HumanityCardsGame()
+    game.setup_keybinds()
+    player, _, _ = _add_three_players(game)
+    user = game.get_user(player)
+    assert user is not None
+    game.status = "playing"
+    game.phase = "round_end"
+    game.current_black_card = None
+
+    game.execute_action(player, "view_black_card")
+
+    assert user.get_last_spoken() == "There is no active question card right now."
 
 
 def test_humanitycards_multi_card_selection_exposes_order_and_never_replaces_silently() -> (

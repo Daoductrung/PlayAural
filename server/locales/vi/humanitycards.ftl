@@ -63,6 +63,7 @@ hc-black-card = Câu hỏi là: { $text }
 hc-black-card-draw = Trước tiên, bốc thêm { $count } lá.
 hc-black-card-pick = Chọn { $count } lá.
 hc-view-black-card = Xem lá bài câu hỏi
+hc-no-question-card = Hiện không có lá bài câu hỏi nào.
 
 # Giai đoạn nộp bài
 hc-select-cards = Chọn { $count } { $count ->

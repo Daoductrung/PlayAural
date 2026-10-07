@@ -66,6 +66,7 @@ hc-black-card-draw = Primeiro, compre { $count } { $count ->
 }.
 hc-black-card-pick = Escolha { $count }.
 hc-view-black-card = Ver a carta de pergunta
+hc-no-question-card = Não há uma carta de pergunta ativa no momento.
 
 # Submission phase
 hc-select-cards = Selecione { $count } { $count ->

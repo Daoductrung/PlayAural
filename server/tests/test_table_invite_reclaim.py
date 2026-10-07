@@ -21,6 +21,7 @@ from server.core.server import (
     USER_REPORT_REASON_MENU,
 )
 from server.games.crazyeights.game import CrazyEightsGame
+from server.games.humanitycards.game import HumanityCardsGame, SOUND_MUSIC
 from server.games.pig.game import PigGame, PigOptions
 from server.games.uno.game import UnoGame
 from server.games.yahtzee.game import YahtzeeGame
@@ -1097,6 +1098,50 @@ class TestTableInviteReclaim:
         assert restored.name == guest.username
         assert table.is_private is False
         assert self.db.get_saved_table(record.id) is None
+
+    @pytest.mark.asyncio
+    async def test_saved_humanity_table_restore_replays_music_after_menu_stop(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        third = self._create_online_user("Third")
+        table = self.server._tables.create_table(
+            "humanitycards",
+            host.username,
+            host,
+        )
+        game = HumanityCardsGame()
+        table.game = game
+        game._table = table
+        game.initialize_lobby(host.username, host)
+        for participant in (guest, third):
+            assert table.add_member(
+                participant.username,
+                participant,
+                as_spectator=False,
+            )
+            game.add_player(participant.username, participant)
+        game.on_start()
+
+        self.server.on_table_save(table, host.username)
+        record = self.db.get_user_saved_tables(host.username)[0]
+        for participant in (host, guest, third):
+            participant.clear_messages()
+
+        await self.server._restore_saved_table(host, record.id)
+
+        restored_table = self.server._tables.find_user_table(host.username)
+        assert restored_table is not None
+        for participant in (host, guest, third):
+            audio_messages = [
+                message
+                for message in participant.messages
+                if message.type in {"play_music", "stop_music"}
+            ]
+            assert [message.type for message in audio_messages[-2:]] == [
+                "stop_music",
+                "play_music",
+            ]
+            assert audio_messages[-1].data["name"] == SOUND_MUSIC
 
     @pytest.mark.asyncio
     async def test_saved_table_restore_preserves_privacy_and_table_bans(self):

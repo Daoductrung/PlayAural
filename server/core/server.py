@@ -14665,6 +14665,10 @@ PlayAural Server
                     as_spectator=False,
                 ):
                     raise ValueError("saved human name conflicts with the roster")
+                # Stop menu/lobby music before attach_user() replays the
+                # restored game's authoritative audio layers. Reversing these
+                # calls immediately silences the replayed game music.
+                self._prepare_user_for_table_audio(participant)
                 game.attach_user(player.id, participant)
                 if (
                     replacement_bot_name
@@ -14676,7 +14680,6 @@ PlayAural Server
 
             game.setup_keybinds()
             for _, participant in human_entries:
-                self._prepare_user_for_table_audio(participant)
                 self._set_in_game_state(participant, table.table_id)
             for bot_name, human_name in reclaimed_slots:
                 game._on_replacement_slot_reclaimed(bot_name, human_name)

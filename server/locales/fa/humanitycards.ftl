@@ -63,6 +63,7 @@ hc-black-card = سوال این است: { $text }
 hc-black-card-draw = ابتدا { $count } کارت اضافه بکشید.
 hc-black-card-pick = { $count } کارت انتخاب کنید.
 hc-view-black-card = مشاهده‌ی کارت سوال
+hc-no-question-card = در حال حاضر هیچ کارت سوال فعالی وجود ندارد.
 
 # مرحله‌ی ارسال
 hc-select-cards = { $count } { $count ->

@@ -323,6 +323,7 @@ class TestGameRegistryIntegration:
             "deadmansdice": "dice",
             "deadmanspoker": "poker",
             "dominos": "cards",
+            "eightball": "arcade",
             "explodingkittens": "cards",
             "farkle": "dice",
             "fivecarddraw": "poker",

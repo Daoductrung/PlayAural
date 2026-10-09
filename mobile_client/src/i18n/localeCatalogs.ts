@@ -1,3 +1,4 @@
+import catalog_ar from "../../locales/ar/client.json";
 import catalog_en from "../../locales/en/client.json";
 import catalog_es from "../../locales/es/client.json";
 import catalog_fa from "../../locales/fa/client.json";
@@ -7,6 +8,13 @@ import catalog_vi from "../../locales/vi/client.json";
 export const DEFAULT_LOCALE = "en";
 
 export const LOCALE_METADATA = {
+  "ar": {
+    name: "Arabic",
+    nativeName: "العربية",
+    direction: "rtl",
+    contributors: ["Lumora Nova team"],
+    official: false,
+  },
   "en": {
     name: "English",
     nativeName: "English",
@@ -45,6 +53,7 @@ export const LOCALE_METADATA = {
 } as const;
 
 export const localeCatalogs = {
+  "ar": catalog_ar,
   "en": catalog_en,
   "es": catalog_es,
   "fa": catalog_fa,

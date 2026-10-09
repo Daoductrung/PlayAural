@@ -13,6 +13,13 @@ export const LOCALE_METADATA = {
     contributors: ["Trung", "PlayAural core team"],
     official: true,
   },
+  ar: {
+    name: "Arabic",
+    nativeName: "العربية",
+    direction: "rtl",
+    contributors: ["Lumora Nova team"],
+    official: false,
+  },
   fa: {
     name: "Persian",
     nativeName: "فارسی",

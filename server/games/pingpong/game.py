@@ -50,7 +50,7 @@ PACE_LABELS = {
 }
 PACE_BASE_TICKS = {"relaxed": 23, "standard": 18, "fast": 14}
 PACE_RETURN_TICKS = {"relaxed": 26, "standard": 22, "fast": 18}
-PACE_AIM_TICKS = {"relaxed": 10, "standard": 9, "fast": 8}
+PACE_AIM_TICKS = {"relaxed": 14, "standard": 12, "fast": 10}
 BOT_DIFFICULTY_CHOICES = ["easy", "normal", "hard"]
 BOT_DIFFICULTY_LABELS = {
     "easy": "pingpong-bot-easy",
@@ -968,10 +968,27 @@ class PingPongGame(Game):
             self._award_point_to_opponent(player, "late")
             return
 
-        if abs(player.court_x - self.ball_target_x) > PADDLE_REACH:
+        selected_lane = player.response_lane
+        selected_target_x = {
+            "left": -LANE_X,
+            "center": 0.0,
+            "right": LANE_X,
+        }.get(selected_lane)
+        selected_ball = (
+            selected_target_x is not None
+            and selected_lane == self._lane_for_x(self.ball_target_x)
+            and abs(selected_target_x - self.ball_target_x) <= PADDLE_REACH
+        )
+        paddle_at_ball = abs(player.court_x - self.ball_target_x) <= PADDLE_REACH
+        if not paddle_at_ball and not selected_ball:
             player.missed_returns += 1
             self._award_point_to_opponent(player, "out-of-reach")
             return
+        if selected_ball:
+            # Left/Up/Right followed immediately by X is one coordinated swing.
+            # Do not require an extra pause merely so the 20 Hz paddle animation
+            # can catch up with the direction the player already selected.
+            player.court_x = selected_target_x
         opponent = self._next_rotation_player(player)
         if not opponent:
             return

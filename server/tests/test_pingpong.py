@@ -12,6 +12,7 @@ from ..games.pingpong.game import (
     PHASE_FLIGHT,
     PHASE_POINT_PAUSE,
     PHASE_SERVE,
+    SIDE_LIMIT,
     PingPongGame,
     PingPongOptions,
     PingPongPlayer,
@@ -405,6 +406,38 @@ def test_player_chooses_return_destination(action: str, expected_lane: str) -> N
     assert game._lane_for_x(game.ball_target_x) == expected_lane
 
 
+@pytest.mark.parametrize(
+    ("target_x", "incoming_action"),
+    [(-LANE_X, "aim_left"), (0.0, "aim_center"), (LANE_X, "aim_right")],
+)
+@pytest.mark.parametrize(
+    ("outgoing_action", "outgoing_lane"),
+    [("aim_left", "left"), ("aim_center", "center"), ("aim_right", "right")],
+)
+def test_direction_then_x_immediately_reaches_ball_and_chooses_destination(
+    target_x: float,
+    incoming_action: str,
+    outgoing_action: str,
+    outgoing_lane: str,
+) -> None:
+    game = make_game()
+    game._serve(game.players[0])
+    receiver = game.players[1]
+    receiver.court_x = -SIDE_LIMIT if target_x >= 0 else SIDE_LIMIT
+    game.ball_target_x = target_x
+    game.ball_bounced = True
+    game.return_window_ticks = 12
+
+    game.execute_action(receiver, incoming_action)
+    game.execute_action(receiver, "hit_ball")
+
+    assert game.phase == PHASE_AIM_RETURN
+    game.execute_action(receiver, outgoing_action)
+    assert game.phase == PHASE_FLIGHT
+    assert game._lane_for_x(game.ball_target_x) == outgoing_lane
+    assert game.players[0].points == game.players[1].points == 0
+
+
 def test_return_destination_defaults_to_center_after_short_window() -> None:
     game = make_game()
     game._serve(game.players[0])
@@ -414,7 +447,7 @@ def test_return_destination_defaults_to_center_after_short_window() -> None:
     game.return_window_ticks = 7
     game._attempt_return(receiver)
     assert game.phase == PHASE_AIM_RETURN
-    for _ in range(9):
+    for _ in range(12):
         game.on_tick()
     assert game.phase == PHASE_FLIGHT
     assert game._lane_for_x(game.ball_target_x) == "center"
@@ -539,7 +572,7 @@ def test_serialization_preserves_post_hit_choice_window() -> None:
     game._attempt_return(receiver)
     loaded = PingPongGame.from_json(game.to_json())
     assert loaded.phase == PHASE_AIM_RETURN
-    assert loaded.aim_return_ticks == 9
+    assert loaded.aim_return_ticks == 12
     assert loaded.pending_return_hitter_id == receiver.id
     assert loaded.service_rotation_ids == ["p1", "p2"]
 
@@ -709,4 +742,4 @@ def test_post_hit_direction_window_is_slightly_longer() -> None:
     game.ball_bounced = True
     game.return_window_ticks = 12
     game._attempt_return(receiver)
-    assert game.aim_return_ticks == 9
+    assert game.aim_return_ticks == 12

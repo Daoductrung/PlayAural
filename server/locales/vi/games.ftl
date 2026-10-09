@@ -37,6 +37,10 @@ game-score-unit-hand-wins = { $count ->
    *[other] ván thắng
 }
 game-score-unit-light = quang năng
+game-score-unit-games = { $count ->
+    [one] ván
+   *[other] ván
+}
 game-final-scores-header = Điểm tổng kết:
 
 game-winner = { $player } thắng!

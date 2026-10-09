@@ -55,6 +55,11 @@ Bingo includes a per-asset record:
 lists the source, author, applicable terms, and recorded edits for each of its
 eight sound files.
 
+Table Tennis includes a per-asset record:
+[`server/games/pingpong/AUDIO_PROVENANCE.md`](server/games/pingpong/AUDIO_PROVENANCE.md)
+lists the Freesound source, author, CC0 terms, and recorded edits for each of
+its three sound files.
+
 ## Checked-in and binary-bundled software
 
 | Software | Use | License and notices |

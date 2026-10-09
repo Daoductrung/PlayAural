@@ -9,6 +9,10 @@ from .copy_directive import (
     execute_copy_directive,
 )
 import accessible_output2.outputs.auto as auto_output
+try:
+    import accessible_output2.outputs.sapi5 as sapi5_output
+except Exception:  # SAPI is only available on supported Windows installations.
+    sapi5_output = None
 import sys
 import os
 import json
@@ -142,6 +146,12 @@ class MainWindow(wx.Frame):
 
         # Initialize TTS speaker
         self.speaker = auto_output.Auto()
+        try:
+            self.game_announcer = sapi5_output.SAPI5() if sapi5_output else None
+            if self.game_announcer:
+                self.game_announcer.set_rate(1)
+        except Exception:
+            self.game_announcer = None
 
         # Initialize sound manager
         self.sound_manager = SoundManager()
@@ -3153,7 +3163,21 @@ class MainWindow(wx.Frame):
         )  # Check if message should be muted (no TTS)
         store_in_history = packet.get("history", True) is not False
 
-        if text:
+        if text and packet.get("announcer"):
+            self.add_history(
+                text,
+                buffer_name,
+                speak_aloud=False,
+                store_in_history=store_in_history,
+            )
+            try:
+                if self.game_announcer:
+                    self.game_announcer.speak(text, interrupt=True)
+                else:
+                    self.speaker.speak(text, interrupt=False)
+            except Exception:
+                self.speaker.speak(text, interrupt=False)
+        elif text:
             self.add_history(
                 text,
                 buffer_name,

@@ -22,6 +22,50 @@ COPY_CONFORMANCE = json.loads(
 )
 
 
+def test_dedicated_game_announcer_bypasses_screen_reader_speech():
+    history = []
+    announced = []
+    screen_reader = []
+    window = type(
+        "WindowHarness",
+        (),
+        {
+            "game_announcer": type(
+                "Announcer",
+                (),
+                {
+                    "speak": staticmethod(
+                        lambda text, interrupt: announced.append((text, interrupt))
+                    )
+                },
+            )(),
+            "speaker": type(
+                "Speaker",
+                (),
+                {
+                    "speak": staticmethod(
+                        lambda text, interrupt: screen_reader.append((text, interrupt))
+                    )
+                },
+            )(),
+            "add_history": staticmethod(
+                lambda text, buffer, speak_aloud, store_in_history: history.append(
+                    (text, buffer, speak_aloud, store_in_history)
+                )
+            ),
+        },
+    )()
+
+    MainWindow.on_server_speak(
+        window,
+        {"text": "Player one, two.", "buffer": "game", "announcer": True},
+    )
+
+    assert announced == [("Player one, two.", True)]
+    assert screen_reader == []
+    assert history == [("Player one, two.", "game", False, True)]
+
+
 def test_desktop_logout_dialog_localizes_decisions_and_defaults_safe(monkeypatch):
     captured = {}
 

@@ -8,7 +8,7 @@ Ping Pong é um jogo de tênis de mesa em tempo real, guiado por áudio espacial
 * Para cada bola, escolha silenciosamente a direção de onde veio o quique: Esquerda para a esquerda, Cima para o meio ou Direita para a direita.
 * Antes do saque, escolha o destino com Esquerda, Cima para o meio ou Direita e pressione C. Durante a troca, use a seta correspondente ao lugar de onde a bola veio e pressione X; logo depois do contato, aperte Esquerda, Cima ou Direita dentro da janela curta para escolher o destino da devolução.
 
-A raquete se desloca pela quadra em vez de se teletransportar. Posição da bola, alcance real da raquete, destino e tempo importam. Uma batida um pouco adiantada ou atrasada perde precisão; um erro grande acerta a rede, manda a bola para fora ou não alcança a bola. Depois de X, há uma segunda janela curta para escolher o destino; sem escolha, a bola segue pelo meio. Cima significa meio. Não existe som artificial de vento ou de movimentação.
+A raquete se desloca pela quadra em vez de se teletransportar. Posição da bola, alcance real da raquete, destino e tempo importam. Uma batida um pouco adiantada ou atrasada perde precisão; um erro grande acerta a rede, manda a bola para fora ou não alcança a bola. Depois de X, há uma segunda janela curta para escolher o destino; sem escolha, a bola segue pelo meio. O destino é relativo a quem rebate: Direita é ouvida à sua direita, enquanto o adversário ouve o lado fisicamente invertido. Cima significa meio. Não existe som artificial de vento ou de movimentação.
 
 **Regras e Placar**
 

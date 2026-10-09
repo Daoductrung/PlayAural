@@ -8,7 +8,7 @@ Bóng bàn là trò chơi thời gian thực dùng âm thanh không gian, có đ
 * Với mỗi quả bóng, hãy chọn im lặng hướng nảy: Trái, Lên cho chính giữa hoặc Phải.
 * Trước khi giao bóng, chọn đích bằng các phím mũi tên đó rồi nhấn C. Trong loạt bóng, dùng mũi tên khớp với tiếng nảy và nhấn X; ngay sau va chạm, nhấn Trái, Lên hoặc Phải trong khoảng ngắn để chọn đích. Nếu không chọn, bóng đi vào giữa.
 
-Vợt di chuyển thật trên sân thay vì dịch chuyển tức thời. Vị trí bóng, tầm với thật, đích trả và thời điểm đều quan trọng. Đánh hơi sớm hoặc muộn làm giảm độ chính xác; sai nhiều sẽ chạm lưới, ra ngoài hoặc không tới bóng. Sau X có thêm một khoảng ngắn để chọn đích. Phím Lên nghĩa là giữa. Không có tiếng gió hay tiếng di chuyển nhân tạo.
+Vợt di chuyển thật trên sân thay vì dịch chuyển tức thời. Vị trí bóng, tầm với thật, đích trả và thời điểm đều quan trọng. Đánh hơi sớm hoặc muộn làm giảm độ chính xác; sai nhiều sẽ chạm lưới, ra ngoài hoặc không tới bóng. Sau X có thêm một khoảng ngắn để chọn đích. Đích được tính theo người đánh: Phải được nghe ở bên phải của bạn, còn đối thủ nghe phía đối diện theo đúng vị trí vật lý. Phím Lên nghĩa là giữa. Không có tiếng gió hay tiếng di chuyển nhân tạo.
 
 **Luật và Tính Điểm**
 

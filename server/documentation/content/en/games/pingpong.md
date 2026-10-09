@@ -8,7 +8,7 @@ Table Tennis is a real-time spatial-audio game with official singles for two pla
 * For every ball, silently choose the direction where the bounce came from: Left for left, Up for center, or Right for right.
 * Before serving, choose the destination with Left, Up for center, or Right, then press C. During a rally, use the arrow matching where the ball came from and press X; immediately after contact, press Left, Up, or Right within the short window to choose the return destination.
 
-The paddle moves across the court instead of teleporting. Incoming position, real paddle reach, return destination, and timing all matter. A slightly early or late contact is less accurate; a large error hits the net, goes out, or misses. After X, a second short window selects the destination; if no direction is chosen, the ball goes through the center. Up means center. There is no artificial flight or movement sound.
+The paddle moves across the court instead of teleporting. Incoming position, real paddle reach, return destination, and timing all matter. A slightly early or late contact is less accurate; a large error hits the net, goes out, or misses. After X, a second short window selects the destination; if no direction is chosen, the ball goes through the center. The destination is relative to the hitter: Right is heard to your right, while the opponent hears the physically mirrored side. Up means center. There is no artificial flight or movement sound.
 
 **Rules and Scoring**
 

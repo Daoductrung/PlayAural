@@ -373,7 +373,7 @@ def test_server_chooses_serve_direction(action: str, expected_lane: str) -> None
     game.execute_action(server, action)
     with patch("server.games.pingpong.game.random.uniform", return_value=0.0):
         game._serve(server)
-    assert game._lane_for_x(game.ball_target_x) == expected_lane
+    assert game._lane_for_x(-game.ball_target_x) == expected_lane
 
 
 def test_human_serve_has_no_hidden_random_direction_error() -> None:
@@ -385,7 +385,7 @@ def test_human_serve_has_no_hidden_random_direction_error() -> None:
         side_effect=AssertionError("human serve must not use random error"),
     ):
         game._serve(server)
-    assert game.ball_target_x == LANE_X
+    assert game.ball_target_x == -LANE_X
 
 
 @pytest.mark.parametrize(
@@ -403,7 +403,7 @@ def test_player_chooses_return_destination(action: str, expected_lane: str) -> N
     assert game.phase == PHASE_AIM_RETURN
     game.execute_action(receiver, action)
     assert game.receiving_player_id == game.players[0].id
-    assert game._lane_for_x(game.ball_target_x) == expected_lane
+    assert game._lane_for_x(-game.ball_target_x) == expected_lane
 
 
 @pytest.mark.parametrize(
@@ -434,8 +434,42 @@ def test_direction_then_x_immediately_reaches_ball_and_chooses_destination(
     assert game.phase == PHASE_AIM_RETURN
     game.execute_action(receiver, outgoing_action)
     assert game.phase == PHASE_FLIGHT
-    assert game._lane_for_x(game.ball_target_x) == outgoing_lane
+    assert game._lane_for_x(-game.ball_target_x) == outgoing_lane
     assert game.players[0].points == game.players[1].points == 0
+
+
+def test_return_direction_is_heard_from_each_players_perspective() -> None:
+    game = make_game()
+    game._serve(game.players[0])
+    hitter = game.players[1]
+    opponent = game.players[0]
+    hitter.court_x = game.ball_target_x
+    hitter.response_lane = game._lane_for_x(game.ball_target_x)
+    game.ball_bounced = True
+    game.return_window_ticks = 12
+    game._attempt_return(hitter)
+    game.execute_action(hitter, "aim_right")
+
+    hitter_user = game.get_user(hitter)
+    opponent_user = game.get_user(opponent)
+    assert isinstance(hitter_user, MockUser)
+    assert isinstance(opponent_user, MockUser)
+    hitter_user.clear_messages()
+    opponent_user.clear_messages()
+    game._play_table_bounce(opponent)
+
+    hitter_bounce = next(
+        message
+        for message in hitter_user.messages
+        if message.type == "play_sound" and message.data["name"] == "game_pingpong/table.ogg"
+    )
+    opponent_bounce = next(
+        message
+        for message in opponent_user.messages
+        if message.type == "play_sound" and message.data["name"] == "game_pingpong/table.ogg"
+    )
+    assert hitter_bounce.data["pan"] > 0
+    assert opponent_bounce.data["pan"] < 0
 
 
 def test_return_destination_defaults_to_center_after_short_window() -> None:

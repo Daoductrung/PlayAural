@@ -617,6 +617,11 @@ class PingPongGame(Game):
     def _clamp(value: float, low: float, high: float) -> float:
         return max(low, min(high, value))
 
+    @staticmethod
+    def _target_x_for_hitter_lane(lane: str) -> float:
+        """Translate an egocentric shot direction into the receiver's view."""
+        return -{"left": -LANE_X, "center": 0.0, "right": LANE_X}[lane]
+
     def _choose_response_lane(self, player: Player, lane: str) -> None:
         if not isinstance(player, PingPongPlayer):
             return
@@ -862,11 +867,7 @@ class PingPongGame(Game):
             if server.is_bot
             else (server.shot_lane or "center")
         )
-        target_x = {
-            "left": -LANE_X,
-            "center": 0.0,
-            "right": LANE_X,
-        }[serve_lane]
+        target_x = self._target_x_for_hitter_lane(serve_lane)
         if self.options.team_mode == "2v2":
             # In doubles every serve lands in the receiver's right half.  The
             # three controls still choose a distinct point inside that legal box.
@@ -940,7 +941,7 @@ class PingPongGame(Game):
         )
         next_opponent = self._next_rotation_player(receiver)
         if next_opponent and random.random() <= accuracy:
-            receiver.shot_lane = "left" if next_opponent.court_x >= 0 else "right"
+            receiver.shot_lane = "right" if next_opponent.court_x >= 0 else "left"
         else:
             receiver.shot_lane = random.choice(("left", "center", "right"))
         self.bot_aim_x = {
@@ -1038,9 +1039,12 @@ class PingPongGame(Game):
         self.rally_count += 1
         self.match_longest_rally = max(self.match_longest_rally, self.rally_count)
         player.longest_rally = max(player.longest_rally, self.rally_count)
-        target_x = self._clamp(
+        hitter_view_target_x = (
             {"left": -LANE_X, "center": 0.0, "right": LANE_X}[lane]
-            - self.pending_return_timing * 0.02,
+            - self.pending_return_timing * 0.02
+        )
+        target_x = self._clamp(
+            -hitter_view_target_x,
             -0.74,
             0.74,
         )

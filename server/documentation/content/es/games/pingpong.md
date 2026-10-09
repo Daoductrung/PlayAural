@@ -8,7 +8,7 @@ Tenis de mesa es un juego en tiempo real con audio espacial, con individuales of
 * Para cada pelota, elige silenciosamente la dirección del bote: Izquierda, Arriba para el centro o Derecha.
 * Antes del saque, elige el destino con esas mismas flechas y pulsa C. Durante el peloteo, usa la flecha correspondiente al bote y pulsa X; justo después del contacto, pulsa Izquierda, Arriba o Derecha durante el breve plazo para elegir el destino. Sin elección, la pelota va al centro.
 
-La pala se desplaza por la pista en vez de teletransportarse. La posición, el alcance real, el destino y el tiempo importan. Un contacto algo temprano o tardío pierde precisión; un error grande golpea la red, sale fuera o no alcanza la pelota. Tras X hay otro plazo corto para elegir el destino. Arriba significa centro. No hay sonido artificial de viento ni de movimiento.
+La pala se desplaza por la pista en vez de teletransportarse. La posición, el alcance real, el destino y el tiempo importan. Un contacto algo temprano o tardío pierde precisión; un error grande golpea la red, sale fuera o no alcanza la pelota. Tras X hay otro plazo corto para elegir el destino. El destino es relativo a quien golpea: Derecha se oye a tu derecha, mientras el rival oye el lado físicamente invertido. Arriba significa centro. No hay sonido artificial de viento ni de movimiento.
 
 **Reglas y Puntuación**
 

@@ -112,4 +112,3 @@ farkle-combo-fallback = { $combo } مقابل { $points } نقطة
 farkle-check-turn-score = فحص نتيجة الدور
 farkle-roll-label = ارمِ النرد
 farkle-bank-label = أودِع النقاط
-

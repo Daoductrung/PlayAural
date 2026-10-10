@@ -241,4 +241,3 @@ flip7-error-choice-not-ready = انتظر حتى يُفتح اختيار اله�
 
 # End screen
 flip7-line-format = { $rank }. { $player }: { $points }
-

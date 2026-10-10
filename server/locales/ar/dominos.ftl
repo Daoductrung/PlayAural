@@ -112,5 +112,3 @@ dominos-no-other-players = لا لاعبين آخرين.
 
 # End screen
 dominos-line-format = { $rank }. { $player }: { $points }
-
-

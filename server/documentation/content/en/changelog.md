@@ -1,12 +1,31 @@
 Changelog
 
+Saturday 10 October 2026
+
+New Additions:
+
+* Breach Point now includes private Team Chat for both text and Voice Chat. Use the channel control beside the chat box, or Alt+T on Desktop and Web, to switch between Table Chat and Team Chat without leaving the table. You continue to hear every voice channel you are allowed to join, while your microphone publishes only to the selected channel; the game returns you to Table Chat when a private channel no longer exists.
+* Updates now use much less data. Desktop and Mobile reuse the sounds already installed and download only changed audio files. Desktop application updates also fetch only changed content, resume safely after interruptions, restore the previous version if the updated app cannot start, and ask before using the complete standalone ZIP as a last resort. Spoken progress is limited to ten-percent steps, while full ZIP releases remain available for clean installs and manual updates. On Mobile, sounds install inside the app without storage permission; Android application updates open the direct-download or Google Play destination selected by the server.
+
+Improvements:
+
+* Chat and shared announcements now use each listener's point of view consistently. Your own messages and actions say "You," while everyone else hears your player name. This applies to Global Chat, Table Chat, Team Chat, table and host changes, moderation, Voice Chat, timers, and supported game actions.
+* Turning your Voice Chat microphone on or off now confirms success with one concise sound after the change actually takes effect. Routine channel transfers stay quiet, while restrictions and failures remain spoken.
+* Desktop now preserves saved sign-in accounts and preferences more reliably. Existing settings migrate automatically, a damaged settings file no longer causes repeated startup trouble, and cancelling an audio option preview restores the previous value.
+
+Bug Fixes:
+
+* Restoring a saved table no longer stops its game music as soon as the restored game opens.
+* Moving a live session between Desktop, Web, and Mobile no longer lets a slow or stale Voice Chat connection block the replacement device.
+* In Cards Against Humanity, the question-card shortcut now clearly reports when no question card is active.
+
 Tuesday 6 October 2026
 
 New Additions:
 
-* Skip-Bo has been added for 2 to 6 players, with individual play and two-person partnerships at four- or six-player tables. Empty your stock pile by building shared piles from 1 through 12 with cards from your hand, your stock and discard piles, or a partner's public piles, while Skip-Bo wild cards fill any missing number. Tables can choose standard or shorter stock piles, a single game or a scored match, and a match target. Strategic bots, stable card and destination choices, off-turn access to your hand, detailed pile views, keyboard and touch controls, background music, and beginner guides in English and Vietnamese are included; the complete game and guide are also available in Spanish.
-* Dead Man's Dice has been added for 2 to 4 players. Hide five dice beneath your cup, keep raising the table's bid, or challenge with Liar or Spot On before a second dose of poison eliminates you. Traditional rules with wild ones and Basic rules with exact faces are both available, alongside fair-information bots, accessible bid and review controls, beginner guides in English and Vietnamese, and a fully spatial tavern of cups, dice, poison, and the final fall.
-* Zombie Dice has been added for 2 to 8 players. Roll three dice at a time, keep brains, reroll footprints, and decide when to stop before three shotgun blasts wipe out the brains from your turn. The official thirteen-die cup, equal-turn final round, repeatable leader-only tiebreaks, adjustable winning target, challenging bots, live turn and table views, keyboard and touch controls, and beginner guides in English and Vietnamese are included. Its spatial swamp surrounds the table with a moving zombie soundscape, responsive dice, bites, gunfire, impacts, and music.
+* Skip-Bo has been added for 2 to 6 players, with individual play and two-person partnerships at four- or six-player tables. Empty your stock pile by building shared piles from 1 through 12 with cards from your hand, your stock and discard piles, or a partner's public piles, while Skip-Bo wild cards fill any missing number. Tables can choose standard or shorter stock piles, a single game or a scored match, and a match target. Strategic bots, stable card and destination choices, off-turn access to your hand, detailed pile views, keyboard and touch controls, background music, and complete game text and beginner guides in English, Vietnamese, Spanish, and Brazilian Portuguese are included.
+* Dead Man's Dice has been added for 2 to 4 players. Hide five dice beneath your cup, keep raising the table's bid, or challenge with Liar or Spot On before a second dose of poison eliminates you. Traditional rules with wild ones and Basic rules with exact faces are both available, alongside fair-information bots, accessible bid and review controls, complete game text and beginner guides in English, Vietnamese, Spanish, and Brazilian Portuguese, and a fully spatial tavern of cups, dice, poison, and the final fall.
+* Zombie Dice has been added for 2 to 8 players. Roll three dice at a time, keep brains, reroll footprints, and decide when to stop before three shotgun blasts wipe out the brains from your turn. The official thirteen-die cup, equal-turn final round, repeatable leader-only tiebreaks, adjustable winning target, challenging bots, live turn and table views, keyboard and touch controls, and complete game text and beginner guides in English, Vietnamese, Spanish, and Brazilian Portuguese are included. Its spatial swamp surrounds the table with a moving zombie soundscape, responsive dice, bites, gunfire, impacts, and music.
 * Flip 7 has been added for 3 to 10 players. Keep flipping for points or stop and bank before a repeated number makes you bust; Double and additive modifiers change the score, while Second Chance, Freeze, and Flip Three can turn the round around. Completing seven different numbers earns the Flip 7 bonus and ends the round. The complete 94-card deck, adjustable target score, tied-leader continuation, fair-information bots, phase-aware table reviews, keyboard and touch controls, and full game text and beginner guides in English, Vietnamese, Spanish, and Brazilian Portuguese are included.
 
 Improvements:

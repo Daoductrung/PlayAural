@@ -122,4 +122,3 @@ midnight-end-score = { $rank }. { $player }: { $wins } { $wins ->
     [many] جولة مكسوبة
    *[other] جولة مكسوبة
 }
-

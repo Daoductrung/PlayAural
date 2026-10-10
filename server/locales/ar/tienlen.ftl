@@ -149,5 +149,3 @@ tienlen-south-suit-1 = الماس
 tienlen-south-suit-2 = السباتي
 tienlen-south-suit-3 = القلوب
 tienlen-south-suit-4 = البستوني
-
-

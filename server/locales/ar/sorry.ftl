@@ -180,4 +180,3 @@ sorry-end-score-line = { $index }. { $player }: { $count ->
     [one] بيدق واحد في البيت
    *[other] { $count } بيادق في البيت
 }
-

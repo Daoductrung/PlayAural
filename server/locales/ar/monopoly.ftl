@@ -1150,28 +1150,3 @@ monopoly-space-hanoi-gia-lam-bus-station = محطة حافلات زا لام
 monopoly-space-hanoi-nha-chung = نها تشونغ
 monopoly-space-hanoi-excise-tax = ضريبة الإنتاج
 monopoly-space-hanoi-lo-duc = لو دوك
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

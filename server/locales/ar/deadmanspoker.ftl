@@ -188,4 +188,3 @@ deadmanspoker-results-winner = الفائز: { $player }.
 deadmanspoker-results-survived = نجا
 deadmanspoker-results-eliminated = أُقصي
 deadmanspoker-results-line = { $player }: { $status }، أيادٍ فائزة { $hands }، مراهنات بالكل بدأها { $allins }، نجاة من الروليت { $survivals }، رصاصات خاطر بها { $bullets }.
-

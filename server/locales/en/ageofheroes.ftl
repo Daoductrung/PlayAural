@@ -214,6 +214,7 @@ ageofheroes-road-request-received = { $requester } requests permission to build 
 ageofheroes-road-request-denied-you = You declined the road request.
 ageofheroes-road-request-denied = { $denier } declined your road request.
 ageofheroes-road-built = { $tribe1 } and { $tribe2 } are now connected by road.
+ageofheroes-road-built-you = You and { $tribe2 } are now connected by road.
 ageofheroes-road-no-target = No neighboring tribes available for road construction.
 ageofheroes-approve = Approve
 ageofheroes-deny = Deny

@@ -282,8 +282,3 @@ pusoydos-line-format-losses = { $rank }. { $player }: { $losses } { $losses ->
     [one] خسارة
    *[other] خسائر
 }
-
-
-
-
-

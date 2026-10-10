@@ -2066,7 +2066,7 @@ class TestTableInviteReclaim:
             "voice-status-connected",
             play_sound=False,
         )
-        assert "connected to voice chat" in guest_row_text()
+        assert "connected to voice chat" in guest_row_text().lower()
 
         await self.server._clear_voice_presence(
             guest.username,

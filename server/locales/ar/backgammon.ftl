@@ -257,4 +257,3 @@ backgammon-option-bot-difficulty = صعوبة الروبوت: { $bot_difficulty 
 backgammon-option-select-bot-difficulty = اختر صعوبة الروبوت
 backgammon-option-changed-bot-difficulty = تم ضبط صعوبة الروبوت على { $bot_difficulty }.
 backgammon-desc-bot-difficulty = يحدد كيف يقوم الروبوت بتحركاته: العشوائي يلعب تحركات قانونية باسترخاء، بينما البسيط يفضل تحركات تكتيكية أقوى.
-

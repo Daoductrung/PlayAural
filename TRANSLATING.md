@@ -85,7 +85,7 @@ Web and mobile strings use JavaScript or JSON objects with placeholders such as
 `{player}`:
 
 ```json
-"chat-global": "On the global channel, {player} says: {message}"
+"chat-private": "Private message from {player}: {message}"
 ```
 
 Rules:

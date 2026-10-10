@@ -135,5 +135,3 @@ scopa-error-not-enough-cards = لا توجد بطاقات كافية في { $dec
 } بواقع { $cards_per_deal } بطاقة لكل منهم. (المطلوب { $cards_per_deal } × { $players } = { $cards_needed } بطاقة، لكن المتوفر فقط { $total_cards }.)
 
 scopa-line-format = { $rank }. { $player }: { $points }
-
-

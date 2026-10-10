@@ -134,4 +134,3 @@ deadmansdice-results-line = { $player }: { $status }؛ { $bids } رهانات، 
 deadmansdice-results-survived = نجا
 deadmansdice-results-eliminated = أُقصي
 deadmansdice-error-rules-invalid = القواعد المحددة غير مدعومة.
-

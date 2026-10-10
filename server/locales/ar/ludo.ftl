@@ -292,4 +292,3 @@ ludo-desc-max-consecutive-sixes = كم مرة متتالية يمكن للاعب
 ludo-set-safe-start-squares = مربعات البداية الآمنة: { $enabled }
 ludo-option-changed-safe-start-squares = تم ضبط مربعات البداية الآمنة على { $enabled }.
 ludo-desc-safe-start-squares = يتحكم في ما إذا كان مربع بداية كل لاعب يُعامَل كمربع آمن.
-

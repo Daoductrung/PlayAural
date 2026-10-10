@@ -238,4 +238,3 @@ zombiedice-results-line = { $rank }. { $player }: { $score } { $score ->
     [many] دماغًا
    *[other] دماغ
 }.
-

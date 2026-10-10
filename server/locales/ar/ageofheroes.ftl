@@ -237,6 +237,7 @@ ageofheroes-road-request-received = يطلب { $requester } الإذن ببنا�
 ageofheroes-road-request-denied-you = رفضت طلب الطريق.
 ageofheroes-road-request-denied = رفض { $denier } طلب طريقك.
 ageofheroes-road-built = ارتبطت { $tribe1 } و{ $tribe2 } الآن بطريق.
+ageofheroes-road-built-you = أصبحت أنت و{ $tribe2 } مرتبطين الآن بطريق.
 ageofheroes-road-no-target = لا توجد قبائل مجاورة متاحة لبناء الطرق.
 ageofheroes-approve = موافقة
 ageofheroes-deny = رفض

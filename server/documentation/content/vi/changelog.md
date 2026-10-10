@@ -1,5 +1,21 @@
 Nhật ký thay đổi
 
+Thứ Bảy 10 Tháng Mười 2026 (Bản cập nhật 2)
+
+Tính năng mới:
+
+* Tiếng Ả Rập giờ đã có trên máy chủ, phần mềm máy tính, phiên bản web, ứng dụng di động và tài liệu người chơi dưới dạng bản dịch cộng đồng từ phải sang trái do nhóm Lumora Nova duy trì. Nội dung chưa được dịch sang Tiếng Ả Rập sẽ dùng bản tiếng Anh.
+
+Cải thiện:
+
+* Khi bạn bật hoặc tắt micrô Trò chuyện thoại, ứng dụng giờ xác nhận thành công bằng một thông báo ngắn và một âm báo sau khi thay đổi thật sự hoàn tất. Việc chuyển kênh thông thường vẫn diễn ra yên lặng.
+
+Sửa lỗi:
+
+* Khi phiên bản PlayAural cũ trên máy tính hoặc di động bắt buộc phải cập nhật, ứng dụng giờ mở đúng bản tải xuống đầy đủ mà không lặp đi lặp lại thông báo mất kết nối. Phần mềm máy tính cũng không còn báo lỗi hết thời gian chờ kết nối ngay sau khi bạn đồng ý cập nhật.
+* Trên Android, bản cập nhật âm thanh trong ứng dụng giờ tiếp tục ổn định khi chạy nền; các âm thanh dài cũng giữ đầy đủ hiệu ứng không gian ba chiều thay vì bất ngờ chuyển sang cách phát thông thường.
+* Trò chuyện thoại trong đội không còn làm gián đoạn micrô đang bật khi một đội khác có thay đổi về người chơi hoặc bot.
+
 Thứ Bảy 10 Tháng Mười 2026
 
 Tính năng mới:

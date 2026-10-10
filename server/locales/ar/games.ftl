@@ -101,12 +101,15 @@ team-arrangement-select-first = اختر عضو فريق أولًا.
 team-arrangement-player-missing = لم يعد ذلك اللاعب متاحًا لترتيب الفِرَق.
 team-arrangement-same-team = اختر شخصًا من فريق مختلف.
 team-arrangement-swap-failed = تعذّر تبديل عضوَي الفريق هذين.
+team-arrangement-swapped-player = بدّل { $player } موقعي { $first } و{ $second } بين الفريقين.
+team-arrangement-swapped-you = بدّلت موقعي { $first } و{ $second } بين الفريقين.
 
 status-box-closed = تم إغلاق معلومات الحالة.
 
 game-leave = مغادرة اللعبة
 
 round-timer-paused = أوقف { $player } اللعبة مؤقتًا (اضغط p لبدء الجولة التالية).
+round-timer-paused-you = أوقفت اللعبة مؤقتًا (اضغط p لبدء الجولة التالية).
 dice-keeping = الاحتفاظ بـ { $value }.
 dice-rerolling = إعادة رمي { $value }.
 dice-locked = هذا النرد مقفل ولا يمكن تغييره.

@@ -150,6 +150,10 @@ pusoydos-loser-gives = يعطي { $loser } { $count ->
     [one] أعلى بطاقة { GENDER_TERM($loser_gender, "possessive-determiner") }
    *[other] أعلى { $count } بطاقات { GENDER_TERM($loser_gender, "possessive-determiner") }
 } إلى { $winner }.
+pusoydos-you-give-highest = تعطي { $count ->
+    [one] أعلى بطاقة لديك
+   *[other] أعلى { $count } بطاقات لديك
+} إلى { $winner }.
 pusoydos-winner-gives-back = يعيد { $winner } { $count ->
     [one] بطاقة واحدة
    *[other] { $count } بطاقات

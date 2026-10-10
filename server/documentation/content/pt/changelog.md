@@ -1,5 +1,40 @@
 # Changelog
 
+Sábado, 10 de outubro de 2026 (Atualização 2)
+
+Novidades:
+
+* O árabe agora está disponível no servidor, nos clientes Desktop, Web e Móvel e nos guias para jogadores como uma tradução comunitária da direita para a esquerda, mantida pela equipe Lumora Nova. O conteúdo que ainda não tiver sido traduzido para o árabe usará o inglês.
+
+Melhorias:
+
+* Ao ligar ou desligar o microfone do Chat de Voz, a alteração agora é confirmada por uma única mensagem falada e um som breves, depois que ela realmente entra em vigor. As trocas de canal de rotina continuam silenciosas.
+
+Correções de bugs:
+
+* Quando uma versão antiga do Desktop ou do Móvel precisa ser atualizada, agora ela abre corretamente o download completo sem anunciar desconexões repetidamente. O Desktop também não informa mais que a conexão expirou logo depois que você aceita uma atualização.
+* No Android, as atualizações de sons dentro do aplicativo agora continuam de forma confiável em segundo plano, e os sons longos mantêm todo o posicionamento tridimensional em vez de voltar inesperadamente à reprodução comum.
+* O Chat de Voz da equipe não interrompe mais um microfone ativo quando muda a composição de jogadores ou bots de outra equipe.
+
+Sábado, 10 de outubro de 2026
+
+Novidades:
+
+* O Breach Point agora inclui Chat de Equipe privado por texto e por voz. Use o seletor de canal ao lado do campo de chat, ou Alt+T no Desktop e na Web, para alternar entre o Chat da Mesa e o Chat da Equipe sem sair da mesa. Você continua ouvindo todos os canais de voz nos quais tem permissão para entrar, mas o microfone transmite somente para o canal selecionado; o jogo retorna ao Chat da Mesa quando um canal privado deixa de existir.
+* As atualizações agora usam muito menos dados. O Desktop e o Móvel reutilizam os sons já instalados e baixam apenas os arquivos de áudio alterados. As atualizações do aplicativo Desktop também baixam somente o conteúdo modificado, retomam com segurança após interrupções, restauram a versão anterior se o aplicativo atualizado não iniciar e pedem confirmação antes de usar o ZIP independente completo como último recurso. O progresso falado é limitado a intervalos de dez por cento, e as versões ZIP completas continuam disponíveis para instalações limpas e atualizações manuais. No Móvel, os sons são instalados dentro do aplicativo sem permissão de armazenamento; as atualizações do Android abrem o download direto ou a página do Google Play indicada pelo servidor.
+
+Melhorias:
+
+* As mensagens de chat e os anúncios compartilhados agora usam de forma consistente o ponto de vista de cada ouvinte. Suas próprias mensagens e ações dizem “Você”, enquanto todos os outros ouvem o seu nome de jogador. Isso se aplica ao Chat Global, Chat da Mesa, Chat da Equipe, mudanças de mesa e de host, moderação, Chat de Voz, temporizadores e ações de jogo compatíveis.
+* Ao ligar ou desligar o microfone do Chat de Voz, agora um único som breve é reproduzido depois que a alteração realmente entra em vigor. As trocas de canal de rotina permanecem silenciosas, enquanto restrições e falhas continuam sendo faladas.
+* O Desktop agora preserva com mais confiabilidade as contas de login e preferências salvas. As configurações existentes são migradas automaticamente, um arquivo de configuração danificado não causa mais problemas repetidos na inicialização e cancelar a prévia de uma opção de áudio restaura o valor anterior.
+
+Correções de bugs:
+
+* Restaurar uma mesa salva não interrompe mais a música do jogo assim que a partida restaurada é aberta.
+* Ao transferir uma sessão ativa entre Desktop, Web e Móvel, uma conexão antiga ou lenta do Chat de Voz não bloqueia mais o novo dispositivo.
+* Em Cards Against Humanity, o atalho para verificar a carta de pergunta agora informa claramente quando não há uma carta de pergunta ativa.
+
 Terça-feira, 6 de outubro de 2026
 
 Novidades:

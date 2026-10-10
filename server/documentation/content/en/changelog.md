@@ -1,5 +1,21 @@
 Changelog
 
+Saturday 10 October 2026 (Update 2)
+
+New Additions:
+
+* Arabic is now available across the server, desktop, web, mobile, and player guides as a right-to-left community translation maintained by the Lumora Nova team. Content not yet translated into Arabic falls back to English.
+
+Improvements:
+
+* Turning your Voice Chat microphone on or off now confirms success with one concise spoken message and sound after the change actually takes effect. Routine channel transfers stay quiet.
+
+Bug Fixes:
+
+* When an older Desktop or Mobile release must update, it now opens the correct complete download without repeatedly announcing disconnections. Desktop also no longer reports a connection timeout immediately after you accept an update.
+* On Android, in-app sound updates now continue reliably in the background, and long sounds retain their full three-dimensional positioning instead of unexpectedly falling back to standard playback.
+* Team Voice Chat no longer interrupts an active microphone when another team's player or bot membership changes.
+
 Saturday 10 October 2026
 
 New Additions:

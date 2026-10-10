@@ -1,5 +1,40 @@
 Registro de cambios
 
+Sábado 10 de octubre de 2026 (Actualización 2)
+
+Novedades:
+
+* El árabe ya está disponible en el servidor y en los clientes de escritorio, web y móvil, además de en las guías para jugadores. Es una traducción comunitaria de derecha a izquierda mantenida por el equipo Lumora Nova. El contenido que aún no esté traducido al árabe se mostrará en inglés.
+
+Mejoras:
+
+* Al activar o desactivar el micrófono del chat de voz, el cambio ahora se confirma con un único mensaje hablado y un sonido breves, una vez que realmente se haya completado. Los cambios de canal habituales siguen realizándose en silencio.
+
+Corrección de errores:
+
+* Cuando una versión antigua de Escritorio o Móvil necesita actualizarse, ahora abre correctamente la descarga completa sin anunciar desconexiones una y otra vez. Escritorio tampoco informa de un tiempo de espera agotado justo después de aceptar la actualización.
+* En Android, las actualizaciones de sonidos dentro de la aplicación ahora continúan de forma fiable en segundo plano, y los sonidos largos conservan todo su posicionamiento tridimensional en lugar de volver inesperadamente a la reproducción normal.
+* El chat de voz de equipo ya no interrumpe un micrófono activo cuando cambia la composición de jugadores o bots de otro equipo.
+
+Sábado 10 de octubre de 2026
+
+Novedades:
+
+* Punto de Ruptura ahora incluye un chat de equipo privado, tanto por texto como por voz. Usa el selector de canal junto al campo de chat, o Alt+T en Escritorio y Web, para cambiar entre Chat de mesa y Chat de equipo sin abandonar la mesa. Seguirás oyendo todos los canales de voz a los que tengas permiso para entrar, pero tu micrófono solo transmitirá al canal seleccionado; el juego volverá al Chat de mesa cuando deje de existir un canal privado.
+* Las actualizaciones ahora consumen muchos menos datos. Escritorio y Móvil reutilizan los sonidos ya instalados y solo descargan los archivos de audio que hayan cambiado. Las actualizaciones de la aplicación de Escritorio también descargan solo el contenido modificado, se reanudan de forma segura tras una interrupción, restauran la versión anterior si la nueva no puede iniciarse y piden permiso antes de recurrir al ZIP independiente completo como última opción. El progreso hablado se limita a intervalos del diez por ciento, mientras que las versiones ZIP completas siguen disponibles para instalaciones limpias y actualizaciones manuales. En Móvil, los sonidos se instalan dentro de la aplicación sin pedir permiso de almacenamiento; las actualizaciones de Android abren la descarga directa o la página de Google Play que indique el servidor.
+
+Mejoras:
+
+* Los mensajes de chat y los anuncios compartidos ahora usan de forma coherente el punto de vista de quien escucha. Tus propios mensajes y acciones dicen «Tú», mientras que los demás oyen tu nombre de jugador. Esto se aplica al Chat global, Chat de mesa, Chat de equipo, cambios de mesa y anfitrión, moderación, chat de voz, temporizadores y acciones de juego compatibles.
+* Al activar o desactivar el micrófono del chat de voz, ahora se oye un único sonido breve después de que el cambio se complete realmente. Los cambios de canal habituales permanecen en silencio, mientras que las restricciones y los errores siguen anunciándose.
+* Escritorio ahora conserva con más fiabilidad las cuentas y preferencias de inicio de sesión guardadas. La configuración existente se migra automáticamente, un archivo de configuración dañado ya no provoca problemas repetidos al iniciar y cancelar la vista previa de una opción de audio restaura el valor anterior.
+
+Corrección de errores:
+
+* Al restaurar una mesa guardada, la música del juego ya no se detiene nada más abrirse la partida restaurada.
+* Al transferir una sesión activa entre Escritorio, Web y Móvil, una conexión de chat de voz lenta u obsoleta ya no bloquea el dispositivo nuevo.
+* En Cards Against Humanity, el atajo para revisar la carta de pregunta ahora indica claramente cuando no hay ninguna activa.
+
 Martes 6 de octubre de 2026
 
 Novedades:

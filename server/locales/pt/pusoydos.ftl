@@ -150,6 +150,10 @@ pusoydos-loser-gives = { $loser } dá { $count ->
     [one] a carta mais alta { GENDER_TERM($loser_gender, "possessive-determiner") }
    *[other] as { $count } cartas mais altas { GENDER_TERM($loser_gender, "possessive-determiner") }
 } para { $winner }.
+pusoydos-you-give-highest = Você dá { $count ->
+    [one] sua carta mais alta
+   *[other] suas { $count } cartas mais altas
+} para { $winner }.
 pusoydos-winner-gives-back = { $winner } devolve { $count ->
     [one] uma carta
    *[other] { $count } cartas

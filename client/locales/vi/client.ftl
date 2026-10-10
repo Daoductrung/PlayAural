@@ -325,9 +325,9 @@ voice-chat-turn-on-mic = Bật mic
 
 voice-chat-turn-off-mic = Tắt mic
 
-voice-chat-mic-on = Mic đã bật.
+voice-chat-mic-on = Micrô đã bật.
 
-voice-chat-mic-off = Mic đã tắt.
+voice-chat-mic-off = Micrô đã tắt.
 
 chat-global = { $player } nói với tất cả: { $message }
 

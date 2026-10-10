@@ -80,12 +80,15 @@ team-arrangement-select-first = Selecione um membro da equipe primeiro.
 team-arrangement-player-missing = Esse jogador não está mais disponível para a organização de equipes.
 team-arrangement-same-team = Escolha alguém de uma equipe diferente.
 team-arrangement-swap-failed = Não foi possível trocar esses membros da equipe.
+team-arrangement-swapped-player = { $player } trocou { $first } e { $second } de equipe.
+team-arrangement-swapped-you = Você trocou { $first } e { $second } de equipe.
 
 status-box-closed = Informações de status fechadas.
 
 game-leave = Sair do jogo
 
 round-timer-paused = { $player } pausou o jogo (pressione p para iniciar a próxima rodada).
+round-timer-paused-you = Você pausou o jogo (pressione p para iniciar a próxima rodada).
 dice-keeping = Mantendo { $value }.
 dice-rerolling = Rolar novamente { $value }.
 dice-locked = Esse dado está travado e não pode ser alterado.

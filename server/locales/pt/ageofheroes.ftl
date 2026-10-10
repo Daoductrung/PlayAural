@@ -214,6 +214,7 @@ ageofheroes-road-request-received = { $requester } pede permissão para construi
 ageofheroes-road-request-denied-you = Você recusou a solicitação de estrada.
 ageofheroes-road-request-denied = { $denier } recusou sua solicitação de estrada.
 ageofheroes-road-built = { $tribe1 } e { $tribe2 } agora estão conectadas por estrada.
+ageofheroes-road-built-you = Você e { $tribe2 } agora estão conectados por uma estrada.
 ageofheroes-road-no-target = Nenhuma tribo vizinha disponível para construção de estrada.
 ageofheroes-approve = Aprovar
 ageofheroes-deny = Recusar

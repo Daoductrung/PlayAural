@@ -71,6 +71,9 @@ export default {
   "history-buffer-muted-empty": "O buffer {name} está silenciado. Reative-o para mostrar seu histórico.",
 
   "chat-input-label": "Mensagem de chat",
+  "communication-channel-table": "Chat da mesa",
+  "communication-channel-selector": "Selecionar canal de chat",
+  "communication-channel-current": "Canal de chat: {channel}",
   "chat-input-placeholder": "Digite uma mensagem...",
   "btn-chat-send": "Enviar",
   "chat-private": "Mensagem privada de {player}: {message}",
@@ -135,6 +138,7 @@ export default {
   "status-connection-error": "O navegador não conseguiu alcançar o servidor PlayAural. Verifique sua conexão e tente novamente.",
   "status-invalid-url": "O endereço do servidor não está configurado corretamente. Por favor, atualize a página ou contate um administrador.",
   "kicked": "Você foi expulso do servidor.",
+  "banned": "Esta conta foi banida.",
   "welcome": "Bem-vindo, {username}.",
   "main-ambience-volume": "Ambiência: {value}%",
   "main-music-volume": "Música: {value}%",

@@ -71,6 +71,9 @@ export default {
   "history-buffer-muted-empty": "مخزن {name} مكتوم. ألغِ كتمه لعرض سجله.",
 
   "chat-input-label": "رسالة الدردشة",
+  "communication-channel-table": "دردشة الطاولة",
+  "communication-channel-selector": "اختيار قناة الدردشة",
+  "communication-channel-current": "قناة الدردشة: {channel}",
   "chat-input-placeholder": "اكتب رسالة...",
   "btn-chat-send": "إرسال",
   "chat-private": "رسالة خاصة من {player}: {message}",
@@ -135,6 +138,7 @@ export default {
   "status-connection-error": "تعذّر على المتصفح الوصول إلى خادم PlayAural. تحقّق من اتصالك وحاول مجددًا.",
   "status-invalid-url": "عنوان الخادم غير مُهيّأ بشكل صحيح. يرجى تحديث الصفحة أو التواصل مع مسؤول.",
   "kicked": "تم طردك من الخادم.",
+  "banned": "تم حظر هذا الحساب.",
   "welcome": "مرحبًا، {username}.",
   "main-ambience-volume": "الصوت المحيط: {value}%",
   "main-music-volume": "الموسيقى: {value}%",

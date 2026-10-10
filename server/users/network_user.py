@@ -308,6 +308,23 @@ class NetworkUser(User):
 
         self._queue_packet(packet)
 
+    def announce(
+        self,
+        text: str,
+        buffer: str = "game",
+        *,
+        history: bool = True,
+    ) -> None:
+        packet = {
+            "type": "speak",
+            "text": text,
+            "buffer": buffer,
+            "announcer": True,
+        }
+        if not history:
+            packet["history"] = False
+        self._queue_packet(packet)
+
     def send_audio_command(self, command: AudioCommand) -> None:
         """Queue an ordered command from the unified audio protocol."""
         if not self._active:

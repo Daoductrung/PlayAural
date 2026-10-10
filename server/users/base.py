@@ -333,6 +333,27 @@ class User(ABC):
         text = Localization.get(self.locale, message_id, **kwargs)
         self.speak(text, buffer=buffer, history=history)
 
+    def announce(
+        self,
+        text: str,
+        buffer: str = "game",
+        *,
+        history: bool = True,
+    ) -> None:
+        """Speak game commentary with a dedicated announcer when supported."""
+        self.speak(text, buffer=buffer, history=history)
+
+    def announce_l(
+        self,
+        message_id: str,
+        buffer: str = "game",
+        *,
+        history: bool = True,
+        **kwargs,
+    ) -> None:
+        text = Localization.get(self.locale, message_id, **kwargs)
+        self.announce(text, buffer=buffer, history=history)
+
     @abstractmethod
     def send_audio_command(self, command: AudioCommand) -> None:
         """Deliver one validated audio command to this user."""

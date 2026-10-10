@@ -320,7 +320,7 @@ loading an asset.
 ### Server Architecture
 - **`server/core/server.py`** — Main orchestrator, auth routing, menus, reconnect, moderation, MOTD, presence
 - **`server/network/websocket_server.py`** — Async WebSocket transport
-- **`server/games/`** — 51 registered game implementations
+- **`server/games/`** — 52 registered game implementations
 - **`server/game_utils/`** — shared game mixins and helpers
 - **`server/tables/`** — table lifecycle, save/restore, membership
 - **`server/auth/`** — authentication, CAPTCHA checks, password reset, rate limiting
@@ -1288,7 +1288,7 @@ Mobile rules:
   language names; metadata complements it and does not replace it.
 
 ### Game Counts and Catalog
-The server currently registers **51 games**:
+The server currently registers **52 games**, including the real-time spatial-audio Ping Pong game:
 - category ids are `cards`, `dice`, `board`, `poker`, `arcade`, and `misc`
 - the Play menu exposes a persisted category filter with dynamic per-category game counts
 - games usually expose one category through `get_category()`, while `get_categories()` supports future multi-category games

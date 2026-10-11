@@ -503,3 +503,5 @@ ageofheroes-offered-card-unavailable = A carta oferecida não está mais dispon�
 ageofheroes-trade-card-type-mismatch = A carta selecionada não corresponde ao tipo de carta solicitado.
 ageofheroes-trade-card-subtype-mismatch = A carta selecionada não corresponde à carta solicitada.
 ageofheroes-trade-offer-label = { $player }: { $offered } por { $wanted }
+
+ageofheroes-road-built-you = Você e {  } agora estão conectados por estrada.

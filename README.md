@@ -67,6 +67,7 @@ PlayAural currently supports the following languages:
 - Persian (FA) - community translation, maintained by Hamid Rezaei
 - Spanish (ES) - community translation, maintained by UnDuende and Tadeu Junior
 - Portuguese (PT) - community translation, maintained by Tadeu Junior
+- Indonesian (ID) - community translation, maintained by Muhammad and Komunitas PlayAural Indonesia
 - Arabic (AR) - community translation (right-to-left), maintained by the Lumora Nova team
 
 Community translators should follow [TRANSLATING.md](TRANSLATING.md). Partial

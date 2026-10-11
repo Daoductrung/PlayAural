@@ -45,17 +45,24 @@ counts are otherwise unchanged.
   `humanity_white_cards_pt_br.json`
 - Source: [MarcusAldrey/cah-unity](https://github.com/MarcusAldrey/cah-unity/tree/13e6c5b6050b1f223e20a310e257828d6fb6724b/Assets/Files)
 - Revision: `13e6c5b6050b1f223e20a310e257828d6fb6724b`
-- SHA-256 (`black_cards.json`):
+- Original source SHA-256 (`black_cards.json`):
   `f8feca521c559cda060119c67ec5902c3ba37841f819e0c2b12e04d944949e42`
-- SHA-256 (`white_cards.json`):
+- Original source SHA-256 (`white_cards.json`):
   `dd15dc1dc2edc04d1a84a69055753344f1b4935c981cd30d00fe4ebe7b3bf0a2`
-- Imported unchanged as `black_cards.json` and `white_cards.json`.
+- Current vendored SHA-256 (`humanity_black_cards_pt_br.json`):
+  `d05729901b560a343daaee082287735c6ec07309ec93e176cb8963eebea52c58`
+- Current vendored SHA-256 (`humanity_white_cards_pt_br.json`):
+  `fa24d9a6f983511c091075556ff95fe4f3547fc86359424ff88c8a1a55941879`
+- Imported as `black_cards.json` and `white_cards.json`, then corrected by a
+  native Brazilian Portuguese contributor. Card order and structured mechanics
+  remain unchanged.
 - The upstream repository does not declare a repository-wide license. Cards
   Against Humanity writing is distributed under CC BY-NC-SA 4.0.
 
 The source uses `$` as the prompt placeholder. PlayAural converts that marker
-to its canonical `_` placeholder when loading the data. Card wording,
-capitalization, punctuation, and declared pick counts are otherwise unchanged.
+to its canonical `_` placeholder when loading the data. The vendored copy keeps
+the declared pick counts and card ordering while incorporating reviewed spelling
+and punctuation corrections.
 
 ## Runtime integrity rules
 

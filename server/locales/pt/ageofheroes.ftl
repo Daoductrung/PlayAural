@@ -503,4 +503,4 @@ ageofheroes-trade-card-type-mismatch = A carta selecionada não corresponde ao t
 ageofheroes-trade-card-subtype-mismatch = A carta selecionada não corresponde à carta solicitada.
 ageofheroes-trade-offer-label = { $player }: { $offered } por { $wanted }
 
-ageofheroes-road-built-you = Você e {  } agora estão conectados por estrada.
+ageofheroes-road-built-you = Você e { $tribe2 } agora estão conectados por estrada.

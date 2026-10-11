@@ -178,3 +178,7 @@ game-info-no-options = Este jogo não possui opções de configuração personal
 # How to Play (Ctrl+F1)
 how-to-play = Como Jogar
 game-rules-not-available = As regras para {$game} ainda não estão disponíveis.
+
+round-timer-paused-you = Você pausou o jogo (pressione p para iniciar a próxima rodada).
+team-arrangement-swapped-player = {  } trocou {  } e {  } entre as equipes.
+team-arrangement-swapped-you = Você trocou {  } e {  } entre as equipes.

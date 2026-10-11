@@ -39,4 +39,10 @@ export const LOCALE_METADATA = {
     contributors: ["Tadeu Junior"],
     official: false,
   },
+  id: {
+    name: "Indonesian",
+    nativeName: "Bahasa Indonesia",
+    contributors: ["Muhammad", "Komunitas PlayAural Indonesia"],
+    official: false,
+  },
 };

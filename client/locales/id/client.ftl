@@ -216,7 +216,7 @@ update-release-zip-hash-required = Arsip rilis lengkap tidak memiliki checksum t
 update-release-content-manifest-required = Rilis ini tidak menyediakan manifes konten yang valid.
 update-full-fallback-message =
     Pembaruan diferensial yang berukuran lebih kecil tidak dapat diselesaikan: { $error }
-    
+
     Unduh arsip mandiri lengkap sebagai gantinya? Ukuran unduhannya jauh lebih besar dan hanya akan digunakan sebagai pilihan terakhir.
 update-opening-browser = Membuka halaman unduhan rilis di peramban Anda.
 update-browser-open-failed = PlayAural tidak dapat membuka halaman unduhan rilis di peramban Anda.

@@ -1,12 +1,6 @@
 export const DEFAULT_LOCALE = "en";
 
 export const LOCALE_METADATA = {
-  id: {
-    name: "Indonesian",
-    nativeName: "Bahasa Indonesia",
-    contributors: ["Muhammad", "Komunitas PlayAural Indonesia"],
-    official: false,
-  },
   en: {
     name: "English",
     nativeName: "English",
@@ -43,6 +37,12 @@ export const LOCALE_METADATA = {
     name: "Portuguese (Brazil)",
     nativeName: "Português (Brasil)",
     contributors: ["Tadeu Junior"],
+    official: false,
+  },
+  id: {
+    name: "Indonesian",
+    nativeName: "Bahasa Indonesia",
+    contributors: ["Muhammad", "Komunitas PlayAural Indonesia"],
     official: false,
   },
 };

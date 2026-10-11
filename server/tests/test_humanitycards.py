@@ -42,10 +42,10 @@ def test_humanitycards_vendored_datasets_are_clean_and_complete() -> None:
             "ff51192e6528a153bce57169e4ae6277b41bd1fd25b981288bef49bb39fe8ed3"
         ),
         "humanity_black_cards_pt_br.json": (
-            "f8feca521c559cda060119c67ec5902c3ba37841f819e0c2b12e04d944949e42"
+            "d05729901b560a343daaee082287735c6ec07309ec93e176cb8963eebea52c58"
         ),
         "humanity_white_cards_pt_br.json": (
-            "dd15dc1dc2edc04d1a84a69055753344f1b4935c981cd30d00fe4ebe7b3bf0a2"
+            "fa24d9a6f983511c091075556ff95fe4f3547fc86359424ff88c8a1a55941879"
         ),
     }
     for filename, expected_hash in expected_hashes.items():

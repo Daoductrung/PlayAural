@@ -286,3 +286,8 @@ pusoydos-line-format-losses = { $rank }. { $player }: { $losses } { $losses ->
     [one] derrota
    *[other] derrotas
 }
+
+pusoydos-you-give-highest = Você dá { $count ->
+    [one] a sua carta mais alta
+   *[other] as suas { $count } cartas mais altas
+} para { $winner }.

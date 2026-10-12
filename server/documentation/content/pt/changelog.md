@@ -1,5 +1,22 @@
 # Changelog
 
+Segunda-feira, 12 de outubro de 2026
+
+Novidades:
+
+* O indonés agora está disponível no servidor, nos clientes Desktop, Web e Móvel e nos guias para jogadores como uma tradução comunitária de Muhammad e da comunidade PlayAural Indonesia. O conteúdo que ainda não tiver sido traduzido para o indonés usará o inglês.
+* O Breach Point agora inclui um Rádio Tático numerado. Abra-o pelo menu de ações, ou pressione Z no Desktop e na Web, para pedir ao bot disponível mais próximo ou a todo o esquadrão que deem cobertura, avancem, mantenham posição, se reagrupem, recuem ou reportem. Os comandos e as respostas permanecem dentro da equipe, usam a voz posicional de cada combatente e recusam claramente ordens inseguras ou que entrem em conflito com o objetivo.
+
+Melhorias:
+
+* Os bots do Breach Point agora se coordenam com mais determinação em torno dos objetivos, dos passos inimigos, do foco de fogo, das rotações, do fogo cruzado, dos equipamentos, das escolhas de armas e da economia da rodada. Eles se lembram dos comandos táticos pelo tempo adequado, mas ainda abandonam uma ordem quando a situação atual a torna insegura.
+
+Correções de bugs:
+
+* Ao jogar em árabe, adicionar um bot não desconecta mais a partida.
+* No Móvel, os campos de texto do chat e dos jogos agora são limpos corretamente depois que o conteúdo é enviado. Se o envio falhar, o texto permanece disponível para que você tente novamente em vez de perdê-lo.
+* Os menus de compra do Breach Point agora exibem as armas e os equipamentos de cada lado na mesma ordem dos atalhos numéricos, inclusive depois que as equipes trocam de lado.
+
 Sábado, 10 de outubro de 2026 (Atualização 2)
 
 Novidades:

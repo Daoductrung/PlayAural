@@ -1,5 +1,22 @@
 Nhật ký thay đổi
 
+Thứ Hai 12 Tháng Mười 2026
+
+Tính năng mới:
+
+* Tiếng Indonesia giờ đã có trên máy chủ, phần mềm máy tính, phiên bản web, ứng dụng di động và tài liệu người chơi dưới dạng bản dịch cộng đồng của Muhammad và cộng đồng PlayAural Indonesia. Nội dung chưa được dịch sang Tiếng Indonesia sẽ dùng bản tiếng Anh.
+* Điểm Đột Phá giờ có Bộ đàm chiến thuật với các nhóm lệnh đánh số. Mở từ trình đơn hành động, hoặc nhấn Z trên phần mềm máy tính và web, để gọi bot khả dụng gần nhất hay điều phối cả đội yểm trợ, tiến lên, giữ vị trí, tập hợp, rút lui hoặc báo cáo. Lệnh và câu trả lời chỉ được nghe trong đội, dùng giọng riêng phát từ đúng vị trí của từng đặc vụ, đồng thời từ chối rõ ràng lệnh không an toàn hoặc xung đột với mục tiêu.
+
+Cải thiện:
+
+* Bot trong Điểm Đột Phá giờ phối hợp quyết đoán hơn quanh mục tiêu, tiếng bước chân của địch, việc tập trung hỏa lực, đổi hướng, kê góc chéo, trang bị, lựa chọn vũ khí và kinh tế của hiệp. Bot ghi nhớ lệnh chiến thuật trong thời gian phù hợp nhưng vẫn bỏ lệnh khi tình hình thực tế khiến lệnh đó không còn an toàn.
+
+Sửa lỗi:
+
+* Khi chơi bằng Tiếng Ả Rập, việc thêm bot không còn làm trò chơi mất kết nối.
+* Trên di động, ô trò chuyện và ô nhập của trò chơi giờ được xóa đúng sau khi nội dung được gửi đi. Nếu gửi thất bại, phần đã nhập vẫn được giữ lại để bạn thử lại thay vì bị mất.
+* Trình đơn mua trong Điểm Đột Phá giờ sắp xếp vũ khí và Trang bị của mỗi phe theo đúng thứ tự phím số tương ứng, kể cả sau khi hai đội đổi phe.
+
 Thứ Bảy 10 Tháng Mười 2026 (Bản cập nhật 2)
 
 Tính năng mới:

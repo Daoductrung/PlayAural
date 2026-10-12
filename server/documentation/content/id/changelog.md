@@ -1,5 +1,25 @@
 \*\*Riwayat Perubahan\*\*
 
+\*\*Senin 12 Oktober 2026\*\*
+
+\*\*Fitur baru\*\*
+
+Bahasa Indonesia kini tersedia di server, aplikasi desktop, web, seluler, dan panduan pemain sebagai terjemahan komunitas oleh Muhammad dan komunitas PlayAural Indonesia. Konten yang belum diterjemahkan ke dalam bahasa Indonesia akan menggunakan bahasa Inggris.
+
+Breach Point kini menyediakan Radio Taktis bernomor. Buka dari menu tindakan, atau tekan Z pada desktop dan web, untuk meminta bot terdekat yang tersedia atau seluruh regu agar memberi perlindungan, maju, mempertahankan posisi, berkumpul kembali, mundur, atau melaporkan keadaan. Perintah dan jawaban hanya terdengar oleh tim, menggunakan suara spasial sesuai posisi setiap anggota, serta menolak dengan jelas perintah yang tidak aman atau bertentangan dengan tujuan.
+
+\*\*Peningkatan\*\*
+
+Bot Breach Point kini berkoordinasi dengan lebih tegas di sekitar tujuan, langkah kaki musuh, tembakan terfokus, rotasi, tembakan silang, perlengkapan, pilihan senjata, dan ekonomi ronde. Bot mengingat panggilan taktis selama waktu yang sesuai, tetapi tetap meninggalkan perintah ketika keadaan saat itu membuatnya tidak aman.
+
+\*\*Perbaikan bug\*\*
+
+Saat bermain dalam bahasa Arab, menambahkan bot tidak lagi memutuskan koneksi game.
+
+Pada aplikasi seluler, kolom teks obrolan dan game kini dikosongkan dengan benar setelah isinya terkirim. Jika pengiriman gagal, teks tetap tersedia agar Anda dapat mencoba lagi dan tidak kehilangannya.
+
+Menu pembelian Breach Point kini menampilkan senjata dan perlengkapan setiap kubu dalam urutan yang sama dengan pintasan angkanya, termasuk setelah kedua tim bertukar kubu.
+
 \*\*Sabtu 10 Oktober 2026\*\*
 
 \*\*Fitur baru\*\*

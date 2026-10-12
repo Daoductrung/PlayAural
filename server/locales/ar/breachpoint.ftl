@@ -554,3 +554,70 @@ breachpoint-end-draw = النتيجة: تعادل
 breachpoint-end-reason = نتيجة المباراة: { $reason }
 breachpoint-end-score = النتيجة النهائية: { $team_one } { $team_one_score }، { $team_two } { $team_two_score }
 breachpoint-end-rounds = جولات القتال المُلعَبة: { $rounds }
+
+breachpoint-action-tactical-radio = الراديو التكتيكي
+breachpoint-radio-select-category = اختر فئة الراديو. اضغط من 1 إلى 3، أو 0 للإلغاء.
+breachpoint-radio-select-command = اختر أمرًا عبر الراديو. اضغط رقمه، أو 0 للإلغاء.
+breachpoint-radio-numbered-option = { $number }. { $option }
+breachpoint-radio-category-command = راديو الأوامر
+breachpoint-radio-category-command-description = أوامر مباشرة للحركة والتشكيل وطلبات الدعم الفوري.
+breachpoint-radio-category-group = راديو المجموعة
+breachpoint-radio-category-group-description = نسّق وتيرة الفريق بأكمله وتشكيله.
+breachpoint-radio-category-report = راديو البلاغات
+breachpoint-radio-category-report-description = أرسل بلاغات الاحتكاك والحالة، والتأكيدات، والتحذيرات العاجلة.
+breachpoint-radio-cover-me = غطّني
+breachpoint-radio-cover-me-description = اطلب من أقرب بوت متاح دعم موقعك دون التخلي عن مهمة حاسمة.
+breachpoint-radio-take-point = تقدّم أنت
+breachpoint-radio-take-point-description = اطلب من أقرب بوت متاح قيادة التقدم المخطط.
+breachpoint-radio-hold-position = اثبت في هذا الموقع
+breachpoint-radio-hold-position-description = اطلب من أقرب بوت متاح الثبات في منطقتك الحالية وتجهيز زاوية.
+breachpoint-radio-regroup-team = تجمّعوا أيها الفريق
+breachpoint-radio-regroup-team-description = اطلب من كل البوتات المتاحة إعادة التجمع بالقرب منك.
+breachpoint-radio-follow-me = اتبعني
+breachpoint-radio-follow-me-description = اطلب من أقرب بوت متاح اتباعك على مسافة مفيدة تكتيكيًا.
+breachpoint-radio-taking-fire = أتعرّض لإطلاق النار، أحتاج إلى المساعدة
+breachpoint-radio-taking-fire-description = أرسل طلب دعم عاجلًا إلى أقرب بوت متاح.
+breachpoint-radio-go-go-go = هيا، هيا، هيا
+breachpoint-radio-go-go-go-description = مُر البوتات المتاحة بالتقدم على مساراتها التكتيكية الحالية.
+breachpoint-radio-team-fall-back = أيها الفريق، تراجعوا
+breachpoint-radio-team-fall-back-description = مُر البوتات المتاحة بفضّ الاحتكاك والتحرك نحو أرض أكثر أمانًا.
+breachpoint-radio-stick-together = ابقوا معًا أيها الفريق
+breachpoint-radio-stick-together-description = اطلب من كل البوتات المتاحة تضييق تشكيل الفريق حولك.
+breachpoint-radio-get-in-position = اتخذوا مواقعكم وانتظروا
+breachpoint-radio-get-in-position-description = اطلب من البوتات المتاحة احتلال مواقعها التكتيكية المحددة والثبات فيها.
+breachpoint-radio-storm-front = اقتحموا الجبهة
+breachpoint-radio-storm-front-description = مُر البوتات المتاحة بتصعيد الهجوم المخطط بشكل عدواني.
+breachpoint-radio-report-in-team = قدّموا تقريركم أيها الفريق
+breachpoint-radio-report-in-team-description = اطلب من أقرب بوت حي تقديم تقرير عن موقعه وصحته ودرعه.
+breachpoint-radio-affirmative = إيجابي. عُلم
+breachpoint-radio-affirmative-description = أكّد آخر خطة أو نداء من زميل.
+breachpoint-radio-enemy-spotted = رُصد عدو
+breachpoint-radio-enemy-spotted-description = أبلغ عن احتكاك مع العدو واطلب دعمًا قريبًا.
+breachpoint-radio-need-backup = أحتاج إلى دعم
+breachpoint-radio-need-backup-description = أرسل طلب الدعم الأعلى أولوية إلى أقرب بوت متاح.
+breachpoint-radio-sector-clear = القطاع آمن
+breachpoint-radio-sector-clear-description = أخبر زملاءك بأن قطاعك آمن.
+breachpoint-radio-in-position = أنا في موقعي
+breachpoint-radio-in-position-description = أبلغ عن وصولك إلى موقعك التكتيكي.
+breachpoint-radio-reporting-in = أقدّم تقريري
+breachpoint-radio-reporting-in-description = أعلن حضورك وجاهزيتك.
+breachpoint-radio-get-out-of-there = اخرجوا من هناك، إنها على وشك الانفجار
+breachpoint-radio-get-out-of-there-description = أصدر أمر الانسحاب الأعلى أولوية؛ ومع ذلك ترفض البوتات إذا كان الهدف يتطلب منها البقاء.
+breachpoint-radio-negative = سلبي
+breachpoint-radio-negative-description = ارفض أو خالف آخر نداء.
+breachpoint-radio-enemy-down = سقط العدو
+breachpoint-radio-enemy-down-description = أبلغ عن إقصاء عدو.
+breachpoint-error-radio-unavailable = الراديو التكتيكي متاح فقط للاعبين الأحياء في مباراة نشطة.
+breachpoint-error-radio-cooldown = يُعاد شحن الراديو. انتظر { $seconds } { $seconds ->
+    [one] ثانية
+    [two] ثانيتان
+    [few] ثوانٍ
+    [many] ثانية
+   *[other] ثانية
+}.
+breachpoint-radio-command-you = الراديو، أنت: { $command }
+breachpoint-radio-command-player = الراديو، { $player }: { $command }
+breachpoint-radio-command-player-location = الراديو، { $player }: { $command } — { $location }.
+breachpoint-radio-bot-affirmative = الراديو، { $player }: إيجابي. عُلم.
+breachpoint-radio-bot-negative = الراديو، { $player }: سلبي.
+breachpoint-radio-bot-report = الراديو، { $player }: أقدّم تقريري من { $location }؛ الصحة { $health } والدرع { $armor }.

@@ -1,5 +1,22 @@
 Registro de cambios
 
+Lunes 12 de octubre de 2026
+
+Novedades:
+
+* El indonesio ya está disponible en el servidor y en los clientes de escritorio, web y móvil, además de en las guías para jugadores. Es una traducción comunitaria de Muhammad y la comunidad PlayAural Indonesia. El contenido que aún no esté traducido al indonesio se mostrará en inglés.
+* Punto de Ruptura ahora incluye una radio táctica numerada. Ábrela desde el menú de acciones, o pulsa Z en Escritorio y Web, para pedir al bot disponible más cercano o a todo el escuadrón que cubran, avancen, mantengan la posición, se reagrupen, retrocedan o informen. Las órdenes y respuestas permanecen dentro del equipo, usan la voz posicional de cada combatiente y rechazan claramente las órdenes que no sean seguras o entren en conflicto con el objetivo.
+
+Mejoras:
+
+* Los bots de Punto de Ruptura ahora se coordinan con mayor decisión en torno a los objetivos, los pasos enemigos, el fuego concentrado, las rotaciones, el fuego cruzado, el equipamiento, la elección de armas y la economía de la ronda. Recuerdan las órdenes tácticas durante un tiempo adecuado, pero las abandonan si la situación actual hace que ya no sean seguras.
+
+Corrección de errores:
+
+* Al jugar en árabe, añadir un bot ya no desconecta la partida.
+* En Móvil, los campos de texto del chat y de los juegos ahora se vacían correctamente después de enviar su contenido. Si el envío falla, el texto permanece disponible para que puedas intentarlo de nuevo en lugar de perderlo.
+* Los menús de compra de Punto de Ruptura ahora muestran las armas y el equipamiento de cada bando en el mismo orden que sus atajos numéricos, incluso después de que los equipos cambien de bando.
+
 Sábado 10 de octubre de 2026 (Actualización 2)
 
 Novedades:

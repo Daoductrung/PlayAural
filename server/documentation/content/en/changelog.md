@@ -1,5 +1,22 @@
 Changelog
 
+Monday 12 October 2026
+
+New Additions:
+
+* Indonesian is now available across the server, desktop, web, mobile, and player guides as a community translation by Muhammad and the PlayAural Indonesia community. Content not yet translated into Indonesian falls back to English.
+* Breach Point now includes a numbered Tactical radio. Open it from the actions menu, or press Z on Desktop and Web, to ask the nearest available bot or the whole squad to cover, advance, hold, regroup, retreat, or report. Commands and responses stay within the team, use each agent's positional voice, and clearly refuse unsafe orders or orders that conflict with the objective.
+
+Improvements:
+
+* Breach Point bots now coordinate more decisively around objectives, enemy footsteps, focus fire, rotations, crossfires, equipment, weapon choices, and the round economy. They remember tactical calls for an appropriate length of time while still abandoning an order when the live situation makes it unsafe.
+
+Bug Fixes:
+
+* When playing in Arabic, adding a bot no longer disconnects the game.
+* On Mobile, chat and game text fields now clear correctly after their contents are sent. If sending fails, the text remains available so you can try again instead of losing it.
+* Breach Point purchase menus now list every side's weapons and equipment in the same order as their numbered shortcuts, including after the teams switch sides.
+
 Saturday 10 October 2026 (Update 2)
 
 New Additions:

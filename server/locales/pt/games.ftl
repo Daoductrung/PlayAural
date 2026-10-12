@@ -80,8 +80,8 @@ team-arrangement-select-first = Selecione um membro da equipe primeiro.
 team-arrangement-player-missing = Esse jogador não está mais disponível para a organização de equipes.
 team-arrangement-same-team = Escolha alguém de uma equipe diferente.
 team-arrangement-swap-failed = Não foi possível trocar esses membros da equipe.
-team-arrangement-swapped-player = { $player } trocou { $first } e { $second } de equipe.
-team-arrangement-swapped-you = Você trocou { $first } e { $second } de equipe.
+team-arrangement-swapped-player = { $player } trocou { $first } e { $second } entre as equipes.
+team-arrangement-swapped-you = Você trocou { $first } e { $second } entre as equipes.
 
 status-box-closed = Informações de status fechadas.
 
@@ -181,7 +181,3 @@ game-info-no-options = Este jogo não possui opções de configuração personal
 # How to Play (Ctrl+F1)
 how-to-play = Como Jogar
 game-rules-not-available = As regras para {$game} ainda não estão disponíveis.
-
-round-timer-paused-you = Você pausou o jogo (pressione p para iniciar a próxima rodada).
-team-arrangement-swapped-player = { $player } trocou { $first } e { $second } entre as equipes.
-team-arrangement-swapped-you = Você trocou { $first } e { $second } entre as equipes.

@@ -214,7 +214,7 @@ ageofheroes-road-request-received = { $requester } pede permissão para construi
 ageofheroes-road-request-denied-you = Você recusou a solicitação de estrada.
 ageofheroes-road-request-denied = { $denier } recusou sua solicitação de estrada.
 ageofheroes-road-built = { $tribe1 } e { $tribe2 } agora estão conectadas por estrada.
-ageofheroes-road-built-you = Você e { $tribe2 } agora estão conectados por uma estrada.
+ageofheroes-road-built-you = Você e { $tribe2 } agora estão conectados por estrada.
 ageofheroes-road-no-target = Nenhuma tribo vizinha disponível para construção de estrada.
 ageofheroes-approve = Aprovar
 ageofheroes-deny = Recusar
@@ -503,5 +503,3 @@ ageofheroes-offered-card-unavailable = A carta oferecida não está mais dispon�
 ageofheroes-trade-card-type-mismatch = A carta selecionada não corresponde ao tipo de carta solicitado.
 ageofheroes-trade-card-subtype-mismatch = A carta selecionada não corresponde à carta solicitada.
 ageofheroes-trade-offer-label = { $player }: { $offered } por { $wanted }
-
-ageofheroes-road-built-you = Você e { $tribe2 } agora estão conectados por estrada.

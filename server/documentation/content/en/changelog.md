@@ -1,5 +1,25 @@
 Changelog
 
+Friday 16 October 2026
+
+New Additions:
+
+* Help and Feedback is now available from the main menu and in-game Actions menu. Contact the developers to send a private request about accessibility, gameplay, account or connection help, suggestions, or another question. Conversations and replies are saved for your return, updates arrive after sign-in, and you can follow up, close, or reopen a request.
+* A Contact option is now available before sign-in on Desktop, Web, and Mobile, with Telegram and email details that can be read, copied, or opened in the appropriate app. The Web sign-in page also offers direct Windows desktop (ZIP) and Android (APK) downloads.
+
+Improvements:
+
+* Desktop updates now distinguish checking installed files, downloading only the required data, and preparing and verifying the result. Progress begins promptly, shows the actual download size, and uses less processor time and network overhead. Desktop full-download recovery and Mobile sound updates also retry more smoothly on unstable connections.
+* Smaller Breach Point bot squads now coordinate split attacks, support and regroup calls, and responses to sustained footsteps more effectively without abandoning the other objective too readily.
+* Who's at the table now describes table roles without incorrectly calling a reserved seat Online or Offline after its user has left the table.
+
+Bug Fixes:
+
+* Desktop sign-in, registration, and password recovery now report the actual server or network problem instead of a misleading generic verification failure. Planned server restarts also reconnect more quietly and reliably on Desktop, Web, and Mobile.
+* When the game changes while a choice, Actions menu, or status view is open on Mobile, the screen now moves safely to the current menu instead of leaving outdated choices available.
+* Moving an active session to Desktop now restores the table before reconnecting listen-only Voice Chat, preventing a delayed old connection from disrupting the replacement session.
+* The Breach Point beginner guide now gives the correct tactical clock and bomb-fuse length for every team size.
+
 Monday 12 October 2026
 
 New Additions:

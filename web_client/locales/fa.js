@@ -138,10 +138,10 @@ export default {
   "main-reconnecting": "در حال اتصال مجدد...",
   "main-reconnect-failed": "اتصال مجدد ناموفق بود. لطفاً اتصال خود را بررسی کنید و دوباره وارد شوید.",
   "network-error-not-connected": "شما هنوز به سرور PlayAural متصل نشده‌اید.",
-  "network-error-outgoing-blocked": "کلاینت وب یک پیام را قبل از ارسال مسدود کرد زیرا با پروتکل PlayAural مطابقت نداشت. جزئیات: {reason}",
+  "network-error-outgoing-blocked": "کلاینت وب یک پیام را قبل از ارسال مسدود کرد زیرا با پروتکل PlayAural مطابقت نداشت.",
   "network-error-auth-missing": "کلاینت وب نتوانست ورود را شروع کند زیرا پیام تأیید هویت وجود نداشت. صفحه را دوباره بارگذاری کنید و دوباره تلاش کنید.",
-  "network-error-incoming-blocked": "کلاینت وب یک پیام سرور را نادیده گرفت زیرا با پروتکل PlayAural مطابقت نداشت. جزئیات: {reason}",
-  "network-error-invalid-server-message": "سرور PlayAural پیامی ارسال کرد که این مرورگر نتوانست آن را بخواند. اگر منو به‌روزرسانی نمی‌شود، صفحه را دوباره بارگذاری کنید. جزئیات: {reason}",
+  "network-error-incoming-blocked": "کلاینت وب یک پیام سرور را نادیده گرفت زیرا با پروتکل PlayAural مطابقت نداشت.",
+  "network-error-invalid-server-message": "سرور PlayAural پیامی ارسال کرد که این مرورگر نتوانست آن را بخواند. اگر منو به‌روزرسانی نمی‌شود، صفحه را دوباره بارگذاری کنید.",
   "network-error-websocket": "مرورگر یک مشکل موقت اتصال با سرور PlayAural گزارش داد. اگر وارد شده‌اید، کلاینت وب به‌طور خودکار برای اتصال مجدد تلاش می‌کند.",
   "table-created-notify": "یک میز جدید ایجاد شد.",
 

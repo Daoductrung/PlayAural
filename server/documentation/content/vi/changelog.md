@@ -1,5 +1,25 @@
 Nhật ký thay đổi
 
+Thứ Sáu 16 Tháng Mười 2026
+
+Tính năng mới:
+
+* Trợ giúp và góp ý giờ có trong trình đơn chính và trình đơn hành động khi đang chơi. Hãy mở Liên hệ nhà phát triển để gửi yêu cầu riêng tư về trợ năng, luật chơi hoặc lỗi trong trò chơi, tài khoản hay kết nối, đề xuất cải tiến hoặc câu hỏi khác. Cuộc trao đổi và phản hồi được lưu để bạn đọc khi quay lại, thông báo cập nhật sẽ đến sau khi đăng nhập, đồng thời bạn có thể phản hồi tiếp, đóng hoặc mở lại yêu cầu.
+* Trước khi đăng nhập, phần mềm máy tính, phiên bản web và ứng dụng di động giờ có mục Liên hệ với thông tin Telegram và email có thể đọc, sao chép hoặc mở bằng ứng dụng phù hợp. Trang đăng nhập web cũng có liên kết tải trực tiếp Ứng dụng máy tính Windows (ZIP) và Ứng dụng Android (APK).
+
+Cải thiện:
+
+* Bản cập nhật trên máy tính giờ phân biệt rõ lúc kiểm tra tệp đã cài, tải đúng phần dữ liệu cần thiết, rồi chuẩn bị và xác minh kết quả. Tiến độ xuất hiện sớm, hiển thị dung lượng thật cần tải và dùng ít tài nguyên xử lý lẫn mạng hơn. Phương án tải bản đầy đủ trên máy tính và cập nhật âm thanh trên di động cũng thử lại mượt hơn khi kết nối không ổn định.
+* Các đội bot ít người trong Điểm Đột Phá giờ phối hợp đánh chia hướng, nghe lệnh yểm trợ hoặc tập hợp, và phản ứng với tiếng bước chân liên tục hiệu quả hơn mà không quá dễ bỏ trống mục tiêu còn lại.
+* Ai đang ở trong bàn giờ mô tả đúng vai trò tại bàn, không còn gọi nhầm chỗ dành riêng là Trực tuyến hoặc Ngoại tuyến sau khi người dùng đã rời bàn.
+
+Sửa lỗi:
+
+* Đăng nhập, đăng ký và khôi phục mật khẩu trên phần mềm máy tính giờ nêu đúng lỗi từ máy chủ hoặc mạng thay vì thông báo xác minh chung dễ gây hiểu nhầm. Khi máy chủ khởi động lại theo lịch, phần mềm máy tính, phiên bản web và ứng dụng di động cũng kết nối lại yên lặng và ổn định hơn.
+* Khi trò chơi thay đổi trong lúc một lựa chọn, trình đơn hành động hoặc bảng trạng thái đang mở trên di động, màn hình giờ chuyển an toàn sang trình đơn hiện tại thay vì giữ lại các lựa chọn đã cũ.
+* Khi chuyển một phiên đang hoạt động sang phần mềm máy tính, bàn giờ được khôi phục trước khi Trò chuyện thoại kết nối lại ở chế độ chỉ nghe, tránh để kết nối cũ bị chậm làm gián đoạn phiên thay thế.
+* Tài liệu cho người mới của Điểm Đột Phá giờ nêu đúng đồng hồ chiến thuật và thời gian kíp nổ của bom cho mọi quân số của đội.
+
 Thứ Hai 12 Tháng Mười 2026
 
 Tính năng mới:

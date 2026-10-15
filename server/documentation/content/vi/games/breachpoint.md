@@ -163,7 +163,7 @@ Lối đi và đường ngắm là hai thứ khác nhau. Mid nối với Hầm D
 
 Nếu hai đội hòa sau thời gian chính thức, tùy chọn \*\*Cách xử lý trận hòa\*\* của chủ bàn sẽ cho trận kết thúc hòa hoặc bước vào các hiệp phụ MR3 nối tiếp. Mỗi hiệp phụ có ba hiệp đấu cho mỗi phe; đội đạt 4 điểm trong hiệp phụ sẽ thắng, còn tỷ số 3–3 sẽ mở một hiệp phụ mới.
 
-Thời gian chiến thuật thay đổi theo quân số. Trận 2 đấu 2 cho T tám vòng để đặt bom và có kíp nổ bốn vòng sau khi đặt. Trận 3 đấu 3 có bảy vòng trước khi đặt và ba vòng sau khi đặt. Với 4 đấu 4 và 5 đấu 5, thời gian vẫn là sáu vòng trước khi đặt và ba vòng sau khi đặt.
+Đồng hồ chiến thuật thay đổi theo quân số. Trong trận 2 đấu 2 và 3 đấu 3, phe T có bảy vòng chiến thuật để đặt bom, và bom đã đặt có kíp nổ bốn vòng. Trong trận 4 đấu 4, phe T có sáu vòng để đặt bom và kíp nổ kéo dài ba vòng. Trong trận 5 đấu 5, phe T có bảy vòng để đặt bom và kíp nổ kéo dài ba vòng.
 
 \*\*Hành động thông tin\*\*
 

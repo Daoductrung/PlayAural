@@ -153,10 +153,10 @@ export default {
   "main-reconnecting": "جارٍ إعادة الاتصال...",
   "main-reconnect-failed": "فشلت إعادة الاتصال. يرجى التحقق من اتصالك وتسجيل الدخول مجددًا.",
   "network-error-not-connected": "لم تتصل بخادم PlayAural بعد.",
-  "network-error-outgoing-blocked": "حظر عميل الويب رسالة قبل إرسالها لأنها لم تطابق بروتوكول PlayAural. التفاصيل: {reason}",
+  "network-error-outgoing-blocked": "حظر عميل الويب رسالة قبل إرسالها لأنها لم تطابق بروتوكول PlayAural.",
   "network-error-auth-missing": "تعذّر على عميل الويب بدء تسجيل الدخول لأن رسالة التفويض كانت مفقودة. حدّث الصفحة وحاول مجددًا.",
-  "network-error-incoming-blocked": "تجاهل عميل الويب رسالة من الخادم لأنها لم تطابق بروتوكول PlayAural. التفاصيل: {reason}",
-  "network-error-invalid-server-message": "أرسل خادم PlayAural رسالة تعذّر على هذا المتصفح قراءتها. حدّث الصفحة إذا توقّفت القائمة عن التحديث. التفاصيل: {reason}",
+  "network-error-incoming-blocked": "تجاهل عميل الويب رسالة من الخادم لأنها لم تطابق بروتوكول PlayAural.",
+  "network-error-invalid-server-message": "أرسل خادم PlayAural رسالة تعذّر على هذا المتصفح قراءتها. حدّث الصفحة إذا توقّفت القائمة عن التحديث.",
   "network-error-websocket": "أبلغ المتصفح عن مشكلة اتصال مؤقتة بخادم PlayAural. إذا كنت مسجّل الدخول، سيحاول عميل الويب إعادة الاتصال تلقائيًا.",
   "table-created-notify": "تم إنشاء طاولة جديدة.",
 

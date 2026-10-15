@@ -163,7 +163,7 @@ Movement and sight are separate. Mid and Lower Tunnels connect around a blind co
 
 A tied regulation match either ends in a draw or enters repeatable MR3 overtime, according to the host's \*\*Tied match resolution\*\* option. Each MR3 period has three rounds per side; 4 wins takes the period, while 3–3 starts another.
 
-The tactical clock adapts to the squad size. A 2v2 round allows eight tactical rounds before a plant and gives a planted bomb a four-round fuse. A 3v3 round allows seven before the plant and three after it. In 4v4 and 5v5, the clock remains six before the plant and three after it.
+The tactical clock changes with the squad size. In 2v2 and 3v3, T has seven tactical rounds to plant the bomb, and a planted bomb has a four-round fuse. In 4v4, T has six rounds to plant and the fuse lasts three rounds. In 5v5, T has seven rounds to plant and the fuse lasts three rounds.
 
 \*\*Information actions\*\*
 

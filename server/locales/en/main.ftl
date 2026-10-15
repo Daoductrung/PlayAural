@@ -612,6 +612,7 @@ admin-database-storage-category-orphaned-friendships = Orphaned friendship recor
 admin-database-storage-category-orphaned-user-blocks = Orphaned user-block records
 admin-database-storage-category-stale-user-notifications = User notifications older than { $days } days
 admin-database-storage-category-orphaned-user-notifications = Orphaned user-notification records
+admin-database-storage-category-expired-support-activity = Expired or orphaned support submission limits
 admin-database-storage-category-expired-mutes = Expired mute records
 admin-database-storage-category-orphaned-mutes = Orphaned mute records
 admin-database-compact = Compact database and reclaim unused space

@@ -153,10 +153,10 @@ export default {
   "main-reconnecting": "Reconectando...",
   "main-reconnect-failed": "No se pudo reconectar. Revisa tu conexión e inicia sesión de nuevo.",
   "network-error-not-connected": "Aún no estás conectado al servidor de PlayAural.",
-  "network-error-outgoing-blocked": "El cliente web bloqueó un mensaje antes de enviarlo porque no coincidía con el protocolo de PlayAural. Detalles: {reason}",
+  "network-error-outgoing-blocked": "El cliente web bloqueó un mensaje antes de enviarlo porque no coincidía con el protocolo de PlayAural.",
   "network-error-auth-missing": "El cliente web no pudo iniciar el inicio de sesión porque faltaba el mensaje de autorización. Actualiza la página e inténtalo de nuevo.",
-  "network-error-incoming-blocked": "El cliente web ignoró un mensaje del servidor porque no coincidía con el protocolo de PlayAural. Detalles: {reason}",
-  "network-error-invalid-server-message": "El servidor de PlayAural envió un mensaje que este navegador no pudo leer. Actualiza la página si el menú deja de actualizarse. Detalles: {reason}",
+  "network-error-incoming-blocked": "El cliente web ignoró un mensaje del servidor porque no coincidía con el protocolo de PlayAural.",
+  "network-error-invalid-server-message": "El servidor de PlayAural envió un mensaje que este navegador no pudo leer. Actualiza la página si el menú deja de actualizarse.",
   "network-error-websocket": "El navegador informó un problema temporal de conexión con el servidor de PlayAural. Si tienes la sesión iniciada, el cliente web intentará reconectarse automáticamente.",
   "table-created-notify": "Se creó una nueva mesa.",
 

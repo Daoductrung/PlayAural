@@ -612,6 +612,7 @@ admin-database-storage-category-orphaned-friendships = Quan hệ bạn bè khôn
 admin-database-storage-category-orphaned-user-blocks = Bản ghi chặn không còn liên kết với tài khoản
 admin-database-storage-category-stale-user-notifications = Thông báo người dùng cũ hơn { $days } ngày
 admin-database-storage-category-orphaned-user-notifications = Thông báo người dùng không còn liên kết với tài khoản
+admin-database-storage-category-expired-support-activity = Dữ liệu giới hạn gửi yêu cầu hỗ trợ đã hết hạn hoặc không còn chủ sở hữu
 admin-database-storage-category-expired-mutes = Bản ghi tắt tiếng đã hết hạn
 admin-database-storage-category-orphaned-mutes = Bản ghi tắt tiếng không còn liên kết với tài khoản
 admin-database-compact = Thu gọn cơ sở dữ liệu và thu hồi dung lượng trống

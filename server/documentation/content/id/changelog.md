@@ -1,5 +1,31 @@
 \*\*Riwayat Perubahan\*\*
 
+\*\*Jumat 16 Oktober 2026\*\*
+
+\*\*Fitur baru\*\*
+
+Bantuan dan Masukan kini tersedia dari menu utama serta menu Tindakan di dalam game. Buka Hubungi Pengembang untuk mengirim permintaan pribadi mengenai aksesibilitas, permainan, bantuan akun atau koneksi, saran, maupun pertanyaan lain. Percakapan dan balasan disimpan agar dapat dibaca saat Anda kembali. Pembaruan disampaikan setelah Anda masuk, dan Anda dapat melanjutkan, menutup, atau membuka kembali suatu permintaan.
+
+Pilihan Kontak kini tersedia sebelum Anda masuk pada aplikasi desktop, web, dan seluler. Informasi Telegram dan email dapat dibaca, disalin, atau dibuka dalam aplikasi yang sesuai. Halaman masuk web juga menyediakan unduhan langsung untuk desktop Windows (ZIP) dan Android (APK).
+
+\*\*Peningkatan\*\*
+
+Pembaruan desktop kini membedakan proses pemeriksaan file yang terinstal, pengunduhan hanya data yang diperlukan, serta penyiapan dan verifikasi hasil. Indikator kemajuan dimulai lebih cepat, menampilkan ukuran unduhan sebenarnya, dan menggunakan lebih sedikit waktu prosesor serta sumber daya jaringan. Pemulihan melalui unduhan lengkap pada desktop dan pembaruan suara pada perangkat seluler juga mengulangi proses dengan lebih lancar pada koneksi yang tidak stabil.
+
+Regu bot Breach Point yang lebih kecil kini mengoordinasikan serangan terpisah, permintaan bantuan dan berkumpul kembali, serta tanggapan terhadap suara langkah kaki yang terus berlanjut dengan lebih baik, tanpa terlalu mudah meninggalkan tujuan lainnya.
+
+Menu Siapa di meja kini menjelaskan peran peserta tanpa keliru menyebut kursi yang dipesan sebagai Online atau Offline setelah penggunanya meninggalkan meja.
+
+\*\*Perbaikan bug\*\*
+
+Proses masuk, pendaftaran, dan pemulihan kata sandi pada desktop kini melaporkan masalah server atau jaringan yang sebenarnya, bukan kesalahan verifikasi umum yang menyesatkan. Setelah server dimulai ulang sesuai jadwal, aplikasi desktop, web, dan seluler juga terhubung kembali dengan lebih tenang dan andal.
+
+Jika game berubah ketika pilihan, menu Tindakan, atau tampilan status sedang terbuka pada perangkat seluler, layar kini berpindah dengan aman ke menu saat ini, bukan membiarkan pilihan lama tetap tersedia.
+
+Ketika sesi aktif dipindahkan ke desktop, meja kini dipulihkan sebelum Obrolan Suara dalam mode dengar saja dihubungkan kembali. Dengan demikian, koneksi lama yang terlambat tidak mengganggu sesi pengganti.
+
+Panduan pemula Breach Point kini mencantumkan batas waktu taktis dan waktu ledak bom yang benar untuk setiap ukuran tim.
+
 \*\*Senin 12 Oktober 2026\*\*
 
 \*\*Fitur baru\*\*

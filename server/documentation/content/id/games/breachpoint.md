@@ -168,7 +168,7 @@ Pergerakan dan pandangan memiliki jalur yang berbeda. Mid dan Lower Tunnels terh
 
 Pertandingan yang seri setelah ronde normal dapat berakhir seri atau dilanjutkan dengan babak tambahan MR3 berulang, sesuai pengaturan Penyelesaian skor seri dari pemilik meja. Setiap periode MR3 memiliki tiga ronde per kubu. Empat kemenangan memenangkan periode tersebut, sedangkan skor 3 sama memulai periode baru.
 
-Batas waktu taktis menyesuaikan ukuran regu. Dalam 2 lawan 2, tersedia delapan ronde taktis sebelum pemasangan dan empat ronde setelah bom dipasang. Dalam 3 lawan 3, tersedia tujuh ronde sebelum pemasangan dan tiga setelahnya. Dalam 4 lawan 4 dan 5 lawan 5, tersedia enam ronde sebelum pemasangan dan tiga setelahnya.
+Batas waktu taktis menyesuaikan ukuran regu. Dalam 2 lawan 2 dan 3 lawan 3, T memiliki tujuh ronde taktis untuk memasang bom, lalu waktu ledak bom berlangsung empat ronde. Dalam 4 lawan 4, T memiliki enam ronde untuk memasang bom dan waktu ledaknya berlangsung tiga ronde. Dalam 5 lawan 5, T memiliki tujuh ronde untuk memasang bom dan waktu ledaknya berlangsung tiga ronde.
 
 \*\*Tindakan informasi\*\*
 

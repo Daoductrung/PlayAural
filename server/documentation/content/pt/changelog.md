@@ -1,5 +1,25 @@
 # Changelog
 
+Sexta-feira, 16 de outubro de 2026
+
+Novidades:
+
+* Ajuda e feedback agora está disponível no menu principal e no menu Ações durante o jogo. Abra Entrar em contato com os desenvolvedores para enviar uma solicitação privada sobre acessibilidade, jogabilidade, ajuda com a conta ou a conexão, sugestões ou outra pergunta. As conversas e respostas ficam salvas para quando você voltar, as atualizações chegam depois do login e você pode continuar, fechar ou reabrir uma solicitação.
+* Agora há uma opção Contato antes do login nos clientes Desktop, Web e Móvel, com dados do Telegram e do e-mail que podem ser lidos, copiados ou abertos no aplicativo adequado. A página de login da Web também oferece downloads diretos para o Desktop do Windows (ZIP) e o Android (APK).
+
+Melhorias:
+
+* As atualizações do Desktop agora diferenciam a verificação dos arquivos instalados, o download apenas dos dados necessários e a preparação e verificação do resultado. O progresso começa rapidamente, mostra o tamanho real do download e usa menos tempo de processador e recursos de rede. A recuperação por download completo no Desktop e as atualizações de sons no Móvel também repetem as tentativas com mais fluidez em conexões instáveis.
+* Os esquadrões menores de bots do Breach Point agora coordenam melhor os ataques divididos, os pedidos de apoio e reagrupamento e as respostas a passos persistentes, sem abandonar o outro objetivo com tanta facilidade.
+* Quem está na mesa agora descreve as funções na mesa sem chamar incorretamente um assento reservado de Online ou Offline depois que seu usuário deixa a mesa.
+
+Correções de bugs:
+
+* O login, o cadastro e a recuperação de senha no Desktop agora informam o problema real do servidor ou da rede, em vez de um erro genérico e enganoso de verificação. As reinicializações programadas do servidor também reconectam de forma mais silenciosa e confiável no Desktop, na Web e no Móvel.
+* Quando o jogo muda enquanto uma escolha, o menu Ações ou uma visualização de status está aberta no Móvel, a tela agora vai com segurança para o menu atual, em vez de manter opções desatualizadas disponíveis.
+* Ao mover uma sessão ativa para o Desktop, a mesa agora é restaurada antes de o Chat de Voz no modo somente escuta ser reconectado, evitando que uma conexão antiga e atrasada interrompa a sessão substituta.
+* O guia para iniciantes do Breach Point agora informa corretamente a duração do relógio tático e do pavio da bomba para cada tamanho de equipe.
+
 Segunda-feira, 12 de outubro de 2026
 
 Novidades:

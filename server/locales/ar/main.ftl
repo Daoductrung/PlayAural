@@ -614,6 +614,7 @@ admin-database-storage-category-orphaned-friendships = سجلات الصداقة
 admin-database-storage-category-orphaned-user-blocks = سجلات حظر المستخدمين اليتيمة
 admin-database-storage-category-stale-user-notifications = تنبيهات المستخدمين الأقدم من { $days } يوماً
 admin-database-storage-category-orphaned-user-notifications = سجلات تنبيهات المستخدمين اليتيمة
+admin-database-storage-category-expired-support-activity = حدود إرسال طلبات الدعم المنتهية الصلاحية أو اليتيمة
 admin-database-storage-category-expired-mutes = سجلات الكتم المنتهية الصلاحية
 admin-database-storage-category-orphaned-mutes = سجلات الكتم اليتيمة
 admin-database-compact = ضغط قاعدة البيانات واستعادة المساحة غير المستخدمة

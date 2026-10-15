@@ -43,3 +43,15 @@ Jika Anda baru mulai bermain, lanjutkan dengan membaca \*\*Kontrol Umum\*\*. Pan
 \*\*Komunitas\*\*
 
 PlayAural ingin menjadi tempat yang ramah bagi pengguna baru maupun berpengalaman. Sebelum mulai bermain bersama, luangkan waktu untuk membaca \*\*Aturan Komunitas\*\* agar Anda mengetahui perilaku yang diharapkan di meja dan dalam obrolan.
+
+\*\*Bantuan dan Masukan\*\*
+
+Buka Bantuan dan Masukan dari menu utama atau dari menu Tindakan ketika Anda berada di meja. Dokumentasi berisi panduan penggunaan. Hubungi Pengembang mengumpulkan permintaan dan balasan Anda dalam satu tempat.
+
+Pilih Permintaan Baru, pilih kategori yang paling sesuai, tulis subjek singkat dan pesan, lalu tinjau dan konfirmasikan. Anda dapat mengedit subjek atau pesan sebelum mengirimnya. Anda dapat melaporkan masalah aksesibilitas atau audio, bertanya tentang permainan atau akun, menyarankan peningkatan, maupun mengajukan pertanyaan lain kepada pengembang. Jangan kirim kata sandi atau kode pengaturan ulang. Gunakan Laporkan Pengguna untuk melaporkan pelanggaran oleh pengguna lain.
+
+Pemilih Status menampilkan permintaan yang menunggu pengembang, menunggu balasan Anda, telah ditutup, atau semua status. Buka pemilih, pilih nilai, lalu Anda akan kembali ke daftar yang telah diperbarui. Perbarui Daftar memeriksa balasan baru dan mengumumkan ketika daftar selesai diperbarui. Buka permintaan untuk membaca pesan terbaru terlebih dahulu, menambahkan balasan, menutupnya jika Anda tidak lagi memerlukan bantuan, atau membukanya kembali nanti. Ini bukan obrolan langsung: pengembang dapat membalas ketika Anda sedang offline. Setelah Anda masuk, pemberitahuan menunggu beberapa detik agar sambutan dan pengumuman wajib dapat selesai. Pemberitahuan tidak pernah memindahkan fokus menu.
+
+Percakapan yang terbuka diperbarui secara otomatis ketika balasan tiba dan tetap mempertahankan posisi baca Anda. Anda dapat menelusuri pesan lama tanpa dipindahkan ke balasan terbaru. Jika permintaan berubah ketika Anda sedang menulis, draf Anda tetap tersedia untuk ditinjau sebelum dikirim.
+
+Permintaan Anda bersifat pribadi antara Anda dan pengembang. Percakapan yang ditutup tetap tersedia kecuali pengembang menghapusnya secara permanen. Jika Anda mencapai batas permintaan atau pesan, pengumuman akan menjelaskan batas yang berlaku dan cara melanjutkan. Jika memungkinkan, balaslah dalam percakapan yang sudah ada.

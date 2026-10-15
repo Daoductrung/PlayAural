@@ -601,6 +601,7 @@ admin-database-storage-category-orphaned-friendships = Registros de amizade órf
 admin-database-storage-category-orphaned-user-blocks = Registros de bloqueio de usuário órfãos
 admin-database-storage-category-stale-user-notifications = Notificações de usuário com mais de { $days } dias
 admin-database-storage-category-orphaned-user-notifications = Registros de notificação de usuário órfãos
+admin-database-storage-category-expired-support-activity = Limites expirados ou órfãos de envio de solicitações de suporte
 admin-database-storage-category-expired-mutes = Registros de silenciamento expirados
 admin-database-storage-category-orphaned-mutes = Registros de silenciamento órfãos
 admin-database-compact = Compactar banco de dados e recuperar espaço não usado

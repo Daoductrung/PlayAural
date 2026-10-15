@@ -1,5 +1,25 @@
 Registro de cambios
 
+Viernes 16 de octubre de 2026
+
+Novedades:
+
+* Ayuda y comentarios ya está disponible desde el menú principal y desde el menú Acciones durante una partida. Abre Contactar con los desarrolladores para enviar una solicitud privada sobre accesibilidad, jugabilidad, ayuda con la cuenta o la conexión, sugerencias u otra pregunta. Las conversaciones y las respuestas se guardan para cuando regreses, las novedades llegan después de iniciar sesión y puedes continuar, cerrar o volver a abrir una solicitud.
+* Ahora hay una opción de Contacto antes de iniciar sesión en los clientes de escritorio, web y móvil, con datos de Telegram y correo electrónico que se pueden leer, copiar o abrir en la aplicación correspondiente. La página de inicio de sesión web también ofrece descargas directas para el escritorio de Windows (ZIP) y Android (APK).
+
+Mejoras:
+
+* Las actualizaciones de escritorio ahora distinguen entre comprobar los archivos instalados, descargar solo los datos necesarios y preparar y verificar el resultado. El progreso comienza pronto, muestra el tamaño real de la descarga y usa menos tiempo de procesador y menos recursos de red. La recuperación mediante una descarga completa en escritorio y las actualizaciones de sonidos en móvil también reintentan con mayor fluidez cuando la conexión es inestable.
+* Los escuadrones pequeños de bots de Punto de Ruptura ahora coordinan mejor los ataques divididos, las llamadas de apoyo y reagrupación y las respuestas a pasos continuos, sin abandonar el otro objetivo con demasiada facilidad.
+* Quién está en la mesa ahora describe las funciones de la mesa sin llamar incorrectamente En línea o Desconectado a un asiento reservado después de que su usuario haya abandonado la mesa.
+
+Correcciones de errores:
+
+* El inicio de sesión, el registro y la recuperación de contraseña en escritorio ahora muestran el problema real del servidor o de la red en lugar de un error genérico de verificación engañoso. Los reinicios programados del servidor también vuelven a conectar de forma más silenciosa y confiable en escritorio, web y móvil.
+* Cuando el juego cambia mientras hay una elección, el menú Acciones o una vista de estado abierta en móvil, la pantalla pasa de forma segura al menú actual en vez de dejar disponibles opciones obsoletas.
+* Al trasladar una sesión activa a escritorio, ahora se restaura la mesa antes de volver a conectar el chat de voz en modo de solo escucha, para evitar que una conexión anterior demorada interrumpa la sesión que la reemplaza.
+* La guía para principiantes de Punto de Ruptura ahora indica correctamente la duración del reloj táctico y de la mecha de la bomba para cada tamaño de equipo.
+
 Lunes 12 de octubre de 2026
 
 Novedades:

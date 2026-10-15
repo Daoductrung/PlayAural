@@ -608,6 +608,7 @@ admin-database-storage-category-orphaned-friendships = Catatan pertemanan yang t
 admin-database-storage-category-orphaned-user-blocks = Catatan pemblokiran pengguna yang tidak lagi memiliki akun terkait
 admin-database-storage-category-stale-user-notifications = Notifikasi pengguna lebih lama dari { $days } hari
 admin-database-storage-category-orphaned-user-notifications = Catatan pemberitahuan yang tidak lagi memiliki akun terkait
+admin-database-storage-category-expired-support-activity = Batas pengiriman permintaan dukungan yang kedaluwarsa atau tidak lagi terkait dengan akun
 admin-database-storage-category-expired-mutes = Catatan pembisuan yang telah kedaluwarsa
 admin-database-storage-category-orphaned-mutes = Catatan pembisuan yang tidak lagi memiliki akun terkait
 admin-database-compact = Padatkan basis data untuk mengosongkan ruang yang tidak terpakai

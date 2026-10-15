@@ -163,7 +163,7 @@ Movimento e visão são separados. Meio e Túneis Inferiores se conectam em torn
 
 Uma partida regulamentar empatada termina em empate ou entra em prorrogação MR3 repetível, conforme a opção \*\*Resolução de empate\* do anfitrião. Cada período MR3 tem três rodadas por lado; 4 vitórias levam o período, enquanto 3–3 inicia outro.
 
-O relógio tático se adapta ao tamanho do esquadrão. Uma rodada 2v2 permite oito rodadas táticas antes do plantio e dá à bomba plantada um pavio de quatro rodadas. Uma rodada 3v3 permite sete antes do plantio e três depois dele. Em 4v4 e 5v5, o relógio continua em seis antes do plantio e três depois dele.
+O relógio tático se adapta ao tamanho do esquadrão. Em 2v2 e 3v3, T tem sete rodadas táticas para plantar, e o pavio da bomba dura quatro rodadas. Em 4v4, T tem seis rodadas para plantar, e o pavio dura três. Em 5v5, T tem sete rodadas para plantar, e o pavio dura três.
 
 \*\*Ações de informação\*\*
 

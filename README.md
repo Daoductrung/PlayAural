@@ -38,13 +38,13 @@ PlayAural is designed so the full state of the platform can be followed without 
 
 ## Game Catalog
 
-PlayAural currently includes **51 games** across backend categories:
+PlayAural currently includes **52 games** across backend categories:
 
 - Card games such as BANG! The Bullet, Blackjack, Crazy Eights, UNO, Skip-Bo, Flip 7, Exploding Kittens, Pusoy Dos, Tien Len, Scopa, Ninety Nine, Mile by Mile, Citadels, Coup, Dead Man's Deck, Dominos, Nine, 21, Cards Against Humanity, and Age of Heroes
 - Poker games such as Texas Hold'em, Five Card Draw, and Dead Man's Poker
 - Dice games such as Zombie Dice, Dead Man's Dice, Farkle, Bunko, Yahtzee, Pig, Left Center Right, Color Game, Toss Up, Tradeoff, Threes, and 1-4-24
 - Board games such as Breach Point, Monopoly, Chess, Battleship, Backgammon, Senet, Sorry!, Ludo, and Snakes and Ladders
-- Original arcade-style titles such as Battle, Chaos Bear, Light Turret, and Pirates of the Lost Seas
+- Original arcade-style titles such as Battle, Chaos Bear, Light Turret, Pirates of the Lost Seas, and the spatial-audio Ping Pong game
 - Miscellaneous games such as Rolling Balls, Metal Pipe, and Bingo
 
 The Play menu includes a persisted category filter with dynamic game counts so players can quickly narrow the catalog by genre.

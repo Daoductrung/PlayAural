@@ -70,7 +70,8 @@ team-arrangement-member-option = { $player }, { $team }, { $selected }
 team-arrangement-selected = selected
 team-arrangement-not-selected = not selected
 team-arrangement-member-selected = { $player } from { $team } selected. Choose a player from another team to swap with.
-team-arrangement-swapped = { $first } and { $second } have swapped teams.
+team-arrangement-swapped-player = { $player } swapped { $first } and { $second } between teams.
+team-arrangement-swapped-you = You swapped { $first } and { $second } between teams.
 team-arrangement-cancelled = Team arrangement cancelled.
 team-arrangement-cancelled-roster = Team arrangement cancelled because the player list changed.
 team-arrangement-refreshed = The player list changed. Team arrangement has been refreshed.
@@ -86,6 +87,7 @@ status-box-closed = Status information closed.
 game-leave = Leave game
 
 round-timer-paused = { $player } has paused the game (press p to start the next round).
+round-timer-paused-you = You paused the game (press p to start the next round).
 dice-keeping = Keeping { $value }.
 dice-rerolling = Rerolling { $value }.
 dice-locked = That die is locked and cannot be changed.
@@ -178,3 +180,6 @@ game-info-no-options = This game has no custom configuration options.
 # How to Play (Ctrl+F1)
 how-to-play = How to Play
 game-rules-not-available = Rules for {$game} are not available yet.
+
+# Compatibility strings retained until the public runtime adopts the newer message ids.
+team-arrangement-swapped = { $first } and { $second } have swapped teams.

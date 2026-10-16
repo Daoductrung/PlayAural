@@ -1,5 +1,77 @@
 Registro de cambios
 
+Viernes 16 de octubre de 2026
+
+Novedades:
+
+* Ayuda y comentarios ya está disponible desde el menú principal y desde el menú Acciones durante una partida. Abre Contactar con los desarrolladores para enviar una solicitud privada sobre accesibilidad, jugabilidad, ayuda con la cuenta o la conexión, sugerencias u otra pregunta. Las conversaciones y las respuestas se guardan para cuando regreses, las novedades llegan después de iniciar sesión y puedes continuar, cerrar o volver a abrir una solicitud.
+* Ahora hay una opción de Contacto antes de iniciar sesión en los clientes de escritorio, web y móvil, con datos de Telegram y correo electrónico que se pueden leer, copiar o abrir en la aplicación correspondiente. La página de inicio de sesión web también ofrece descargas directas para el escritorio de Windows (ZIP) y Android (APK).
+
+Mejoras:
+
+* Las actualizaciones de escritorio ahora distinguen entre comprobar los archivos instalados, descargar solo los datos necesarios y preparar y verificar el resultado. El progreso comienza pronto, muestra el tamaño real de la descarga y usa menos tiempo de procesador y menos recursos de red. La recuperación mediante una descarga completa en escritorio y las actualizaciones de sonidos en móvil también reintentan con mayor fluidez cuando la conexión es inestable.
+* Los escuadrones pequeños de bots de Punto de Ruptura ahora coordinan mejor los ataques divididos, las llamadas de apoyo y reagrupación y las respuestas a pasos continuos, sin abandonar el otro objetivo con demasiada facilidad.
+* Quién está en la mesa ahora describe las funciones de la mesa sin llamar incorrectamente En línea o Desconectado a un asiento reservado después de que su usuario haya abandonado la mesa.
+
+Correcciones de errores:
+
+* El inicio de sesión, el registro y la recuperación de contraseña en escritorio ahora muestran el problema real del servidor o de la red en lugar de un error genérico de verificación engañoso. Los reinicios programados del servidor también vuelven a conectar de forma más silenciosa y confiable en escritorio, web y móvil.
+* Cuando el juego cambia mientras hay una elección, el menú Acciones o una vista de estado abierta en móvil, la pantalla pasa de forma segura al menú actual en vez de dejar disponibles opciones obsoletas.
+* Al trasladar una sesión activa a escritorio, ahora se restaura la mesa antes de volver a conectar el chat de voz en modo de solo escucha, para evitar que una conexión anterior demorada interrumpa la sesión que la reemplaza.
+* La guía para principiantes de Punto de Ruptura ahora indica correctamente la duración del reloj táctico y de la mecha de la bomba para cada tamaño de equipo.
+
+Lunes 12 de octubre de 2026
+
+Novedades:
+
+* El indonesio ya está disponible en el servidor y en los clientes de escritorio, web y móvil, además de en las guías para jugadores. Es una traducción comunitaria de Muhammad y la comunidad PlayAural Indonesia. El contenido que aún no esté traducido al indonesio se mostrará en inglés.
+* Punto de Ruptura ahora incluye una radio táctica numerada. Ábrela desde el menú de acciones, o pulsa Z en Escritorio y Web, para pedir al bot disponible más cercano o a todo el escuadrón que cubran, avancen, mantengan la posición, se reagrupen, retrocedan o informen. Las órdenes y respuestas permanecen dentro del equipo, usan la voz posicional de cada combatiente y rechazan claramente las órdenes que no sean seguras o entren en conflicto con el objetivo.
+
+Mejoras:
+
+* Los bots de Punto de Ruptura ahora se coordinan con mayor decisión en torno a los objetivos, los pasos enemigos, el fuego concentrado, las rotaciones, el fuego cruzado, el equipamiento, la elección de armas y la economía de la ronda. Recuerdan las órdenes tácticas durante un tiempo adecuado, pero las abandonan si la situación actual hace que ya no sean seguras.
+
+Corrección de errores:
+
+* Al jugar en árabe, añadir un bot ya no desconecta la partida.
+* En Móvil, los campos de texto del chat y de los juegos ahora se vacían correctamente después de enviar su contenido. Si el envío falla, el texto permanece disponible para que puedas intentarlo de nuevo en lugar de perderlo.
+* Los menús de compra de Punto de Ruptura ahora muestran las armas y el equipamiento de cada bando en el mismo orden que sus atajos numéricos, incluso después de que los equipos cambien de bando.
+
+Sábado 10 de octubre de 2026 (Actualización 2)
+
+Novedades:
+
+* El árabe ya está disponible en el servidor y en los clientes de escritorio, web y móvil, además de en las guías para jugadores. Es una traducción comunitaria de derecha a izquierda mantenida por el equipo Lumora Nova. El contenido que aún no esté traducido al árabe se mostrará en inglés.
+
+Mejoras:
+
+* Al activar o desactivar el micrófono del chat de voz, el cambio ahora se confirma con un único mensaje hablado y un sonido breves, una vez que realmente se haya completado. Los cambios de canal habituales siguen realizándose en silencio.
+
+Corrección de errores:
+
+* Cuando una versión antigua de Escritorio o Móvil necesita actualizarse, ahora abre correctamente la descarga completa sin anunciar desconexiones una y otra vez. Escritorio tampoco informa de un tiempo de espera agotado justo después de aceptar la actualización.
+* En Android, las actualizaciones de sonidos dentro de la aplicación ahora continúan de forma fiable en segundo plano, y los sonidos largos conservan todo su posicionamiento tridimensional en lugar de volver inesperadamente a la reproducción normal.
+* El chat de voz de equipo ya no interrumpe un micrófono activo cuando cambia la composición de jugadores o bots de otro equipo.
+
+Sábado 10 de octubre de 2026
+
+Novedades:
+
+* Punto de Ruptura ahora incluye un chat de equipo privado, tanto por texto como por voz. Usa el selector de canal junto al campo de chat, o Alt+T en Escritorio y Web, para cambiar entre Chat de mesa y Chat de equipo sin abandonar la mesa. Seguirás oyendo todos los canales de voz a los que tengas permiso para entrar, pero tu micrófono solo transmitirá al canal seleccionado; el juego volverá al Chat de mesa cuando deje de existir un canal privado.
+* Las actualizaciones ahora consumen muchos menos datos. Escritorio y Móvil reutilizan los sonidos ya instalados y solo descargan los archivos de audio que hayan cambiado. Las actualizaciones de la aplicación de Escritorio también descargan solo el contenido modificado, se reanudan de forma segura tras una interrupción, restauran la versión anterior si la nueva no puede iniciarse y piden permiso antes de recurrir al ZIP independiente completo como última opción. El progreso hablado se limita a intervalos del diez por ciento, mientras que las versiones ZIP completas siguen disponibles para instalaciones limpias y actualizaciones manuales. En Móvil, los sonidos se instalan dentro de la aplicación sin pedir permiso de almacenamiento; las actualizaciones de Android abren la descarga directa o la página de Google Play que indique el servidor.
+
+Mejoras:
+
+* Los mensajes de chat y los anuncios compartidos ahora usan de forma coherente el punto de vista de quien escucha. Tus propios mensajes y acciones dicen «Tú», mientras que los demás oyen tu nombre de jugador. Esto se aplica al Chat global, Chat de mesa, Chat de equipo, cambios de mesa y anfitrión, moderación, chat de voz, temporizadores y acciones de juego compatibles.
+* Al activar o desactivar el micrófono del chat de voz, ahora se oye un único sonido breve después de que el cambio se complete realmente. Los cambios de canal habituales permanecen en silencio, mientras que las restricciones y los errores siguen anunciándose.
+* Escritorio ahora conserva con más fiabilidad las cuentas y preferencias de inicio de sesión guardadas. La configuración existente se migra automáticamente, un archivo de configuración dañado ya no provoca problemas repetidos al iniciar y cancelar la vista previa de una opción de audio restaura el valor anterior.
+
+Corrección de errores:
+
+* Al restaurar una mesa guardada, la música del juego ya no se detiene nada más abrirse la partida restaurada.
+* Al transferir una sesión activa entre Escritorio, Web y Móvil, una conexión de chat de voz lenta u obsoleta ya no bloquea el dispositivo nuevo.
+* En Cards Against Humanity, el atajo para revisar la carta de pregunta ahora indica claramente cuando no hay ninguna activa.
+
 Martes 6 de octubre de 2026
 
 Novedades:

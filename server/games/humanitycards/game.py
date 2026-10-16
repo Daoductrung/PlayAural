@@ -33,6 +33,7 @@ from ..registry import register_game
 
 _humanity_packs: dict[str, list[dict]] = {}
 CAH_SOUND_DIR = "game_humanitycards"
+SOUND_MUSIC = "game_3cardpoker/mus.ogg"
 CARD_LANGUAGES = ("en", "es", "pt-BR")
 DEFAULT_ENGLISH_PACK = "CAH Main Deck: US v3.0"
 MIN_PLAYERS = 3
@@ -1442,6 +1443,8 @@ class HumanityCardsGame(Game):
     def _is_view_enabled(self, player: Player) -> str | None:
         if self.status != "playing":
             return "action-not-playing"
+        if self.current_black_card is None:
+            return "hc-no-question-card"
         return None
 
     def _is_view_hidden(self, player: Player) -> Visibility:
@@ -1618,7 +1621,7 @@ class HumanityCardsGame(Game):
 
         # Collect submitted card texts
         submitted_texts = []
-        # Sort indices in selection order (the order they were picked)
+        # Preserve the order in which cards were selected.
         for idx in hcp.selected_indices:
             if idx < len(hcp.hand):
                 card = hcp.hand[idx]
@@ -1904,7 +1907,7 @@ class HumanityCardsGame(Game):
             self._deal_to_hand_size(hp)
 
         # Play music
-        self.play_music("game_3cardpoker/mus.ogg")
+        self.play_music(SOUND_MUSIC)
 
         # Start first round
         self._start_round()

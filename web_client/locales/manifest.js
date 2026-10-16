@@ -13,6 +13,13 @@ export const LOCALE_METADATA = {
     contributors: ["Trung", "PlayAural core team"],
     official: true,
   },
+  ar: {
+    name: "Arabic",
+    nativeName: "العربية",
+    direction: "rtl",
+    contributors: ["Lumora Nova team"],
+    official: false,
+  },
   fa: {
     name: "Persian",
     nativeName: "فارسی",
@@ -30,6 +37,12 @@ export const LOCALE_METADATA = {
     name: "Portuguese (Brazil)",
     nativeName: "Português (Brasil)",
     contributors: ["Tadeu Junior"],
+    official: false,
+  },
+  id: {
+    name: "Indonesian",
+    nativeName: "Bahasa Indonesia",
+    contributors: ["Muhammad", "Komunitas PlayAural Indonesia"],
     official: false,
   },
 };

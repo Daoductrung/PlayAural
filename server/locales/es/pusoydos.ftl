@@ -150,6 +150,10 @@ pusoydos-loser-gives = { $loser } le da { $count ->
     [one] su carta más alta
    *[other] sus { $count } cartas más altas
 } a { $winner }.
+pusoydos-you-give-highest = Le das { $count ->
+    [one] tu carta más alta
+   *[other] tus { $count } cartas más altas
+} a { $winner }.
 pusoydos-winner-gives-back = { $winner } le devuelve { $count ->
     [one] una carta
    *[other] { $count } cartas

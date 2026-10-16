@@ -214,6 +214,7 @@ ageofheroes-road-request-received = { $requester } solicita permiso para constru
 ageofheroes-road-request-denied-you = Rechazaste la solicitud de camino.
 ageofheroes-road-request-denied = { $denier } rechazó tu solicitud de camino.
 ageofheroes-road-built = { $tribe1 } y { $tribe2 } ahora están conectados por camino.
+ageofheroes-road-built-you = Ahora un camino conecta a { $tribe2 } contigo.
 ageofheroes-road-no-target = No hay tribus vecinas disponibles para construir un camino.
 ageofheroes-approve = Aprobar
 ageofheroes-deny = Rechazar

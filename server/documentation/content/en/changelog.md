@@ -1,12 +1,84 @@
 Changelog
 
+Friday 16 October 2026
+
+New Additions:
+
+* Help and Feedback is now available from the main menu and in-game Actions menu. Contact the developers to send a private request about accessibility, gameplay, account or connection help, suggestions, or another question. Conversations and replies are saved for your return, updates arrive after sign-in, and you can follow up, close, or reopen a request.
+* A Contact option is now available before sign-in on Desktop, Web, and Mobile, with Telegram and email details that can be read, copied, or opened in the appropriate app. The Web sign-in page also offers direct Windows desktop (ZIP) and Android (APK) downloads.
+
+Improvements:
+
+* Desktop updates now distinguish checking installed files, downloading only the required data, and preparing and verifying the result. Progress begins promptly, shows the actual download size, and uses less processor time and network overhead. Desktop full-download recovery and Mobile sound updates also retry more smoothly on unstable connections.
+* Smaller Breach Point bot squads now coordinate split attacks, support and regroup calls, and responses to sustained footsteps more effectively without abandoning the other objective too readily.
+* Who's at the table now describes table roles without incorrectly calling a reserved seat Online or Offline after its user has left the table.
+
+Bug Fixes:
+
+* Desktop sign-in, registration, and password recovery now report the actual server or network problem instead of a misleading generic verification failure. Planned server restarts also reconnect more quietly and reliably on Desktop, Web, and Mobile.
+* When the game changes while a choice, Actions menu, or status view is open on Mobile, the screen now moves safely to the current menu instead of leaving outdated choices available.
+* Moving an active session to Desktop now restores the table before reconnecting listen-only Voice Chat, preventing a delayed old connection from disrupting the replacement session.
+* The Breach Point beginner guide now gives the correct tactical clock and bomb-fuse length for every team size.
+
+Monday 12 October 2026
+
+New Additions:
+
+* Indonesian is now available across the server, desktop, web, mobile, and player guides as a community translation by Muhammad and the PlayAural Indonesia community. Content not yet translated into Indonesian falls back to English.
+* Breach Point now includes a numbered Tactical radio. Open it from the actions menu, or press Z on Desktop and Web, to ask the nearest available bot or the whole squad to cover, advance, hold, regroup, retreat, or report. Commands and responses stay within the team, use each agent's positional voice, and clearly refuse unsafe orders or orders that conflict with the objective.
+
+Improvements:
+
+* Breach Point bots now coordinate more decisively around objectives, enemy footsteps, focus fire, rotations, crossfires, equipment, weapon choices, and the round economy. They remember tactical calls for an appropriate length of time while still abandoning an order when the live situation makes it unsafe.
+
+Bug Fixes:
+
+* When playing in Arabic, adding a bot no longer disconnects the game.
+* On Mobile, chat and game text fields now clear correctly after their contents are sent. If sending fails, the text remains available so you can try again instead of losing it.
+* Breach Point purchase menus now list every side's weapons and equipment in the same order as their numbered shortcuts, including after the teams switch sides.
+
+Saturday 10 October 2026 (Update 2)
+
+New Additions:
+
+* Arabic is now available across the server, desktop, web, mobile, and player guides as a right-to-left community translation maintained by the Lumora Nova team. Content not yet translated into Arabic falls back to English.
+
+Improvements:
+
+* Turning your Voice Chat microphone on or off now confirms success with one concise spoken message and sound after the change actually takes effect. Routine channel transfers stay quiet.
+
+Bug Fixes:
+
+* When an older Desktop or Mobile release must update, it now opens the correct complete download without repeatedly announcing disconnections. Desktop also no longer reports a connection timeout immediately after you accept an update.
+* On Android, in-app sound updates now continue reliably in the background, and long sounds retain their full three-dimensional positioning instead of unexpectedly falling back to standard playback.
+* Team Voice Chat no longer interrupts an active microphone when another team's player or bot membership changes.
+
+Saturday 10 October 2026
+
+New Additions:
+
+* Breach Point now includes private Team Chat for both text and Voice Chat. Use the channel control beside the chat box, or Alt+T on Desktop and Web, to switch between Table Chat and Team Chat without leaving the table. You continue to hear every voice channel you are allowed to join, while your microphone publishes only to the selected channel; the game returns you to Table Chat when a private channel no longer exists.
+* Updates now use much less data. Desktop and Mobile reuse the sounds already installed and download only changed audio files. Desktop application updates also fetch only changed content, resume safely after interruptions, restore the previous version if the updated app cannot start, and ask before using the complete standalone ZIP as a last resort. Spoken progress is limited to ten-percent steps, while full ZIP releases remain available for clean installs and manual updates. On Mobile, sounds install inside the app without storage permission; Android application updates open the direct-download or Google Play destination selected by the server.
+
+Improvements:
+
+* Chat and shared announcements now use each listener's point of view consistently. Your own messages and actions say "You," while everyone else hears your player name. This applies to Global Chat, Table Chat, Team Chat, table and host changes, moderation, Voice Chat, timers, and supported game actions.
+* Turning your Voice Chat microphone on or off now confirms success with one concise sound after the change actually takes effect. Routine channel transfers stay quiet, while restrictions and failures remain spoken.
+* Desktop now preserves saved sign-in accounts and preferences more reliably. Existing settings migrate automatically, a damaged settings file no longer causes repeated startup trouble, and cancelling an audio option preview restores the previous value.
+
+Bug Fixes:
+
+* Restoring a saved table no longer stops its game music as soon as the restored game opens.
+* Moving a live session between Desktop, Web, and Mobile no longer lets a slow or stale Voice Chat connection block the replacement device.
+* In Cards Against Humanity, the question-card shortcut now clearly reports when no question card is active.
+
 Tuesday 6 October 2026
 
 New Additions:
 
-* Skip-Bo has been added for 2 to 6 players, with individual play and two-person partnerships at four- or six-player tables. Empty your stock pile by building shared piles from 1 through 12 with cards from your hand, your stock and discard piles, or a partner's public piles, while Skip-Bo wild cards fill any missing number. Tables can choose standard or shorter stock piles, a single game or a scored match, and a match target. Strategic bots, stable card and destination choices, off-turn access to your hand, detailed pile views, keyboard and touch controls, background music, and beginner guides in English and Vietnamese are included; the complete game and guide are also available in Spanish.
-* Dead Man's Dice has been added for 2 to 4 players. Hide five dice beneath your cup, keep raising the table's bid, or challenge with Liar or Spot On before a second dose of poison eliminates you. Traditional rules with wild ones and Basic rules with exact faces are both available, alongside fair-information bots, accessible bid and review controls, beginner guides in English and Vietnamese, and a fully spatial tavern of cups, dice, poison, and the final fall.
-* Zombie Dice has been added for 2 to 8 players. Roll three dice at a time, keep brains, reroll footprints, and decide when to stop before three shotgun blasts wipe out the brains from your turn. The official thirteen-die cup, equal-turn final round, repeatable leader-only tiebreaks, adjustable winning target, challenging bots, live turn and table views, keyboard and touch controls, and beginner guides in English and Vietnamese are included. Its spatial swamp surrounds the table with a moving zombie soundscape, responsive dice, bites, gunfire, impacts, and music.
+* Skip-Bo has been added for 2 to 6 players, with individual play and two-person partnerships at four- or six-player tables. Empty your stock pile by building shared piles from 1 through 12 with cards from your hand, your stock and discard piles, or a partner's public piles, while Skip-Bo wild cards fill any missing number. Tables can choose standard or shorter stock piles, a single game or a scored match, and a match target. Strategic bots, stable card and destination choices, off-turn access to your hand, detailed pile views, keyboard and touch controls, background music, and complete game text and beginner guides in English, Vietnamese, Spanish, and Brazilian Portuguese are included.
+* Dead Man's Dice has been added for 2 to 4 players. Hide five dice beneath your cup, keep raising the table's bid, or challenge with Liar or Spot On before a second dose of poison eliminates you. Traditional rules with wild ones and Basic rules with exact faces are both available, alongside fair-information bots, accessible bid and review controls, complete game text and beginner guides in English, Vietnamese, Spanish, and Brazilian Portuguese, and a fully spatial tavern of cups, dice, poison, and the final fall.
+* Zombie Dice has been added for 2 to 8 players. Roll three dice at a time, keep brains, reroll footprints, and decide when to stop before three shotgun blasts wipe out the brains from your turn. The official thirteen-die cup, equal-turn final round, repeatable leader-only tiebreaks, adjustable winning target, challenging bots, live turn and table views, keyboard and touch controls, and complete game text and beginner guides in English, Vietnamese, Spanish, and Brazilian Portuguese are included. Its spatial swamp surrounds the table with a moving zombie soundscape, responsive dice, bites, gunfire, impacts, and music.
 * Flip 7 has been added for 3 to 10 players. Keep flipping for points or stop and bank before a repeated number makes you bust; Double and additive modifiers change the score, while Second Chance, Freeze, and Flip Three can turn the round around. Completing seven different numbers earns the Flip 7 bonus and ends the round. The complete 94-card deck, adjustable target score, tied-leader continuation, fair-information bots, phase-aware table reviews, keyboard and touch controls, and full game text and beginner guides in English, Vietnamese, Spanish, and Brazilian Portuguese are included.
 
 Improvements:

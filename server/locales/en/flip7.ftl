@@ -80,6 +80,7 @@ flip7-flip-seven = { $player } completes Flip 7 and scores the { $bonus }-point 
 flip7-flip-seven-you = You complete Flip 7 and score the { $bonus }-point bonus!
 
 # Targeted choices
+flip7-choice-required = Choose a target for { $action }.
 flip7-target-freeze = Freeze { $target } ({ $points } point{ $points ->
         [one] { "" }
        *[other] s
@@ -171,6 +172,7 @@ flip7-whose-turn-resolving = A card sequence is resolving.
 
 # Blocking reasons
 flip7-error-wait-card = Wait until the current card is resolved.
+flip7-error-make-choice = Choose a target before flipping or stopping.
 flip7-error-wait-choice = Wait until the current target choice is resolved.
 flip7-error-wait-flip-three = Wait until the Flip Three finishes.
 flip7-error-wait-dealing = Wait until the cards are dealt.

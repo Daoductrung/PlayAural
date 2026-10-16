@@ -45,3 +45,15 @@ Se você for totalmente novo, leia Controles Globais em seguida. Esse guia expli
 # **Comunidade**
 
 O PlayAural visa ser um lugar amigável tanto para jogadores novos quanto experientes. Antes da sua primeira sessão séria, reserve um momento para ler as Regras da Comunidade para saber o que é esperado à mesa e no chat.
+
+# **Ajuda e Feedback**
+
+Abra Ajuda e feedback no menu principal ou no menu Ações enquanto estiver em uma mesa. A opção Documentação contém os manuais. Entrar em contato com os desenvolvedores reúne suas solicitações e respostas em um só lugar.
+
+Escolha Nova solicitação, selecione a categoria mais adequada, escreva um assunto curto e uma mensagem e depois revise e confirme. Você pode editar o assunto ou a mensagem antes de enviar. É possível relatar problemas de acessibilidade ou áudio, perguntar sobre a jogabilidade ou sua conta, sugerir melhorias ou fazer outra pergunta aos desenvolvedores. Não envie senhas nem códigos de redefinição. Use Denunciar usuário para informar a má conduta de outro usuário.
+
+O seletor Status mostra as solicitações que aguardam os desenvolvedores, aguardam sua resposta, estão fechadas ou estão em todos os status. Abra o seletor, escolha um valor e você voltará para a lista atualizada. Atualizar lista procura novas respostas e anuncia quando a lista termina de ser atualizada. Abra uma solicitação para ler primeiro as mensagens mais recentes, adicionar uma resposta, fechá-la quando não precisar mais de ajuda ou reabri-la depois. Isto não é um chat ao vivo: os desenvolvedores podem responder enquanto você estiver offline. Depois do login, os alertas aguardam alguns segundos para que a mensagem de boas-vindas e os avisos obrigatórios terminem. Os alertas nunca movem o foco do menu.
+
+Uma conversa aberta é atualizada automaticamente quando chegam respostas e preserva sua posição de leitura. Você pode navegar pelas mensagens antigas sem ser levado à resposta mais recente. Se uma solicitação mudar enquanto você estiver escrevendo, seu rascunho continuará disponível para revisão antes do envio.
+
+Suas solicitações são privadas entre você e os desenvolvedores. As conversas fechadas permanecem disponíveis, a menos que um desenvolvedor as exclua permanentemente. Se você atingir um limite de solicitações ou mensagens, o anúncio explicará qual limite se aplica e como continuar. Sempre que puder, responda em uma conversa existente.

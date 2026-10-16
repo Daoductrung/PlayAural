@@ -62,9 +62,9 @@ TICKS_PER_SECOND = 20
 # ("Player1 turns over a card."), not an audio asset, so it stays fixed.
 TURN_CARD_TICKS = TICKS_PER_SECOND
 
-# Floor after a reveal sound so the localized card label has room to speak.
-# Number/modifier reveal cues are shorter than a spoken sentence.
-MIN_REVEAL_SPEECH_TICKS = 24
+# Keep state-changing card effects and their continuations on separate server
+# ticks. This is the smallest save/load-safe handoff at the 20 Hz tick rate.
+FLOW_HANDOFF_TICKS = 1
 
 BOT_MIN_THINK_TICKS = TICKS_PER_SECOND
 BOT_MAX_THINK_TICKS = TICKS_PER_SECOND + TICKS_PER_SECOND // 2

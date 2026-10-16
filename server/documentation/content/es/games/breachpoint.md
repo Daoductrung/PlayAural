@@ -163,7 +163,7 @@ El movimiento y la visión son cosas separadas. Mid y Tunnels inferior se conect
 
 Una partida reglamentaria empatada termina en empate o entra en tiempo extra MR3 repetible, según la opción \*\*Resolución de empate\*\* del anfitrión. Cada periodo MR3 tiene tres rondas por bando; 4 victorias se lleva el periodo, mientras que un 3–3 inicia otro.
 
-El reloj táctico se adapta al tamaño de los equipos. En 2v2 hay ocho rondas tácticas para plantar y cuatro de mecha. En 3v3 hay siete antes de plantar y tres después. En 4v4 y 5v5 se mantienen seis antes de plantar y tres después.
+El reloj táctico se adapta al tamaño de los equipos. En 2v2 y 3v3, T dispone de siete rondas tácticas para plantar y la bomba tiene una mecha de cuatro rondas. En 4v4, T dispone de seis rondas para plantar y la mecha dura tres. En 5v5, T dispone de siete rondas para plantar y la mecha dura tres.
 
 \*\*Acciones de información\*\*
 

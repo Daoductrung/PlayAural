@@ -214,6 +214,7 @@ ageofheroes-road-request-received = { $requester } xin phép mở đường giao
 ageofheroes-road-request-denied-you = Bạn từ chối lời xin mở đường.
 ageofheroes-road-request-denied = { $denier } đã từ chối lời xin mở đường của bạn.
 ageofheroes-road-built = { $tribe1 } và { $tribe2 } nay được nối liền bằng đại lộ giao thương.
+ageofheroes-road-built-you = Bạn và { $tribe2 } nay được nối liền bằng đại lộ giao thương.
 ageofheroes-road-no-target = Không có bộ tộc láng giềng nào để mở đường.
 ageofheroes-approve = Chấp thuận
 ageofheroes-deny = Từ chối

@@ -1,5 +1,77 @@
 # Changelog
 
+Sexta-feira, 16 de outubro de 2026
+
+Novidades:
+
+* Ajuda e feedback agora está disponível no menu principal e no menu Ações durante o jogo. Abra Entrar em contato com os desenvolvedores para enviar uma solicitação privada sobre acessibilidade, jogabilidade, ajuda com a conta ou a conexão, sugestões ou outra pergunta. As conversas e respostas ficam salvas para quando você voltar, as atualizações chegam depois do login e você pode continuar, fechar ou reabrir uma solicitação.
+* Agora há uma opção Contato antes do login nos clientes Desktop, Web e Móvel, com dados do Telegram e do e-mail que podem ser lidos, copiados ou abertos no aplicativo adequado. A página de login da Web também oferece downloads diretos para o Desktop do Windows (ZIP) e o Android (APK).
+
+Melhorias:
+
+* As atualizações do Desktop agora diferenciam a verificação dos arquivos instalados, o download apenas dos dados necessários e a preparação e verificação do resultado. O progresso começa rapidamente, mostra o tamanho real do download e usa menos tempo de processador e recursos de rede. A recuperação por download completo no Desktop e as atualizações de sons no Móvel também repetem as tentativas com mais fluidez em conexões instáveis.
+* Os esquadrões menores de bots do Breach Point agora coordenam melhor os ataques divididos, os pedidos de apoio e reagrupamento e as respostas a passos persistentes, sem abandonar o outro objetivo com tanta facilidade.
+* Quem está na mesa agora descreve as funções na mesa sem chamar incorretamente um assento reservado de Online ou Offline depois que seu usuário deixa a mesa.
+
+Correções de bugs:
+
+* O login, o cadastro e a recuperação de senha no Desktop agora informam o problema real do servidor ou da rede, em vez de um erro genérico e enganoso de verificação. As reinicializações programadas do servidor também reconectam de forma mais silenciosa e confiável no Desktop, na Web e no Móvel.
+* Quando o jogo muda enquanto uma escolha, o menu Ações ou uma visualização de status está aberta no Móvel, a tela agora vai com segurança para o menu atual, em vez de manter opções desatualizadas disponíveis.
+* Ao mover uma sessão ativa para o Desktop, a mesa agora é restaurada antes de o Chat de Voz no modo somente escuta ser reconectado, evitando que uma conexão antiga e atrasada interrompa a sessão substituta.
+* O guia para iniciantes do Breach Point agora informa corretamente a duração do relógio tático e do pavio da bomba para cada tamanho de equipe.
+
+Segunda-feira, 12 de outubro de 2026
+
+Novidades:
+
+* O indonés agora está disponível no servidor, nos clientes Desktop, Web e Móvel e nos guias para jogadores como uma tradução comunitária de Muhammad e da comunidade PlayAural Indonesia. O conteúdo que ainda não tiver sido traduzido para o indonés usará o inglês.
+* O Breach Point agora inclui um Rádio Tático numerado. Abra-o pelo menu de ações, ou pressione Z no Desktop e na Web, para pedir ao bot disponível mais próximo ou a todo o esquadrão que deem cobertura, avancem, mantenham posição, se reagrupem, recuem ou reportem. Os comandos e as respostas permanecem dentro da equipe, usam a voz posicional de cada combatente e recusam claramente ordens inseguras ou que entrem em conflito com o objetivo.
+
+Melhorias:
+
+* Os bots do Breach Point agora se coordenam com mais determinação em torno dos objetivos, dos passos inimigos, do foco de fogo, das rotações, do fogo cruzado, dos equipamentos, das escolhas de armas e da economia da rodada. Eles se lembram dos comandos táticos pelo tempo adequado, mas ainda abandonam uma ordem quando a situação atual a torna insegura.
+
+Correções de bugs:
+
+* Ao jogar em árabe, adicionar um bot não desconecta mais a partida.
+* No Móvel, os campos de texto do chat e dos jogos agora são limpos corretamente depois que o conteúdo é enviado. Se o envio falhar, o texto permanece disponível para que você tente novamente em vez de perdê-lo.
+* Os menus de compra do Breach Point agora exibem as armas e os equipamentos de cada lado na mesma ordem dos atalhos numéricos, inclusive depois que as equipes trocam de lado.
+
+Sábado, 10 de outubro de 2026 (Atualização 2)
+
+Novidades:
+
+* O árabe agora está disponível no servidor, nos clientes Desktop, Web e Móvel e nos guias para jogadores como uma tradução comunitária da direita para a esquerda, mantida pela equipe Lumora Nova. O conteúdo que ainda não tiver sido traduzido para o árabe usará o inglês.
+
+Melhorias:
+
+* Ao ligar ou desligar o microfone do Chat de Voz, a alteração agora é confirmada por uma única mensagem falada e um som breves, depois que ela realmente entra em vigor. As trocas de canal de rotina continuam silenciosas.
+
+Correções de bugs:
+
+* Quando uma versão antiga do Desktop ou do Móvel precisa ser atualizada, agora ela abre corretamente o download completo sem anunciar desconexões repetidamente. O Desktop também não informa mais que a conexão expirou logo depois que você aceita uma atualização.
+* No Android, as atualizações de sons dentro do aplicativo agora continuam de forma confiável em segundo plano, e os sons longos mantêm todo o posicionamento tridimensional em vez de voltar inesperadamente à reprodução comum.
+* O Chat de Voz da equipe não interrompe mais um microfone ativo quando muda a composição de jogadores ou bots de outra equipe.
+
+Sábado, 10 de outubro de 2026
+
+Novidades:
+
+* O Breach Point agora inclui Chat de Equipe privado por texto e por voz. Use o seletor de canal ao lado do campo de chat, ou Alt+T no Desktop e na Web, para alternar entre o Chat da Mesa e o Chat da Equipe sem sair da mesa. Você continua ouvindo todos os canais de voz nos quais tem permissão para entrar, mas o microfone transmite somente para o canal selecionado; o jogo retorna ao Chat da Mesa quando um canal privado deixa de existir.
+* As atualizações agora usam muito menos dados. O Desktop e o Móvel reutilizam os sons já instalados e baixam apenas os arquivos de áudio alterados. As atualizações do aplicativo Desktop também baixam somente o conteúdo modificado, retomam com segurança após interrupções, restauram a versão anterior se o aplicativo atualizado não iniciar e pedem confirmação antes de usar o ZIP independente completo como último recurso. O progresso falado é limitado a intervalos de dez por cento, e as versões ZIP completas continuam disponíveis para instalações limpas e atualizações manuais. No Móvel, os sons são instalados dentro do aplicativo sem permissão de armazenamento; as atualizações do Android abrem o download direto ou a página do Google Play indicada pelo servidor.
+
+Melhorias:
+
+* As mensagens de chat e os anúncios compartilhados agora usam de forma consistente o ponto de vista de cada ouvinte. Suas próprias mensagens e ações dizem “Você”, enquanto todos os outros ouvem o seu nome de jogador. Isso se aplica ao Chat Global, Chat da Mesa, Chat da Equipe, mudanças de mesa e de host, moderação, Chat de Voz, temporizadores e ações de jogo compatíveis.
+* Ao ligar ou desligar o microfone do Chat de Voz, agora um único som breve é reproduzido depois que a alteração realmente entra em vigor. As trocas de canal de rotina permanecem silenciosas, enquanto restrições e falhas continuam sendo faladas.
+* O Desktop agora preserva com mais confiabilidade as contas de login e preferências salvas. As configurações existentes são migradas automaticamente, um arquivo de configuração danificado não causa mais problemas repetidos na inicialização e cancelar a prévia de uma opção de áudio restaura o valor anterior.
+
+Correções de bugs:
+
+* Restaurar uma mesa salva não interrompe mais a música do jogo assim que a partida restaurada é aberta.
+* Ao transferir uma sessão ativa entre Desktop, Web e Móvel, uma conexão antiga ou lenta do Chat de Voz não bloqueia mais o novo dispositivo.
+* Em Cards Against Humanity, o atalho para verificar a carta de pergunta agora informa claramente quando não há uma carta de pergunta ativa.
+
 Terça-feira, 6 de outubro de 2026
 
 Novidades:

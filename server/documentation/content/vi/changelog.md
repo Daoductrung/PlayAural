@@ -1,12 +1,84 @@
 Nhật ký thay đổi
 
+Thứ Sáu 16 Tháng Mười 2026
+
+Tính năng mới:
+
+* Trợ giúp và góp ý giờ có trong trình đơn chính và trình đơn hành động khi đang chơi. Hãy mở Liên hệ nhà phát triển để gửi yêu cầu riêng tư về trợ năng, luật chơi hoặc lỗi trong trò chơi, tài khoản hay kết nối, đề xuất cải tiến hoặc câu hỏi khác. Cuộc trao đổi và phản hồi được lưu để bạn đọc khi quay lại, thông báo cập nhật sẽ đến sau khi đăng nhập, đồng thời bạn có thể phản hồi tiếp, đóng hoặc mở lại yêu cầu.
+* Trước khi đăng nhập, phần mềm máy tính, phiên bản web và ứng dụng di động giờ có mục Liên hệ với thông tin Telegram và email có thể đọc, sao chép hoặc mở bằng ứng dụng phù hợp. Trang đăng nhập web cũng có liên kết tải trực tiếp Ứng dụng máy tính Windows (ZIP) và Ứng dụng Android (APK).
+
+Cải thiện:
+
+* Bản cập nhật trên máy tính giờ phân biệt rõ lúc kiểm tra tệp đã cài, tải đúng phần dữ liệu cần thiết, rồi chuẩn bị và xác minh kết quả. Tiến độ xuất hiện sớm, hiển thị dung lượng thật cần tải và dùng ít tài nguyên xử lý lẫn mạng hơn. Phương án tải bản đầy đủ trên máy tính và cập nhật âm thanh trên di động cũng thử lại mượt hơn khi kết nối không ổn định.
+* Các đội bot ít người trong Điểm Đột Phá giờ phối hợp đánh chia hướng, nghe lệnh yểm trợ hoặc tập hợp, và phản ứng với tiếng bước chân liên tục hiệu quả hơn mà không quá dễ bỏ trống mục tiêu còn lại.
+* Ai đang ở trong bàn giờ mô tả đúng vai trò tại bàn, không còn gọi nhầm chỗ dành riêng là Trực tuyến hoặc Ngoại tuyến sau khi người dùng đã rời bàn.
+
+Sửa lỗi:
+
+* Đăng nhập, đăng ký và khôi phục mật khẩu trên phần mềm máy tính giờ nêu đúng lỗi từ máy chủ hoặc mạng thay vì thông báo xác minh chung dễ gây hiểu nhầm. Khi máy chủ khởi động lại theo lịch, phần mềm máy tính, phiên bản web và ứng dụng di động cũng kết nối lại yên lặng và ổn định hơn.
+* Khi trò chơi thay đổi trong lúc một lựa chọn, trình đơn hành động hoặc bảng trạng thái đang mở trên di động, màn hình giờ chuyển an toàn sang trình đơn hiện tại thay vì giữ lại các lựa chọn đã cũ.
+* Khi chuyển một phiên đang hoạt động sang phần mềm máy tính, bàn giờ được khôi phục trước khi Trò chuyện thoại kết nối lại ở chế độ chỉ nghe, tránh để kết nối cũ bị chậm làm gián đoạn phiên thay thế.
+* Tài liệu cho người mới của Điểm Đột Phá giờ nêu đúng đồng hồ chiến thuật và thời gian kíp nổ của bom cho mọi quân số của đội.
+
+Thứ Hai 12 Tháng Mười 2026
+
+Tính năng mới:
+
+* Tiếng Indonesia giờ đã có trên máy chủ, phần mềm máy tính, phiên bản web, ứng dụng di động và tài liệu người chơi dưới dạng bản dịch cộng đồng của Muhammad và cộng đồng PlayAural Indonesia. Nội dung chưa được dịch sang Tiếng Indonesia sẽ dùng bản tiếng Anh.
+* Điểm Đột Phá giờ có Bộ đàm chiến thuật với các nhóm lệnh đánh số. Mở từ trình đơn hành động, hoặc nhấn Z trên phần mềm máy tính và web, để gọi bot khả dụng gần nhất hay điều phối cả đội yểm trợ, tiến lên, giữ vị trí, tập hợp, rút lui hoặc báo cáo. Lệnh và câu trả lời chỉ được nghe trong đội, dùng giọng riêng phát từ đúng vị trí của từng đặc vụ, đồng thời từ chối rõ ràng lệnh không an toàn hoặc xung đột với mục tiêu.
+
+Cải thiện:
+
+* Bot trong Điểm Đột Phá giờ phối hợp quyết đoán hơn quanh mục tiêu, tiếng bước chân của địch, việc tập trung hỏa lực, đổi hướng, kê góc chéo, trang bị, lựa chọn vũ khí và kinh tế của hiệp. Bot ghi nhớ lệnh chiến thuật trong thời gian phù hợp nhưng vẫn bỏ lệnh khi tình hình thực tế khiến lệnh đó không còn an toàn.
+
+Sửa lỗi:
+
+* Khi chơi bằng Tiếng Ả Rập, việc thêm bot không còn làm trò chơi mất kết nối.
+* Trên di động, ô trò chuyện và ô nhập của trò chơi giờ được xóa đúng sau khi nội dung được gửi đi. Nếu gửi thất bại, phần đã nhập vẫn được giữ lại để bạn thử lại thay vì bị mất.
+* Trình đơn mua trong Điểm Đột Phá giờ sắp xếp vũ khí và Trang bị của mỗi phe theo đúng thứ tự phím số tương ứng, kể cả sau khi hai đội đổi phe.
+
+Thứ Bảy 10 Tháng Mười 2026 (Bản cập nhật 2)
+
+Tính năng mới:
+
+* Tiếng Ả Rập giờ đã có trên máy chủ, phần mềm máy tính, phiên bản web, ứng dụng di động và tài liệu người chơi dưới dạng bản dịch cộng đồng từ phải sang trái do nhóm Lumora Nova duy trì. Nội dung chưa được dịch sang Tiếng Ả Rập sẽ dùng bản tiếng Anh.
+
+Cải thiện:
+
+* Khi bạn bật hoặc tắt micrô Trò chuyện thoại, ứng dụng giờ xác nhận thành công bằng một thông báo ngắn và một âm báo sau khi thay đổi thật sự hoàn tất. Việc chuyển kênh thông thường vẫn diễn ra yên lặng.
+
+Sửa lỗi:
+
+* Khi phiên bản PlayAural cũ trên máy tính hoặc di động bắt buộc phải cập nhật, ứng dụng giờ mở đúng bản tải xuống đầy đủ mà không lặp đi lặp lại thông báo mất kết nối. Phần mềm máy tính cũng không còn báo lỗi hết thời gian chờ kết nối ngay sau khi bạn đồng ý cập nhật.
+* Trên Android, bản cập nhật âm thanh trong ứng dụng giờ tiếp tục ổn định khi chạy nền; các âm thanh dài cũng giữ đầy đủ hiệu ứng không gian ba chiều thay vì bất ngờ chuyển sang cách phát thông thường.
+* Trò chuyện thoại trong đội không còn làm gián đoạn micrô đang bật khi một đội khác có thay đổi về người chơi hoặc bot.
+
+Thứ Bảy 10 Tháng Mười 2026
+
+Tính năng mới:
+
+* Điểm Đột Phá giờ có Trò chuyện đội riêng cho cả tin nhắn và Trò chuyện thoại. Dùng nút chọn kênh cạnh ô trò chuyện, hoặc Alt+T trên phần mềm máy tính và web, để chuyển giữa Trò chuyện bàn và Trò chuyện đội mà không rời bàn. Bạn vẫn nghe được mọi kênh thoại mình được phép tham gia, nhưng micrô chỉ phát vào kênh đang chọn; trò chơi sẽ tự trở về Trò chuyện bàn khi kênh riêng không còn tồn tại.
+* Các bản cập nhật giờ tiết kiệm dữ liệu hơn nhiều. Phần mềm máy tính và di động dùng lại những âm thanh đã cài và chỉ tải các tệp âm thanh thay đổi. Bản cập nhật ứng dụng trên máy tính cũng chỉ tải nội dung thay đổi, có thể tiếp tục an toàn sau khi gián đoạn, tự khôi phục phiên bản trước nếu bản mới không khởi động được, và luôn hỏi trước khi dùng gói ZIP đầy đủ như phương án cuối cùng. Thông báo tiến độ bằng lời chỉ phát theo từng mốc mười phần trăm; bản ZIP đầy đủ vẫn được cung cấp để cài mới hoặc cập nhật thủ công. Trên di động, âm thanh được cài ngay trong ứng dụng mà không cần quyền bộ nhớ; bản cập nhật ứng dụng Android mở trang tải trực tiếp hoặc Google Play do máy chủ chọn.
+
+Cải thiện:
+
+* Tin nhắn và thông báo chung giờ dùng nhất quán góc nhìn của từng người nghe. Tin nhắn và thao tác của chính bạn sẽ dùng từ "Bạn", còn những người khác nghe tên người chơi của bạn. Cách đọc này áp dụng cho Trò chuyện chung, Trò chuyện bàn, Trò chuyện đội, thay đổi trong bàn và quyền chủ bàn, kiểm duyệt, Trò chuyện thoại, bộ đếm giờ và các thao tác trò chơi được hỗ trợ.
+* Khi bạn bật hoặc tắt micrô Trò chuyện thoại, ứng dụng giờ phát đúng một âm báo ngắn sau khi thay đổi thật sự hoàn tất. Việc chuyển kênh thông thường không đọc thông báo thừa, còn giới hạn và lỗi vẫn được nói rõ.
+* Ứng dụng máy tính giờ giữ các tài khoản đăng nhập đã lưu và tùy chỉnh ổn định hơn. Thiết lập hiện có được tự động chuyển sang định dạng mới, tệp thiết lập bị hỏng không còn liên tục gây lỗi khi khởi động, và việc hủy xem trước một tùy chỉnh âm thanh sẽ khôi phục giá trị trước đó.
+
+Sửa lỗi:
+
+* Khi khôi phục một bàn đã lưu, nhạc của trò chơi không còn bị dừng ngay lúc ván được mở lại.
+* Khi chuyển một phiên đang hoạt động giữa phần mềm máy tính, web và di động, kết nối Trò chuyện thoại cũ bị chậm hoặc đã lỗi không còn chặn thiết bị thay thế.
+* Trong Cards Against Humanity, phím tắt Xem lá bài câu hỏi giờ thông báo rõ khi chưa có lá bài câu hỏi nào.
+
 Thứ Ba 6 Tháng Mười 2026
 
 Tính năng mới:
 
-* Skip-Bo đã được thêm cho 2 đến 6 người chơi, với chế độ cá nhân và chế độ đồng đội hai người một đội tại bàn 4 hoặc 6 người. Hãy đánh hết kho bài bằng cách xếp các chồng bài xây dùng chung từ 1 đến 12 với bài trên tay, kho bài và chồng bài bỏ của mình, hoặc các chồng bài công khai của đồng đội; lá Skip-Bo vạn năng có thể thay cho bất kỳ số nào đang thiếu. Chủ bàn có thể chọn kho bài Tiêu chuẩn hoặc ván nhanh, thể thức Một ván hoặc Trận tính điểm, cùng mốc thắng trận. Trò chơi có bot chiến thuật, lựa chọn lá và đích đến ổn định, khả năng xem bài trên tay ngoài lượt, các bảng xem chồng bài chi tiết, điều khiển bằng bàn phím và cảm ứng, nhạc nền, cùng tài liệu cho người mới bằng tiếng Anh và tiếng Việt; toàn bộ trò chơi và tài liệu cũng đã có bằng tiếng Tây Ban Nha.
-* Xúc Xắc Tử Thần đã được thêm cho 2 đến 4 người chơi. Mỗi người giấu năm viên xúc xắc dưới cốc, liên tục tăng lời cược của cả bàn, hoặc chọn Vạch mặt hay Gọi Chính xác trước khi liều độc thứ hai loại mình khỏi cuộc chơi. Bàn có thể dùng Luật Truyền thống với mặt một là mặt hoang hoặc Luật Cơ bản chỉ tính đúng từng mặt. Trò chơi còn có bot chỉ dựa trên thông tin hợp lệ, thao tác ra cược và xem tình hình dễ tiếp cận, tài liệu cho người mới bằng tiếng Anh và tiếng Việt, cùng không gian quán rượu ba chiều với tiếng cốc, xúc xắc, độc dược và cú ngã cuối cùng.
-* Zombie Dice đã được thêm cho 2 đến 8 người chơi. Mỗi lần gieo ba viên, bạn giữ não, gieo lại dấu chân và tự quyết định lúc Dừng và ghi điểm trước khi ba phát súng xóa sạch số não trong lượt. Trò chơi có đúng cốc mười ba viên, vòng cuối bảo đảm số lượt công bằng, các vòng phân thắng bại chỉ dành cho nhóm dẫn đầu, mốc thắng tùy chỉnh, bot khó nhằn, bảng chi tiết lượt và tình hình bàn cập nhật trực tiếp, điều khiển bằng bàn phím và cảm ứng, cùng tài liệu cho người mới bằng tiếng Anh và tiếng Việt. Không gian đầm lầy ba chiều bao quanh bàn với zombie di chuyển, tiếng gieo xúc xắc, cắn, súng, va chạm và nhạc nền ăn khớp với diễn biến.
+* Skip-Bo đã được thêm cho 2 đến 6 người chơi, với chế độ cá nhân và chế độ đồng đội hai người một đội tại bàn 4 hoặc 6 người. Hãy đánh hết kho bài bằng cách xếp các chồng bài xây dùng chung từ 1 đến 12 với bài trên tay, kho bài và chồng bài bỏ của mình, hoặc các chồng bài công khai của đồng đội; lá Skip-Bo vạn năng có thể thay cho bất kỳ số nào đang thiếu. Chủ bàn có thể chọn kho bài Tiêu chuẩn hoặc ván nhanh, thể thức Một ván hoặc Trận tính điểm, cùng mốc thắng trận. Trò chơi có bot chiến thuật, lựa chọn lá và đích đến ổn định, khả năng xem bài trên tay ngoài lượt, các bảng xem chồng bài chi tiết, điều khiển bằng bàn phím và cảm ứng, nhạc nền, cùng toàn bộ nội dung trò chơi và tài liệu cho người mới bằng tiếng Anh, tiếng Việt, tiếng Tây Ban Nha và tiếng Bồ Đào Nha (Brazil).
+* Xúc Xắc Tử Thần đã được thêm cho 2 đến 4 người chơi. Mỗi người giấu năm viên xúc xắc dưới cốc, liên tục tăng lời cược của cả bàn, hoặc chọn Vạch mặt hay Gọi Chính xác trước khi liều độc thứ hai loại mình khỏi cuộc chơi. Bàn có thể dùng Luật Truyền thống với mặt một là mặt hoang hoặc Luật Cơ bản chỉ tính đúng từng mặt. Trò chơi còn có bot chỉ dựa trên thông tin hợp lệ, thao tác ra cược và xem tình hình dễ tiếp cận, toàn bộ nội dung trò chơi và tài liệu cho người mới bằng tiếng Anh, tiếng Việt, tiếng Tây Ban Nha và tiếng Bồ Đào Nha (Brazil), cùng không gian quán rượu ba chiều với tiếng cốc, xúc xắc, độc dược và cú ngã cuối cùng.
+* Zombie Dice đã được thêm cho 2 đến 8 người chơi. Mỗi lần gieo ba viên, bạn giữ não, gieo lại dấu chân và tự quyết định lúc Dừng và ghi điểm trước khi ba phát súng xóa sạch số não trong lượt. Trò chơi có đúng cốc mười ba viên, vòng cuối bảo đảm số lượt công bằng, các vòng phân thắng bại chỉ dành cho nhóm dẫn đầu, mốc thắng tùy chỉnh, bot khó nhằn, bảng chi tiết lượt và tình hình bàn cập nhật trực tiếp, điều khiển bằng bàn phím và cảm ứng, cùng toàn bộ nội dung trò chơi và tài liệu cho người mới bằng tiếng Anh, tiếng Việt, tiếng Tây Ban Nha và tiếng Bồ Đào Nha (Brazil). Không gian đầm lầy ba chiều bao quanh bàn với zombie di chuyển, tiếng gieo xúc xắc, cắn, súng, va chạm và nhạc nền ăn khớp với diễn biến.
 * Flip 7 đã được thêm cho 3 đến 10 người chơi. Hãy tiếp tục Lật một lá để kiếm thêm điểm hoặc Dừng lại và giữ điểm trước khi một lá số trùng khiến bạn cháy bài; lá Nhân đôi, các lá cộng điểm, Cơ hội thứ hai, Đóng băng và Lật 3 có thể đảo ngược cả vòng. Thu đủ bảy lá số khác nhau sẽ nhận điểm thưởng Flip 7 và kết thúc vòng ngay. Trò chơi có trọn bộ 94 lá, Điểm mục tiêu tùy chỉnh, luật chơi tiếp khi nhóm dẫn đầu hòa, bot chỉ dùng thông tin công khai, bảng xem bàn theo đúng giai đoạn, điều khiển bằng bàn phím và cảm ứng, cùng toàn bộ nội dung trò chơi và tài liệu cho người mới bằng tiếng Anh, tiếng Việt, tiếng Tây Ban Nha và tiếng Bồ Đào Nha (Brazil).
 
 Cải thiện:

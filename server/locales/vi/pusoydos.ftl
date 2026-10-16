@@ -147,6 +147,10 @@ pusoydos-loser-gives = { $loser } đưa { $count ->
     [one] lá bài lớn nhất { GENDER_TERM($loser_gender, "possessive-determiner") }
    *[other] { $count } lá bài lớn nhất { GENDER_TERM($loser_gender, "possessive-determiner") }
 } cho { $winner }.
+pusoydos-you-give-highest = Bạn đưa { $count ->
+    [one] lá bài lớn nhất của mình
+   *[other] { $count } lá bài lớn nhất của mình
+} cho { $winner }.
 pusoydos-winner-gives-back = { $winner } trả lại { $count ->
     [one] một lá bài
    *[other] { $count } lá bài

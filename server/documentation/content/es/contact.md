@@ -1,6 +1,6 @@
 \*\*Contacto\*\*
 
-Usa esta página cuando necesites contactar directamente al mantenedor de PlayAural. Puedes usar estos medios de contacto para preguntas sobre el proyecto, comentarios de accesibilidad, reportes de errores, problemas de la comunidad, preguntas sobre donaciones u otros asuntos relacionados con PlayAural.
+Usa esta página cuando necesites contactar directamente con el mantenedor de PlayAural. Puedes usar estos medios de contacto para preguntas sobre el proyecto, comentarios de accesibilidad, reportes de errores, problemas de la comunidad, preguntas sobre donaciones u otros asuntos relacionados con PlayAural.
 
 \*\*Antes de contactar\*\*
 

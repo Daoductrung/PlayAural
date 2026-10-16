@@ -564,7 +564,7 @@ monopoly-you-bankrupt = No puedes recaudar los { $amount } que debes y quedas en
     [player] { $creditor }
    *[bank] el Banco
 }.
-monopoly-player-bankrupt = { $player } no puede recaudar los { $amount } que debe y queda en bancarrota. { GENDER_TERM($player_gender, "possessive-determiner-capitalized") } activos pasan a { $destination ->
+monopoly-player-bankrupt = { $player } no puede recaudar los { $amount } que debe y queda en bancarrota. Sus activos pasan a { $destination ->
     [player] { $creditor }
    *[bank] el Banco
 }.

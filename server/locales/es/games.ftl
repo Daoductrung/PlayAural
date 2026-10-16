@@ -80,8 +80,8 @@ team-arrangement-select-first = Selecciona primero un miembro del equipo.
 team-arrangement-player-missing = Ese jugador ya no está disponible para la organización de equipos.
 team-arrangement-same-team = Elige a alguien de un equipo diferente.
 team-arrangement-swap-failed = No se pudo intercambiar a esos miembros del equipo.
-team-arrangement-swapped-player = { $player } cambió a { $first } y { $second } de equipo.
-team-arrangement-swapped-you = Cambiaste a { $first } y { $second } de equipo.
+team-arrangement-swapped-player = { $player } intercambió de equipo a { $first } y { $second }.
+team-arrangement-swapped-you = Intercambiaste de equipo a { $first } y { $second }.
 
 status-box-closed = Información de estado cerrada.
 

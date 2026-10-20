@@ -26,6 +26,7 @@ export default {
   "btn-install": "Install App",
   "install-fail-hint": "To install on iOS, open Share and choose Add to Home Screen.",
   "startup-error": "PlayAural Web could not start. Please refresh this page.",
+
   "login-title": "Login",
   "login-username-label": "Username",
   "login-password-label": "Password",
@@ -36,12 +37,14 @@ export default {
   "btn-play": "Play",
   "btn-remove-account": "Remove Account",
   "btn-enter": "Login",
+
   "reg-title": "Create Account",
   "reg-username-label": "Username",
   "reg-email-label": "Email",
   "reg-password-label": "Password",
   "label-confirm-password": "Confirm Password",
   "btn-register": "Register",
+
   "forgot-password-prompt": "Enter the email address associated with your account.",
   "btn-send-code": "Send Code",
   "reset-password-title": "Reset Password",
@@ -50,6 +53,7 @@ export default {
   "new-password-prompt": "New Password",
   "btn-submit-reset": "Reset Password",
   "reset-password-success": "Your password has been reset. You can now log in.",
+
   "tab-menu": "Menu",
   "tab-chat": "Chat",
   "tab-history": "History",
@@ -79,6 +83,7 @@ export default {
   "history-buffer-unmute": "Unmute {name} buffer",
   "history-buffer-muted-by-all": "The {name} buffer is muted by All. Select All to unmute it.",
   "history-buffer-muted-empty": "The {name} buffer is muted. Unmute it to show its history.",
+
   "chat-input-label": "Chat Message",
   "communication-channel-table": "Table Chat",
   "communication-channel-selector": "Select chat channel",
@@ -88,6 +93,7 @@ export default {
   "chat-private": "Private message from {player}: {message}",
   "chat-prefix-announcement": "System Announcement",
   "chat-sender-system": "System",
+
   "voice-chat-heading": "Voice Chat",
   "voice-chat-join": "Join Voice Chat",
   "voice-chat-leave": "Leave Voice Chat",
@@ -117,6 +123,7 @@ export default {
   "voice-status-disconnected": "{player} disconnected from Voice Chat.",
   "voice-status-connection-lost": "{player} lost connection and was removed from Voice Chat.",
   "voice-status-left-table": "{player} left the table and left Voice Chat.",
+
   "shortcuts-heading": "Shortcuts",
   "btn-list-online": "Read online users",
   "btn-list-online-games": "Open online users list",
@@ -126,11 +133,13 @@ export default {
   "requesting-friends-hub": "Opening Friends...",
   "requesting-admin-menu": "Opening Administration...",
   "requesting-options": "Opening Options...",
+
   "audio-sound": "Sound",
   "audio-music": "Music",
   "audio-ambience": "Ambience",
   "audio-voice": "Voice",
   "audio-mute": "Mute browser audio",
+
   "status-connected": "Connected",
   "status-connecting": "Connecting...",
   "status-disconnected": "Disconnected",
@@ -150,7 +159,6 @@ export default {
   "main-chat-mute-status": "{scope} {status}",
   "main-ping-result": "Ping: {value}ms",
   "main-attempting-reconnect": "Connection lost. Attempting to reconnect...",
-  "main-reconnecting-in-3s": "Server is restarting. Reconnecting in {seconds} seconds...",
   "main-reconnecting": "Reconnecting...",
   "main-reconnect-failed": "Reconnection failed. Please check your connection and log in again.",
   "network-error-not-connected": "You are not connected to the PlayAural server yet.",
@@ -164,6 +172,7 @@ export default {
   "network-error-request-timeout": "The request timed out. Please try again.",
   "network-error-connection-closed": "The connection closed before the server completed the request. Please try again.",
   "table-created-notify": "A new table has been created.",
+
   "input-submit": "Submit",
   "common-ok": "OK",
   "common-cancel": "Cancel",
@@ -173,6 +182,7 @@ export default {
   "go-back": "Go Back",
   "default-voice": "Default Voice",
   "no-voices-found": "No voices were found, or voices are still loading. Please try again in a moment.",
+
   "auth-error-wrong-password": "Incorrect password.",
   "auth-error-user-not-found": "User does not exist.",
   "auth-error-username-ambiguous": "More than one legacy account matches this spelling. Enter the exact registered spelling.",
@@ -192,9 +202,5 @@ export default {
   "error-email-empty": "Email is required.",
   "error-email-invalid": "Please enter a valid email address.",
   "reg-error-email": "Email is required to register.",
-  "error-email-taken": "This email is already in use by another account.",
-  "chat-prefix-local": "[Local]",
-  "chat-prefix-global": "[Global]",
-  "chat-prefix-table": "[Table]",
-  "chat-prefix-system": "[System]",
+  "error-email-taken": "This email is already in use by another account."
 };

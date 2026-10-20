@@ -70,7 +70,6 @@ team-arrangement-member-option = { $player }, { $team }, { $selected }
 team-arrangement-selected = selecionado
 team-arrangement-not-selected = não selecionado
 team-arrangement-member-selected = { $player } da { $team } selecionado. Escolha um jogador de outra equipe para trocar.
-team-arrangement-swapped = { $first } e { $second } trocaram de equipe.
 team-arrangement-cancelled = Organização de equipes cancelada.
 team-arrangement-cancelled-roster = Organização de equipes cancelada porque a lista de jogadores foi alterada.
 team-arrangement-refreshed = A lista de jogadores mudou. A organização de equipes foi atualizada.
@@ -162,7 +161,6 @@ global-keys = Controles Globais
 game-rules = Regras do Jogo
 changelog = Histórico de Alterações
 donation = Doação
-contact = Contato
 document-not-found = Documento não encontrado.
 help = Ajuda
 

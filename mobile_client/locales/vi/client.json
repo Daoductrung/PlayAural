@@ -30,8 +30,6 @@
   "status-connecting": "Đang kết nối.",
   "status-connected": "Đã kết nối!",
   "connection-lost": "Mất kết nối. Đang thử kết nối lại.",
-  "reconnect-attempting": "Lần kết nối lại thứ {value}.",
-  "reconnect-server-restarting": "Máy chủ đang khởi động lại. Sẽ kết nối lại sau.",
   "reconnecting": "Đang kết nối lại.",
   "reconnect-failed": "Không thể kết nối lại. Vui lòng đăng nhập lại.",
   "network-connection-error": "Máy chủ không phản hồi.",
@@ -258,7 +256,5 @@
   "current-music-track": "Nhạc nền: {value}",
   "current-ambience-track": "Môi trường: {value}",
   "footer-gestures-line-1": "Tự đọc dùng các cử chỉ gần giống trình đọc màn hình. Sau khi kết nối, hãy tắt TalkBack nếu bạn muốn PlayAural tự điều khiển giọng đọc.",
-  "footer-gestures-line-2": "Vuốt 1 ngón để di chuyển; vuốt rồi giữ nửa giây để tiếp tục di chuyển liên tục. Chạm đúp để kích hoạt; chạm đúp rồi giữ để dùng hành động phụ. Vuốt 2 ngón để Quay lại, mở Trò chuyện, Nhật ký hoặc Phím tắt. Chạm 2 ngón để dừng đọc. Chạm 1 lần bằng 3 ngón để nghe mô tả của mục trình đơn đang được chọn. Vuốt lên hoặc xuống bằng 3 ngón để nhảy tới mục đầu hoặc cuối. Chạm 3 lần bằng 3 ngón để bật hoặc tắt tự đọc.",
-  "chat-global": "{player} nói với tất cả: {message}",
-  "chat-local": "{player} nói: {message}"
+  "footer-gestures-line-2": "Vuốt 1 ngón để di chuyển; vuốt rồi giữ nửa giây để tiếp tục di chuyển liên tục. Chạm đúp để kích hoạt; chạm đúp rồi giữ để dùng hành động phụ. Vuốt 2 ngón để Quay lại, mở Trò chuyện, Nhật ký hoặc Phím tắt. Chạm 2 ngón để dừng đọc. Chạm 1 lần bằng 3 ngón để nghe mô tả của mục trình đơn đang được chọn. Vuốt lên hoặc xuống bằng 3 ngón để nhảy tới mục đầu hoặc cuối. Chạm 3 lần bằng 3 ngón để bật hoặc tắt tự đọc."
 }

@@ -150,7 +150,6 @@ export default {
   "main-chat-mute-status": "{scope} {status}",
   "main-ping-result": "Latensi: {value} milidetik",
   "main-attempting-reconnect": "Koneksi terputus. Mencoba menghubungkan kembali...",
-  "main-reconnecting-in-3s": "Server sedang dimulai ulang. Menghubungkan kembali dalam {seconds} detik...",
   "main-reconnecting": "Menghubungkan kembali...",
   "main-reconnect-failed": "Gagal terhubung kembali. Periksa koneksi Anda dan masuk lagi.",
   "network-error-not-connected": "Anda belum terhubung ke server PlayAural.",
@@ -192,9 +191,5 @@ export default {
   "error-email-empty": "Email wajib diisi.",
   "error-email-invalid": "Masukkan alamat email yang valid.",
   "reg-error-email": "Email wajib diisi untuk mendaftar.",
-  "error-email-taken": "Email ini sudah digunakan oleh akun lain.",
-  "chat-prefix-local": "Lokal:",
-  "chat-prefix-global": "Global:",
-  "chat-prefix-table": "Meja:",
-  "chat-prefix-system": "Sistem:"
+  "error-email-taken": "Email ini sudah digunakan oleh akun lain."
 };

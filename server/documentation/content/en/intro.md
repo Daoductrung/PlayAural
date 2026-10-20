@@ -27,7 +27,9 @@ When you enter a table, you can usually:
 \* Chat with other people at the table or send private messages.
 \* Join the table's voice chat on the PlayAural clients that support voice playback and microphone access.
 \* If you are the host, open Host Management and choose Switch to Another Game to move everyone who is still present into a fresh waiting lobby for another game. Playing and spectating roles, bots, table ownership, privacy, bans, and voice chat stay with the table; the old match, options, teams, ready state, and pending invitations are discarded after you confirm.
-\* If you are the host during a game, open Host Management to substitute a spectator into an active player seat. A human currently in that seat must agree first. The substitute receives the seat's exact game state, remaining turn time, and eventual result attribution. If you give up your own seat, you become a spectator but remain the table host.
+\* If you are the host during a game, open Host Management to substitute a spectator into an active player seat. A human currently in that seat must agree first. The substitute receives the seat's game state and remaining turn time, but changing the seat's owner makes the whole match unranked: it awards no leaderboard records or skill-rating changes. If you give up your own seat, you become a spectator but remain the table host.
+
+If a player loses connection during a match, play pauses for up to five seconds before a bot takes over. Returning players reclaim their own seats without making the match unranked. Bots never continue alone: at least one human must be playing. An unattended match stays paused for up to 15 minutes while a player or the host reconnects. A spectating host keeps that role on return. Choosing to leave is different: a bot takes over immediately if the table can continue, and leaving as the last player with no host remaining cancels the match.
 
 \*\*Chat and Social Features\*\*
 

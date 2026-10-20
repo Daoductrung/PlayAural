@@ -70,7 +70,6 @@ team-arrangement-member-option = { $player }، { $team }، { $selected }
 team-arrangement-selected = انتخاب شد
 team-arrangement-not-selected = انتخاب نشد
 team-arrangement-member-selected = { $player } از { $team } انتخاب شد. یک بازیکن از تیم دیگر را برای جابه‌جایی انتخاب کنید.
-team-arrangement-swapped = { $first } و { $second } تیم‌های خود را عوض کردند.
 team-arrangement-cancelled = چینش تیم‌ها لغو شد.
 team-arrangement-cancelled-roster = چینش تیم‌ها به دلیل تغییر لیست بازیکنان لغو شد.
 team-arrangement-refreshed = لیست بازیکنان تغییر کرد. چینش تیم‌ها به‌روزرسانی شد.
@@ -159,7 +158,6 @@ global-keys = کنترل‌های عمومی
 game-rules = قوانین بازی
 changelog = تغییرات
 donation = کمک مالی
-contact = تماس
 document-not-found = سند یافت نشد.
 help = راهنما
 

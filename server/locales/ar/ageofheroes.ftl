@@ -105,10 +105,6 @@ ageofheroes-population-growth = يلعب { $player } النمو السكاني �
 ageofheroes-population-growth-you = تلعب النمو السكاني وتبني مدينة جديدة.
 ageofheroes-discard-card = يتخلّص { $player } من { $card }.
 ageofheroes-discard-card-you = تتخلّص من { $card }.
-ageofheroes-earthquake = يضرب زلزال قبيلة { $player }؛ تدخل الجيوش { GENDER_TERM($player_gender, "possessive-determiner") } مرحلة التعافي.
-ageofheroes-earthquake-you = يضرب زلزال قبيلتك؛ تدخل جيوشك مرحلة التعافي.
-ageofheroes-eruption = يدمّر ثوران بركاني إحدى مدن { $player }.
-ageofheroes-eruption-you = يدمّر ثوران بركاني إحدى مدنك.
 # Disaster effects
 ageofheroes-hunger-strikes = تضرب المجاعة.
 ageofheroes-lose-card-hunger = تفقد { $card }.

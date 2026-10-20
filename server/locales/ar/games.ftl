@@ -91,7 +91,6 @@ team-arrangement-member-option = { $player }، { $team }، { $selected }
 team-arrangement-selected = محدّد
 team-arrangement-not-selected = غير محدّد
 team-arrangement-member-selected = تم اختيار { $player } من { $team }. اختر لاعبًا من فريق آخر للتبديل معه.
-team-arrangement-swapped = تبادل { $first } و{ $second } الفريقين.
 team-arrangement-cancelled = تم إلغاء ترتيب الفِرَق.
 team-arrangement-cancelled-roster = تم إلغاء ترتيب الفِرَق لأن قائمة اللاعبين تغيّرت.
 team-arrangement-refreshed = تغيّرت قائمة اللاعبين. تم تحديث ترتيب الفِرَق.
@@ -183,7 +182,6 @@ global-keys = عناصر التحكم العامة
 game-rules = قواعد اللعبة
 changelog = سجل التغييرات
 donation = التبرّع
-contact = التواصل
 document-not-found = لم يُعثر على المستند.
 help = مساعدة
 

@@ -161,7 +161,6 @@ global-keys = Global Controls
 game-rules = Game Rules
 changelog = Changelog
 donation = Donation
-contact = Contact
 document-not-found = Document not found.
 help = Help
 
@@ -180,6 +179,3 @@ game-info-no-options = This game has no custom configuration options.
 # How to Play (Ctrl+F1)
 how-to-play = How to Play
 game-rules-not-available = Rules for {$game} are not available yet.
-
-# Compatibility strings retained until the public runtime adopts the newer message ids.
-team-arrangement-swapped = { $first } and { $second } have swapped teams.

@@ -91,10 +91,6 @@ export default {
   "chat-input-placeholder": "اكتب رسالة...",
   "btn-chat-send": "إرسال",
   "chat-private": "رسالة خاصة من {player}: {message}",
-  "chat-prefix-local": "[محلي]",
-  "chat-prefix-global": "[عام]",
-  "chat-prefix-table": "[الطاولة]",
-  "chat-prefix-system": "[النظام]",
   "chat-prefix-announcement": "إعلان النظام",
   "chat-sender-system": "النظام",
 
@@ -163,7 +159,6 @@ export default {
   "main-chat-mute-status": "{scope} {status}",
   "main-ping-result": "زمن الاستجابة: {value} مللي ثانية",
   "main-attempting-reconnect": "انقطع الاتصال. جارٍ محاولة إعادة الاتصال...",
-  "main-reconnecting-in-3s": "الخادم يُعيد التشغيل. إعادة الاتصال خلال {seconds} ثانية...",
   "main-reconnecting": "جارٍ إعادة الاتصال...",
   "main-reconnect-failed": "فشلت إعادة الاتصال. يرجى التحقق من اتصالك وتسجيل الدخول مجددًا.",
   "network-error-not-connected": "لم تتصل بخادم PlayAural بعد.",

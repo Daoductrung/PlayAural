@@ -30,8 +30,6 @@
   "status-connecting": "Menghubungkan.",
   "status-connected": "Terhubung!",
   "connection-lost": "Koneksi terputus. Menghubungkan kembali.",
-  "reconnect-attempting": "Percobaan menghubungkan kembali ke-{value}.",
-  "reconnect-server-restarting": "Server sedang dimulai ulang. Akan segera menghubungkan kembali.",
   "reconnecting": "Menghubungkan kembali.",
   "reconnect-failed": "Tidak dapat terhubung kembali. Silakan masuk lagi.",
   "network-connection-error": "Server tidak merespons.",
@@ -258,7 +256,5 @@
   "current-music-track": "Musik: {value}",
   "current-ambience-track": "Suara latar: {value}",
   "footer-gestures-line-1": "Pembacaan suara aplikasi menggunakan gestur seperti pembaca layar. Matikan TalkBack setelah terhubung jika Anda ingin PlayAural mengendalikan pembacaan secara langsung.",
-  "footer-gestures-line-2": "Geser dengan satu jari untuk berpindah pilihan. Geser lalu tahan selama setengah detik untuk terus berpindah. Ketuk dua kali untuk mengaktifkan pilihan. Ketuk dua kali lalu tahan untuk menjalankan tindakan alternatif. Geser dengan dua jari untuk membuka Kembali, Obrolan, Riwayat, atau Pintasan. Ketuk dengan dua jari untuk menghentikan pembacaan. Ketuk dengan tiga jari untuk membacakan keterangan pilihan menu yang sedang difokuskan. Geser ke atas atau ke bawah dengan tiga jari untuk menuju pilihan pertama atau terakhir. Ketuk tiga kali dengan tiga jari untuk mengaktifkan atau menonaktifkan pembacaan suara aplikasi.",
-  "chat-global": "{player} berkata di obrolan global: {message}",
-  "chat-local": "{player} berkata: {message}"
+  "footer-gestures-line-2": "Geser dengan satu jari untuk berpindah pilihan. Geser lalu tahan selama setengah detik untuk terus berpindah. Ketuk dua kali untuk mengaktifkan pilihan. Ketuk dua kali lalu tahan untuk menjalankan tindakan alternatif. Geser dengan dua jari untuk membuka Kembali, Obrolan, Riwayat, atau Pintasan. Ketuk dengan dua jari untuk menghentikan pembacaan. Ketuk dengan tiga jari untuk membacakan keterangan pilihan menu yang sedang difokuskan. Geser ke atas atau ke bawah dengan tiga jari untuk menuju pilihan pertama atau terakhir. Ketuk tiga kali dengan tiga jari untuk mengaktifkan atau menonaktifkan pembacaan suara aplikasi."
 }

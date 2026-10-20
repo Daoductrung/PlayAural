@@ -39,6 +39,8 @@ communication-channel-selector = Kênh trò chuyện
 voice-chat-join = Tham gia trò chuyện thoại
 voice-chat-leave = Rời trò chuyện thoại
 voice-chat-mic = Micrô
+voice-chat-mic-on = Micrô đã bật.
+voice-chat-mic-off = Micrô đã tắt.
 voice-chat-joining = Đang tham gia trò chuyện thoại...
 voice-chat-listen-only = Đã tham gia trò chuyện thoại. Bạn đang chỉ nghe.
 voice-chat-left = Đã rời trò chuyện thoại.
@@ -63,8 +65,6 @@ main-connecting-to = Đang kết nối tới { $url }...
 main-connecting-as = Đang kết nối với tên { $username }...
 main-connected-version = Đã kết nối tới máy chủ phiên bản { $version }
 main-connection-timeout = Hết thời gian chờ: Không thể kết nối tới máy chủ.
-main-connection-lost = Mất kết nối!
-main-reconnecting-in-3s = Máy chủ đang khởi động lại. Đang kết nối lại sau 3 giây...
 main-reconnecting = Đang kết nối lại...
 main-connection-failed = Không thể bắt đầu kết nối tới máy chủ.
 main-session-ended = Máy chủ đã kết thúc phiên này. Bạn đã được đưa về màn hình đăng nhập.
@@ -106,9 +106,6 @@ login-btn-auto-login = Tự động đăng nhập lần sau
 login-btn-remove-account = Xóa tài khoản
 login-btn-register-new = Đăng ký tài khoản mới
 login-btn-login-existing = Đăng nhập bằng tài khoản đã có
-login-info-verifying = Đang xác thực thông tin...
-login-info-success = Xác thực thành công!
-login-info-failed = Xác thực thất bại!
 login-account-deleted = Đã xóa tài khoản thành công.
 login-manual-title = Đăng nhập
 login-failed-title = Đăng nhập thất bại
@@ -137,9 +134,6 @@ reg-error-match = Mật khẩu xác nhận không khớp
 reg-error-bio = Vui lòng nhập phần giới thiệu
 reg-success-title = Đăng ký thành công
 reg-failed-title = Đăng ký thất bại
-reg-connection-error = Lỗi kết nối: { $error }
-reg-timeout-error = Máy chủ không phản hồi kịp thời
-reg-unexpected-error = Phản hồi không mong muốn từ máy chủ
 
 main-status-muted = đã tắt tiếng
 main-status-unmuted = đã bật tiếng
@@ -172,7 +166,6 @@ slash-command-invalid-state = Giá trị trạng thái không hợp lệ. Các g
 slash-command-not-found = Không tìm thấy lệnh gạch chéo { $command }.
 slash-command-min-arguments = Lệnh { $command } cần ít nhất { $count } tham số.
 slash-command-max-arguments = Lệnh { $command } nhận tối đa { $count } tham số.
-reg-error-exception = Lỗi: { $error }
 main-connection-error-title = Lỗi kết nối
 main-options-error = Các tùy chọn ứng dụng không khả dụng
 main-options-error-title = Lỗi
@@ -193,7 +186,6 @@ buffer-misc = Linh tinh
 system-announcement = Thông báo hệ thống
 chat-announcement = Thông báo hệ thống: { $message }
 chat-private = Tin nhắn riêng từ { $player }: { $message }
-common-app-closing = Trò chơi sẽ đóng lại ngay bây giờ.
 login-error-connection-refused = Kết nối bị từ chối: Máy chủ có thể đang ngoại tuyến.
 login-error-connection-timeout = Hết thời gian kết nối: Máy chủ không phản hồi.
 login-error-dns = Không tìm thấy địa chỉ máy chủ. Hãy kiểm tra kết nối Internet và địa chỉ máy chủ.
@@ -212,11 +204,7 @@ login-error-network = Lỗi mạng khiến PlayAural không thể kết nối t�
 login-error-unexpected = PlayAural không thể hoàn tất kết nối do lỗi cục bộ ngoài dự kiến. Hãy khởi động lại máy khách rồi thử lại.
 login-error-save-account = Đăng nhập thành công, nhưng PlayAural không thể lưu an toàn tài khoản này trên thiết bị. Hãy kiểm tra quyền truy cập thư mục dữ liệu ứng dụng rồi thử lại.
 login-error-remove-account = PlayAural không thể xóa tài khoản đã lưu này khỏi thiết bị. Hãy kiểm tra quyền truy cập thư mục dữ liệu ứng dụng rồi thử lại.
-login-error-unknown = Đã xảy ra lỗi không xác định: { $error }
 main-attempting-reconnect = Mất kết nối. Đang thử kết nối lại...
-main-reconnect-failed = Kết nối lại thất bại. Vui lòng khởi động lại ứng dụng.
-main-reconnecting-as-attempt = Đang kết nối lại với tên { $username }... lần thử { $attempt }.
-logged-out = Bạn đã đăng xuất.
 goodbye = Tạm biệt!
 session-kicked = Bạn đã bị đuổi khỏi máy chủ.
 session-banned = Tài khoản này đã bị cấm.
@@ -350,7 +338,6 @@ updater-error-target-missing = Thư mục cài đặt PlayAural không còn tồ
 updater-error-package-missing = Gói cập nhật đã tải không còn tồn tại.
 updater-source-run-unsupported = Tính năng tự động thay thế bị tắt khi chạy từ mã nguồn. Hãy cài đặt một bản phát hành PlayAural đã đóng gói.
 
-main-restarting = Đang khởi động lại...
 
 auth-error-username-length = Tên đăng nhập phải dài từ 3 đến 30 ký tự.
 auth-error-password-weak = Mật khẩu phải dài ít nhất 8 ký tự và bao gồm cả chữ và số.
@@ -366,16 +353,3 @@ auth-error-rate-limit = Quá nhiều lần đăng nhập thất bại. Vui lòng
 auth-error-rate-limit-generic = Có quá nhiều yêu cầu tài khoản trong thời gian ngắn. Vui lòng đợi rồi thử lại.
 auth-error-server-maintenance = Máy chủ đang bảo trì cơ sở dữ liệu. Đăng nhập, đăng ký và thay đổi mật khẩu đang tạm thời không khả dụng. Vui lòng thử lại sau khi bảo trì hoàn tất.
 auth-auto-login-disabled = Tự động đăng nhập đã bị tắt cho tài khoản này. Vui lòng đăng nhập thủ công và cập nhật thông tin đăng nhập nếu cần.
-
-# Compatibility strings retained until the public runtime adopts the newer message ids.
-voice-chat-turn-on-mic = Bật mic
-
-voice-chat-turn-off-mic = Tắt mic
-
-voice-chat-mic-on = Micrô đã bật.
-
-voice-chat-mic-off = Micrô đã tắt.
-
-chat-global = { $player } nói với tất cả: { $message }
-
-chat-local = { $player } nói: { $message }

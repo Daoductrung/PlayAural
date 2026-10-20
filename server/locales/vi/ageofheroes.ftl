@@ -104,11 +104,6 @@ ageofheroes-population-growth = { $player } khơi dậy Gia tăng dân số và 
 ageofheroes-population-growth-you = Bạn khơi dậy Gia tăng dân số và dựng thêm một thành phố.
 ageofheroes-discard-card = { $player } bỏ lá { $card }.
 ageofheroes-discard-card-you = Bạn bỏ lá { $card }.
-ageofheroes-earthquake = Đất trời rung chuyển trên lãnh địa của { $player }; quân đoàn { GENDER_TERM($player_gender, "possessive-determiner") } phải lui về hồi phục.
-ageofheroes-earthquake-you = Đất trời rung chuyển trên lãnh địa của bạn; quân đoàn phải lui về hồi phục.
-ageofheroes-eruption = Núi lửa phẫn nộ thiêu rụi một thành phố của { $player }.
-ageofheroes-eruption-you = Núi lửa phẫn nộ thiêu rụi một thành phố của bạn.
-
 # Hiệu ứng thảm họa
 ageofheroes-hunger-strikes = Nạn đói phủ bóng lên các bộ tộc.
 ageofheroes-lose-card-hunger = Bạn mất lá { $card }.

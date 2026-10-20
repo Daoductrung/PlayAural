@@ -104,11 +104,6 @@ ageofheroes-population-growth = { $player } رشد جمعیت را بازی می
 ageofheroes-population-growth-you = شما رشد جمعیت را بازی می‌کنید و یک شهر جدید می‌سازید.
 ageofheroes-discard-card = { $player } { $card } را دور می‌اندازد.
 ageofheroes-discard-card-you = شما { $card } را دور می‌اندازید.
-ageofheroes-earthquake = زلزله‌ای به قبیله‌ی { $player } می‌زند؛ ارتش‌های آنها به حالت بازیابی می‌روند.
-ageofheroes-earthquake-you = زلزله‌ای به قبیله‌ی شما می‌زند؛ ارتش‌های شما به حالت بازیابی می‌روند.
-ageofheroes-eruption = یک فوران آتشفشانی یکی از شهرهای { $player } را نابود می‌کند.
-ageofheroes-eruption-you = یک فوران آتشفشانی یکی از شهرهای شما را نابود می‌کند.
-
 # اثرات بلایا
 ageofheroes-hunger-strikes = قحطی رخ می‌دهد.
 ageofheroes-lose-card-hunger = شما { $card } را از دست می‌دهید.

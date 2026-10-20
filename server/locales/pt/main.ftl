@@ -7,8 +7,6 @@ auth-error-user-not-found = O usuário não existe.
 username-ambiguous = Mais de uma conta antiga corresponde a "{ $username }". Insira a grafia exata registrada.
 auth-kicked-logged-in-elsewhere = Você foi desconectado porque sua conta foi acessada em outro dispositivo.
 
-chat-global = { $player } diz globalmente: { $message }
-
 admin-smtp-updated-success = Configuração SMTP atualizada com sucesso
 admin-smtp-settings = Configurações SMTP
 email-reset-subject = Código de redefinição de senha do PlayAural
@@ -397,8 +395,6 @@ table-member-status-host = Host
 table-member-status-player = Jogador
 table-member-status-spectator = Espectador
 table-member-status-bot = Bot
-table-member-status-online = Online
-table-member-status-offline = Offline
 table-member-status-voice-chat = no chat de voz
 table-member-status-bot-takeover = bot jogando no lugar { GENDER_TERM($member_gender, "possessive-determiner") }: { $bot }
 table-member-no-actions = Nenhuma ação disponível para { $player }.
@@ -880,7 +876,7 @@ server-power-restore-waiting = Esta mesa foi restaurada após uma reinicializaç
 server-power-restore-input-blocked = Esta mesa ainda está se recuperando da reinicialização planejada. A jogabilidade está pausada por até mais { $seconds } segundos enquanto aguarda { $players }; tente novamente após o término do período de carência.
 server-power-restore-missing-players-fallback = os jogadores restantes
 server-power-restore-complete = Todos os jogadores ativos se reconectaram após a reinicialização planejada. Jogo retomado.
-server-power-restore-complete-with-bots = O período de carência de reconexão terminou após a reinicialização planejada. Os assentos vazios foram substituídos por bots e o jogo está sendo retomado.
+server-power-restore-complete-with-bots = O período de carência de reconexão terminou após a reinicialização planejada. Os assentos vazios foram substituídos por bots.
 duration-seconds = { $count ->
     [one] 1 segundo
    *[other] { $count } segundos
@@ -918,9 +914,6 @@ mobile-tts-enter-rate = Insira a velocidade da fala móvel (50-200)
 mobile-tts-invalid-rate = Velocidade da fala móvel inválida. Use um valor entre 50 e 200.
 
 player-kicked-offline = O jogador { $player } foi expulso (offline).
-game-paused-host-disconnect = Jogo pausado. Aguardando { $player } se reconectar...
-game-resumed = { $player } se reconectou. Jogo retomado!
-game-resumed-you = Você se reconectou. Jogo retomado!
 
 auth-error-username-length = O nome de usuário deve ter entre 3 e 30 caracteres.
 auth-error-username-invalid-chars = O nome de usuário pode conter apenas letras, números e espaços (sem espaços consecutivos e sem caracteres especiais).
@@ -995,16 +988,13 @@ friend-remove-confirm = Remover { $username } da sua lista de amigos?
 friend-remove-not-friends = { $username } não está mais na sua lista de amigos.
 already-in-table = Você já está nesta mesa.
 friend-removed-success = { $username } foi removido da sua lista de amigos.
-friend-removed-notify = { $username } removeu você da lista de amigos { GENDER_TERM($username_gender, "possessive-determiner") }.
 
 no-pending-requests = Nenhuma solicitação pendente.
 accept = Aceitar
 decline = Recusar
 friend-accepted-success = Agora você é amigo de { $username }.
-friend-accepted-notify = { $username } aceitou sua solicitação de amizade!
 request-not-found = A solicitação de amizade não existe mais.
 friend-declined-success = Solicitação de amizade recusada.
-friend-declined-notify = { $username } recusou sua solicitação de amizade.
 
 enter-friend-username = Insira o nome de usuário da pessoa que deseja adicionar como amiga:
 friend-error-self = Você não pode enviar uma solicitação de amizade para si mesmo.
@@ -1013,7 +1003,6 @@ friend-error-duplicate = Você já tem uma solicitação de amizade pendente par
 friend-error-blocked-by-you = Você bloqueou { $username }. Desbloqueie { GENDER_TERM($username_gender, "object") } antes de enviar uma solicitação de amizade.
 friend-error-blocked = As solicitações de amizade não estão disponíveis entre você e { $username }.
 friend-request-sent = Solicitação de amizade enviada para { $username }.
-friend-request-received = Você recebeu uma nova solicitação de amizade de { $username }.
 block-confirm = Bloquear { $username }? Isso remove qualquer amizade e solicitação de amizade pendente entre vocês. Nenhum de vocês poderá enviar ao outro solicitações de amizade, mensagens privadas ou convites para mesas, e as mensagens de chat normais ficarão ocultas nas duas direções. Até o desbloqueio, nenhum de vocês poderá entrar novamente em uma mesa organizada pelo outro nem restaurar uma mesa salva que inclua os dois. Bloquear não remove jogadores de uma mesa compartilhada, não impede a recuperação de um assento reservado nem silencia o chat de voz da mesa.
 block-success = Você bloqueou { $username }. O contato social direto não está mais disponível entre vocês, as mensagens comuns de chat { GENDER_TERM($username_gender, "possessive-determiner") } ficam ocultas, e nenhum de vocês pode entrar novamente em uma mesa organizada pelo outro nem restaurar uma mesa salva que inclua os dois usuários.
 block-error-self = Você não pode se bloquear.

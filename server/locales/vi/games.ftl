@@ -161,7 +161,6 @@ global-keys = Điều khiển toàn cục
 game-rules = Luật chơi
 changelog = Nhật ký thay đổi
 donation = Quyên góp
-contact = Liên hệ
 document-not-found = Không tìm thấy tài liệu.
 help = Trợ giúp
 
@@ -180,6 +179,3 @@ game-info-no-options = Trò chơi này không có tùy chọn cấu hình.
 # How to Play (Ctrl+F1)
 how-to-play = Cách chơi
 game-rules-not-available = Luật chơi cho {$game} chưa có sẵn.
-
-# Compatibility strings retained until the public runtime adopts the newer message ids.
-team-arrangement-swapped = { $first } và { $second } đã đổi đội cho nhau.

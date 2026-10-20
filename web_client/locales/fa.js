@@ -65,10 +65,6 @@ export default {
   "chat-input-label": "پیام چت",
   "chat-input-placeholder": "پیام خود را بنویسید...",
   "btn-chat-send": "ارسال",
-  "chat-prefix-local": "[محلی]",
-  "chat-prefix-global": "[عمومی]",
-  "chat-prefix-table": "[میز]",
-  "chat-prefix-system": "[سیستم]",
   "chat-prefix-announcement": "اعلامیه‌ی سیستم",
   "chat-sender-system": "سیستم",
 
@@ -134,7 +130,6 @@ export default {
   "main-chat-mute-status": "{scope} {status}",
   "main-ping-result": "پینگ: {value} میلی‌ثانیه",
   "main-attempting-reconnect": "اتصال قطع شد. در حال تلاش برای اتصال مجدد...",
-  "main-reconnecting-in-3s": "سرور در حال راه‌اندازی مجدد است. اتصال مجدد در {seconds} ثانیه...",
   "main-reconnecting": "در حال اتصال مجدد...",
   "main-reconnect-failed": "اتصال مجدد ناموفق بود. لطفاً اتصال خود را بررسی کنید و دوباره وارد شوید.",
   "network-error-not-connected": "شما هنوز به سرور PlayAural متصل نشده‌اید.",

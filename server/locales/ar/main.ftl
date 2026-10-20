@@ -8,8 +8,6 @@ auth-error-user-not-found = المستخدم غير موجود.
 username-ambiguous = أكثر من حساب قديم يطابق "{ $username }". أدخل التهجئة المسجّلة بالضبط.
 auth-kicked-logged-in-elsewhere = تم قطع اتصالك لأنه تم تسجيل الدخول إلى حسابك من جهاز آخر.
 
-chat-global = { $player } يقول في الدردشة العامة: { $message }
-
 admin-smtp-updated-success = تم تحديث إعداد SMTP بنجاح
 admin-smtp-settings = إعدادات SMTP
 email-reset-subject = رمز إعادة تعيين كلمة مرور PlayAural
@@ -402,8 +400,6 @@ table-member-status-host = المضيف
 table-member-status-player = لاعب
 table-member-status-spectator = متفرّج
 table-member-status-bot = بوت
-table-member-status-online = متصل
-table-member-status-offline = غير متصل
 table-member-status-voice-chat = في الدردشة الصوتية
 table-member-status-bot-takeover = بوت يلعب في المقعد { GENDER_TERM($member_gender, "possessive-determiner") }: { $bot }
 table-member-no-actions = لا توجد إجراءات متاحة لـ { $player }.
@@ -893,7 +889,7 @@ server-power-restore-waiting = تمت استعادة هذه الطاولة بع�
 server-power-restore-input-blocked = لا تزال هذه الطاولة تتعافى من إعادة التشغيل المخطّطة. تم إيقاف اللعب مؤقتاً حتى { $seconds } ثانية إضافية في انتظار { $players }؛ يرجى المحاولة مرة أخرى بعد انتهاء فترة السماح.
 server-power-restore-missing-players-fallback = اللاعبون المتبقّون
 server-power-restore-complete = أعاد جميع اللاعبين النشطين الاتصال بعد إعادة التشغيل المخطّطة. استؤنفت اللعبة.
-server-power-restore-complete-with-bots = انتهت فترة سماح إعادة الاتصال بعد إعادة التشغيل المخطّطة. تم استبدال المقاعد المفقودة ببوتات، وتُستأنف اللعبة.
+server-power-restore-complete-with-bots = انتهت فترة سماح إعادة الاتصال بعد إعادة التشغيل المخطّطة. تم استبدال المقاعد المفقودة ببوتات.
 duration-seconds = { $count ->
     [one] ثانية واحدة
    *[other] { $count } ثانية
@@ -931,9 +927,6 @@ mobile-tts-enter-rate = أدخل سرعة الكلام في الجوال (50-200
 mobile-tts-invalid-rate = سرعة كلام جوال غير صالحة. استخدم قيمة بين 50 و200.
 
 player-kicked-offline = تم طرد اللاعب { $player } (غير متصل).
-game-paused-host-disconnect = توقفت اللعبة مؤقتاً. في انتظار إعادة اتصال { $player }...
-game-resumed = أعاد { $player } الاتصال. استؤنفت اللعبة!
-game-resumed-you = أعدت الاتصال. استؤنفت اللعبة!
 
 auth-error-username-length = يجب أن يتراوح اسم المستخدم بين 3 و30 حرفاً.
 auth-error-username-invalid-chars = يمكن أن يحتوي اسم المستخدم على حروف وأرقام ومسافات فقط (بدون مسافات متتالية، وبدون أحرف خاصة).
@@ -1082,7 +1075,6 @@ friend-remove-confirm = إزالة { $username } من قائمة أصدقائك�
 friend-remove-not-friends = لم يعد { $username } في قائمة أصدقائك.
 already-in-table = أنت بالفعل في هذه الطاولة.
 friend-removed-success = تمت إزالة { $username } من قائمة أصدقائك.
-friend-removed-notify = أزالك { $username } من قائمة الأصدقاء { GENDER_TERM($username_gender, "possessive-determiner") }.
 
 no-pending-requests = لا توجد طلبات معلّقة.
 no-sent-requests = ليس لديك طلبات مرسَلة معلّقة.
@@ -1090,10 +1082,8 @@ friend-request-to = تم إرسال طلب صداقة إلى { $username }
 accept = قبول
 decline = رفض
 friend-accepted-success = أنت الآن صديق لـ { $username }.
-friend-accepted-notify = قبل { $username } طلب صداقتك!
 request-not-found = لم يعد طلب الصداقة موجوداً.
 friend-declined-success = تم رفض طلب الصداقة.
-friend-declined-notify = رفض { $username } طلب صداقتك.
 friend-request-manage-sent = إدارة طلب الصداقة المرسَل
 friend-request-accept-action = قبول طلب الصداقة
 friend-request-cancel-action = إلغاء طلب الصداقة
@@ -1134,7 +1124,6 @@ friend-error-duplicate = لديك بالفعل طلب صداقة معلّق إل
 friend-error-blocked-by-you = لقد حظرت { $username }. ألغِ حظر { GENDER_TERM($username_gender, "object") } قبل إرسال طلب صداقة.
 friend-error-blocked = طلبات الصداقة غير متاحة بينك وبين { $username }.
 friend-request-sent = تم إرسال طلب صداقة إلى { $username }.
-friend-request-received = لقد تلقيت طلب صداقة جديداً من { $username }.
 
 block-confirm = حظر { $username }؟ يؤدي هذا إلى إزالة أي صداقة وطلبات صداقة معلّقة بينكما. لن يتمكن أي منكما من إرسال طلبات صداقة أو رسائل خاصة أو دعوات طاولة إلى الآخر، وستُخفى رسائل الدردشة العادية في كلا الاتجاهين. وحتى إلغاء الحظر، لا يمكن لأي من المستخدمين الدخول حديثاً إلى طاولة يستضيفها الآخر أو استعادة طاولة محفوظة تحتوي على كليهما. لا يؤدي الحظر إلى إزالة أي منكما من طاولة مشتركة، أو منع استرداد مقعد محجوز، أو كتم الدردشة الصوتية للطاولة.
 block-success = لقد حظرت { $username }. أصبح التواصل الاجتماعي المباشر غير متاح بينكما؛ وتُخفى رسائل الدردشة العادية { GENDER_TERM($username_gender, "possessive-determiner") }، ولا يمكن لأي منكما الدخول حديثاً إلى طاولة يستضيفها الآخر أو استعادة طاولة محفوظة تحتوي على كليهما.

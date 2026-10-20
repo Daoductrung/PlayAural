@@ -26,6 +26,7 @@ export default {
   "btn-install": "Cài đặt ứng dụng",
   "install-fail-hint": "Để cài trên iOS, mở Chia sẻ rồi chọn Thêm vào Màn hình chính.",
   "startup-error": "Không thể khởi động PlayAural Web. Vui lòng tải lại trang.",
+
   "login-title": "Đăng nhập",
   "login-username-label": "Tên đăng nhập",
   "login-password-label": "Mật khẩu",
@@ -36,12 +37,14 @@ export default {
   "btn-play": "Chơi",
   "btn-remove-account": "Xóa tài khoản đã lưu",
   "btn-enter": "Đăng nhập",
+
   "reg-title": "Tạo tài khoản",
   "reg-username-label": "Tên đăng nhập",
   "reg-email-label": "Email",
   "reg-password-label": "Mật khẩu",
   "label-confirm-password": "Xác nhận mật khẩu",
   "btn-register": "Đăng ký",
+
   "forgot-password-prompt": "Nhập địa chỉ email liên kết với tài khoản của bạn.",
   "btn-send-code": "Gửi mã",
   "reset-password-title": "Đặt lại mật khẩu",
@@ -50,6 +53,7 @@ export default {
   "new-password-prompt": "Mật khẩu mới",
   "btn-submit-reset": "Đặt lại mật khẩu",
   "reset-password-success": "Mật khẩu của bạn đã được đặt lại. Bây giờ bạn có thể đăng nhập.",
+
   "tab-menu": "Trình đơn",
   "tab-chat": "Trò chuyện",
   "tab-history": "Nhật ký",
@@ -79,6 +83,7 @@ export default {
   "history-buffer-unmute": "Bật tiếng bộ đệm {name}",
   "history-buffer-muted-by-all": "Bộ đệm {name} đang bị tắt tiếng bởi Tất cả. Hãy chọn Tất cả để bật tiếng.",
   "history-buffer-muted-empty": "Bộ đệm {name} đang bị tắt tiếng. Hãy bật tiếng để xem nhật ký của bộ đệm này.",
+
   "chat-input-label": "Nội dung trò chuyện",
   "communication-channel-table": "Trò chuyện bàn",
   "communication-channel-selector": "Chọn kênh trò chuyện",
@@ -88,6 +93,7 @@ export default {
   "chat-private": "Tin nhắn riêng từ {player}: {message}",
   "chat-prefix-announcement": "Thông báo hệ thống",
   "chat-sender-system": "Hệ thống",
+
   "voice-chat-heading": "Trò chuyện thoại",
   "voice-chat-join": "Tham gia trò chuyện thoại",
   "voice-chat-leave": "Rời trò chuyện thoại",
@@ -117,6 +123,7 @@ export default {
   "voice-status-disconnected": "{player} đã ngắt kết nối khỏi trò chuyện thoại.",
   "voice-status-connection-lost": "{player} bị mất kết nối và đã bị đưa ra khỏi trò chuyện thoại.",
   "voice-status-left-table": "{player} đã rời bàn và rời khỏi trò chuyện thoại.",
+
   "shortcuts-heading": "Phím tắt",
   "btn-list-online": "Đọc người dùng trực tuyến",
   "btn-list-online-games": "Mở danh sách người dùng trực tuyến",
@@ -126,11 +133,13 @@ export default {
   "requesting-friends-hub": "Đang mở bạn bè...",
   "requesting-admin-menu": "Đang mở Quản trị...",
   "requesting-options": "Đang mở tùy chỉnh...",
+
   "audio-sound": "Hiệu ứng",
   "audio-music": "Nhạc nền",
   "audio-ambience": "Môi trường",
   "audio-voice": "Giọng nói",
   "audio-mute": "Tắt âm thanh trình duyệt",
+
   "status-connected": "Đã kết nối",
   "status-connecting": "Đang kết nối...",
   "status-disconnected": "Đã ngắt kết nối",
@@ -150,7 +159,6 @@ export default {
   "main-chat-mute-status": "Đã {status} {scope}",
   "main-ping-result": "Độ trễ: {value}ms",
   "main-attempting-reconnect": "Mất kết nối. Đang thử kết nối lại...",
-  "main-reconnecting-in-3s": "Máy chủ đang khởi động lại. Đang kết nối lại sau {seconds} giây...",
   "main-reconnecting": "Đang kết nối lại...",
   "main-reconnect-failed": "Kết nối lại thất bại. Vui lòng kiểm tra mạng và đăng nhập lại.",
   "network-error-not-connected": "Bạn chưa kết nối tới máy chủ PlayAural.",
@@ -164,6 +172,7 @@ export default {
   "network-error-request-timeout": "Yêu cầu đã hết thời gian chờ. Vui lòng thử lại.",
   "network-error-connection-closed": "Kết nối đã bị đóng trước khi máy chủ hoàn tất yêu cầu. Vui lòng thử lại.",
   "table-created-notify": "Một bàn chơi mới vừa được tạo.",
+
   "input-submit": "Gửi",
   "common-ok": "OK",
   "common-cancel": "Hủy",
@@ -173,6 +182,7 @@ export default {
   "go-back": "Quay lại",
   "default-voice": "Giọng mặc định",
   "no-voices-found": "Chưa tìm thấy giọng đọc, hoặc danh sách giọng đọc vẫn đang tải. Vui lòng thử lại sau giây lát.",
+
   "auth-error-wrong-password": "Sai mật khẩu.",
   "auth-error-user-not-found": "Người dùng không tồn tại.",
   "auth-error-username-ambiguous": "Có nhiều tài khoản cũ trùng với cách viết này khi không phân biệt chữ hoa chữ thường. Hãy nhập đúng từng ký tự như tên đã đăng ký.",
@@ -192,9 +202,5 @@ export default {
   "error-email-empty": "Email là bắt buộc.",
   "error-email-invalid": "Vui lòng nhập địa chỉ email hợp lệ.",
   "reg-error-email": "Email là bắt buộc để đăng ký.",
-  "error-email-taken": "Email này đã được sử dụng bởi một tài khoản khác.",
-  "chat-prefix-local": "[Tại chỗ]",
-  "chat-prefix-global": "[Kênh chung]",
-  "chat-prefix-table": "[Bàn]",
-  "chat-prefix-system": "[Hệ thống]",
+  "error-email-taken": "Email này đã được sử dụng bởi một tài khoản khác."
 };

@@ -160,7 +160,6 @@ global-keys = Kontrol Umum
 game-rules = Aturan Permainan
 changelog = Riwayat Perubahan
 donation = Donasi
-contact = Kontak
 document-not-found = Dokumen tidak ditemukan.
 help = Bantuan
 
@@ -179,6 +178,3 @@ game-info-no-options = Permainan ini tidak memiliki pengaturan khusus.
 # How to Play (Ctrl+F1)
 how-to-play = Cara Bermain
 game-rules-not-available = Aturan untuk { $game } belum tersedia.
-
-# Compatibility strings retained until the public runtime adopts the newer message ids.
-team-arrangement-swapped = { $first } dan { $second } telah bertukar tim.

@@ -94,10 +94,6 @@ ageofheroes-population-growth = { $player } memainkan Pertumbuhan Penduduk dan m
 ageofheroes-population-growth-you = Anda memainkan Pertumbuhan Penduduk dan membangun kota baru.
 ageofheroes-discard-card = { $player } membuang { $card }.
 ageofheroes-discard-card-you = Anda membuang { $card }.
-ageofheroes-earthquake = Gempa bumi melanda suku { $player }. Pasukannya harus menjalani pemulihan.
-ageofheroes-earthquake-you = Gempa bumi melanda suku Anda. Pasukan Anda harus menjalani pemulihan.
-ageofheroes-eruption = Letusan menghancurkan salah satu kota { $player }.
-ageofheroes-eruption-you = Letusan menghancurkan salah satu kota Anda.
 # Disaster effects
 ageofheroes-hunger-strikes = Kelaparan melanda.
 ageofheroes-lose-card-hunger = Anda kehilangan { $card }.

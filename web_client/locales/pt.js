@@ -91,10 +91,6 @@ export default {
   "chat-input-placeholder": "Digite uma mensagem...",
   "btn-chat-send": "Enviar",
   "chat-private": "Mensagem privada de {player}: {message}",
-  "chat-prefix-local": "[Local]",
-  "chat-prefix-global": "[Global]",
-  "chat-prefix-table": "[Mesa]",
-  "chat-prefix-system": "[Sistema]",
   "chat-prefix-announcement": "Anúncio do sistema",
   "chat-sender-system": "Sistema",
 
@@ -163,7 +159,6 @@ export default {
   "main-chat-mute-status": "{scope} {status}",
   "main-ping-result": "Ping: {value}ms",
   "main-attempting-reconnect": "Conexão perdida. Tentando reconectar...",
-  "main-reconnecting-in-3s": "O servidor está reiniciando. Reconectando em {seconds} segundos...",
   "main-reconnecting": "Reconectando...",
   "main-reconnect-failed": "Falha na reconexão. Por favor, verifique sua conexão e entre novamente.",
   "network-error-not-connected": "Você ainda não está conectado ao servidor PlayAural.",

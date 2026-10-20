@@ -104,11 +104,6 @@ ageofheroes-population-growth = { $player } juega Crecimiento Poblacional y cons
 ageofheroes-population-growth-you = Juegas Crecimiento Poblacional y construyes una nueva ciudad.
 ageofheroes-discard-card = { $player } descarta { $card }.
 ageofheroes-discard-card-you = Descartas { $card }.
-ageofheroes-earthquake = Un terremoto golpea a la tribu de { $player }; sus ejércitos entran en recuperación.
-ageofheroes-earthquake-you = Un terremoto golpea a tu tribu; tus ejércitos entran en recuperación.
-ageofheroes-eruption = Una erupción destruye una de las ciudades de { $player }.
-ageofheroes-eruption-you = Una erupción destruye una de tus ciudades.
-
 # Efectos de desastre
 ageofheroes-hunger-strikes = Golpea la hambruna.
 ageofheroes-lose-card-hunger = Pierdes { $card }.

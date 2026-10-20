@@ -39,6 +39,8 @@ communication-channel-selector = Chat channel
 voice-chat-join = Join Voice Chat
 voice-chat-leave = Leave Voice Chat
 voice-chat-mic = Microphone
+voice-chat-mic-on = Microphone is on.
+voice-chat-mic-off = Microphone is off.
 voice-chat-joining = Joining Voice Chat...
 voice-chat-listen-only = Joined Voice Chat. You are listening only.
 voice-chat-left = Left Voice Chat.
@@ -63,8 +65,6 @@ main-connecting-to = Connecting to { $url }...
 main-connecting-as = Connecting as { $username }...
 main-connected-version = Connected to server version { $version }
 main-connection-timeout = Connection timeout: Could not connect to server.
-main-connection-lost = Connection lost!
-main-reconnecting-in-3s = Server is restarting. Reconnecting in 3 seconds...
 main-reconnecting = Reconnecting...
 main-connection-failed = Failed to start connection to server.
 main-session-ended = The server ended this session. You have been returned to the login screen.
@@ -106,9 +106,6 @@ login-btn-auto-login = Login Automatically Next Time
 login-btn-remove-account = Remove Account
 login-btn-register-new = Register New Account
 login-btn-login-existing = Login with Existing Account
-login-info-verifying = Verifying credentials...
-login-info-success = Verification successful!
-login-info-failed = Verification failed!
 login-account-deleted = Account deleted successfully.
 login-manual-title = Login
 login-failed-title = Login Failed
@@ -137,9 +134,6 @@ reg-error-match = Passwords do not match
 reg-error-bio = Please enter a bio
 reg-success-title = Registration Successful
 reg-failed-title = Registration Failed
-reg-connection-error = Connection error: { $error }
-reg-timeout-error = Server did not respond in time
-reg-unexpected-error = Unexpected response from server
 
 main-status-muted = muted
 main-status-unmuted = unmuted
@@ -178,7 +172,6 @@ slash-command-max-arguments = { $command } accepts at most { $count ->
     [one] one argument
    *[other] { $count } arguments
     }.
-reg-error-exception = Error: { $error }
 main-connection-error-title = Connection Error
 main-options-error = Client options not available
 main-options-error-title = Error
@@ -199,7 +192,6 @@ buffer-misc = Misc
 system-announcement = System Announcement
 chat-announcement = System Announcement: { $message }
 chat-private = Private message from { $player }: { $message }
-common-app-closing = The game will now close.
 login-error-connection-refused = Connection refused: Server might be offline.
 login-error-connection-timeout = Connection timeout: Server did not respond.
 login-error-dns = The server address could not be found. Check your internet connection and server address.
@@ -218,11 +210,7 @@ login-error-network = A network error prevented PlayAural from reaching the serv
 login-error-unexpected = PlayAural could not complete the connection because of an unexpected local error. Restart the client and try again.
 login-error-save-account = Login succeeded, but PlayAural could not securely save this account on the device. Check access to the application-data folder and try again.
 login-error-remove-account = PlayAural could not remove this saved account from the device. Check access to the application-data folder and try again.
-login-error-unknown = An unknown error occurred: { $error }
 main-attempting-reconnect = Connection lost. Attempting to reconnect...
-main-reconnect-failed = Reconnection failed. Please restart the application.
-main-reconnecting-as-attempt = Reconnecting as { $username }... attempt { $attempt }.
-logged-out = You have logged out.
 goodbye = Goodbye!
 session-kicked = You were kicked from the server.
 session-banned = This account has been banned.
@@ -356,7 +344,6 @@ updater-error-target-missing = The PlayAural installation folder no longer exist
 updater-error-package-missing = The downloaded update package no longer exists.
 updater-source-run-unsupported = Automatic replacement is disabled for source-code runs. Install a packaged PlayAural release instead.
 
-main-restarting = Restarting...
 
 auth-error-username-length = Username must be between 3 and 30 characters.
 auth-error-password-weak = Password must be at least 8 characters long and contain both letters and numbers.
@@ -372,16 +359,3 @@ auth-error-rate-limit = Too many failed login attempts. Please try again in 15 m
 auth-error-rate-limit-generic = Too many account requests were made in a short time. Please wait and try again.
 auth-error-server-maintenance = Server database maintenance is in progress. Login, registration, and password changes are temporarily unavailable. Please try again after maintenance finishes.
 auth-auto-login-disabled = Auto-login has been disabled for this account. Please log in manually and update your credentials if needed.
-
-# Compatibility strings retained until the public runtime adopts the newer message ids.
-voice-chat-turn-on-mic = Turn On Mic
-
-voice-chat-turn-off-mic = Turn Off Mic
-
-voice-chat-mic-on = Microphone is on.
-
-voice-chat-mic-off = Microphone is off.
-
-chat-global = { $player } says globally: { $message }
-
-chat-local = { $player } says: { $message }

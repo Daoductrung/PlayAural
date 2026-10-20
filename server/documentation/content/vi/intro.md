@@ -27,7 +27,9 @@ Khi đã vào bàn, thông thường bạn có thể:
 \* Trò chuyện với người cùng bàn hoặc gửi tin nhắn riêng.
 \* Tham gia trò chuyện thoại của bàn trên các ứng dụng được hỗ trợ.
 \* Nếu bạn là chủ bàn, hãy mở Quản lý bàn rồi chọn Chuyển sang trò chơi khác để đưa tất cả mọi người vẫn còn ở bàn vào phòng chờ mới của một trò chơi khác. Vai trò người chơi hoặc khán giả, các bot, quyền chủ bàn, chế độ riêng tư, danh sách cấm và trò chuyện thoại vẫn đi cùng bàn; ván cũ, tùy chọn, đội, trạng thái sẵn sàng và các lời mời đang chờ sẽ bị hủy sau khi bạn xác nhận.
-\* Nếu bạn là chủ bàn trong khi ván đang diễn ra, hãy mở Quản lý bàn để đưa một khán giả vào chỗ của người chơi đang hoạt động. Nếu chỗ đó đang do một người điều khiển, họ phải đồng ý trước. Người thay thế nhận nguyên trạng thái ván, thời gian lượt còn lại và quyền được ghi nhận kết quả cuối cùng của chỗ. Nếu bạn nhường chỗ của chính mình, bạn trở thành khán giả nhưng vẫn giữ quyền chủ bàn.
+\* Nếu bạn là chủ bàn trong khi ván đang diễn ra, hãy mở Quản lý bàn để đưa một khán giả vào chỗ của người chơi đang hoạt động. Nếu chỗ đó đang do một người điều khiển, họ phải đồng ý trước. Người thay thế nhận nguyên trạng thái ván và thời gian lượt còn lại, nhưng đổi người sở hữu chỗ khiến cả ván không được tính vào bảng xếp hạng hay điểm kỹ năng. Nếu bạn nhường chỗ của chính mình, bạn trở thành khán giả nhưng vẫn giữ quyền chủ bàn.
+
+Khi một người chơi mất kết nối giữa ván, ván tạm dừng tối đa năm giây trước khi bot tiếp quản. Người trở lại được nhận lại chỗ của mình mà không mất điều kiện tính xếp hạng. Các bot không thể tự tiếp tục: phải có ít nhất một người trực tiếp chơi. Ván không còn ai trông coi sẽ tạm dừng tối đa 15 phút để chờ người chơi hoặc chủ bàn kết nối lại. Chủ bàn đang xem vẫn giữ vai trò đó khi trở lại. Chủ động rời bàn thì khác: bot tiếp quản ngay nếu bàn vẫn có thể tiếp tục; nếu người chơi cuối cùng rời bàn và không còn chủ bàn ở lại, ván sẽ bị hủy.
 
 \*\*Trò chuyện và các tính năng giao tiếp\*\*
 

@@ -1,5 +1,22 @@
 Nhật ký thay đổi
 
+Thứ Ba 20 Tháng Mười 2026
+
+Tính năng mới:
+
+* Tiền Đồn Cuối Cùng đã được thêm cho 1 đến 4 người chơi. Hãy cùng đồng đội chống lại nhiều đợt xác sống tại Tiền Đồn Bỏ Hoang, Ga Chuyển Tuyến hoặc Nhà Máy Ngập trong các chế độ Chiến Dịch, Cố Thủ, Thu Hồi và Rút Quân Cổ Điển, với độ khó Tân Binh, Tiêu Chuẩn và Kỳ Cựu. Mở cổng vĩnh viễn để tạo đường đi, sửa rào chắn và hạ tầng quan trọng, chia sẻ vật tư, nâng cấp vũ khí, cứu đồng đội đã gục và hoàn thành các mục tiêu hàng hóa, nối trạm, phòng thủ và rút quân. Trò chơi có bot biết phối hợp, khả năng hồi phục khi chơi một mình, các bảng Mục tiêu, Đồng đội, trang bị và bản đồ dễ sử dụng, âm thanh chiến đấu và môi trường ba chiều phong phú, Thành tích sinh tồn, cùng toàn bộ nội dung và tài liệu cho người mới bằng tiếng Anh và tiếng Việt.
+
+Cải thiện:
+
+* Ván đang chơi giờ tạm dừng năm giây khi một người bất ngờ mất kết nối trước khi bot có thể tiếp quản, giúp người đó có một khoảng ngắn để quay lại. Trường hợp chủ động rời bàn vẫn được xử lý ngay, thông tin và quyền điều khiển của chủ bàn vẫn dùng được trong lúc tạm dừng, còn ván chỉ tiếp tục khi có người thật đang điều khiển nhân vật.
+* Thông báo mất kết nối, trở lại, hủy ván và điều kiện xếp hạng giờ rõ ràng hơn. Thông báo nêu tên người liên quan, tránh phản hồi trùng lặp, phân biệt bàn bị đóng với trận đã hoàn thành nhưng không được xếp hạng, đồng thời giải thích khi việc xóa vĩnh viễn hoặc thay người ở một chỗ khiến trận không được xếp hạng. Trở lại đúng chỗ thuộc tài khoản của mình vẫn giữ điều kiện xếp hạng.
+* Trợ giúp và góp ý, Liên hệ trước khi đăng nhập, hướng dẫn kết nối và tiến độ cập nhật đã ra mắt trong bản trước giờ có bản dịch đầy đủ bằng Tiếng Ả Rập, Tiếng Tây Ban Nha, Tiếng Indonesia và Tiếng Bồ Đào Nha (Brazil).
+
+Sửa lỗi:
+
+* Nhạc, âm thanh môi trường và âm thanh ba chiều trên phần mềm máy tính, web và di động giờ ổn định hơn khi tải chậm hoặc thay đổi liên tục. Âm thanh đã dừng hoặc bị thay thế không còn phát muộn, còn chuyển động và âm lượng vẫn cập nhật đúng trong lúc âm thanh đang tải.
+* Chủ bàn đang làm khán giả nếu bất ngờ mất kết nối giờ vẫn giữ được bàn và quyền chủ bàn trong thời gian chờ khôi phục hiện có, kể cả với bàn riêng tư và bàn được khôi phục, mà không làm ván chỉ có bot tiếp tục sai quy tắc.
+
 Thứ Sáu 16 Tháng Mười 2026
 
 Tính năng mới:

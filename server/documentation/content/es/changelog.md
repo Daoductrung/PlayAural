@@ -1,5 +1,22 @@
 Registro de cambios
 
+Martes 20 de octubre de 2026
+
+Novedades:
+
+* Last Outpost se ha añadido para 1 a 4 jugadores. Resiste junto a tu equipo oleadas de muertos vivientes en Abandoned Outpost, Switchyard o Floodworks, en los modos Operations, Siege, Salvage y Classic Extraction, con dificultad Recruit, Standard o Veteran. Abre puertas permanentes para definir las rutas, repara barricadas e infraestructura esencial, comparte suministros, mejora las armas, rescata a compañeros caídos y completa objetivos de cargamento, repetidores, defensa y extracción. El juego incluye bots que se coordinan, recuperación para partidas en solitario, vistas accesibles de objetivos, compañeros, equipo y mapa, un rico entorno sonoro tridimensional de combate y ambientación, tablas de clasificación de supervivencia y guías completas en inglés y vietnamita.
+
+Mejoras:
+
+* Las partidas activas ahora se pausan durante cinco segundos tras una desconexión inesperada antes de que un bot pueda tomar el control, lo que da al jugador una breve oportunidad de regresar. Las salidas intencionadas se gestionan de inmediato, la información y los controles del anfitrión siguen disponibles durante la pausa y la partida solo se reanuda cuando hay un jugador humano activo.
+* Los anuncios de desconexión, regreso, cancelación y clasificación son más claros. Identifican al jugador afectado, evitan mensajes duplicados, distinguen una mesa cerrada de una partida completada que no cuenta para la clasificación y explican cuándo la eliminación permanente o la sustitución de un asiento hace que la partida deje de ser clasificatoria. Regresar al mismo asiento vinculado a la cuenta sigue conservando la posibilidad de puntuar para la clasificación.
+* Ayuda y comentarios, Contacto antes de iniciar sesión, la orientación sobre conexiones y el progreso de las actualizaciones que se incorporaron en la versión anterior ya están traducidos por completo al árabe, español, indonesio y portugués de Brasil.
+
+Correcciones de errores:
+
+* La música, los ambientes y el sonido tridimensional son más fiables en Escritorio, Web y Móvil cuando el audio tarda en cargar o cambia rápidamente. Los sonidos detenidos o reemplazados ya no empiezan a reproducirse con retraso, y los cambios de movimiento y volumen se mantienen correctos mientras se carga el audio.
+* Un anfitrión espectador que se desconecta de forma inesperada ahora conserva la mesa y su función de anfitrión durante el periodo de recuperación existente, incluso en mesas privadas o restauradas, sin permitir por error que continúe una partida controlada únicamente por bots.
+
 Viernes 16 de octubre de 2026
 
 Novedades:

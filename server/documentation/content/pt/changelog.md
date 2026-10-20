@@ -1,5 +1,22 @@
 # Changelog
 
+Terça-feira, 20 de outubro de 2026
+
+Novidades:
+
+* O Last Outpost foi adicionado para 1 a 4 jogadores. Resistam juntos a ondas de mortos-vivos em Abandoned Outpost, Switchyard ou Floodworks, nos modos Operations, Siege, Salvage e Classic Extraction, com as dificuldades Recruit, Standard e Veteran. Abram portões permanentes para definir suas rotas, consertem barricadas e infraestrutura essencial, compartilhem suprimentos, melhorem as armas, resgatem companheiros abatidos e cumpram objetivos de carga, retransmissão, defesa e extração. O jogo inclui bots coordenados, recuperação para partidas solo, visualizações acessíveis dos objetivos, companheiros, equipamentos e mapa, áudio tridimensional rico de combate e ambiente, rankings de sobrevivência e guias completos em inglês e vietnamita.
+
+Melhorias:
+
+* As partidas em andamento agora são pausadas por cinco segundos após uma desconexão inesperada antes que um bot possa assumir o controle, dando ao jogador uma breve oportunidade de retornar. As saídas intencionais continuam sendo tratadas imediatamente, as informações e os controles do host permanecem disponíveis durante a pausa e a partida só recomeça quando há um jogador humano ativo.
+* Os anúncios de desconexão, retorno, cancelamento e classificação estão mais claros. Eles identificam o jogador afetado, evitam mensagens duplicadas, distinguem uma mesa fechada de uma partida concluída que não vale para os rankings e explicam quando a remoção permanente ou a substituição de um assento torna a partida não classificatória. Retornar ao mesmo assento vinculado à conta continua preservando a elegibilidade para os rankings.
+* Ajuda e feedback, Contato antes do login, as orientações de conexão e o progresso das atualizações apresentados na versão anterior agora estão totalmente traduzidos para árabe, espanhol, indonésio e português do Brasil.
+
+Correções de bugs:
+
+* A música, os sons ambientes e o áudio tridimensional estão mais confiáveis no Desktop, na Web e no Móvel quando o áudio demora para carregar ou muda rapidamente. Sons interrompidos ou substituídos não começam mais a tocar com atraso, e as alterações de movimento e volume continuam corretas durante o carregamento.
+* Um host espectador que se desconecta inesperadamente agora mantém a mesa e a função de host durante o período de recuperação existente, inclusive em mesas privadas e restauradas, sem permitir incorretamente que uma partida controlada apenas por bots continue.
+
 Sexta-feira, 16 de outubro de 2026
 
 Novidades:

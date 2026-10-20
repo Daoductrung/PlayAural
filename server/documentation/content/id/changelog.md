@@ -1,5 +1,25 @@
 \*\*Riwayat Perubahan\*\*
 
+\*\*Selasa 20 Oktober 2026\*\*
+
+\*\*Fitur baru\*\*
+
+Last Outpost kini tersedia untuk 1 hingga 4 pemain. Bertahanlah bersama menghadapi gelombang mayat hidup di Abandoned Outpost, Switchyard, atau Floodworks dalam mode Operations, Siege, Salvage, dan Classic Extraction, dengan tingkat kesulitan Recruit, Standard, atau Veteran. Buka gerbang permanen untuk membentuk rute, perbaiki barikade dan infrastruktur penting, berbagi perbekalan, tingkatkan senjata, selamatkan rekan satu tim yang tumbang, serta selesaikan tujuan kargo, relai, pertahanan, dan evakuasi. Game ini menyediakan bot yang mampu berkoordinasi, pemulihan untuk permainan solo, tampilan tujuan, rekan satu tim, perlengkapan, dan peta yang mudah diakses, audio pertempuran dan lingkungan tiga dimensi yang kaya, papan peringkat bertahan hidup, serta panduan lengkap dalam bahasa Inggris dan Vietnam.
+
+\*\*Peningkatan\*\*
+
+Game yang sedang berlangsung kini dijeda selama lima detik setelah koneksi terputus secara tak terduga sebelum bot dapat mengambil alih, sehingga pemain memiliki kesempatan singkat untuk kembali. Pemain yang sengaja keluar tetap ditangani seketika, informasi dan kontrol pemilik meja tetap tersedia selama permainan dijeda, dan game hanya dilanjutkan setelah ada pemain manusia yang aktif.
+
+Pengumuman tentang putus koneksi, kembali ke meja, pembatalan, dan kelayakan peringkat kini lebih jelas. Pengumuman tersebut menyebut pemain yang terdampak, menghindari pemberitahuan berulang, membedakan meja yang ditutup dari pertandingan selesai yang tidak memenuhi syarat peringkat, serta menjelaskan kapan penghapusan permanen atau penggantian kursi membuat pertandingan tidak lagi memenuhi syarat peringkat. Kembali ke kursi milik akun yang sama tetap mempertahankan kelayakan peringkat.
+
+Bantuan dan Masukan, Kontak sebelum masuk, panduan koneksi, dan kemajuan pembaruan yang diperkenalkan pada rilis sebelumnya kini telah diterjemahkan sepenuhnya ke dalam bahasa Arab, Spanyol, Indonesia, dan Portugis Brasil.
+
+\*\*Perbaikan bug\*\*
+
+Musik, suara lingkungan, dan audio tiga dimensi kini lebih andal pada Desktop, Web, dan Seluler ketika audio dimuat dengan lambat atau berubah dengan cepat. Suara yang dihentikan atau diganti tidak lagi mulai diputar terlambat, dan perubahan gerakan maupun volume tetap diterapkan dengan benar selama audio dimuat.
+
+Pemilik meja yang sedang menjadi penonton dan terputus secara tak terduga kini tetap mempertahankan meja serta perannya sebagai pemilik selama masa pemulihan yang berlaku, termasuk pada meja privat dan meja yang dipulihkan, tanpa keliru mengizinkan game yang hanya dimainkan bot untuk berlanjut.
+
 \*\*Jumat 16 Oktober 2026\*\*
 
 \*\*Fitur baru\*\*

@@ -1,5 +1,22 @@
 Changelog
 
+Tuesday 20 October 2026
+
+New Additions:
+
+* Last Outpost has been added for 1 to 4 players. Hold together against waves of the undead across Abandoned Outpost, Switchyard, or Floodworks in Operations, Siege, Salvage, and Classic Extraction modes, with Recruit, Standard, and Veteran difficulty. Open permanent gates to shape your routes, repair barricades and vital infrastructure, share supplies, upgrade weapons, rescue downed teammates, and complete cargo, relay, defense, and extraction objectives. The game includes coordinated bots, solo recovery, accessible objective, teammate, equipment, and map views, rich 3D combat and environmental audio, survival leaderboards, and complete English and Vietnamese guidance.
+
+Improvements:
+
+* Active games now pause for five seconds after an unexpected disconnect before a bot can take over, giving the player a brief chance to return. Intentional departures are handled immediately, information and host controls remain available while play is paused, and the game resumes only after a human-controlled player is active.
+* Disconnect, return, cancellation, and ranking announcements are clearer. They identify the affected player, avoid duplicate feedback, distinguish a closed table from a completed unranked match, and explain when a permanent seat removal or substitution makes the match unranked. Returning to the same account-owned seat still preserves ranking eligibility.
+* Help and Feedback, pre-sign-in Contact, connection guidance, and update progress introduced in the previous release are now fully translated into Arabic, Spanish, Indonesian, and Brazilian Portuguese.
+
+Bug Fixes:
+
+* Music, ambience, and 3D sound are more reliable across Desktop, Web, and Mobile when audio loads slowly or changes rapidly. Stopped or replaced sounds no longer start late, and movement and volume changes remain correct while audio is loading.
+* An unexpectedly disconnected spectator host now keeps the table and host role during the existing recovery period, including for private and restored tables, without incorrectly allowing a bot-only game to continue.
+
 Friday 16 October 2026
 
 New Additions:

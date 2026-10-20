@@ -1,4 +1,4 @@
-game-name-zombiedice = Zombie Dice
+game-name-zombiedice = Dados Zombi
 
 zombiedice-set-target-score = Cerebros necesarios para ganar: { $score }
 zombiedice-enter-target-score = Ingresa un objetivo de victoria de 5 a 50 cerebros:
@@ -37,7 +37,7 @@ zombiedice-review-turn-description = Revisa todos los dados públicos, la cantid
 zombiedice-review-table = Revisar mesa
 zombiedice-review-table-description = Revisa el objetivo, la fase de la partida, el orden de turnos, el turno actual y las puntuaciones.
 
-zombiedice-game-start = Comienza Zombie Dice. Objetivo: { $target } cerebros. { $first } juega primero. Orden: { $order }.
+zombiedice-game-start = Comienza Dados Zombi. Objetivo: { $target } cerebros. { $first } juega primero. Orden: { $order }.
 zombiedice-your-turn = Tu turno. Guardados: { $score } { $score ->
     [one] cerebro
    *[other] cerebros
@@ -66,7 +66,7 @@ zombiedice-you-bust = Lanzas: { $results }. { $shotguns } disparos: te acribilla
     [one] cerebro sin guardar
    *[other] cerebros sin guardar
 }.
-zombiedice-player-busts = { $player } lanza: { $results }. { $shotguns } disparos: queda acribillado. { $player } pierde { $brains } { $brains ->
+zombiedice-player-busts = { $player } lanza: { $results }. { $shotguns } disparos: le acribillan. { $player } pierde { $brains } { $brains ->
     [one] cerebro sin guardar
    *[other] cerebros sin guardar
 }.
@@ -87,8 +87,8 @@ zombiedice-player-triggers-final-round = { $player } alcanza { $score } cerebros
    *[other] Quedan { $remaining } jugadores
 } en la ronda final.
 zombiedice-tiebreak-start = Desempate { $round }: { $players }, empatados con { $score } cerebros. Un turno para cada uno.
-zombiedice-you-win = Ganas Zombie Dice con { $score } cerebros.
-zombiedice-player-wins = { $player } gana Zombie Dice con { $score } cerebros.
+zombiedice-you-win = Ganas Dados Zombi con { $score } cerebros.
+zombiedice-player-wins = { $player } gana Dados Zombi con { $score } cerebros.
 
 zombiedice-error-roll-before-stopping = Lanza una vez antes de parar. Después de cualquier tirada segura, puedes parar con 0 cerebros.
 zombiedice-error-roll-resolving = Los dados todavía están rodando.
@@ -107,7 +107,7 @@ zombiedice-pool-color = { $count } { $count ->
 }
 zombiedice-no-dice = ninguno
 
-zombiedice-status-no-turn = No hay ningún turno activo de Zombie Dice.
+zombiedice-status-no-turn = No hay ningún turno activo de Dados Zombi.
 zombiedice-your-turn-totals = Tú: { $brains } { $brains ->
     [one] cerebro
    *[other] cerebros
@@ -155,8 +155,8 @@ zombiedice-status-brain-dice = Dados con cerebros apartados: { $dice }.
 zombiedice-status-shotgun-dice = Dados con disparos apartados: { $dice }.
 zombiedice-status-last-roll = Última tirada: { $results }.
 zombiedice-status-awaiting-roll = Todavía no hay ninguna tirada en este turno.
-zombiedice-status-table-header = Zombie Dice — ronda { $round }; objetivo: { $target } cerebros.
-zombiedice-status-table-header-tiebreak = Zombie Dice — objetivo: { $target } cerebros.
+zombiedice-status-table-header = Dados Zombi — ronda { $round }; objetivo: { $target } cerebros.
+zombiedice-status-table-header-tiebreak = Dados Zombi — objetivo: { $target } cerebros.
 zombiedice-status-main-round = Fase: partida principal.
 zombiedice-status-final-round = Ronda final — { $player } alcanzó el objetivo.
 zombiedice-status-tiebreak = Desempate { $round }: { $players }.
@@ -176,8 +176,8 @@ zombiedice-score-unit-brains = { $count ->
     [one] cerebro
    *[other] cerebros
 }
-zombiedice-results-header = Resultados de Zombie Dice
-zombiedice-results-winner = Ganador: { $player } con { $score } cerebros.
+zombiedice-results-header = Resultados de Dados Zombi
+zombiedice-results-winner = Gana { $player } con { $score } cerebros.
 zombiedice-results-line = { $rank }. { $player }: { $score } { $score ->
     [one] cerebro
    *[other] cerebros

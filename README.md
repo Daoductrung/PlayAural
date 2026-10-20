@@ -54,8 +54,10 @@ The Play menu includes a persisted category filter with dynamic game counts so p
 PlayAural separates voice authorization from media transport.
 
 - The game server verifies whether a player is allowed to join the current table's voice chat.
+- Games can declaratively add private text and voice channels, such as Breach Point squad chat, while table chat remains available.
 - A dedicated LiveKit-based voice service carries the real-time media stream.
 - The server issues short-lived join tokens and keeps voice membership tied to table context.
+- Private rooms are listen-only overlays until the player explicitly enables a server-authorized microphone in the selected channel.
 - Voice presence announcements and related sounds are synchronized with the normal table lifecycle.
 
 ## Supported Languages
@@ -67,6 +69,8 @@ PlayAural currently supports the following languages:
 - Persian (FA) - community translation, maintained by Hamid Rezaei
 - Spanish (ES) - community translation, maintained by UnDuende and Tadeu Junior
 - Portuguese (PT) - community translation, maintained by Tadeu Junior
+- Indonesian (ID) - community translation, maintained by Muhammad and Komunitas PlayAural Indonesia
+- Arabic (AR) - community translation (right-to-left), maintained by the Lumora Nova team
 
 Community translators should follow [TRANSLATING.md](TRANSLATING.md). Partial
 translations are supported safely: missing strings and missing translated

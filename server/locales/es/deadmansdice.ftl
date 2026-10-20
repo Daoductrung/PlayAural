@@ -8,14 +8,14 @@ deadmansdice-rules-basic = Básicas
 deadmansdice-rules-unsupported = No compatibles
 deadmansdice-rules-description = Con las reglas tradicionales, los unos son comodines al contar doses, treses, cuatros, cincos y seises. Con las reglas básicas, cada cara se cuenta literalmente. Ambos reglamentos permiten declarar Exacto.
 
-deadmansdice-call-liar = Declarar mentiroso
+deadmansdice-call-liar = Acusar de mentiroso
 deadmansdice-call-liar-description = Desafía la apuesta actual. Si es demasiado alta, quien apostó bebe veneno; de lo contrario, bebes tú.
-deadmansdice-call-liar-current = Declarar mentiroso — { $quantity } { $face }
+deadmansdice-call-liar-current = Acusar de mentiroso — { $quantity } { $face }
 deadmansdice-call-liar-current-description = Desafía la apuesta de { $quantity } { $face }. Si es demasiado alta, quien apostó bebe veneno; de lo contrario, bebes tú.
 deadmansdice-call-spot-on = Declarar Exacto
-deadmansdice-call-spot-on-description = Afirma que la apuesta actual es exacta. Si aciertas, todos los demás supervivientes beben veneno; si fallas, bebes tú.
+deadmansdice-call-spot-on-description = Afirma que la apuesta actual es exacta. Si aciertas, todos los demás sobrevivientes beben veneno; si fallas, bebes tú.
 deadmansdice-call-spot-on-current = Declarar Exacto — exactamente { $quantity } { $face }
-deadmansdice-call-spot-on-current-description = Afirma que hay exactamente { $quantity } { $face }. Si aciertas, todos los demás supervivientes beben veneno; si fallas, bebes tú.
+deadmansdice-call-spot-on-current-description = Afirma que hay exactamente { $quantity } { $face }. Si aciertas, todos los demás sobrevivientes beben veneno; si fallas, bebes tú.
 deadmansdice-bid-face = Apostar { $face }
 deadmansdice-bid-face-minimum = Apostar { $face } — { $minimum } o más
 deadmansdice-bid-face-description = Elige una cantidad y apuesta que hay esa cantidad de { $face } en toda la mesa.
@@ -44,16 +44,16 @@ deadmansdice-face-4-singular = cuatro
 deadmansdice-face-5-singular = cinco
 deadmansdice-face-6-singular = seis
 
-deadmansdice-intro = La taberna se cierra a vuestro alrededor. Los cubiletes se posan. Solo uno saldrá en pie.
+deadmansdice-intro = La taberna se cierra en torno a ustedes. Los cubiletes se posan. Solo uno de ustedes saldrá en pie.
 deadmansdice-match-setup-traditional = { $players } jugadores. Reglas: { $rules }. Los unos son comodines para los doses hasta los seises; una apuesta por unos solo cuenta los unos reales.
 deadmansdice-match-setup-basic = { $players } jugadores. Reglas: { $rules }. Cada cara solo se cuenta a sí misma, incluidos los unos.
 deadmansdice-match-setup-unsupported = La mesa no puede comenzar porque sus reglas ya no son compatibles.
-deadmansdice-round-start = Ronda { $round }. { $players } supervivientes ocultan { $dice } dados bajo sus cubiletes.
+deadmansdice-round-start = Ronda { $round }. { $players } sobrevivientes ocultan { $dice } dados bajo sus cubiletes.
 deadmansdice-your-dice = Tus dados: { $dice }.
 deadmansdice-you-bid = Apuestas { $quantity } { $face }.
 deadmansdice-player-bids = { $player } apuesta { $quantity } { $face }.
-deadmansdice-you-call-liar = Declaras mentiroso a { $bidder } por { $quantity } { $face }.
-deadmansdice-player-calls-liar = { $player } declara mentiroso a { $bidder } por { $quantity } { $face }.
+deadmansdice-you-call-liar = Acusas a { $bidder } de mentiroso por { $quantity } { $face }.
+deadmansdice-player-calls-liar = { $player } acusa a { $bidder } de mentiroso por { $quantity } { $face }.
 deadmansdice-you-call-spot-on = Declaras Exacto contra la apuesta de { $bidder } de { $quantity } { $face }.
 deadmansdice-player-calls-spot-on = { $player } declara Exacto contra la apuesta de { $bidder } de { $quantity } { $face }.
 deadmansdice-your-cup-reveals = Levantas tu cubilete: { $dice }.
@@ -69,15 +69,15 @@ deadmansdice-your-spot-on-wrong = Tu Exacto falla. El veneno es para ti.
 deadmansdice-player-spot-on-wrong = { $player } falla la cantidad exacta y debe beber.
 deadmansdice-you-drink-poison = Tragaste el veneno. Dosis { $doses } de { $maximum }.
 deadmansdice-player-drinks-poison = { $player } traga el veneno. Dosis { $doses } de { $maximum }.
-deadmansdice-you-eliminated = La segunda dosis acaba contigo. Quedas eliminado.
-deadmansdice-player-eliminated = La segunda dosis acaba con { $player }. { $player } queda eliminado.
-deadmansdice-you-win = Eres el último superviviente. Ganas Dados del Muerto.
-deadmansdice-player-wins = { $player } es el último superviviente y gana Dados del Muerto.
+deadmansdice-you-eliminated = La segunda dosis acaba contigo. Quedas fuera.
+deadmansdice-player-eliminated = La segunda dosis acaba con { $player }. { $player } queda fuera.
+deadmansdice-you-win = Sobrevives hasta el final. Ganas Dados del Muerto.
+deadmansdice-player-wins = { $player } sobrevive hasta el final y gana Dados del Muerto.
 
 deadmansdice-action-opening = La mesa todavía se está preparando. Espera a la primera tirada.
 deadmansdice-action-opening-no-dice = Tu cubilete sigue vacío. La tirada inicial aún no ha comenzado.
 deadmansdice-action-opening-no-bids = Nadie ha tirado todavía, así que no hay apuestas que revisar.
-deadmansdice-action-eliminated = Has sido eliminado de esta partida.
+deadmansdice-action-eliminated = Has quedado fuera de esta partida.
 deadmansdice-action-no-bid = No se ha hecho ninguna apuesta, así que no hay nada que desafiar.
 deadmansdice-action-face-unavailable = No queda ningún aumento legal para esa cara.
 deadmansdice-action-invalid-bid = Esa apuesta ya no es legal; la mesa ha avanzado.
@@ -86,13 +86,13 @@ deadmansdice-action-sequence-running = El desafío todavía se está resolviendo
 deadmansdice-action-no-dice = No tienes ninguna tirada activa que leer.
 deadmansdice-action-no-last-reveal = Todavía no se ha revelado ningún desafío.
 
-deadmansdice-table-opening-header = Dados del Muerto — la mesa se está preparando, reglas { $rules }
-deadmansdice-table-header = Dados del Muerto — ronda { $round }, reglas { $rules }
+deadmansdice-table-opening-header = Dados del Muerto — la mesa se está preparando, reglas: { $rules }
+deadmansdice-table-header = Dados del Muerto — ronda { $round }, reglas: { $rules }
 deadmansdice-table-pool-opening = { $players } jugadores esperan con { $dice } dados todavía sin tirar.
 deadmansdice-table-pool =
     { $players ->
-        [one] 1 superviviente
-       *[other] { $players } supervivientes
+        [one] 1 sobreviviente
+       *[other] { $players } sobrevivientes
     }; { $dice } dados en juego.
 deadmansdice-table-rule-traditional = Los unos son comodines en apuestas por doses hasta seises. Una apuesta por unos solo cuenta los unos reales. Exacto está disponible.
 deadmansdice-table-rule-basic = Cada cara solo se cuenta a sí misma, incluidos los unos. Exacto está disponible.
@@ -105,8 +105,8 @@ deadmansdice-table-turn = Es el turno de { $player }.
 deadmansdice-table-no-turn = Todavía no hay ningún turno activo.
 deadmansdice-table-player-you = Tú: dosis de veneno { $doses } de { $maximum }.
 deadmansdice-table-player = { $player }: dosis de veneno { $doses } de { $maximum }.
-deadmansdice-table-player-you-eliminated = Tú: eliminado.
-deadmansdice-table-player-eliminated = { $player }: eliminado.
+deadmansdice-table-player-you-eliminated = Tú: fuera de la partida.
+deadmansdice-table-player-eliminated = { $player }: fuera de la partida.
 deadmansdice-bids-header = Apuestas de la ronda { $round }
 deadmansdice-bids-none = No se ha hecho ninguna apuesta en esta ronda.
 deadmansdice-bids-line-you = { $index }. Tú: { $quantity } { $face }.
@@ -127,8 +127,8 @@ deadmansdice-last-result-spot-wrong = Exacto falló; { $player } bebió.
 deadmansdice-last-result-unavailable = El resultado del desafío anterior no está disponible.
 
 deadmansdice-results-header = Resultados de Dados del Muerto
-deadmansdice-results-winner = Último superviviente: { $player }.
-deadmansdice-results-line = { $player }: { $status }; { $bids } apuestas, { $challenges } declaraciones de mentiroso, { $spots } declaraciones de Exacto, { $poison } dosis de veneno.
+deadmansdice-results-winner = Sobrevive hasta el final: { $player }.
+deadmansdice-results-line = { $player }: { $status }; { $bids } apuestas, { $challenges } acusaciones de mentiroso, { $spots } declaraciones de Exacto, { $poison } dosis de veneno.
 deadmansdice-results-survived = sobrevivió
-deadmansdice-results-eliminated = eliminado
+deadmansdice-results-eliminated = quedó fuera
 deadmansdice-error-rules-invalid = Las reglas seleccionadas no son compatibles.

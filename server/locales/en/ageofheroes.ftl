@@ -104,11 +104,6 @@ ageofheroes-population-growth = { $player } plays Population Growth and builds a
 ageofheroes-population-growth-you = You play Population Growth and build a new city.
 ageofheroes-discard-card = { $player } discards { $card }.
 ageofheroes-discard-card-you = You discard { $card }.
-ageofheroes-earthquake = An earthquake strikes { $player }'s tribe; { GENDER_TERM($player_gender, "possessive-determiner") } armies go into recovery.
-ageofheroes-earthquake-you = An earthquake strikes your tribe; your armies go into recovery.
-ageofheroes-eruption = An eruption destroys one of { $player }'s cities.
-ageofheroes-eruption-you = An eruption destroys one of your cities.
-
 # Disaster effects
 ageofheroes-hunger-strikes = Hunger strikes.
 ageofheroes-lose-card-hunger = You lose { $card }.
@@ -214,6 +209,7 @@ ageofheroes-road-request-received = { $requester } requests permission to build 
 ageofheroes-road-request-denied-you = You declined the road request.
 ageofheroes-road-request-denied = { $denier } declined your road request.
 ageofheroes-road-built = { $tribe1 } and { $tribe2 } are now connected by road.
+ageofheroes-road-built-you = You and { $tribe2 } are now connected by road.
 ageofheroes-road-no-target = No neighboring tribes available for road construction.
 ageofheroes-approve = Approve
 ageofheroes-deny = Deny

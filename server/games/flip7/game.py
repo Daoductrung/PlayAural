@@ -62,8 +62,8 @@ from .constants import (
     FLOW_DEAL_CARD,
     FLOW_DEAL_START,
     FLOW_FLIP_THREE,
+    FLOW_HANDOFF_TICKS,
     MAX_NUMBER,
-    MIN_REVEAL_SPEECH_TICKS,
     MODIFIER_VALUES,
     NEXT_FLIP_DRAW,
     OUTCOME_BUST,
@@ -84,12 +84,8 @@ from .constants import (
     STATUS_PLAYING,
     STATUS_STAYED,
     TAG_FLOW,
-    TICKS_PER_SECOND,
     TURN_CARD_TICKS,
 )
-
-# Small fixed gap after a card's effect announcement before the flow moves on.
-EFFECT_GAP_TICKS = TICKS_PER_SECOND // 2
 
 # Continuation ids routed by active card sequences. "deal_step" is both a
 # leading beat and a continuation, so it lives on as a string.
@@ -671,10 +667,12 @@ class Flip7Game(Game):
         reveal_sound: str,
         ops: list[SequenceOperation],
     ) -> SequenceBeat:
-        """Reveal beat measured to its cue, floored long enough to speak."""
-        beat = SequenceBeat.after_audio(audio.sound_ticks(reveal_sound), ops=ops)
-        beat.delay_after_ticks = max(beat.delay_after_ticks, MIN_REVEAL_SPEECH_TICKS)
-        return beat
+        """Keep reveal order while allowing the cue's decay to overlap."""
+        return SequenceBeat.after_audio(
+            audio.sound_ticks(reveal_sound),
+            wait_ratio=audio.SEQUENCE_WAIT_RATIO,
+            ops=ops,
+        )
 
     def _card_flow_tail(
         self,
@@ -692,6 +690,7 @@ class Flip7Game(Game):
             return [
                 SequenceBeat.after_audio(
                     audio.sound_ticks(audio.SOUND_SECOND_CHANCE_SAVE),
+                    wait_ratio=audio.SEQUENCE_WAIT_RATIO,
                     ops=[
                         SequenceOperation.sound_op(audio.SOUND_SECOND_CHANCE_SAVE),
                         SequenceOperation.callback_op(
@@ -711,6 +710,7 @@ class Flip7Game(Game):
             return [
                 SequenceBeat.after_audio(
                     audio.sound_ticks(audio.SOUND_BUST),
+                    wait_ratio=audio.SEQUENCE_WAIT_RATIO,
                     ops=[
                         SequenceOperation.sound_op(audio.SOUND_BUST),
                         SequenceOperation.callback_op(
@@ -725,11 +725,12 @@ class Flip7Game(Game):
                 SequenceBeat(ops=[SequenceOperation.callback_op(to_continue, payload)]),
             ]
         if outcome == OUTCOME_FLIP7:
-            # The following beat keeps the sequence alive past the cue so the
-            # round-end announcements never overlap the Flip Seven reveal.
+            # Keep the win cue's initial transient distinct; its tail may
+            # overlap the round settlement that follows.
             return [
                 SequenceBeat.after_audio(
                     audio.sound_ticks(audio.SOUND_FLIP_SEVEN),
+                    wait_ratio=audio.SEQUENCE_WAIT_RATIO,
                     ops=[
                         SequenceOperation.sound_op(audio.SOUND_FLIP_SEVEN),
                         SequenceOperation.callback_op(
@@ -751,6 +752,7 @@ class Flip7Game(Game):
             return [
                 SequenceBeat.after_audio(
                     audio.sound_ticks(audio.SOUND_STAY),
+                    wait_ratio=audio.SEQUENCE_WAIT_RATIO,
                     ops=[
                         SequenceOperation.sound_op(audio.SOUND_STAY),
                         SequenceOperation.callback_op(
@@ -775,6 +777,7 @@ class Flip7Game(Game):
         forced: bool,
         continuation: str,
         pending_owner: str | None = None,
+        focus_choice: bool = False,
     ) -> None:
         """Start one timed reveal flow for the given card and recipient."""
         self.drawn_card = card
@@ -824,10 +827,11 @@ class Flip7Game(Game):
                             "forced": forced,
                             "outcome": outcome,
                             "pending_owner": pending_owner,
+                            "focus_choice": focus_choice,
                         },
                     )
                 ],
-                delay_after_ticks=EFFECT_GAP_TICKS,
+                delay_after_ticks=FLOW_HANDOFF_TICKS,
             ),
         ]
         beats.extend(
@@ -925,6 +929,7 @@ class Flip7Game(Game):
             self.refresh_menus()
             return
         outcome = str(payload.get("outcome", OUTCOME_OK))
+        focus_choice = bool(payload.get("focus_choice", False))
 
         if outcome == OUTCOME_PENDING:
             pending = Flip7PendingAction(
@@ -953,11 +958,26 @@ class Flip7Game(Game):
         elif card.kind == CARD_MODIFIER or card.kind == CARD_DOUBLE:
             player.cards.append(card)
         elif card.kind == CARD_SECOND_CHANCE:
-            self._apply_second_chance(player, card, outcome)
+            self._apply_second_chance(
+                player,
+                card,
+                outcome,
+                focus_choice=focus_choice,
+            )
         elif card.kind == CARD_FREEZE:
-            self._apply_freeze(player, card, outcome)
+            self._apply_freeze(
+                player,
+                card,
+                outcome,
+                focus_choice=focus_choice,
+            )
         elif card.kind == CARD_FLIP_THREE:
-            self._apply_flip_three(player, card, outcome)
+            self._apply_flip_three(
+                player,
+                card,
+                outcome,
+                focus_choice=focus_choice,
+            )
         self.refresh_menus()
 
     def _apply_number(self, player: Flip7Player, card: Flip7Card, outcome: str) -> None:
@@ -974,32 +994,74 @@ class Flip7Game(Game):
         player.cards.append(card)
 
     def _apply_second_chance(
-        self, player: Flip7Player, card: Flip7Card, outcome: str
+        self,
+        player: Flip7Player,
+        card: Flip7Card,
+        outcome: str,
+        *,
+        focus_choice: bool,
     ) -> None:
         if outcome != OUTCOME_CHOICE:
             return
-        self._resolve_choice_open(CHOICE_SECOND_CHANCE, player, card)
+        self._resolve_choice_open(
+            CHOICE_SECOND_CHANCE,
+            player,
+            card,
+            focus_choice=focus_choice,
+        )
 
-    def _apply_freeze(self, player: Flip7Player, card: Flip7Card, outcome: str) -> None:
+    def _apply_freeze(
+        self,
+        player: Flip7Player,
+        card: Flip7Card,
+        outcome: str,
+        *,
+        focus_choice: bool,
+    ) -> None:
         if outcome == OUTCOME_STOP_ALONE:
             player.round_status = STATUS_STAYED
             self.discard.append(card)
             self._set_flow_status(FLOW_BANK, player)
             return
         if outcome == OUTCOME_CHOICE:
-            self._resolve_choice_open(CHOICE_FREEZE, player, card)
+            self._resolve_choice_open(
+                CHOICE_FREEZE,
+                player,
+                card,
+                focus_choice=focus_choice,
+            )
 
     def _apply_flip_three(
-        self, player: Flip7Player, card: Flip7Card, outcome: str
+        self,
+        player: Flip7Player,
+        card: Flip7Card,
+        outcome: str,
+        *,
+        focus_choice: bool,
     ) -> None:
         if outcome == OUTCOME_CHOICE:
-            self._resolve_choice_open(CHOICE_FLIP_THREE, player, card)
+            self._resolve_choice_open(
+                CHOICE_FLIP_THREE,
+                player,
+                card,
+                focus_choice=focus_choice,
+            )
 
     def _resolve_choice_open(
-        self, kind: str, actor: Flip7Player, card: Flip7Card
+        self,
+        kind: str,
+        actor: Flip7Player,
+        card: Flip7Card,
+        *,
+        focus_choice: bool,
     ) -> None:
         """Open a card-draw choice and either resume or hand off the flow."""
-        result = self._open_choice(kind, actor, card=card)
+        result = self._open_choice(
+            kind,
+            actor,
+            card=card,
+            focus_choice=focus_choice,
+        )
         if result == OUTCOME_FLOW:
             return
         if result == OUTCOME_CHOICE:
@@ -1097,6 +1159,7 @@ class Flip7Game(Game):
         actor: Flip7Player,
         *,
         card: Flip7Card,
+        focus_choice: bool = False,
     ) -> str:
         self.pending_choice = Flip7Choice(kind=kind, actor_id=actor.id, card=card)
         targets = self._choice_targets()
@@ -1111,9 +1174,19 @@ class Flip7Game(Game):
             return OUTCOME_FLOW
         self._arm_bot()
         self.refresh_menus()
-        if not actor.is_bot and actor.id:
+        if focus_choice and not actor.is_bot and actor.id:
             first = targets[0]
             self.request_menu_focus(actor, f"choose_{kind}_{first.id}")
+        elif not actor.is_bot:
+            # Opening deals and chained Flip Three reveals may create a choice
+            # without a fresh user action. Announce it without stealing focus.
+            user = self.get_user(actor)
+            if user is not None:
+                user.speak_l(
+                    "flip7-choice-required",
+                    buffer="game",
+                    action=self._card_label(card, user.locale),
+                )
         return OUTCOME_CHOICE
 
     def _announce_discarded_action(
@@ -1216,11 +1289,15 @@ class Flip7Game(Game):
         return False
 
     def _start_bank_flow(self, continuation: str, player: Flip7Player) -> None:
+        """Advance after the bank cue's transient, not its long decay tail."""
         self._set_flow_status(FLOW_BANK, player)
         self.start_sequence(
             self._flow_id(SEQUENCE_CARD_FLOW_PREFIX, player, suffix="bank"),
             [
-                SequenceBeat.after_audio(audio.sound_ticks(audio.SOUND_STAY)),
+                SequenceBeat.after_audio(
+                    audio.sound_ticks(audio.SOUND_STAY),
+                    wait_ratio=audio.SEQUENCE_WAIT_RATIO,
+                ),
                 SequenceBeat(ops=[SequenceOperation.callback_op(continuation)]),
             ],
             tag=TAG_FLOW,
@@ -1357,7 +1434,10 @@ class Flip7Game(Game):
             [
                 # Sequence ops run at the START of a beat, so the cue needs its
                 # own beat before the first card may be dealt.
-                SequenceBeat.after_audio(audio.sound_ticks(audio.SOUND_ROUND_START)),
+                SequenceBeat.after_audio(
+                    audio.sound_ticks(audio.SOUND_ROUND_START),
+                    wait_ratio=audio.SEQUENCE_WAIT_RATIO,
+                ),
                 SequenceBeat(ops=[SequenceOperation.callback_op(DEAL_STEP)]),
             ],
             tag=TAG_FLOW,
@@ -1438,7 +1518,10 @@ class Flip7Game(Game):
         self.start_sequence(
             self._flow_id(SEQUENCE_ROUND_START_PREFIX, active[0], suffix="next"),
             [
-                SequenceBeat.after_audio(audio.sound_ticks(audio.SOUND_ROUND_END)),
+                SequenceBeat.after_audio(
+                    audio.sound_ticks(audio.SOUND_ROUND_END),
+                    wait_ratio=audio.SEQUENCE_WAIT_RATIO,
+                ),
                 SequenceBeat(ops=[SequenceOperation.callback_op("start_round")]),
             ],
             tag=TAG_FLOW,
@@ -1504,22 +1587,26 @@ class Flip7Game(Game):
         if leader is not None:
             self.phase = PHASE_MATCH_END
             winner, _ = leader
-            # Let the round-end cue, then the win cue and its announcement,
-            # finish before the end screen replaces them.
+            # Preserve the cue order while allowing each authored decay tail
+            # to continue under the next event and the final results screen.
             self.start_sequence(
                 self._flow_id(SEQUENCE_MATCH_END_PREFIX, winner, suffix="win"),
                 [
-                    SequenceBeat.after_audio(audio.sound_ticks(audio.SOUND_ROUND_END)),
-                    SequenceBeat(
+                    SequenceBeat.after_audio(
+                        audio.sound_ticks(audio.SOUND_ROUND_END),
+                        wait_ratio=audio.SEQUENCE_WAIT_RATIO,
+                    ),
+                    SequenceBeat.after_audio(
+                        audio.sound_ticks(audio.SOUND_MATCH_WIN),
+                        wait_ratio=audio.SEQUENCE_WAIT_RATIO,
                         ops=[
                             SequenceOperation.sound_op(audio.SOUND_MATCH_WIN),
                             SequenceOperation.callback_op(
                                 "match_win",
                                 {"winner_id": winner.id},
                             ),
-                        ]
+                        ],
                     ),
-                    SequenceBeat.after_audio(audio.sound_ticks(audio.SOUND_MATCH_WIN)),
                     SequenceBeat(ops=[SequenceOperation.callback_op("finish_match")]),
                 ],
                 tag=TAG_FLOW,
@@ -1565,7 +1652,7 @@ class Flip7Game(Game):
                 # as create_turn_action_set builds them. Reporting [] here would
                 # make every before_menu_build() destroy and rebuild the set.
                 return ["hit", "stay"]
-            return [
+            return ["hit", "stay"] + [
                 f"choose_{choice.kind}_{target.id}" for target in self._choice_targets()
             ]
         return ["hit", "stay"]
@@ -1605,16 +1692,6 @@ class Flip7Game(Game):
         locale = user.locale if user else "en"
         action_set = ActionSet(name="turn")
 
-        if self.pending_choice is not None:
-            actor = self._choice_actor()
-            if actor is player:
-                # Only the actor's menu is replaced by the private decision.
-                self._build_choice_actions(action_set, player, locale)
-                return action_set
-            # Everyone else keeps their own stable turn rows so their menu and
-            # focus do not churn for one player's private choice; those rows
-            # stay disabled with the localized waiting reason.
-
         action_set.add(
             Action(
                 id="hit",
@@ -1637,6 +1714,10 @@ class Flip7Game(Game):
                 show_in_actions_menu=False,
             )
         )
+        if self.pending_choice is not None and self._choice_actor() is player:
+            # Contextual targets extend the stable primary controls instead of
+            # replacing them. This preserves screen-reader and touch anchors.
+            self._build_choice_actions(action_set, player, locale)
         return action_set
 
     def _build_choice_actions(
@@ -1688,6 +1769,8 @@ class Flip7Game(Game):
         if player.is_spectator:
             return "action-spectator"
         if self.pending_choice is not None:
+            if self._choice_actor() is player:
+                return "flip7-error-make-choice"
             return "flip7-error-wait-choice"
         if self.flip_state is not None or self.flow_kind == FLOW_FLIP_THREE:
             return "flip7-error-wait-flip-three"
@@ -1752,7 +1835,13 @@ class Flip7Game(Game):
             return
         flip_player: Flip7Player = player  # type: ignore[assignment]
         card = self._draw_card()
-        self._resolve_card(flip_player, card, forced=False, continuation=CONTINUE_FLOW)
+        self._resolve_card(
+            flip_player,
+            card,
+            forced=False,
+            continuation=CONTINUE_FLOW,
+            focus_choice=True,
+        )
 
     def _action_stay(self, player: Player, action_id: str) -> None:
         if self._is_stay_enabled(player) is not None:
@@ -1760,8 +1849,7 @@ class Flip7Game(Game):
         flip_player: Flip7Player = player  # type: ignore[assignment]
         flip_player.round_status = STATUS_STAYED
         # Repaint this player's persistent control immediately so its label no
-        # longer advertises points that have already been banked.  The turn
-        # advances only after the bank cue finishes.
+        # longer advertises points that have already been banked.
         self.refresh_menus()
         points = self.round_points(flip_player)
         self.play_sound(audio.SOUND_STAY)
@@ -1783,6 +1871,10 @@ class Flip7Game(Game):
             return
         flip_player: Flip7Player = player  # type: ignore[assignment]
         self._consume_choice(flip_player, target)  # type: ignore[arg-type]
+        # A target click is the explicit action that closes this private
+        # decision. Restore the stable primary anchor even when its resulting
+        # card flow temporarily disables it.
+        self.request_menu_focus(flip_player, "hit")
 
     # ------------------------------------------------------------------
     # Information actions

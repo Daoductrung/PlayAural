@@ -70,7 +70,8 @@ team-arrangement-member-option = { $player }, { $team }, { $selected }
 team-arrangement-selected = đã chọn
 team-arrangement-not-selected = chưa chọn
 team-arrangement-member-selected = Đã chọn { $player } ở { $team }. Hãy chọn một người ở đội khác để đổi chỗ.
-team-arrangement-swapped = { $first } và { $second } đã đổi đội cho nhau.
+team-arrangement-swapped-player = { $player } đã đổi đội cho { $first } và { $second }.
+team-arrangement-swapped-you = Bạn đã đổi đội cho { $first } và { $second }.
 team-arrangement-cancelled = Đã hủy sắp xếp đội.
 team-arrangement-cancelled-roster = Đã hủy sắp xếp đội vì danh sách người chơi thay đổi.
 team-arrangement-refreshed = Danh sách người chơi đã thay đổi. Đội hình đã được sắp xếp lại.
@@ -86,6 +87,7 @@ status-box-closed = Đã đóng thông tin trạng thái.
 game-leave = Rời trò chơi
 
 round-timer-paused = { $player } đã tạm dừng trò chơi (nhấn p để bắt đầu vòng tiếp theo).
+round-timer-paused-you = Bạn đã tạm dừng trò chơi (nhấn p để bắt đầu vòng tiếp theo).
 dice-keeping = Giữ lại { $value }.
 dice-rerolling = Gieo lại { $value }.
 dice-locked = Viên xúc xắc đó đã bị khóa và không thể thay đổi.
@@ -159,7 +161,6 @@ global-keys = Điều khiển toàn cục
 game-rules = Luật chơi
 changelog = Nhật ký thay đổi
 donation = Quyên góp
-contact = Liên hệ
 document-not-found = Không tìm thấy tài liệu.
 help = Trợ giúp
 

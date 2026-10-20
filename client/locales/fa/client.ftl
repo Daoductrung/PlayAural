@@ -26,13 +26,11 @@ main-voice-label = چت صوتی
 voice-chat-join = ورود به چت صوتی
 voice-chat-leave = خروج از چت صوتی
 voice-chat-mic = میکروفون
-voice-chat-turn-on-mic = روشن کردن میکروفون
-voice-chat-turn-off-mic = خاموش کردن میکروفون
+voice-chat-mic-on = میکروفون روشن است.
+voice-chat-mic-off = میکروفون خاموش است.
 voice-chat-joining = در حال ورود به چت صوتی...
 voice-chat-listen-only = وارد چت صوتی شدید. فقط شنونده هستید.
 voice-chat-left = از چت صوتی خارج شدید.
-voice-chat-mic-on = میکروفون روشن است.
-voice-chat-mic-off = میکروفون خاموش است.
 voice-chat-not-connected = چت صوتی متصل نیست.
 voice-chat-unavailable = چت صوتی در حال حاضر در دسترس نیست.
 voice-chat-sdk-missing = پشتیبانی از چت صوتی در این کلاینت نصب نشده است.
@@ -49,14 +47,10 @@ voice-status-connected = { $player } به چت صوتی میز متصل شد.
 voice-status-disconnected = { $player } از چت صوتی قطع شد.
 voice-status-connection-lost = { $player } اتصالش قطع و از چت صوتی حذف شد.
 voice-status-left-table = { $player } میز را ترک کرد و از چت صوتی خارج شد.
-chat-global = { $player } در چت عمومی می‌گوید: { $message }
-chat-local = { $player } می‌گوید: { $message }
 main-connecting-to = در حال اتصال به { $url }...
 main-connecting-as = در حال اتصال با نام { $username }...
 main-connected-version = متصل به نسخه سرور { $version }
 main-connection-timeout = زمان اتصال به پایان رسید: امکان اتصال به سرور وجود ندارد.
-main-connection-lost = اتصال قطع شد!
-main-reconnecting-in-3s = سرور در حال راه‌اندازی مجدد است. اتصال مجدد در ۳ ثانیه آینده...
 main-reconnecting = در حال اتصال مجدد...
 main-connection-failed = شروع اتصال به سرور با خطا مواجه شد.
 
@@ -82,9 +76,6 @@ login-btn-auto-login = ورود خودکار در دفعات بعدی
 login-btn-remove-account = حذف حساب کاربری
 login-btn-register-new = ثبت‌نام حساب جدید
 login-btn-login-existing = ورود با حساب موجود
-login-info-verifying = در حال تأیید اطلاعات...
-login-info-success = تأیید موفقیت‌آمیز بود!
-login-info-failed = تأیید ناموفق بود!
 login-account-deleted = حساب با موفقیت حذف شد.
 login-manual-title = ورود
 login-failed-title = ورود ناموفق
@@ -111,9 +102,6 @@ reg-error-match = رمزهای عبور مطابقت ندارند
 reg-error-bio = لطفاً بیوگرافی وارد کنید
 reg-success-title = ثبت‌نام موفق
 reg-failed-title = ثبت‌نام ناموفق
-reg-connection-error = خطای اتصال: { $error }
-reg-timeout-error = سرور در زمان مقرر پاسخ نداد
-reg-unexpected-error = پاسخ غیرمنتظره از سمت سرور
 
 main-status-muted = بی‌صدا
 main-status-unmuted = باصدا
@@ -137,7 +125,6 @@ options-reset-confirm-title = تأیید بازنشانی
 options-reset-confirm-message = تنظیمات { $tab } به مقادیر ذخیره‌شده بازگردانده شوند؟
 
 slash-command-error = خطا در پردازش دستور اسلش { $command }.
-reg-error-exception = خطا: { $error }
 main-connection-error-title = خطای اتصال
 main-options-error = تنظیمات کلاینت در دسترس نیست
 main-options-error-title = خطا
@@ -150,14 +137,9 @@ buffer-name-chat = چت
 
 system-announcement = اطلاعیه سیستم
 chat-announcement = اطلاعیه سیستم: { $message }
-common-app-closing = بازی اکنون بسته می‌شود.
 login-error-connection-refused = اتصال رد شد: ممکن است سرور آفلاین باشد.
 login-error-connection-timeout = زمان اتصال به پایان رسید: سرور پاسخ نداد.
-login-error-unknown = خطای ناشناخته رخ داد: { $error }
 main-attempting-reconnect = اتصال قطع شد. در حال تلاش برای اتصال مجدد...
-main-reconnect-failed = اتصال مجدد ناموفق بود. لطفاً برنامه را مجدداً راه‌اندازی کنید.
-main-reconnecting-as-attempt = در حال اتصال مجدد با نام { $username }... تلاش { $attempt }.
-logged-out = شما خارج شدید.
 goodbye = خدانگهدار!
 
 update-available-title = آپدیت موجود است
@@ -177,7 +159,6 @@ sounds-update-error = آپدیت صداها ناموفق بود: { $error }
 
 update-cancelled = آپدیت لغو شد. بازی بسته خواهد شد.
 
-main-restarting = در حال راه‌اندازی مجدد...
 
 auth-error-username-length = نام کاربری باید بین ۳ تا ۳۰ کاراکتر باشد.
 auth-error-password-weak = رمز عبور باید حداقل ۸ کاراکتر و شامل حروف و اعداد باشد.

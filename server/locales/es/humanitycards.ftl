@@ -34,7 +34,7 @@ hc-pack-group-all = Todos los paquetes
 hc-set-czar-selection = Selección del Zar de la Carta: { $mode }
 hc-select-czar-selection = Selecciona el modo de selección del Zar de la Carta
 hc-option-changed-czar-selection = Selección del Zar de la Carta establecida en { $mode }.
-hc-desc-czar-selection = Controla quién juzga cada ronda: rotando por orden de asiento, elegido al azar, o el ganador más reciente de la ronda.
+hc-desc-czar-selection = Controla quién juzga cada ronda: rotando por orden de asiento, elegido al azar, o quien ganó la última ronda.
 
 hc-set-num-judges = Número de jueces: { $count }
 hc-enter-num-judges = Ingresa el número de jueces:
@@ -43,7 +43,7 @@ hc-desc-num-judges = Cuántos Zares de la Carta juzgan cada ronda. La cantidad d
 
 hc-czar-rotating = Rotativo
 hc-czar-random = Aleatorio
-hc-czar-winner = Ganador más reciente
+hc-czar-winner = Quien ganó la última ronda
 
 # Flujo de la partida
 hc-game-starting = Barajando los mazos...
@@ -66,6 +66,7 @@ hc-black-card-draw = Primero, roba { $count } { $count ->
 }.
 hc-black-card-pick = Elige { $count }.
 hc-view-black-card = Ver la carta de pregunta
+hc-no-question-card = No hay ninguna carta de pregunta activa en este momento.
 
 # Fase de envío
 hc-select-cards = Selecciona { $count } { $count ->
@@ -79,7 +80,7 @@ hc-submit-cards = Enviar ({ $selected } de { $required } seleccionadas)
 hc-submission-progress = { $submitted } de { $total } jugadores enviaron su respuesta.
 hc-already-submitted = Ya enviaste tus cartas.
 hc-you-submitted = Enviaste tus cartas.
-hc-player-submitted = { $player } envió { GENDER_TERM($player_gender, "possessive-determiner") } cartas.
+hc-player-submitted = { $player } envió sus cartas.
 hc-judge-cannot-submit = Eres el Zar de la Carta esta ronda, así que no puedes enviar una respuesta.
 hc-not-submission-phase = Solo puedes seleccionar y enviar cartas blancas durante la fase de envío.
 hc-card-not-in-hand = Esa carta ya no está en tu mano.

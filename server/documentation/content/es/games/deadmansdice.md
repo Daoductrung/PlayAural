@@ -2,7 +2,7 @@
 
 Dados del Muerto es un juego de tiradas ocultas, apuestas crecientes y nervios de acero. Conoces los cinco dados que hay bajo tu cubilete, pero nadie puede ver la mesa completa. Cada apuesta puede ser una estimación sincera, un farol calculado o una mentira de más.
 
-No hay puntos. Si pierdes un desafío, bebes veneno. La segunda dosis te elimina. El último superviviente gana.
+No hay puntos. Si pierdes un desafío, bebes veneno. La segunda dosis te elimina. El último sobreviviente gana.
 
 \*\*Sentarse a la mesa\*\*
 
@@ -10,7 +10,7 @@ El juego admite de 2 a 4 jugadores. Todos empiezan con cinco dados de seis caras
 
 Al comenzar la partida, el ambiente sonoro de la taberna aparece durante una breve introducción de cinco segundos. El juego anuncia cuántos jugadores hay en la mesa, qué reglas están activas y cómo se cuentan los unos. La primera ronda solo comienza cuando termina la introducción.
 
-Al inicio de cada ronda, todos los supervivientes lanzan cinco dados bajo un cubilete. Tu tirada se te anuncia en privado. Los demás saben cuántos dados hay en juego, pero no qué has sacado.
+Al inicio de cada ronda, todos los sobrevivientes lanzan cinco dados bajo un cubilete. Tu tirada se te anuncia en privado. Los demás saben cuántos dados hay en juego, pero no qué has sacado.
 
 \*\*Qué significa una apuesta\*\*
 
@@ -44,14 +44,14 @@ Con las reglas básicas, cada cara se cuenta literalmente. Un cinco cuenta como 
 Si nadie ha apostado todavía, debes hacer la apuesta inicial. Cuando ya existe una apuesta, tienes tres opciones:
 
 \* Aumentar la apuesta.
-\* Declarar mentiroso si crees que la apuesta es demasiado alta.
+\* Acusar de mentiroso si crees que la apuesta es demasiado alta.
 \* Declarar Exacto si crees que la apuesta es exactamente correcta.
 
-No puedes pasar. Después de actuar, el juego pasa al siguiente superviviente.
+No puedes pasar. Después de actuar, el juego pasa al siguiente sobreviviente.
 
-\*\*Declarar mentiroso\*\*
+\*\*Acusar de mentiroso\*\*
 
-Declarar mentiroso termina las apuestas de esa ronda. Todos los cubiletes se levantan, uno a uno, y se cuentan los dados coincidentes.
+Acusar de mentiroso termina las apuestas de esa ronda. Todos los cubiletes se levantan, uno a uno, y se cuentan los dados coincidentes.
 
 \* Si la cantidad real es menor que la apuesta, pierde quien apostó.
 \* Si la cantidad real alcanza o supera la apuesta, pierde quien desafió.
@@ -62,16 +62,16 @@ Quien pierde bebe una dosis de veneno. Si sobrevive, abre la siguiente ronda. Si
 
 Exacto está disponible con ambos reglamentos. Es una declaración más arriesgada: afirmas que la apuesta coincide exactamente con la mesa.
 
-\* Si la cantidad es exacta, todos los demás supervivientes beben una dosis de veneno.
+\* Si la cantidad es exacta, todos los demás sobrevivientes beben una dosis de veneno.
 \* Si la cantidad no es exacta, solo bebe quien declaró Exacto.
 
-Quien hace la declaración abre la siguiente ronda si sigue con vida. Si queda eliminado, el turno inicial pasa al siguiente superviviente. Un Exacto correcto puede eliminar a varios jugadores a la vez y terminar la partida de inmediato.
+Quien hace la declaración abre la siguiente ronda si sigue con vida. Si queda eliminado, el turno inicial pasa al siguiente sobreviviente. Un Exacto correcto puede eliminar a varios jugadores a la vez y terminar la partida de inmediato.
 
 \*\*Veneno y eliminación\*\*
 
 Tu primera dosis te deja con vida, pero en peligro. La segunda te elimina. Los jugadores eliminados siguen oyendo el estado público de la partida, pero ya no lanzan, apuestan ni desafían.
 
-La partida termina en cuanto solo queda un superviviente.
+La partida termina en cuanto solo queda un sobreviviente.
 
 \*\*Seguir el estado de la mesa\*\*
 
@@ -98,12 +98,12 @@ El anfitrión puede elegir un reglamento antes de la partida:
 \* \*\*Tradicionales, predeterminado:\*\* Los unos son comodines en las apuestas por doses hasta seises.
 \* \*\*Básicas:\*\* Cada cara solo se cuenta a sí misma.
 
-Ambos reglamentos usan cinco dados por superviviente, permiten declarar mentiroso y Exacto, eliminan con la segunda dosis de veneno y terminan con un solo superviviente.
+Ambos reglamentos usan cinco dados por sobreviviente, permiten acusar de mentiroso y declarar Exacto, eliminan con la segunda dosis de veneno y terminan con un solo sobreviviente.
 
 \*\*Atajos de teclado\*\*
 
 \* \*\*1 a 6:\*\* Iniciar una apuesta por esa cara.
-\* \*\*C:\*\* Declarar mentiroso.
+\* \*\*C:\*\* Acusar de mentiroso.
 \* \*\*O:\*\* Declarar Exacto.
 \* \*\*D:\*\* Leer tus dados.
 \* \*\*V:\*\* Leer la mesa.

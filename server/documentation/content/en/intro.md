@@ -27,7 +27,9 @@ When you enter a table, you can usually:
 \* Chat with other people at the table or send private messages.
 \* Join the table's voice chat on the PlayAural clients that support voice playback and microphone access.
 \* If you are the host, open Host Management and choose Switch to Another Game to move everyone who is still present into a fresh waiting lobby for another game. Playing and spectating roles, bots, table ownership, privacy, bans, and voice chat stay with the table; the old match, options, teams, ready state, and pending invitations are discarded after you confirm.
-\* If you are the host during a game, open Host Management to substitute a spectator into an active player seat. A human currently in that seat must agree first. The substitute receives the seat's exact game state, remaining turn time, and eventual result attribution. If you give up your own seat, you become a spectator but remain the table host.
+\* If you are the host during a game, open Host Management to substitute a spectator into an active player seat. A human currently in that seat must agree first. The substitute receives the seat's game state and remaining turn time, but changing the seat's owner makes the whole match unranked: it awards no leaderboard records or skill-rating changes. If you give up your own seat, you become a spectator but remain the table host.
+
+If a player loses connection during a match, play pauses for up to five seconds before a bot takes over. Returning players reclaim their own seats without making the match unranked. Bots never continue alone: at least one human must be playing. An unattended match stays paused for up to 15 minutes while a player or the host reconnects. A spectating host keeps that role on return. Choosing to leave is different: a bot takes over immediately if the table can continue, and leaving as the last player with no host remaining cancels the match.
 
 \*\*Chat and Social Features\*\*
 
@@ -45,3 +47,15 @@ If you are completely new, read Global Controls next. That guide explains the de
 \*\*Community\*\*
 
 PlayAural aims to be a friendly place for new and experienced users alike. Before your first serious session, take a moment to read the Community Rules so you know what is expected at the table and in chat.
+
+\*\*Help and Feedback\*\*
+
+Open Help and Feedback from the main menu, or from the Actions menu while at a table. Documentation contains the manuals. Contact the developers brings your requests and replies together in one place.
+
+Choose New request, select the closest category, write a short subject and a message, then review and confirm it. You can edit the subject or message before sending. You can report accessibility or audio problems, ask about gameplay or your account, suggest improvements, or ask the developers another question. Do not send passwords or reset codes. Use Report user for misconduct by another user.
+
+The Status selector shows requests awaiting the developers, awaiting your reply, closed requests, or all statuses. Open the selector, choose a value, and you return to the updated list. Refresh list checks for new replies and announces when the list has refreshed. Open a request to read the newest messages first, add a reply, close it when you need no further help, or reopen it later. This is not live chat: the developers can reply while you are offline. After you log in, alerts wait a few seconds so the welcome and any required notices can finish. Alerts never move your menu focus.
+
+An open conversation updates automatically as replies arrive, keeping your reading position. You can browse older messages without being moved to the newest reply. If a request changes while you are composing, your draft stays available for you to review before sending.
+
+Your requests are private to you and the developers. Closed conversations remain available unless a developer permanently removes them. If you reach a request or message limit, the announcement explains which limit applies and how to continue. Reply to an existing conversation when you can.

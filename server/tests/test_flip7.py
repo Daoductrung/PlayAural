@@ -1006,7 +1006,7 @@ def test_flip7_turn_menu_keeps_scoreboard_out_of_the_primary_action_list():
     assert mobile_ids[-2:] == ["web_actions_menu", "web_leave_table"]
 
 
-def test_flip7_turn_menu_swaps_to_choice_actions():
+def test_flip7_turn_menu_keeps_primary_actions_above_choice_actions():
     game = _make_game(player_count=3, start=False)
     _deal_number_cards(game, [3, 4, 5])
     actor = game.players[0]
@@ -1014,10 +1014,11 @@ def test_flip7_turn_menu_swaps_to_choice_actions():
     game.before_menu_build(actor)
 
     ids = [resolved.action.id for resolved in game.get_all_visible_actions(actor)]
-    assert "hit" not in ids
-    assert "stay" not in ids
+    assert ids[:2] == ["hit", "stay"]
     for target in game._choice_targets():
         assert f"choose_freeze_{target.id}" in ids
+    assert game._is_hit_enabled(actor) == "flip7-error-make-choice"
+    assert game._is_stay_enabled(actor) == "flip7-error-make-choice"
 
 
 def test_flip7_information_actions_touch_visibility():
@@ -1281,6 +1282,9 @@ def test_flip7_banking_repaints_the_persistent_stop_label_immediately():
         item for item in user.menus["turn_menu"]["items"] if item.id == "stay"
     )
     assert banked.text == "Stop and bank (already stopped)"
+    assert game.current_player is actor
+    assert game.has_active_sequence(tag=TAG_FLOW)
+    assert advance_until(game, lambda: game.current_player is not actor, max_ticks=25)
 
 
 # ---------------------------------------------------------------------------
@@ -1393,6 +1397,28 @@ def test_flip7_audio_reuses_complete_shared_assets_with_exact_fallbacks():
             assert measured is not None, asset
             measured_variants.append(measured)
         assert audio.AUDIO_DURATIONS_TICKS[family] == max(measured_variants)
+
+
+def test_flip7_sequential_cues_use_measured_tail_overlapping_pacing():
+    # Every cue that gates a later rules event advances on its opening 20%;
+    # long authored decays and trailing silence continue without locking play.
+    assert audio.SEQUENCE_WAIT_RATIO == 0.20
+    for sound in (
+        audio.SOUND_CARD_NUMBER_FAMILY,
+        audio.SOUND_STAY,
+        audio.SOUND_SECOND_CHANCE_SAVE,
+        audio.SOUND_BUST,
+        audio.SOUND_FLIP_SEVEN,
+        audio.SOUND_ROUND_START,
+        audio.SOUND_ROUND_END,
+        audio.SOUND_MATCH_WIN,
+    ):
+        duration = audio.sound_ticks(sound)
+        delay = SequenceBeat.audio_delay_ticks(
+            duration,
+            wait_ratio=audio.SEQUENCE_WAIT_RATIO,
+        )
+        assert 0 < delay < duration, sound
 
 
 def test_flip7_deal_reveals_announce_cards_and_schedule_sound():
@@ -1946,15 +1972,24 @@ def test_flip7_pending_action_recipient_hears_the_personal_discard_warning():
 def test_flip7_choice_menu_uses_stable_target_ids_and_focuses_the_first_target():
     game = _make_game(player_count=3, start=False)
     _deal_number_cards(game, [3, 4, 5])
-    actor = game.players[0]
+    actor = game.current_player
     actor_user = game.get_user(actor)
+    actor_user.clear_messages()
 
-    _resolve(game, actor, _card(CARD_FREEZE, uid=1))
+    game.deck = [_card(CARD_FREEZE, uid=1)]
+    game.execute_action(actor, "hit")
+    assert advance_until(
+        game,
+        lambda: (
+            game.pending_choice is not None
+            and not game.has_active_sequence(tag=TAG_FLOW)
+        ),
+    )
     targets = game._choice_targets()
     choice_ids = [f"choose_freeze_{target.id}" for target in targets]
     item_ids = [item.id for item in actor_user.menus["turn_menu"]["items"]]
-    assert item_ids[: len(choice_ids)] == choice_ids
-    assert "hit" not in item_ids and "stay" not in item_ids
+    assert item_ids[:2] == ["hit", "stay"]
+    assert item_ids[2 : 2 + len(choice_ids)] == choice_ids
 
     turn_updates = [
         message
@@ -1963,6 +1998,43 @@ def test_flip7_choice_menu_uses_stable_target_ids_and_focuses_the_first_target()
         and message.data.get("menu_id") == "turn_menu"
     ]
     assert turn_updates[-1].data.get("selection_id") == choice_ids[0]
+
+    actor_user.clear_messages()
+    game.execute_action(actor, "hit")
+    assert _spoken(actor_user) == ["Choose a target before flipping or stopping."]
+
+    actor_user.clear_messages()
+    game.execute_action(actor, choice_ids[0])
+    game.flush_menus()
+    turn_updates = [
+        message
+        for message in actor_user.messages
+        if message.type in {"show_menu", "update_menu"}
+        and message.data.get("menu_id") == "turn_menu"
+    ]
+    assert turn_updates[-1].data.get("selection_id") == "hit"
+
+
+def test_flip7_background_choice_does_not_steal_focus():
+    game = _make_game(player_count=3, start=False)
+    _deal_number_cards(game, [3, 4, 5])
+    actor = game.players[0]
+    actor_user = game.get_user(actor)
+    actor_user.clear_messages()
+
+    # Direct resolution models an opening deal or chained Flip Three reveal,
+    # not a fresh action from this player.
+    _resolve(game, actor, _card(CARD_FREEZE, uid=1))
+
+    turn_updates = [
+        message
+        for message in actor_user.messages
+        if message.type in {"show_menu", "update_menu"}
+        and message.data.get("menu_id") == "turn_menu"
+    ]
+    assert turn_updates
+    assert turn_updates[-1].data.get("selection_id") is None
+    assert "Choose a target for Freeze." in _spoken(actor_user)
 
 
 def test_flip7_pending_choice_keeps_unrelated_players_turn_rows_stable():
@@ -1989,9 +2061,10 @@ def test_flip7_pending_choice_keeps_unrelated_players_turn_rows_stable():
         assert game._is_hit_enabled(player) == "flip7-error-wait-choice"
         assert game._is_stay_enabled(player) == "flip7-error-wait-choice"
 
-    # The actor alone sees the decision menu, and it still focuses a target.
+    # The actor alone receives the decision rows below the same stable anchors.
     actor_items = [item.id for item in game.get_user(actor).menus["turn_menu"]["items"]]
-    assert actor_items[0].startswith("choose_freeze_")
+    assert actor_items[:2] == ["hit", "stay"]
+    assert actor_items[2].startswith("choose_freeze_")
 
 
 def test_flip7_pending_choice_repeated_builds_preserve_set_order_and_focus():

@@ -6,8 +6,6 @@ auth-error-wrong-password = رمز عبور اشتباه است.
 auth-error-user-not-found = کاربر وجود ندارد.
 auth-kicked-logged-in-elsewhere = شما قطع شدید زیرا حساب کاربری شما از دستگاه دیگری وارد شده است.
 
-chat-global = { $player } در کانال عمومی می‌گوید: { $message }
-
 admin-smtp-updated-success = تنظیمات SMTP با موفقیت به‌روز شد
 admin-smtp-settings = تنظیمات SMTP
 email-reset-subject = کد بازنشانی رمز عبور PlayAural
@@ -319,8 +317,6 @@ table-member-status-host = میزبان
 table-member-status-player = بازیکن
 table-member-status-spectator = تماشاگر
 table-member-status-bot = ربات
-table-member-status-online = آنلاین
-table-member-status-offline = آفلاین
 table-member-status-voice-chat = در مکالمه‌ی صوتی
 table-member-status-bot-takeover = ربات به جای او بازی می‌کند: { $bot }
 table-member-no-actions = هیچ عملی برای { $player } در دسترس نیست.
@@ -573,7 +569,7 @@ server-power-restore-waiting = این میز پس از یک راه‌انداز�
 server-power-restore-input-blocked = این میز هنوز در حال بازیابی از راه‌اندازی مجدد برنامه‌ریزی‌شده است. گیم‌پلی به مدت { $seconds } ثانیه دیگر در حال انتظار برای { $players } متوقف شده است؛ لطفاً پس از پایان دوره‌ی مهلت دوباره تلاش کنید.
 server-power-restore-missing-players-fallback = سایر بازیکنان
 server-power-restore-complete = همه‌ی بازیکنان فعال پس از راه‌اندازی مجدد برنامه‌ریزی‌شده دوباره متصل شدند. بازی از سر گرفته شد.
-server-power-restore-complete-with-bots = مهلت اتصال مجدد پس از راه‌اندازی مجدد برنامه‌ریزی‌شده به پایان رسید. صندلی‌های خالی با ربات‌ها پر شدند و بازی از سر گرفته می‌شود.
+server-power-restore-complete-with-bots = مهلت اتصال مجدد پس از راه‌اندازی مجدد برنامه‌ریزی‌شده به پایان رسید. صندلی‌های خالی با ربات‌ها پر شدند.
 duration-seconds = { $count ->
     [one] ۱ ثانیه
    *[other] { $count } ثانیه
@@ -611,8 +607,6 @@ mobile-tts-enter-rate = سرعت گفتار موبایل را وارد کنید 
 mobile-tts-invalid-rate = سرعت گفتار موبایل نامعتبر است. مقداری بین ۵۰ و ۲۰۰ استفاده کنید.
 
 player-kicked-offline = بازیکن { $player } اخراج شد (آفلاین).
-game-paused-host-disconnect = بازی متوقف شد. در انتظار اتصال مجدد { $player }...
-game-resumed = { $player } دوباره متصل شد. بازی از سر گرفته شد!
 
 auth-error-username-length = نام کاربری باید بین ۳ تا ۳۰ کاراکتر باشد.
 auth-error-username-invalid-chars = نام کاربری فقط می‌تواند شامل حروف، اعداد و فاصله باشد (بدون فاصله‌ی پشت‌سرهم و بدون کاراکترهای خاص).
@@ -677,23 +671,19 @@ friend-remove-confirm = آیا { $username } را از لیست دوستان خ�
 friend-remove-not-friends = { $username } دیگر در لیست دوستان شما نیست.
 already-in-table = شما قبلاً در این میز هستید.
 friend-removed-success = { $username } از لیست دوستان شما حذف شد.
-friend-removed-notify = { $username } شما را از لیست دوستان خود حذف کرد.
 
 no-pending-requests = هیچ درخواستی در انتظار نیست.
 accept = پذیرش
 decline = رد
 friend-accepted-success = شما اکنون با { $username } دوست هستید.
-friend-accepted-notify = { $username } درخواست دوستی شما را پذیرفت!
 request-not-found = درخواست دوستی دیگر وجود ندارد.
 friend-declined-success = درخواست دوستی رد شد.
-friend-declined-notify = { $username } درخواست دوستی شما را رد کرد.
 
 enter-friend-username = نام کاربری شخصی که می‌خواهید با او دوست شوید را وارد کنید:
 friend-error-self = نمی‌توانید برای خودتان درخواست دوستی بفرستید.
 friend-error-already-friends = شما قبلاً با این کاربر دوست هستید.
 friend-error-duplicate = شما قبلاً یک درخواست دوستی در انتظار برای این کاربر دارید.
 friend-request-sent = درخواست دوستی برای { $username } ارسال شد.
-friend-request-received = شما یک درخواست دوستی جدید از { $username } دریافت کردید.
 
 friends-grouped-requests = شما درخواست‌های دوستی در انتظار از: { $usernames } دارید.
 friends-grouped-accepted = درخواست‌های دوستی شما توسط: { $usernames } پذیرفته شد.

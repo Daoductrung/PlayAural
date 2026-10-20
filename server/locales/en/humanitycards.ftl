@@ -66,6 +66,7 @@ hc-black-card-draw = Draw { $count } extra { $count ->
 } first.
 hc-black-card-pick = Pick { $count }.
 hc-view-black-card = View the question card
+hc-no-question-card = There is no active question card right now.
 
 # Submission phase
 hc-select-cards = Select { $count } { $count ->

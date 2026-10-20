@@ -27,7 +27,9 @@ Khi đã vào bàn, thông thường bạn có thể:
 \* Trò chuyện với người cùng bàn hoặc gửi tin nhắn riêng.
 \* Tham gia trò chuyện thoại của bàn trên các ứng dụng được hỗ trợ.
 \* Nếu bạn là chủ bàn, hãy mở Quản lý bàn rồi chọn Chuyển sang trò chơi khác để đưa tất cả mọi người vẫn còn ở bàn vào phòng chờ mới của một trò chơi khác. Vai trò người chơi hoặc khán giả, các bot, quyền chủ bàn, chế độ riêng tư, danh sách cấm và trò chuyện thoại vẫn đi cùng bàn; ván cũ, tùy chọn, đội, trạng thái sẵn sàng và các lời mời đang chờ sẽ bị hủy sau khi bạn xác nhận.
-\* Nếu bạn là chủ bàn trong khi ván đang diễn ra, hãy mở Quản lý bàn để đưa một khán giả vào chỗ của người chơi đang hoạt động. Nếu chỗ đó đang do một người điều khiển, họ phải đồng ý trước. Người thay thế nhận nguyên trạng thái ván, thời gian lượt còn lại và quyền được ghi nhận kết quả cuối cùng của chỗ. Nếu bạn nhường chỗ của chính mình, bạn trở thành khán giả nhưng vẫn giữ quyền chủ bàn.
+\* Nếu bạn là chủ bàn trong khi ván đang diễn ra, hãy mở Quản lý bàn để đưa một khán giả vào chỗ của người chơi đang hoạt động. Nếu chỗ đó đang do một người điều khiển, họ phải đồng ý trước. Người thay thế nhận nguyên trạng thái ván và thời gian lượt còn lại, nhưng đổi người sở hữu chỗ khiến cả ván không được tính vào bảng xếp hạng hay điểm kỹ năng. Nếu bạn nhường chỗ của chính mình, bạn trở thành khán giả nhưng vẫn giữ quyền chủ bàn.
+
+Khi một người chơi mất kết nối giữa ván, ván tạm dừng tối đa năm giây trước khi bot tiếp quản. Người trở lại được nhận lại chỗ của mình mà không mất điều kiện tính xếp hạng. Các bot không thể tự tiếp tục: phải có ít nhất một người trực tiếp chơi. Ván không còn ai trông coi sẽ tạm dừng tối đa 15 phút để chờ người chơi hoặc chủ bàn kết nối lại. Chủ bàn đang xem vẫn giữ vai trò đó khi trở lại. Chủ động rời bàn thì khác: bot tiếp quản ngay nếu bàn vẫn có thể tiếp tục; nếu người chơi cuối cùng rời bàn và không còn chủ bàn ở lại, ván sẽ bị hủy.
 
 \*\*Trò chuyện và các tính năng giao tiếp\*\*
 
@@ -45,3 +47,15 @@ Nếu bạn là người mới hoàn toàn, hãy đọc tiếp phần Điều kh
 \*\*Cộng đồng\*\*
 
 PlayAural hướng tới một môi trường thân thiện cho cả người dùng mới lẫn người dùng lâu năm. Trước phiên chơi nghiêm túc đầu tiên, hãy dành một chút thời gian đọc Nội quy cộng đồng để biết những quy tắc cơ bản khi chơi và khi trò chuyện.
+
+\*\*Trợ giúp và góp ý\*\*
+
+Mở Trợ giúp và góp ý từ trình đơn chính, hoặc từ trình đơn Hành động khi đang ở bàn. Mục Tài liệu chứa các hướng dẫn. Liên hệ nhà phát triển tập hợp các yêu cầu và phản hồi của bạn tại một nơi.
+
+Chọn Gửi yêu cầu mới, chọn danh mục phù hợp nhất, nhập tiêu đề ngắn và nội dung, rồi đọc lại và xác nhận. Bạn có thể sửa tiêu đề hoặc nội dung trước khi gửi. Bạn có thể báo lỗi trợ năng hoặc âm thanh, hỏi về trò chơi hay tài khoản, đề xuất cải tiến hoặc hỏi các nhà phát triển về vấn đề khác. Không gửi mật khẩu hoặc mã đặt lại mật khẩu. Để báo cáo hành vi vi phạm của người dùng khác, hãy dùng Báo cáo người dùng.
+
+Bộ chọn Trạng thái cho phép xem các yêu cầu đang chờ nhà phát triển, đang chờ bạn phản hồi, đã đóng hoặc mọi trạng thái. Mở bộ chọn rồi chọn một giá trị để quay lại danh sách đã cập nhật. Làm mới danh sách kiểm tra phản hồi mới và thông báo khi hoàn tất. Mở một yêu cầu để đọc các tin nhắn mới nhất trước, thêm phản hồi, đóng khi không cần trợ giúp thêm hoặc mở lại sau này. Đây không phải trò chuyện trực tiếp: các nhà phát triển có thể phản hồi khi bạn ngoại tuyến. Khi bạn đăng nhập, thông báo sẽ đợi vài giây để lời chào và các thông báo bắt buộc được đọc xong. Thông báo không làm thay đổi mục trình đơn bạn đang chọn.
+
+Cuộc trao đổi đang mở tự cập nhật khi có phản hồi và giữ nguyên vị trí bạn đang đọc. Bạn có thể xem tin nhắn cũ mà không bị chuyển đến phản hồi mới nhất. Nếu yêu cầu thay đổi trong lúc bạn soạn nội dung, bản nháp vẫn được giữ để bạn xem lại trước khi gửi.
+
+Chỉ bạn và các nhà phát triển mới xem được yêu cầu của bạn. Các cuộc trao đổi đã đóng vẫn được lưu để xem lại, trừ khi nhà phát triển xóa vĩnh viễn. Nếu đạt giới hạn yêu cầu hoặc tin nhắn, thông báo sẽ giải thích giới hạn cụ thể và cách tiếp tục. Hãy phản hồi cuộc trao đổi hiện có khi phù hợp.

@@ -70,7 +70,6 @@ team-arrangement-member-option = { $player }, { $team }, { $selected }
 team-arrangement-selected = seleccionado
 team-arrangement-not-selected = no seleccionado
 team-arrangement-member-selected = { $player } de { $team } seleccionado. Elige un jugador de otro equipo para intercambiar.
-team-arrangement-swapped = { $first } y { $second } intercambiaron de equipo.
 team-arrangement-cancelled = Se canceló la organización de equipos.
 team-arrangement-cancelled-roster = Se canceló la organización de equipos porque cambió la lista de jugadores.
 team-arrangement-refreshed = La lista de jugadores cambió. Se actualizó la organización de equipos.
@@ -80,12 +79,15 @@ team-arrangement-select-first = Selecciona primero un miembro del equipo.
 team-arrangement-player-missing = Ese jugador ya no está disponible para la organización de equipos.
 team-arrangement-same-team = Elige a alguien de un equipo diferente.
 team-arrangement-swap-failed = No se pudo intercambiar a esos miembros del equipo.
+team-arrangement-swapped-player = { $player } intercambió de equipo a { $first } y { $second }.
+team-arrangement-swapped-you = Intercambiaste de equipo a { $first } y { $second }.
 
 status-box-closed = Información de estado cerrada.
 
 game-leave = Salir de la partida
 
 round-timer-paused = { $player } pausó la partida (presiona p para iniciar la siguiente ronda).
+round-timer-paused-you = Pausaste la partida (presiona p para iniciar la siguiente ronda).
 dice-keeping = Guardando { $value }.
 dice-rerolling = Volviendo a lanzar { $value }.
 dice-locked = Ese dado está bloqueado y no se puede cambiar.
@@ -159,7 +161,6 @@ global-keys = Controles globales
 game-rules = Reglas del juego
 changelog = Registro de cambios
 donation = Donación
-contact = Contacto
 document-not-found = Documento no encontrado.
 help = Ayuda
 

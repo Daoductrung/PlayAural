@@ -1,8 +1,8 @@
-\*\*Zombie Dice\*\*
+\*\*Dados Zombi\*\*
 
-\*\*¿Qué es Zombie Dice?\*\*
+\*\*¿Qué es Dados Zombi?\*\*
 
-Diseñado por Steve Jackson y publicado por primera vez por Steve Jackson Games en 2010, Zombie Dice es un rápido juego de dados de tentar a la suerte para 2 a 8 jugadores. En este tipo de juego, cada éxito hace más tentador continuar, pero una mala tirada puede borrar todo lo que aún no hayas asegurado durante ese turno.
+Diseñado por Steve Jackson y publicado por primera vez por Steve Jackson Games en 2010, Dados Zombi es un rápido juego de dados de tentar a la suerte para 2 a 8 jugadores. En este tipo de juego, cada éxito hace más tentador continuar, pero una mala tirada puede borrar todo lo que aún no hayas asegurado durante ese turno.
 
 Eres un zombi hambriento que persigue víctimas para comerse sus cerebros. Los cerebros dan puntos, las huellas permiten que las víctimas escapen por el momento y los disparos de escopeta ponen un final sangriento a la cacería. Cuanto más sigas lanzando, más cerebros podrás reunir y más te arriesgarás a perder.
 
@@ -26,7 +26,7 @@ No sabes el color de un dado mientras permanece en el cubilete. Después de lanz
 \* \*\*Huella:\*\* Mantén el dado preparado. Si vuelves a lanzar, debes volver a lanzar todos los dados con huellas.
 \* \*\*Disparo:\*\* Aparta el dado. Los disparos se acumulan durante todo el turno.
 
-Los cerebros sin guardar solo se convierten en puntos permanentes cuando paras sin haber sido acribillado.
+Los cerebros sin guardar solo se convierten en puntos permanentes cuando paras antes de que te acribillen.
 
 \*\*Comenzar la partida\*\*
 
@@ -45,9 +45,9 @@ Si después de la tirada tienes menos de tres disparos, decide si quieres parar 
 
 Los dados nuevos no se sacan hasta que eliges continuar, así que no conoces sus colores cuando te comprometes con la tirada. Después de al menos una tirada segura, puedes parar aunque tengas cero cerebros.
 
-\*\*Quedar acribillado\*\*
+\*\*Que te acribillen\*\*
 
-En cuanto acumulas tres disparos o más durante tu turno, quedas acribillado. Tu turno termina de inmediato y pierdes todos los cerebros sin guardar de ese turno, incluidos los que hayas obtenido junto con el último disparo. Los cerebros guardados en turnos anteriores están a salvo.
+En cuanto acumulas tres disparos o más durante tu turno, te acribillan. Tu turno termina de inmediato y pierdes todos los cerebros sin guardar de ese turno, incluidos los que hayas obtenido junto con el último disparo. Los cerebros guardados en turnos anteriores están a salvo.
 
 Los trece dados vuelven al cubilete para el siguiente jugador.
 
@@ -81,7 +81,7 @@ Si los líderes siguen empatados, juegan otra ronda de desempate. Esto continúa
 
 \*\*Audio espacial\*\*
 
-Con auriculares, las tiradas, los mordiscos, los gruñidos y los demás sonidos de la mesa proceden del asiento del jugador que actúa. Cuando alguien queda acribillado, los disparos empiezan en el centro de la mesa y se desplazan hacia su asiento. Más allá de la mesa, zombis errantes recorren el pantano circundante.
+Con auriculares, las tiradas, los mordiscos, los gruñidos y los demás sonidos de la mesa proceden del asiento del jugador que actúa. Cuando acribillan a alguien, los disparos empiezan en el centro de la mesa y se desplazan hacia su asiento. Más allá de la mesa, zombis errantes recorren el pantano circundante.
 
 \*\*Opción de la mesa\*\*
 

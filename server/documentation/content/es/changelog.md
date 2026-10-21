@@ -4,7 +4,7 @@ Martes 20 de octubre de 2026
 
 Novedades:
 
-* Last Outpost se ha añadido para 1 a 4 jugadores. Resiste junto a tu equipo oleadas de muertos vivientes en Abandoned Outpost, Switchyard o Floodworks, en los modos Operations, Siege, Salvage y Classic Extraction, con dificultad Recruit, Standard o Veteran. Abre puertas permanentes para definir las rutas, repara barricadas e infraestructura esencial, comparte suministros, mejora las armas, rescata a compañeros caídos y completa objetivos de cargamento, repetidores, defensa y extracción. El juego incluye bots que se coordinan, recuperación para partidas en solitario, vistas accesibles de objetivos, compañeros, equipo y mapa, un rico entorno sonoro tridimensional de combate y ambientación, tablas de clasificación de supervivencia y guías completas en inglés y vietnamita.
+* Último Bastión se ha añadido para 1 a 4 jugadores. Resiste junto a tu equipo oleadas de muertos vivientes en Puesto Abandonado, Estación de Maniobras o Planta Inundada, en los modos Operaciones, Asedio, Salvamento y Extracción clásica, con dificultad Recluta, Estándar o Veterano. Abre puertas permanentes para definir las rutas, repara barricadas e infraestructura esencial, comparte suministros, mejora las armas, rescata a compañeros caídos y completa objetivos de cargamento, repetidores, defensa y extracción. El juego incluye bots que se coordinan, recuperación para partidas en solitario, vistas accesibles de objetivos, compañeros, equipo y mapa, un rico entorno sonoro tridimensional de combate y ambientación, tablas de clasificación de supervivencia y guías completas en inglés y vietnamita.
 
 Mejoras:
 

@@ -22,7 +22,6 @@ TOP_LEVEL_DOCUMENTS: tuple[DocumentationEntry, ...] = (
     DocumentationEntry("global_keys", "global-keys"),
     DocumentationEntry("changelog", "changelog"),
     DocumentationEntry("donation", "donation"),
-    DocumentationEntry("contact", "contact"),
 )
 
 

@@ -461,27 +461,16 @@ class TestGameRegistryIntegration:
 class TestDocumentationIntegration:
     """Test documentation discovery and menu presentation."""
 
-    def test_contact_documentation_is_listed_and_localized(self):
-        """Test that the dedicated contact page is discoverable in both locales."""
+    def test_documentation_catalog_contains_only_available_documents(self):
         manager = DocumentationManager.get_instance()
-        categories = manager.get_all_categories("en")
+        assert all(entry.doc_id != "contact" for entry in manager.get_top_level_documents())
+        for locale in ("en", "vi"):
+            for entry in manager.get_top_level_documents():
+                assert manager.get_document(entry.doc_id, locale)
+                assert Localization.get(locale, entry.label_key) != entry.label_key
+            assert manager.get_document("contact", locale) is None
 
-        assert categories["contact"] == "contact"
-        assert Localization.get("en", categories["contact"]) == "Contact"
-        assert Localization.get("vi", categories["contact"]) == "Liên hệ"
-
-        en_doc = manager.get_document("contact", "en")
-        vi_doc = manager.get_document("contact", "vi")
-
-        assert en_doc is not None
-        assert vi_doc is not None
-        for doc in (en_doc, vi_doc):
-            assert "trung@ddt.one" in doc
-            assert "@daoductrung" in doc
-            assert "https://ddt.one/contact" in doc
-
-    def test_contact_page_appears_in_documentation_menu(self):
-        """Test that users can open the contact page from the documentation menu."""
+    def test_contact_page_is_removed_from_documentation_menu(self):
         server = Server(db_path=":memory:")
 
         en_user = MockUser("EnglishViewer")
@@ -490,7 +479,7 @@ class TestDocumentationIntegration:
         en_labels = {
             item.id: item.text for item in en_items if hasattr(item, "id")
         }
-        assert en_labels["contact"] == "Contact"
+        assert "contact" not in en_labels
 
         vi_user = MockUser("VietnameseViewer", locale="vi")
         server._show_documentation_menu(vi_user)
@@ -498,7 +487,7 @@ class TestDocumentationIntegration:
         vi_labels = {
             item.id: item.text for item in vi_items if hasattr(item, "id")
         }
-        assert vi_labels["contact"] == "Liên hệ"
+        assert "contact" not in vi_labels
 
 
 class TestFullGameFlow:

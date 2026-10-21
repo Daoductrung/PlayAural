@@ -1776,7 +1776,8 @@ class TestTableInviteReclaim:
         guest_row = next(
             text for text in row_texts if text.startswith(f"{guest.username}:")
         )
-        assert "Offline" in guest_row
+        assert "Online" not in guest_row
+        assert "Offline" not in guest_row
         assert f"bot playing on their behalf: {replacement.name}" in guest_row
         assert not any(text.startswith(f"{replacement.name}:") for text in row_texts)
 
@@ -2578,13 +2579,15 @@ class TestTableInviteReclaim:
             text for text in row_texts if text.startswith(f"{spectator.username}:")
         )
         assert "Player" in guest_row
-        assert "Online" in guest_row
+        assert "Online" not in guest_row
+        assert "Offline" not in guest_row
         assert "in voice chat" in guest_row
         assert "Spectator" in spectator_row
-        assert "Online" in spectator_row
+        assert "Online" not in spectator_row
+        assert "Offline" not in spectator_row
 
     @pytest.mark.asyncio
-    async def test_table_roster_shows_offline_replaced_player_and_takeover_bot(self):
+    async def test_table_roster_shows_replaced_player_without_presence_status(self):
         host = self._create_online_user("Host")
         guest = self._create_online_user("Guest")
         table, game = self._create_started_table(host, guest)
@@ -2601,7 +2604,8 @@ class TestTableInviteReclaim:
         assert "1 bot" in roster_items[0].text
         guest_row = next(text for text in row_texts if text.startswith(f"{guest.username}:"))
         assert "Player" in guest_row
-        assert "Offline" in guest_row
+        assert "Online" not in guest_row
+        assert "Offline" not in guest_row
         assert f"bot playing on their behalf: {replacement_bot_name}" in guest_row
         assert not any(
             text.startswith(f"{replacement_bot_name}:")
@@ -2613,7 +2617,8 @@ class TestTableInviteReclaim:
         kick_row = next(
             item.text for item in host_kick_items if item.id == f"kick_{guest.username}"
         )
-        assert "Offline" in kick_row
+        assert "Online" not in kick_row
+        assert "Offline" not in kick_row
         assert f"bot playing on their behalf: {replacement_bot_name}" in kick_row
 
         self.server._show_table_members_menu(host, table)
@@ -2642,7 +2647,8 @@ class TestTableInviteReclaim:
             for text in refreshed_texts
             if text.startswith(f"{guest.username}:")
         )
-        assert "Offline" in guest_row
+        assert "Online" not in guest_row
+        assert "Offline" not in guest_row
         assert f"bot playing on their behalf: {replacement_bot_name}" in guest_row
         assert not any(
             text.startswith(f"{replacement_bot_name}:") for text in refreshed_texts

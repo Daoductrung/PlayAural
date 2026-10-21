@@ -13401,16 +13401,6 @@ PlayAural Server
         else:
             statuses.append(Localization.get(locale, "table-member-status-player"))
         if row["kind"] == "user":
-            statuses.append(
-                Localization.get(
-                    locale,
-                    (
-                        "table-member-status-online"
-                        if row.get("is_online")
-                        else "table-member-status-offline"
-                    ),
-                )
-            )
             if row.get("in_voice_chat"):
                 statuses.append(
                     Localization.get(locale, "table-member-status-voice-chat")

@@ -1,10 +1,10 @@
-# Changelog
+# Registro de alterações
 
 Terça-feira, 20 de outubro de 2026
 
 Novidades:
 
-* O Last Outpost foi adicionado para 1 a 4 jogadores. Resistam juntos a ondas de mortos-vivos em Abandoned Outpost, Switchyard ou Floodworks, nos modos Operations, Siege, Salvage e Classic Extraction, com as dificuldades Recruit, Standard e Veteran. Abram portões permanentes para definir suas rotas, consertem barricadas e infraestrutura essencial, compartilhem suprimentos, melhorem as armas, resgatem companheiros abatidos e cumpram objetivos de carga, retransmissão, defesa e extração. O jogo inclui bots coordenados, recuperação para partidas solo, visualizações acessíveis dos objetivos, companheiros, equipamentos e mapa, áudio tridimensional rico de combate e ambiente, rankings de sobrevivência e guias completos em inglês e vietnamita.
+* O Último Posto Avançado foi adicionado para 1 a 4 jogadores. Resistam juntos a ondas de mortos-vivos no Posto Avançado Abandonado, no Pátio Ferroviário ou na Usina Inundada, nos modos Operações, Cerco, Salvamento e Extração Clássica, com as dificuldades Recruta, Padrão e Veterano. Abram portões permanentes para definir suas rotas, consertem barricadas e infraestrutura essencial, compartilhem suprimentos, melhorem as armas, resgatem companheiros abatidos e cumpram objetivos de carga, retransmissão, defesa e extração. O jogo inclui bots coordenados, recuperação para partidas solo, visualizações acessíveis dos objetivos, companheiros, equipamentos e mapa, áudio tridimensional rico de combate e ambiente, rankings de sobrevivência e guias completos em inglês, vietnamita e português.
 
 Melhorias:
 

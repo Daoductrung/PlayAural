@@ -78,6 +78,9 @@ table-created-broadcast = { $host } criou uma nova mesa de { $game }.
 table-joined = { $player } entrou na mesa.
 table-joined-you = Você entrou na mesa.
 table-left = { $player } saiu da mesa.
+table-left-you = Você saiu da mesa.
+table-reconnected = { $player } se reconectou à mesa.
+table-reconnected-you = Você se reconectou à mesa.
 new-host = { $player } agora é o host.
 new-host-you = Agora você é o host.
 waiting-for-players = Aguardando jogadores. Mínimo de {$min}, máximo de { $max }.
@@ -106,6 +109,13 @@ table-status-finished = Finalizado
 table-not-exists = A mesa não existe mais.
 table-full = A mesa está cheia.
 table-closed-disconnect-timeout = A mesa foi fechada porque nenhum jogador ativo retornou dentro de { $minutes } minutos.
+table-paused-awaiting-return = Nenhum jogador ativo está conectado. A mesa fica pausada por até { $minutes } minutos enquanto um jogador ou o host se reconecta. Bots não podem continuar sozinhos.
+table-host-disconnected = O host { $player } perdeu a conexão. A posse da mesa fica reservada para reconexão.
+player-disconnected-grace = { $player } perdeu a conexão. Aguardando até { $seconds } segundos antes que um bot assuma.
+player-disconnected-grace-you = Sua conexão foi perdida. Aguardando até { $seconds } segundos antes que um bot assuma seu assento.
+game-cancelled-last-player-left = { $player } saiu. Não restam jogadores para continuar: a partida foi cancelada e a mesa foi fechada.
+game-cancelled-last-player-left-you = Você saiu como o último jogador. A partida foi cancelada e a mesa foi fechada.
+game-cancelled-no-controller = Partida cancelada e mesa fechada: não resta nenhum jogador ou host para continuá-la.
 player-replaced-by-bot = { $bot } está jogando no lugar de { $player }.
 player-reclaimed-from-bot = { $player } retornou e reassumiu o lugar { GENDER_TERM($player_gender, "possessive-determiner") } que estava com { $bot }.
 player-reclaimed-from-bot-you = Você retornou e retomou seu lugar que era ocupado por { $bot }.
@@ -1332,3 +1342,12 @@ host-invite-rate-limited = Você está enviando convites de mesa rápido demais.
    *[other] { $seconds } segundos
 }.
 table-invite-no-longer-available = Esse convite de mesa não está mais disponível.
+
+game-paused-reconnect = Jogo pausado enquanto os jogadores desconectados se reconectam.
+game-paused-no-human = Jogo pausado: nenhum humano está jogando. Retome seu assento ou peça ao host para substituir um humano em uma vaga.
+gameplay-resumed = Jogo retomado.
+game-unranked-removed = O assento de { $player } foi removido. Esta partida não será classificatória nem concederá registros de ranking.
+game-unranked-removed-you = Seu assento foi removido. Esta partida não será classificatória nem concederá registros de ranking.
+game-unranked-released = O assento reservado de { $player } foi liberado permanentemente para um bot. Esta partida não será classificatória nem concederá registros de ranking.
+game-unranked-substituted = Outro jogador assumiu o assento de { $player }. Esta partida não será classificatória nem concederá registros de ranking.
+game-unranked-substituted-you = Outro jogador assumiu seu assento. Esta partida não será classificatória nem concederá registros de ranking.

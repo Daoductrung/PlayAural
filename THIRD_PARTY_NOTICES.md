@@ -55,6 +55,12 @@ Bingo includes a per-asset record:
 lists the source, author, applicable terms, and recorded edits for each of its
 eight sound files.
 
+The recorded cue, ball-collision, cushion, and pocket effects in
+`game_eightball` were adapted from Chen Shmilovich's Classic Pool Game and
+converted from WAV to Ogg Vorbis. They are distributed under that repository's
+MIT license. The per-file mapping and preserved license text are in
+[`server/games/eightball/AUDIO_PROVENANCE.md`](server/games/eightball/AUDIO_PROVENANCE.md).
+
 ## Checked-in and binary-bundled software
 
 | Software | Use | License and notices |

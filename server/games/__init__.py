@@ -55,6 +55,7 @@ from .bingo.game import BingoGame
 from .flip7.game import Flip7Game
 from .skipbo.game import SkipBoGame
 from .zombiedice.game import ZombieDiceGame
+from .eightball.game import EightBallGame
 
 __all__ = [
     "Game",
@@ -112,4 +113,5 @@ __all__ = [
     "Flip7Game",
     "SkipBoGame",
     "ZombieDiceGame",
+    "EightBallGame",
 ]

@@ -504,6 +504,44 @@ def test_winning_numbers_are_rendered_through_localization_per_entry(monkeypatch
     assert all(locale == "en" for locale, _number in seen_calls)
 
 
+def _claim_in_spanish(game: BingoGame, winner: BingoPlayer, listener: BingoPlayer, col: int) -> str:
+    """Win with a full column in Spanish and return what the listener hears."""
+    game.get_user(listener).set_locale("es")
+    for row in range(CARD_ROWS):
+        winner.marked[row][col] = True
+        value = winner.card[row][col]
+        if value != FREE_VALUE and value not in game.called_numbers:
+            game.called_numbers.append(value)
+
+    game._action_claim_bingo(winner, "claim_bingo")
+    _resolve_claim(game)
+
+    return " ".join(game.get_user(listener).get_spoken_messages())
+
+
+def test_spanish_winning_numbers_use_e_before_an_i_column_number() -> None:
+    """Spanish says "e" instead of "y" before the sound /i/, so a winning
+    line in the I column must end "... e I 20", never "... y I 20"."""
+    game = make_game(player_count=2, pattern=PATTERN_LINE, start=True)
+    winner, listener = game.players
+
+    spoken = _claim_in_spanish(game, winner, listener, COLUMN_LETTERS.index("I"))
+
+    assert re.search(r"I \d+ e I \d+!", spoken), spoken
+    assert " y I " not in spoken
+
+
+def test_spanish_winning_numbers_keep_y_before_an_o_column_number() -> None:
+    """"y" only changes before /i/; a winning line in the O column keeps it."""
+    game = make_game(player_count=2, pattern=PATTERN_LINE, start=True)
+    winner, listener = game.players
+
+    spoken = _claim_in_spanish(game, winner, listener, COLUMN_LETTERS.index("O"))
+
+    assert re.search(r"O \d+ y O \d+!", spoken), spoken
+    assert " e O " not in spoken
+
+
 def test_blackout_win_does_not_read_out_every_number() -> None:
     """Blackout means "the whole card" by definition -- naming every
     individual number adds no information and would turn the win

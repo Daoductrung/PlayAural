@@ -60,8 +60,8 @@ citadels-select-character-line = { $brief ->
 }
 citadels-turn-phase-start = Comienza el llamado de personajes.
 citadels-no-characters = No hay { $characters }.
-citadels-list-pair = { $first } o { $last }
-citadels-list-series = { $head }, o { $last }
+citadels-list-pair = { $first } { ES_OR($last) } { $last }
+citadels-list-series = { $head }, { ES_OR($last) } { $last }
 citadels-you-character-revealed = { $brief ->
     [yes] Revelas al { $character }.
    *[no] Revelas el rango { $rank }, { $character }.

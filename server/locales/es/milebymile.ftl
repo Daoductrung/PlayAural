@@ -108,8 +108,8 @@ milebymile-wins-team = ¡El Equipo { $team } gana la partida! ({ $members })
 milebymile-final-score = Puntuación final: { $score } puntos
 
 milebymile-karma-clash-you-target = ¡Tú y tu objetivo están aislados! El ataque se neutraliza.
-milebymile-karma-clash-you-attacker = ¡Tú y { $attacker } están aislados! El ataque se neutraliza.
-milebymile-karma-clash-others = ¡{ $attacker } y { $target } están aislados! El ataque se neutraliza.
+milebymile-karma-clash-you-attacker = ¡Tú { ES_AND($attacker) } { $attacker } están aislados! El ataque se neutraliza.
+milebymile-karma-clash-others = ¡{ $attacker } { ES_AND($target) } { $target } están aislados! El ataque se neutraliza.
 milebymile-karma-clash-your-team = ¡Tu equipo y tu objetivo están aislados! El ataque se neutraliza.
 milebymile-karma-clash-target-team = ¡Tú y el Equipo { $team } están aislados! El ataque se neutraliza.
 milebymile-karma-clash-other-teams = ¡El Equipo { $attacker } y el Equipo { $target } están aislados! El ataque se neutraliza.

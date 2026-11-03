@@ -138,7 +138,7 @@ monopoly-bid-description = Puja más alta actual: { $highest }, a cargo de { $le
 monopoly-pay-debt-label = Pagar { $amount }
 monopoly-keep-received-mortgaged-label = Mantener { $property } hipotecada y pagar { $interest } de interés
 monopoly-unmortgage-received-now-label = Levantar la hipoteca de { $property } ahora por { $cost }
-monopoly-mortgage-transfer-description = Recibiste { $property } hipotecada. Paga { $interest } para mantenerla hipotecada, o { $unmortgage } para levantar la hipoteca ahora.
+monopoly-mortgage-transfer-description = Recibiste { $property } hipotecada. Paga { $interest } para mantenerla hipotecada, { ES_OR($unmortgage) } { $unmortgage } para levantar la hipoteca ahora.
 monopoly-build-label = Comprar { $building } por { $cost }
 monopoly-sell-building-label = Vender { $building } por { $value }
 monopoly-sell-group-buildings-label = Vender todas las { $development } de { $group } por { $value }
@@ -792,7 +792,7 @@ monopoly-hanoi-error-build-none-needs-cash = La mejora de negocio legal más bar
 # Escrituras hipotecadas recibidas de otro jugador
 monopoly-you-receive-mortgaged = Recibiste { $property } hipotecada. Paga { $interest } para mantenerla hipotecada, o paga { $unmortgage } para levantar la hipoteca de inmediato.
 monopoly-player-receives-mortgaged = { $player } recibió { $property } hipotecada y debe decidir si mantiene o levanta la hipoteca.
-monopoly-you-receive-mortgaged-brief = { $property } está hipotecada. Elige { $interest } de interés o { $unmortgage } para levantar la hipoteca.
+monopoly-you-receive-mortgaged-brief = { $property } está hipotecada. Elige { $interest } de interés { ES_OR($unmortgage) } { $unmortgage } para levantar la hipoteca.
 monopoly-player-receives-mortgaged-brief = { $player } debe manejar la hipoteca de { $property }.
 monopoly-you-keep-received-mortgaged = Pagas { $interest } de interés y mantienes { $property } hipotecada. Te quedan { $cash }.
 monopoly-player-keeps-received-mortgaged = { $player } paga { $interest } de interés y mantiene { $property } hipotecada. { GENDER_TERM($player_gender, "subject-have-capitalized") } { $cash } restantes.

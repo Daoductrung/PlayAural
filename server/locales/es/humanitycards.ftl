@@ -56,7 +56,7 @@ hc-judge-is = { $judges } { $count ->
    *[other] son los Zares de la Carta
 }.
 hc-you-are-judge = Eres el Zar de la Carta esta ronda.
-hc-you-and-others-are-judges = Tú y { $judges } son los Zares de la Carta esta ronda.
+hc-you-and-others-are-judges = Tú { ES_AND($judges) } { $judges } son los Zares de la Carta esta ronda.
 
 # Carta negra
 hc-black-card = La pregunta es: { $text }

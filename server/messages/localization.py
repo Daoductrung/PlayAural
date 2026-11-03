@@ -14,6 +14,7 @@ from fluent.runtime import FluentBundle, FluentResource
 from babel.lists import format_list
 
 from ..gender import normalize_gender
+from .spanish_grammar import fix_list_conjunction, spanish_and, spanish_or
 
 
 DEFAULT_LOCALE = "en"
@@ -285,7 +286,11 @@ class Localization:
                         form,
                         context,
                     )
-                )
+                ),
+                # Spanish only: "y"/"e" and "o"/"u" chosen from the word that
+                # follows, e.g. { ES_AND($name) } { $name }.
+                "ES_AND": lambda next_text: spanish_and(next_text),
+                "ES_OR": lambda next_text: spanish_or(next_text),
             },
         )
         for ftl_file in ftl_files:
@@ -517,7 +522,25 @@ class Localization:
         Returns:
             Formatted list string.
         """
-        return format_list(items, style="standard", locale=cls._babel_locale(locale))
+        return cls._format_babel_list(locale, items, "standard")
+
+    @classmethod
+    def _format_babel_list(
+        cls, locale: str, items: list[str], style: str
+    ) -> str:
+        """Format a list with Babel, then apply language-specific conjunctions.
+
+        Babel's CLDR patterns always use the plain Spanish "y"/"o", so the last
+        conjunction is corrected to "e"/"u" when the final item starts with the
+        sound /i/ or /o/ (for example "B 5 e I 20", "N 33 u O 70").
+        """
+        babel_locale = cls._babel_locale(locale)
+        text = format_list(items, style=style, locale=babel_locale)
+        if babel_locale.split("_")[0] == "es":
+            text = fix_list_conjunction(
+                text, items, "o" if style == "or" else "y"
+            )
+        return text
 
     @classmethod
     def format_list_and(cls, locale: str, items: list[str]) -> str:
@@ -531,7 +554,7 @@ class Localization:
         Returns:
             Formatted list string (e.g., "A, B, and C").
         """
-        return format_list(items, style="standard", locale=cls._babel_locale(locale))
+        return cls._format_babel_list(locale, items, "standard")
 
     @classmethod
     def format_list_or(cls, locale: str, items: list[str]) -> str:
@@ -545,7 +568,7 @@ class Localization:
         Returns:
             Formatted list string (e.g., "A, B, or C").
         """
-        return format_list(items, style="or", locale=cls._babel_locale(locale))
+        return cls._format_babel_list(locale, items, "or")
 
     @classmethod
     def _language_display_name(cls, locale_code: str, display_language: str) -> str:

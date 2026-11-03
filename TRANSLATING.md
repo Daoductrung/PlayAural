@@ -79,6 +79,25 @@ Rules:
   as a login password field versus a registration password field. Context helps
   translators choose the right wording.
 
+### Spanish conjunctions
+
+Spanish writes `e` instead of `y` before the sound /i/ (`Ana e Isabel`) and `u`
+instead of `o` before the sound /o/ (`siete u ocho`), following the RAE
+(Diccionario panhispánico de dudas). It stays `y` when the /i/ is a diphthong
+(`agua y hielo`). Lists built by the server (`format_list_and`,
+`format_list_or`) already apply this. When a Spanish message puts `y` or `o`
+directly before a value that can start with those sounds, such as a player name
+or a list, let the server choose the word:
+
+```ftl
+road-built = { $tribe1 } { ES_AND($tribe2) } { $tribe2 } ahora están conectados.
+list-pair = { $first } { ES_OR($last) } { $last }
+```
+
+Keep a plain `y` or `o` when the next value is always a number below 8 or a
+fixed word that does not start with those sounds. A currency sign before an
+amount is ignored because it is read after the number (`u $88`).
+
 ## Web and Mobile Files
 
 Web and mobile strings use JavaScript or JSON objects with placeholders such as

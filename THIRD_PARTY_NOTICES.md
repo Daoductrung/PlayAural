@@ -55,6 +55,11 @@ Bingo includes a per-asset record:
 lists the source, author, applicable terms, and recorded edits for each of its
 eight sound files.
 
+Truco includes a per-asset record:
+[`server/games/truco/AUDIO_PROVENANCE.md`](server/games/truco/AUDIO_PROVENANCE.md)
+lists the source, author, applicable terms, and recorded conversion for its three
+music tracks. Its sound effects reuse existing PlayAural assets.
+
 ## Checked-in and binary-bundled software
 
 | Software | Use | License and notices |

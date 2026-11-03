@@ -352,6 +352,7 @@ class TestGameRegistryIntegration:
             "tienlen": "cards",
             "tossup": "dice",
             "tradeoff": "dice",
+            "truco": "cards",
             "twentyone": "cards",
             "uno": "cards",
             "yahtzee": "dice",

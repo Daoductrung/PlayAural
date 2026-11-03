@@ -340,6 +340,7 @@ class TestGameRegistryIntegration:
             "ninetynine": "cards",
             "pig": "dice",
             "pirates": "arcade",
+            "pingpong": "arcade",
             "pusoydos": "cards",
             "rollingballs": "misc",
             "bingo": "misc",

@@ -37,6 +37,10 @@ game-score-unit-hand-wins = { $count ->
    *[other] برد دست
 }
 game-score-unit-light = نور
+game-score-unit-games = { $count ->
+    [one] گیم
+   *[other] گیم
+}
 game-final-scores-header = امتیازات نهایی:
 
 game-winner = { $player } برنده شد!

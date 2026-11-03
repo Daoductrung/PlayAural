@@ -53,3 +53,18 @@ def test_network_user_serializes_history_bypass_only_when_requested() -> None:
     assert "history" not in ordinary
     assert transient["history"] is False
     assert transient["buffer"] == "game"
+
+
+def test_network_user_serializes_dedicated_game_announcer() -> None:
+    user = NetworkUser("alice", "en", connection=object())
+
+    user.announce("One, zero.", buffer="game", history=False)
+
+    packet = user.get_queued_messages()[-1]
+    assert packet == {
+        "type": "speak",
+        "text": "One, zero.",
+        "buffer": "game",
+        "announcer": True,
+        "history": False,
+    }

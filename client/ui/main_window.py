@@ -1673,6 +1673,21 @@ class MainWindow(wx.Frame):
             else:
                 event.Skip()
                 return
+        elif key_code in (wx.WXK_PAGEUP, wx.WXK_PAGEDOWN):
+            # Only a menu whose game asked for it (grid_page_keys, currently
+            # Bingo) gets plain Page Up/Down as game keybinds. Every other
+            # menu and game keeps the native list behavior untouched.
+            if (
+                getattr(self, "grid_page_keys", False)
+                and self.menu_list.grid_enabled
+                and not event.ControlDown()
+                and not event.ShiftDown()
+                and not event.AltDown()
+            ):
+                key_name = "pageup" if key_code == wx.WXK_PAGEUP else "pagedown"
+            else:
+                event.Skip()
+                return
         # Handle function keys
         elif key_code == MENU_DESCRIPTION_KEY_CODE:
             if (
@@ -1792,6 +1807,8 @@ class MainWindow(wx.Frame):
             "down",
             "left",
             "right",
+            "pageup",
+            "pagedown",
         ]
 
         # Send if: connected AND (is function key OR multiletter nav is off OR has modifiers)
@@ -3395,6 +3412,7 @@ class MainWindow(wx.Frame):
         selection_id = packet.get("selection_id", None)  # Optional item ID to focus
         grid_enabled = packet.get("grid_enabled", False)
         grid_width = packet.get("grid_width", 1)
+        self.grid_page_keys = bool(packet.get("grid_page_keys", False))
 
         if menu_id == "options_menu":
             self._refresh_audio_input_devices(sync_server=True)

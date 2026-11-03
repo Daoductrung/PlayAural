@@ -57,11 +57,11 @@ La casilla libre cuenta automáticamente cuando forma parte del patrón.
 
 La vista principal contiene únicamente tu cartón de 5 por 5, para que la navegación con las flechas sea predecible con un lector de pantalla.
 
-Usa las flechas para moverte y Enter para marcar o desmarcar. Presiona B para cantar Bingo, R para repetir el último número o C para abrir la lista de números cantados. Estos comandos también aparecen en el menú de acciones que se abre con Escape; no se mezclan con las casillas del cartón.
+Usa las flechas para moverte y Enter para marcar o desmarcar. Presiona B para cantar Bingo, R para repetir el último número, C para abrir la lista de números cantados o N para oír qué números te faltan por marcar. Re Pág y Av Pág saltan al primer o al último número de la letra en la que estás. Estos comandos también aparecen en el menú de acciones que se abre con Escape; no se mezclan con las casillas del cartón.
 
 \*\*Jugar en Web y móvil\*\*
 
-En dispositivos táctiles, después del cartón aparecen los botones \*\*¡Cantar Bingo!\*\*, \*\*Repetir el último número\*\* y \*\*Ver números cantados\*\*. De este modo, las acciones son fáciles de encontrar sin romper la cuadrícula de 5 por 5.
+En dispositivos táctiles, después del cartón aparecen los botones \*\*¡Cantar Bingo!\*\*, \*\*Repetir el último número\*\*, \*\*Ver números cantados\*\* y \*\*Números que faltan por marcar en mi cartón\*\*. De este modo, las acciones son fáciles de encontrar sin romper la cuadrícula de 5 por 5.
 
 También puedes cantar Bingo desde el cartón con un gesto deliberado de mantener pulsado. En Web, mantén pulsada una casilla. Con la lectura automática del móvil, toca dos veces con un dedo y mantén. Otros modos de accesibilidad pueden usar su pulsación larga habitual. El botón visible \*\*¡Cantar Bingo!\*\* siempre está disponible como alternativa.
 
@@ -76,7 +76,8 @@ Después de cada número, el juego deja al menos cuatro segundos para cantar Bin
 
 \* \*\*Repetir el último número:\*\* Vuelve a oír la letra y el número anunciados más recientemente.
 \* \*\*Ver números cantados:\*\* Abre una lista en vivo con el total y los diez números más recientes.
-\* \*\*Estado de la ronda:\*\* Indica cuánto falta para el próximo número, si se está sacando uno o de quién es el cartón que se está comprobando. Como Bingo no tiene turnos, sustituye la respuesta habitual sobre el turno actual.
+\* \*\*Números que faltan por marcar en mi cartón:\*\* Indica cuántos números de tu cartón siguen sin marcar. Lee los primeros diez en el orden del cartón (primero la B, de arriba abajo) y después cuántos más hay.
+\* \*\*Estado de la ronda:\*\* Indica cuánto falta para que se cante el próximo número, si se está sacando uno, de quién es el cartón que se está comprobando o, después del último número, cuánto tiempo queda para cantar Bingo. Como Bingo no tiene turnos, sustituye la respuesta habitual sobre el turno actual.
 
 Los espectadores pueden usar las acciones de información pública, pero no tienen cartón ni pueden marcar o cantar Bingo.
 
@@ -92,5 +93,7 @@ El primer canto válido termina la ronda. Si se anuncian los 75 números y nadie
 \* \*\*B:\*\* Cantar Bingo.
 \* \*\*R:\*\* Repetir el último número.
 \* \*\*C:\*\* Ver números cantados.
+\* \*\*N:\*\* Oír los números que te faltan por marcar en tu cartón (los primeros diez y cuántos más hay).
+\* \*\*Re Pág y Av Pág:\*\* Ir al primer o al último número de la letra (columna) actual.
 \* \*\*T:\*\* Oír el estado actual de la ronda.
 \* \*\*Escape:\*\* Abrir el menú de acciones del juego.

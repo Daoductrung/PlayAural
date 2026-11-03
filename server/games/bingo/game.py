@@ -21,7 +21,12 @@ from typing import ClassVar
 
 from ...game_utils.actions import Action, ActionSet, Visibility
 from ...game_utils.game_result import GameResult, PlayerResult
-from ...game_utils.grid_mixin import GridCursor, GridGameMixin
+from ...game_utils.grid_mixin import (
+    GridCursor,
+    GridGameMixin,
+    grid_cell_id,
+    parse_grid_cell_id,
+)
 from ...game_utils.options import MenuOption, option_field
 from ...game_utils.sequence_runner_mixin import SequenceBeat, SequenceOperation
 from ...messages.localization import Localization
@@ -137,6 +142,11 @@ CLAIM_SEQUENCE_TAG = "bingo_claim"
 CLAIM_RESULT_SOUND_DELAY_TICKS = TICKS_PER_SECOND
 
 STATUS_RECENT_CALLS_SHOWN = 10
+
+
+# The N shortcut reads at most this many unmarked numbers aloud and summarizes
+# the rest as a count, so an almost-empty card never turns into a long monologue.
+MISSING_NUMBERS_SHOWN = 10
 
 # Bots react only to the specific number that was just called, like a
 # real remote player glancing at their own board: if it's not on their
@@ -396,6 +406,14 @@ class BingoGame(GridGameMixin, Game):
     # Keybinds                                                            #
     # ------------------------------------------------------------------ #
 
+    def _build_grid_menu_kwargs(self) -> dict:
+        """Ask the clients to forward Page Up/Page Down while the card is
+        shown (see _action_column_jump). Only Bingo opts in."""
+        kwargs = super()._build_grid_menu_kwargs()
+        if kwargs:
+            kwargs["grid_page_keys"] = True
+        return kwargs
+
     def setup_keybinds(self) -> None:
         super().setup_keybinds()
         self.setup_grid_keybinds()
@@ -431,6 +449,28 @@ class BingoGame(GridGameMixin, Game):
             state=KeybindState.ACTIVE,
             include_spectators=True,
         )
+        self.define_keybind(
+            "n",
+            Localization.get("en", "bingo-check-missing"),
+            ["check_missing"],
+            state=KeybindState.ACTIVE,
+        )
+        # Desktop and Web forward Page Up/Page Down to the game only while a
+        # grid is on screen. Here they jump to the first/last number of the
+        # letter (column) the cursor is in instead of the two ends of the
+        # whole board.
+        self.define_keybind(
+            "pageup",
+            Localization.get("en", "bingo-column-start"),
+            ["column_start"],
+            state=KeybindState.ACTIVE,
+        )
+        self.define_keybind(
+            "pagedown",
+            Localization.get("en", "bingo-column-end"),
+            ["column_end"],
+            state=KeybindState.ACTIVE,
+        )
 
     # ------------------------------------------------------------------ #
     # Actions and menus                                                   #
@@ -455,6 +495,23 @@ class BingoGame(GridGameMixin, Game):
                 is_hidden="_is_claim_hidden",
             )
         )
+
+        for jump_id in ("column_start", "column_end"):
+            action_set.add(
+                Action(
+                    id=jump_id,
+                    label=Localization.get(
+                        self._locale(player),
+                        "bingo-column-start"
+                        if jump_id == "column_start"
+                        else "bingo-column-end",
+                    ),
+                    handler="_action_column_jump",
+                    is_enabled="_is_grid_nav_enabled",
+                    is_hidden="_is_grid_nav_hidden",
+                    show_in_actions_menu=False,
+                )
+            )
 
         action_set.add(
             Action(
@@ -497,6 +554,15 @@ class BingoGame(GridGameMixin, Game):
                 include_spectators=True,
             )
         )
+        action_set.add(
+            Action(
+                id="check_missing",
+                label=Localization.get(locale, "bingo-check-missing"),
+                handler="_action_check_missing",
+                is_enabled="_is_check_missing_enabled",
+                is_hidden="_is_check_missing_hidden",
+            )
+        )
 
         self._apply_standard_touch_order(action_set, self.get_user(player))
         return action_set
@@ -504,6 +570,7 @@ class BingoGame(GridGameMixin, Game):
     _STANDARD_TOUCH_ORDER: ClassVar[list[str]] = [
         "repeat_call",
         "check_called",
+        "check_missing",
         "check_scores",
         "whose_turn",
         "whos_at_table",
@@ -629,6 +696,22 @@ class BingoGame(GridGameMixin, Game):
             return Visibility.VISIBLE
         return Visibility.HIDDEN
 
+    def _is_check_missing_enabled(self, player: Player) -> str | None:
+        if self.status != "playing":
+            return "action-not-playing"
+        if player.is_spectator:
+            return "action-spectator"
+        return None
+
+    def _is_check_missing_hidden(self, player: Player) -> Visibility:
+        if (
+            self.status == "playing"
+            and not player.is_spectator
+            and self.is_touch_client(self.get_user(player))
+        ):
+            return Visibility.VISIBLE
+        return Visibility.HIDDEN
+
     # ------------------------------------------------------------------ #
     # Action handlers                                                     #
     # ------------------------------------------------------------------ #
@@ -694,8 +777,22 @@ class BingoGame(GridGameMixin, Game):
                 )
         elif self.pending_call_number is not None:
             user.speak_l("bingo-whose-turn-drawing", buffer="game")
-        else:
+        elif not self.available_numbers:
+            # Every ball has been called: nothing else is coming. What is
+            # left is the final claim window, after which the round ends.
             seconds_left = -(-self.call_countdown_ticks // TICKS_PER_SECOND)  # ceil
+            user.speak_l(
+                "bingo-whose-turn-final", buffer="game", seconds=seconds_left
+            )
+        else:
+            # The countdown only covers the wait before the next ball is
+            # drawn; the number is announced once its spin sound has also
+            # finished, so that part has to be counted too or this reports
+            # a time several seconds shorter than the real wait.
+            seconds_left = -(
+                -(self.call_countdown_ticks + CALL_SPIN_DELAY_TICKS)
+                // TICKS_PER_SECOND
+            )  # ceil
             user.speak_l(
                 "bingo-whose-turn-waiting", buffer="game", seconds=seconds_left
             )
@@ -717,6 +814,72 @@ class BingoGame(GridGameMixin, Game):
         self.live_status_box(
             player, "bingo_called", self._called_numbers_items, focus_id="called_count"
         )
+
+    def _missing_numbers(self, player: BingoPlayer) -> list[tuple[int, int]]:
+        """Every number on the card that is not marked yet, as
+        (column, number) pairs in reading order: B top to bottom, then I,
+        and so on. The free center is always marked, so it never appears."""
+        missing: list[tuple[int, int]] = []
+        for col in range(CARD_COLS):
+            for row in range(CARD_ROWS):
+                if self._is_free_cell(row, col) or player.marked[row][col]:
+                    continue
+                missing.append((col, player.card[row][col]))
+        return missing
+
+    def _action_check_missing(self, player: Player, action_id: str) -> None:
+        user = self.get_user(player)
+        if not user or not isinstance(player, BingoPlayer) or not player.card:
+            return
+        locale = user.locale
+        missing = self._missing_numbers(player)
+        if not missing:
+            user.speak_l("bingo-missing-none", buffer="game")
+            return
+
+        entries = [
+            Localization.get(
+                locale,
+                "bingo-status-called-entry",
+                letter=COLUMN_LETTERS[col],
+                number=number,
+            )
+            for col, number in missing[:MISSING_NUMBERS_SHOWN]
+        ]
+        hidden_count = len(missing) - MISSING_NUMBERS_SHOWN
+        if hidden_count > 0:
+            entries.append(
+                Localization.get(locale, "bingo-missing-more", count=hidden_count)
+            )
+        user.speak_l(
+            "bingo-missing-summary",
+            buffer="game",
+            count=len(missing),
+            numbers=Localization.format_list_and(locale, entries),
+        )
+
+    def _action_column_jump(self, player: Player, action_id: str) -> None:
+        """Page Up / Page Down: move to the first / last number of the
+        letter (column) the cursor is on, not to the ends of the board."""
+        user = self.get_user(player)
+        if not user or not isinstance(player, BingoPlayer) or not player.card:
+            return
+        cursor = self._get_cursor(player)
+        focused = parse_grid_cell_id(self.get_action_context(player).menu_item_id or "")
+        col = focused[1] if focused is not None else cursor.col
+        col = min(max(col, 0), CARD_COLS - 1)
+        row = 0 if action_id == "column_start" else CARD_ROWS - 1
+        cursor.row, cursor.col = row, col
+        if focused is not None and focused == (row, col):
+            # Already on the target square: focus will not move, so the
+            # client has nothing to announce. Read it ourselves.
+            user.speak(
+                self.get_cell_label(row, col, player, user.locale), buffer="game"
+            )
+            return
+        # Moving focus makes the client read the newly focused square, so the
+        # server must not also speak it (that read it twice).
+        self.request_menu_focus(player, grid_cell_id(row, col))
 
     def _called_numbers_items(self, player: Player, user) -> list[MenuItem]:
         locale = user.locale

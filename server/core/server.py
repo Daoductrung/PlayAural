@@ -17816,6 +17816,7 @@ PlayAural Server
             grid_enabled=menu_state.get("grid_enabled", False),
             grid_height=menu_state.get("grid_height", 0),
             grid_width=menu_state.get("grid_width", 1),
+            grid_page_keys=bool(menu_state.get("grid_page_keys", False)),
         )
         if focus_id:
             state["_last_selection_id"] = focus_id

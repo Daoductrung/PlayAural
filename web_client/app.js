@@ -3030,6 +3030,7 @@ class PlayAuralWebApp {
       escapeBehavior: packet.escape_behavior || previousMenu.escapeBehavior || "keybind",
       gridEnabled: Boolean(packet.grid_enabled),
       gridWidth: Math.max(1, Number(packet.grid_width) || 1),
+      gridPageKeys: Boolean(packet.grid_page_keys),
     });
     this.updateActionsButton();
     this.audio.preloadEffects?.(items.map((item) => item.sound).filter(Boolean));

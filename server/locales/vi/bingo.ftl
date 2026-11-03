@@ -33,6 +33,18 @@ bingo-you-unmark = Đã bỏ đánh dấu { $letter } { $number }.
 bingo-claim-bingo = Hô Bingo!
 bingo-repeat-call = Nghe lại số vừa xướng
 bingo-check-called = Xem các số đã xướng
+bingo-check-missing = Các số còn thiếu trên thẻ của tôi
+bingo-column-start = Đến số đầu tiên của chữ cái
+bingo-column-end = Đến số cuối cùng của chữ cái
+bingo-missing-none = Bạn đã đánh dấu hết các số trên thẻ.
+bingo-missing-summary = { $count ->
+    [one] Còn thiếu { $count } số chưa đánh dấu trên thẻ của bạn: { $numbers }.
+   *[other] Còn thiếu { $count } số chưa đánh dấu trên thẻ của bạn: { $numbers }.
+}
+bingo-missing-more = { $count ->
+    [one] { $count } số nữa
+   *[other] { $count } số nữa
+}
 bingo-no-calls-yet = Chưa có số nào được xướng.
 bingo-claim-in-progress = Đang kiểm tra lời hô Bingo của người khác. Vui lòng đợi một chút.
 bingo-claim-in-progress-you = Lời hô Bingo của bạn đang được kiểm tra.
@@ -47,6 +59,10 @@ bingo-whose-turn-drawing = Số tiếp theo đang được rút...
 bingo-whose-turn-waiting = { $seconds ->
     [one] Số tiếp theo sau { $seconds } giây.
    *[other] Số tiếp theo sau { $seconds } giây.
+}
+bingo-whose-turn-final = { $seconds ->
+    [one] Đó là số cuối cùng. Vòng chơi kết thúc sau { $seconds } giây nếu không ai hô Bingo.
+   *[other] Đó là số cuối cùng. Vòng chơi kết thúc sau { $seconds } giây nếu không ai hô Bingo.
 }
 bingo-claim-incorrect-you = Thẻ của bạn chưa có Bingo hợp lệ.
 bingo-claim-incorrect = Thẻ của { $player } chưa có Bingo hợp lệ.

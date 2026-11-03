@@ -33,6 +33,18 @@ bingo-you-unmark = Unmarked { $letter } { $number }.
 bingo-claim-bingo = Call Bingo!
 bingo-repeat-call = Repeat the last number
 bingo-check-called = View called numbers
+bingo-check-missing = Numbers left to mark on my card
+bingo-column-start = Jump to the first number of the letter
+bingo-column-end = Jump to the last number of the letter
+bingo-missing-none = Every number on your card is already marked.
+bingo-missing-summary = { $count ->
+    [one] { $count } number left to mark on your card: { $numbers }.
+   *[other] { $count } numbers left to mark on your card: { $numbers }.
+}
+bingo-missing-more = { $count ->
+    [one] { $count } more number
+   *[other] { $count } more numbers
+}
 bingo-no-calls-yet = No numbers have been called yet.
 bingo-claim-in-progress = Another Bingo call is being checked. Try again in a moment.
 bingo-claim-in-progress-you = Your Bingo call is already being checked.
@@ -47,6 +59,10 @@ bingo-whose-turn-drawing = The next number is being drawn...
 bingo-whose-turn-waiting = { $seconds ->
     [one] Next number in { $seconds } second.
    *[other] Next number in { $seconds } seconds.
+}
+bingo-whose-turn-final = { $seconds ->
+    [one] That was the last number. The round ends in { $seconds } second unless someone calls Bingo.
+   *[other] That was the last number. The round ends in { $seconds } seconds unless someone calls Bingo.
 }
 bingo-claim-incorrect-you = Your card does not have a valid Bingo yet.
 bingo-claim-incorrect = { $player }'s card does not have a valid Bingo yet.

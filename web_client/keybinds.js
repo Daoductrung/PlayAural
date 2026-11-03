@@ -26,6 +26,9 @@ function keyFromEvent(event) {
   if (["arrowup", "arrowdown", "arrowleft", "arrowright"].includes(lower)) {
     return lower.replace("arrow", "");
   }
+  if (lower === "pageup" || lower === "pagedown") {
+    return lower;
+  }
   return null;
 }
 
@@ -462,6 +465,15 @@ export function installKeybinds({
     if (!key) {
       return;
     }
+    // Page Up/Down are forwarded only for a menu whose game asked for it
+    // (gridPageKeys, currently Bingo); everywhere else they stay native.
+    if (
+      (key === "pageup" || key === "pagedown")
+      && (!menu.gridPageKeys || !menu.gridEnabled
+        || event.ctrlKey || event.altKey || event.shiftKey || event.metaKey)
+    ) {
+      return;
+    }
 
     const menuIndex = menu.items.length ? menu.selection + 1 : null;
     const currentItem = menu.items[menu.selection] || null;
@@ -475,6 +487,8 @@ export function installKeybinds({
       "down",
       "left",
       "right",
+      "pageup",
+      "pagedown",
       "f1",
       "f2",
       "f3",

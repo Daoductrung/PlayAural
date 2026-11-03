@@ -57,11 +57,11 @@ Chủ bàn chọn một mẫu trước khi vòng chơi bắt đầu:
 
 Màn hình chơi chính chỉ chứa thẻ gồm năm hàng và năm cột, giúp việc di chuyển bằng phím mũi tên luôn rõ ràng và dễ đoán với trình đọc màn hình.
 
-Dùng các phím mũi tên để di chuyển và Enter để đánh dấu hoặc bỏ dấu. Nhấn B để hô Bingo, R để nghe lại số vừa xướng, hoặc C để mở danh sách các số đã xướng. Bạn cũng có thể tìm các lệnh này trong trình đơn hành động mở bằng Escape; chúng không được chèn vào giữa thẻ Bingo.
+Dùng các phím mũi tên để di chuyển và Enter để đánh dấu hoặc bỏ dấu. Nhấn B để hô Bingo, R để nghe lại số vừa xướng, C để mở danh sách các số đã xướng, hoặc N để nghe những số bạn còn phải đánh dấu. Page Up và Page Down nhảy tới số đầu tiên hoặc số cuối cùng của chữ cái bạn đang đứng. Bạn cũng có thể tìm các lệnh này trong trình đơn hành động mở bằng Escape; chúng không được chèn vào giữa thẻ Bingo.
 
 \*\*Chơi trên Web và điện thoại\*\*
 
-Trên thiết bị cảm ứng, ngay sau thẻ là các nút \*\*Hô Bingo!\*\*, \*\*Nghe lại số vừa xướng\*\* và \*\*Xem các số đã xướng\*\*. Nhờ vậy, các hành động luôn dễ tìm mà bố cục năm hàng, năm cột của thẻ vẫn được giữ nguyên.
+Trên thiết bị cảm ứng, ngay sau thẻ là các nút \*\*Hô Bingo!\*\*, \*\*Nghe lại số vừa xướng\*\*, \*\*Xem các số đã xướng\*\* và \*\*Các số còn thiếu trên thẻ của tôi\*\*. Nhờ vậy, các hành động luôn dễ tìm mà bố cục năm hàng, năm cột của thẻ vẫn được giữ nguyên.
 
 Bạn cũng có thể hô Bingo ngay trên thẻ bằng thao tác chạm giữ có chủ ý. Trên Web, hãy nhấn và giữ một ô. Khi dùng chế độ tự đọc trên điện thoại, hãy chạm hai lần bằng một ngón rồi giữ. Với các chế độ hỗ trợ tiếp cận khác, bạn có thể dùng thao tác nhấn giữ hoặc nhấp giữ quen thuộc. Nút \*\*Hô Bingo!\*\* luôn là cách thay thế.
 
@@ -76,7 +76,8 @@ Sau mỗi số, trò chơi luôn dành ít nhất bốn giây để người ch�
 
 \* \*\*Nghe lại số vừa xướng:\*\* Nghe lại chữ cái và con số vừa được xướng.
 \* \*\*Xem các số đã xướng:\*\* Mở danh sách trực tiếp, gồm tổng số đã xướng và mười số gần nhất.
-\* \*\*Trạng thái vòng chơi:\*\* Nghe còn bao lâu tới số tiếp theo, một số có đang được rút hay trò chơi đang kiểm tra thẻ của ai. Bingo không chia lượt nên thông tin này thay cho câu trả lời “đến lượt ai.”
+\* \*\*Các số còn thiếu trên thẻ của tôi:\*\* Nghe còn bao nhiêu số trên thẻ chưa được đánh dấu. Mười số đầu được đọc theo thứ tự trên thẻ (cột B trước, từ trên xuống), rồi đến số lượng còn lại.
+\* \*\*Trạng thái vòng chơi:\*\* Nghe còn bao lâu nữa số tiếp theo được xướng, một số có đang được rút hay không, trò chơi đang kiểm tra thẻ của ai, hoặc sau số cuối cùng, còn bao lâu để hô Bingo. Bingo không chia lượt nên thông tin này thay cho câu trả lời “đến lượt ai.”
 
 Khán giả có thể dùng các hành động thông tin công khai, nhưng không có thẻ, không thể đánh dấu và không thể hô Bingo.
 
@@ -92,5 +93,7 @@ Lời hô Bingo hợp lệ đầu tiên sẽ kết thúc vòng chơi. Nếu cả
 \* \*\*B:\*\* Hô Bingo.
 \* \*\*R:\*\* Nghe lại số vừa xướng.
 \* \*\*C:\*\* Xem các số đã xướng.
+\* \*\*N:\*\* Nghe các số còn phải đánh dấu trên thẻ (mười số đầu, rồi còn bao nhiêu số nữa).
+\* \*\*Page Up và Page Down:\*\* Nhảy tới số đầu tiên hoặc số cuối cùng của chữ cái (cột) hiện tại.
 \* \*\*T:\*\* Nghe trạng thái hiện tại của vòng chơi.
 \* \*\*Escape:\*\* Mở trình đơn hành động trong trò chơi.

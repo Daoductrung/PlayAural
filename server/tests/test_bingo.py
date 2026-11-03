@@ -173,7 +173,7 @@ def test_locales_and_manuals_share_the_same_player_facing_terms() -> None:
     english_schema = _ftl_schema(
         (_locales_dir / "en" / "bingo.ftl").read_text(encoding="utf-8")
     )
-    for locale in ("es", "pt", "vi"):
+    for locale in ("es", "pt", "vi", "ar", "id"):
         localized_schema = _ftl_schema(
             (_locales_dir / locale / "bingo.ftl").read_text(encoding="utf-8")
         )
@@ -949,19 +949,70 @@ def test_repeat_last_call_reports_most_recent_number() -> None:
     assert last in range(1, TOTAL_BALLS + 1)
 
 
+def _spoken_seconds(game: BingoGame) -> int:
+    player = game.players[0]
+    user = game.get_user(player)
+    game._action_whose_turn(player, "whose_turn")
+    match = re.search(r"in (\d+) second", user.get_last_spoken())
+    assert match, user.get_last_spoken()
+    return int(match.group(1))
+
+
+def _real_seconds_until_next_announcement(game: BingoGame) -> float:
+    announced = len(game.called_numbers)
+    ticks = 0
+    while len(game.called_numbers) == announced and ticks < 5000:
+        game.on_tick()
+        ticks += 1
+    return ticks / TICKS_PER_SECOND
+
+
 def test_whose_turn_reports_seconds_until_the_next_call() -> None:
     """Bingo has no turn order, so the shared T keybind is repurposed
     (like Color Game does for its own simultaneous design) rather than
     left pointing at a meaningless "whose turn" answer."""
     game = make_game(player_count=2, call_interval="15", start=True)
+
+    spoken = _spoken_seconds(game)
+
+    # 3s warmup, then the spin sound, before the very first announcement.
+    assert spoken == -(-(3 * TICKS_PER_SECOND + CALL_SPIN_DELAY_TICKS) // TICKS_PER_SECOND)
+
+
+def test_whose_turn_matches_the_real_wait_for_the_next_number() -> None:
+    """T used to report only the countdown before the draw and forget the
+    spin sound that also has to finish, so it said 12 seconds when the
+    number really arrived after 15."""
+    for interval in ("5", "15", "30"):
+        game = make_game(player_count=2, call_interval=interval, start=True)
+        assert advance_until(game, lambda: len(game.called_numbers) == 1)
+        for ticks_in in (0, 3 * TICKS_PER_SECOND, 7 * TICKS_PER_SECOND):
+            for _ in range(ticks_in):
+                if game.pending_call_number is not None:
+                    break
+                game.on_tick()
+            if game.pending_call_number is not None:
+                break
+            spoken = _spoken_seconds(game)
+            real = _real_seconds_until_next_announcement(game)
+            # Spoken time is the real wait rounded up to a whole second.
+            assert real <= spoken <= real + 1, (interval, ticks_in, spoken, real)
+            assert advance_until(game, lambda: game.pending_call_number is None)
+
+
+def test_whose_turn_after_the_last_number_reports_the_final_window() -> None:
+    game = make_game(player_count=2, call_interval="15", start=True)
+    game.available_numbers = [7]
+    game._start_next_call()
+    assert advance_until(game, lambda: 7 in game.called_numbers)
     player = game.players[0]
     user = game.get_user(player)
 
     game._action_whose_turn(player, "whose_turn")
 
-    # 3s warmup before the very first ball, regardless of the 15s
-    # call interval configured for the rest of the round.
-    assert user.get_last_spoken() == "Next number in 3 seconds."
+    spoken = user.get_last_spoken()
+    assert spoken.startswith("That was the last number. The round ends in 15 seconds")
+    assert "Next number" not in spoken
 
 
 def test_whose_turn_reports_drawing_while_a_number_is_pending() -> None:
@@ -1808,3 +1859,171 @@ def test_bingo_sounds_are_identical_across_all_three_clients() -> None:
         }
         assert len(set(payloads.values())) == 1, name
         assert payloads["client"].startswith(b"OggS"), name
+
+
+def _keybind_event(game: BingoGame, player: BingoPlayer, key: str, cell: str | None) -> None:
+    game.handle_event(
+        player,
+        {"type": "keybind", "key": key, "menu_item_id": cell, "menu_index": 1},
+    )
+
+
+def test_n_reads_unmarked_numbers_in_card_order() -> None:
+    game = make_game(start=True)
+    player = game.players[0]
+    user = game.get_user(player)
+    for row in range(CARD_ROWS):
+        for col in range(CARD_COLS):
+            player.marked[row][col] = (row, col) == (FREE_ROW, FREE_COL)
+    player.marked[0][0] = True  # one marked number is not reported
+
+    user.clear_messages()
+    _keybind_event(game, player, "n", grid_cell_id(0, 0))
+
+    spoken = user.get_last_spoken()
+    assert spoken.startswith("23 numbers left")  # 25 - free center - 1 marked
+    first = player.card[1][0]
+    assert f"B {first}" in spoken
+    # Only ten numbers are read; the other fourteen are summarized.
+    assert "13 more numbers" in spoken
+
+
+def test_n_says_how_few_remain_without_a_summary_and_when_none_remain() -> None:
+    game = make_game(start=True)
+    player = game.players[0]
+    user = game.get_user(player)
+    for row in range(CARD_ROWS):
+        for col in range(CARD_COLS):
+            player.marked[row][col] = True
+
+    _keybind_event(game, player, "n", None)
+    assert user.get_last_spoken() == "Every number on your card is already marked."
+
+    player.marked[4][4] = False
+    player.marked[3][1] = False
+    _keybind_event(game, player, "n", None)
+    spoken = user.get_last_spoken()
+    assert spoken.startswith("2 numbers left to mark on your card:")
+    assert "more" not in spoken
+
+
+def test_n_is_player_only_and_listed_in_every_locale() -> None:
+    game = make_game(start=True)
+    spectator = game.add_spectator("Watcher", MockUser("Watcher", uuid="w1"))
+    spectator_user = game.get_user(spectator)
+    spectator_user.clear_messages()
+    _keybind_event(game, spectator, "n", None)
+    assert spectator_user.get_sounds_played() == []
+    for locale in ("en", "es", "pt", "vi", "ar", "id"):
+        for key in (
+            "bingo-check-missing",
+            "bingo-column-start",
+            "bingo-column-end",
+            "bingo-missing-none",
+            "bingo-missing-summary",
+            "bingo-missing-more",
+        ):
+            assert Localization.get(locale, key) != key, (locale, key)
+
+
+def test_page_keys_jump_to_the_start_and_end_of_the_current_letter() -> None:
+    game = make_game(start=True)
+    player = game.players[0]
+    user = game.get_user(player)
+    user.clear_messages()
+
+    _keybind_event(game, player, "pagedown", grid_cell_id(1, 2))
+    assert game._get_cursor(player).row == CARD_ROWS - 1
+    assert game._get_cursor(player).col == 2
+    # The client reads the newly focused square; the server must stay silent
+    # so the square is not announced twice.
+    assert user.get_last_spoken() in ("", None)
+    menus = [m for m in user.messages if m.type == "show_menu"]
+    assert menus[-1].data["selection_id"] == grid_cell_id(CARD_ROWS - 1, 2)
+
+    # From the bottom of N, Page Up returns to the top of N, not to B.
+    _keybind_event(game, player, "pageup", grid_cell_id(CARD_ROWS - 1, 2))
+    assert game._get_cursor(player).row == 0
+    assert game._get_cursor(player).col == 2
+    assert user.get_last_spoken() in ("", None)
+
+    # Already on the target square: no focus move, so it is read once.
+    _keybind_event(game, player, "pageup", grid_cell_id(0, 2))
+    assert user.get_last_spoken().startswith(f"N {player.card[0][2]}")
+
+
+def test_page_keys_do_nothing_for_spectators_and_outside_play() -> None:
+    game = make_game(start=True)
+    spectator = game.add_spectator("Watcher", MockUser("Watcher", uuid="w1"))
+    spectator_user = game.get_user(spectator)
+    spectator_user.clear_messages()
+    _keybind_event(game, spectator, "pagedown", grid_cell_id(0, 1))
+    assert spectator_user.get_last_spoken() in ("", None)
+
+
+def test_only_bingo_asks_clients_to_forward_page_keys() -> None:
+    game = make_game(start=True)
+    game.flush_menus()
+    menu = game.get_user(game.players[0]).menus["turn_menu"]
+    assert menu["grid_enabled"] is True
+    assert menu["grid_page_keys"] is True
+
+    # The waiting lobby is a flat list and never asks for the keys.
+    lobby = make_game()
+    lobby.flush_menus()
+    assert "grid_page_keys" not in lobby.get_user(lobby.players[0]).menus.get(
+        "turn_menu", {}
+    )
+
+    # Another grid game's menu is unchanged: it never carries the flag.
+    from ..games.chess.game import ChessGame
+
+    other = ChessGame()
+    other.status = "playing"
+    assert other._build_grid_menu_kwargs().get("grid_enabled") is True
+    assert "grid_page_keys" not in other._build_grid_menu_kwargs()
+
+
+def test_client_sources_forward_page_keys_only_when_the_menu_opts_in() -> None:
+    repo = Path(__file__).resolve().parents[2]
+    desktop = (repo / "client" / "ui" / "main_window.py").read_text(encoding="utf-8")
+    block = desktop[desktop.index("wx.WXK_PAGEUP, wx.WXK_PAGEDOWN") :][:1000]
+    assert 'getattr(self, "grid_page_keys", False)' in block
+    assert "event.Skip()" in block
+    web = (repo / "web_client" / "keybinds.js").read_text(encoding="utf-8")
+    gate = web[web.index('key === "pageup"') :][:300]
+    assert "!menu.gridPageKeys" in gate
+
+
+def test_n_missing_numbers_action_sits_with_the_other_info_actions_in_the_menus() -> None:
+    """N is listed next to Repeat and View called numbers: in the Escape
+    actions menu on desktop, and as a button right after them on touch."""
+    # Desktop / web keyboard: off the board, present in the actions menu.
+    game = make_game(player_count=2, start=True)
+    player = game.players[0]
+    _force_announce(game, 7)
+    assert game._is_check_missing_hidden(player) == Visibility.HIDDEN
+    assert "check_missing" not in _menu_ids(game, player)
+    game._action_show_actions_menu(player, "show_actions_menu")
+    items = game.get_user(player).menus["actions_menu"]["items"]
+    ids = [item.id for item in items]
+    assert {"repeat_call", "check_called", "check_missing"} <= set(ids)
+    assert ids.index("check_called") < ids.index("check_missing")
+    label = next(item.text for item in items if item.id == "check_missing")
+    assert label.endswith("(N)")
+
+    # Touch: a real button after the 25 cells and the claim button.
+    for client_type in ("web", "mobile"):
+        game = make_game(player_count=2, start=True)
+        player = game.players[0]
+        game.get_user(player).client_type = client_type
+        _force_announce(game, 7)
+        ids = _menu_ids(game, player)
+        assert ids[CARD_ROWS * CARD_COLS] == "claim_bingo"
+        assert ids.index("repeat_call") < ids.index("check_called") < ids.index("check_missing")
+        assert ids.index("check_called") + 1 == ids.index("check_missing"), ids[24:]
+
+    # Spectators have no card, so they never get the action.
+    spectator = game.add_spectator("Watcher", MockUser("Watcher", uuid="w9"))
+    assert game._is_check_missing_enabled(spectator) == "action-spectator"
+    assert game._is_check_missing_hidden(spectator) == Visibility.HIDDEN

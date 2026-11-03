@@ -767,6 +767,7 @@ class User(ABC):
         grid_enabled: bool = False,
         grid_height: int = 0,
         grid_width: int = 1,
+        grid_page_keys: bool = False,
         capture_focus_context_id: str | None = None,
     ) -> None:
         """
@@ -782,6 +783,8 @@ class User(ABC):
             grid_enabled: Enable grid navigation mode.
             grid_height: Number of rows in grid mode.
             grid_width: Number of columns in grid mode.
+            grid_page_keys: Ask the desktop and web clients to forward plain
+                Page Up/Page Down to the game while this grid is shown.
             capture_focus_context_id: Opaque token instructing clients to
                 snapshot the currently displayed menu focus before this menu.
         """

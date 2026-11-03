@@ -33,6 +33,18 @@ bingo-you-unmark = Desmarcaste { $letter } { $number }.
 bingo-claim-bingo = ¡Cantar Bingo!
 bingo-repeat-call = Repetir el último número
 bingo-check-called = Ver números cantados
+bingo-check-missing = Números que faltan por marcar en mi cartón
+bingo-column-start = Ir al primer número de la letra
+bingo-column-end = Ir al último número de la letra
+bingo-missing-none = Ya marcaste todos los números de tu cartón.
+bingo-missing-summary = { $count ->
+    [one] Te falta { $count } número por marcar en tu cartón: { $numbers }.
+   *[other] Te faltan { $count } números por marcar en tu cartón: { $numbers }.
+}
+bingo-missing-more = { $count ->
+    [one] { $count } número más
+   *[other] { $count } números más
+}
 bingo-no-calls-yet = Todavía no se ha cantado ningún número.
 bingo-claim-in-progress = Se está verificando otro reclamo en este momento. Intenta de nuevo en un momento.
 bingo-claim-in-progress-you = Tu reclamo ya se está verificando.
@@ -47,6 +59,10 @@ bingo-whose-turn-drawing = Sacando el siguiente número...
 bingo-whose-turn-waiting = { $seconds ->
     [one] Próximo número en { $seconds } segundo.
    *[other] Próximo número en { $seconds } segundos.
+}
+bingo-whose-turn-final = { $seconds ->
+    [one] Ese fue el último número. La ronda termina en { $seconds } segundo si nadie canta Bingo.
+   *[other] Ese fue el último número. La ronda termina en { $seconds } segundos si nadie canta Bingo.
 }
 bingo-claim-incorrect-you = Cartón incorrecto.
 bingo-claim-incorrect = El cartón de { $player } es incorrecto.
@@ -64,10 +80,10 @@ bingo-game-start-touch = ¡Comienza el Bingo! Patrón: { $pattern }. Se cantará
 bingo-game-start-spectator = ¡Comienza el Bingo! Patrón: { $pattern }. Se cantará un número nuevo cada { $interval } segundos.
 bingo-number-called = { $letter } { $number }
 
-bingo-claim-correct-you = ¡Sí! Cartón correcto. Ganas con { $numbers }!
-bingo-claim-correct = ¡Sí! Cartón correcto. { $player } gana con { $numbers }!
+bingo-claim-correct-you = ¡Sí! Cartón correcto. ¡Ganas con { $numbers }!
+bingo-claim-correct = ¡Sí! Cartón correcto. ¡{ $player } gana con { $numbers }!
 bingo-claim-correct-no-numbers-you = ¡Sí! Cartón correcto. ¡Ganas!
-bingo-claim-correct-no-numbers = ¡Sí! Cartón correcto. { $player } gana!
+bingo-claim-correct-no-numbers = ¡Sí! Cartón correcto. ¡{ $player } gana!
 bingo-deck-exhausted = Se cantaron los 75 números. La ronda termina aquí.
 
 bingo-error-invalid-interval = "{ $value }" no es un intervalo de canto válido.

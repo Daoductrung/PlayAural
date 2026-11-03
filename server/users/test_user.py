@@ -177,6 +177,7 @@ class MockUser(User):
         grid_enabled: bool = False,
         grid_height: int = 0,
         grid_width: int = 1,
+        grid_page_keys: bool = False,
         capture_focus_context_id: str | None = None,
     ) -> None:
         if capture_focus_context_id is not None:
@@ -205,6 +206,8 @@ class MockUser(User):
             "capture_focus_context_id": capture_focus_context_id,
             "restore_focus_context_id": restore_focus_context_id,
         }
+        if grid_page_keys:
+            menu_data["grid_page_keys"] = True
         self.menus[menu_id] = menu_data
         self.messages.append(Message("show_menu", {"menu_id": menu_id, **menu_data}))
 

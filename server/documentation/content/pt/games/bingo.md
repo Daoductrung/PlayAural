@@ -57,11 +57,11 @@ A casa livre conta automaticamente quando faz parte do padrão.
 
 A tela principal contém somente sua cartela 5 por 5, mantendo a navegação pelas setas previsível para leitores de tela.
 
-Use as setas para se mover e Enter para marcar ou desmarcar. Pressione B para gritar Bingo, R para repetir o último número ou C para abrir a lista de números sorteados. Esses comandos também ficam no menu de ações aberto com Escape; eles não são misturados às casas da cartela.
+Use as setas para se mover e Enter para marcar ou desmarcar. Pressione B para gritar Bingo, R para repetir o último número, C para abrir a lista de números sorteados ou N para ouvir quais números você ainda precisa marcar. Page Up e Page Down vão para o primeiro ou o último número da letra em que você está. Esses comandos também ficam no menu de ações aberto com Escape; eles não são misturados às casas da cartela.
 
 **Jogar na Web e no celular**
 
-Em dispositivos de toque, depois da cartela aparecem os botões **Gritar Bingo!**, **Repetir o último número** e **Ver números sorteados**. Assim, as ações ficam fáceis de encontrar sem quebrar a grade 5 por 5.
+Em dispositivos de toque, depois da cartela aparecem os botões **Gritar Bingo!**, **Repetir o último número**, **Ver números sorteados** e **Números que faltam marcar na minha cartela**. Assim, as ações ficam fáceis de encontrar sem quebrar a grade 5 por 5.
 
 Você também pode gritar Bingo na própria cartela com um gesto intencional de toque sustentado. Na Web, pressione e segure uma casa. Com a autoleitura do celular, toque duas vezes com um dedo e segure. Outros modos de acessibilidade podem usar o toque longo habitual. O botão visível **Gritar Bingo!** sempre está disponível como alternativa.
 
@@ -76,7 +76,8 @@ Depois de cada número, o jogo deixa pelo menos quatro segundos para gritar Bing
 
 * **Repetir o último número:** Ouça novamente a letra e o número anunciados por último.
 * **Ver números sorteados:** Abra uma lista ao vivo com o total e os dez números mais recentes.
-* **Estado da rodada:** Ouça quanto falta para o próximo número, se um número está sendo sorteado ou de quem é a cartela que está sendo conferida. Como Bingo não tem turnos, esta informação substitui a resposta comum sobre a vez atual.
+* **Números que faltam marcar na minha cartela:** Ouça quantos números da sua cartela ainda não foram marcados. Os dez primeiros são lidos na ordem da cartela (primeiro o B, de cima para baixo), seguidos de quantos mais há.
+* **Estado da rodada:** Ouça quanto falta para o próximo número ser anunciado, se um número está sendo sorteado, de quem é a cartela que está sendo conferida ou, depois do último número, quanto tempo resta para gritar Bingo. Como Bingo não tem turnos, esta informação substitui a resposta comum sobre a vez atual.
 
 Os espectadores podem usar as ações de informação pública, mas não recebem cartela e não podem marcar casas nem gritar Bingo.
 
@@ -92,5 +93,7 @@ O primeiro pedido válido encerra a rodada. Se todos os 75 números forem anunci
 * **B:** Gritar Bingo.
 * **R:** Repetir o último número.
 * **C:** Ver números sorteados.
+* **N:** Ouvir os números que ainda faltam marcar na sua cartela (os dez primeiros e quantos mais há).
+* **Page Up e Page Down:** Ir para o primeiro ou o último número da letra (coluna) atual.
 * **T:** Ouvir o estado atual da rodada.
 * **Escape:** Abrir o menu de ações do jogo.

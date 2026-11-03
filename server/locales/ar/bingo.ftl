@@ -33,6 +33,24 @@ bingo-you-unmark = تم إلغاء تعليم { $letter } { $number }.
 bingo-claim-bingo = أعلن بينجو!
 bingo-repeat-call = كرّر الرقم الأخير
 bingo-check-called = عرض الأرقام المنادى عليها
+bingo-check-missing = الأرقام المتبقية لتعليمها في بطاقتي
+bingo-column-start = الانتقال إلى أول رقم في الحرف
+bingo-column-end = الانتقال إلى آخر رقم في الحرف
+bingo-missing-none = علّمت كل الأرقام في بطاقتك بالفعل.
+bingo-missing-summary = { $count ->
+    [one] بقي رقم واحد لتعليمه في بطاقتك: { $numbers }.
+    [two] بقي رقمان لتعليمهما في بطاقتك: { $numbers }.
+    [few] بقيت { $count } أرقام لتعليمها في بطاقتك: { $numbers }.
+    [many] بقي { $count } رقمًا لتعليمها في بطاقتك: { $numbers }.
+   *[other] بقي { $count } رقم لتعليمها في بطاقتك: { $numbers }.
+}
+bingo-missing-more = { $count ->
+    [one] رقم آخر واحد
+    [two] رقمان آخران
+    [few] { $count } أرقام أخرى
+    [many] { $count } رقمًا آخر
+   *[other] { $count } رقم آخر
+}
 bingo-no-calls-yet = لم يُنادَ على أي أرقام بعد.
 bingo-claim-in-progress = يجري التحقق من إعلان بينجو آخر. حاول مرة أخرى بعد لحظة.
 bingo-claim-in-progress-you = يجري التحقق من إعلان بينجو الخاص بك بالفعل.
@@ -50,6 +68,13 @@ bingo-whose-turn-waiting = { $seconds ->
     [few] الرقم التالي بعد { $seconds } ثوانٍ.
     [many] الرقم التالي بعد { $seconds } ثانية.
    *[other] الرقم التالي بعد { $seconds } ثانية.
+}
+bingo-whose-turn-final = { $seconds ->
+    [one] كان هذا آخر رقم. تنتهي الجولة بعد ثانية واحدة ما لم يعلن أحد بينجو.
+    [two] كان هذا آخر رقم. تنتهي الجولة بعد ثانيتين ما لم يعلن أحد بينجو.
+    [few] كان هذا آخر رقم. تنتهي الجولة بعد { $seconds } ثوانٍ ما لم يعلن أحد بينجو.
+    [many] كان هذا آخر رقم. تنتهي الجولة بعد { $seconds } ثانية ما لم يعلن أحد بينجو.
+   *[other] كان هذا آخر رقم. تنتهي الجولة بعد { $seconds } ثانية ما لم يعلن أحد بينجو.
 }
 bingo-claim-incorrect-you = بطاقتك لا تحتوي على بينجو صالح بعد.
 bingo-claim-incorrect = بطاقة { $player } لا تحتوي على بينجو صالح بعد.

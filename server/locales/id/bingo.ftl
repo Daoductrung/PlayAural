@@ -26,6 +26,18 @@ bingo-you-unmark = Tanda pada { $letter } { $number } dihapus.
 bingo-claim-bingo = Serukan Bingo!
 bingo-repeat-call = Ulangi angka terakhir
 bingo-check-called = Lihat angka yang sudah diumumkan
+bingo-check-missing = Angka yang belum ditandai di kartu saya
+bingo-column-start = Pindah ke angka pertama pada huruf ini
+bingo-column-end = Pindah ke angka terakhir pada huruf ini
+bingo-missing-none = Semua angka di kartu Anda sudah ditandai.
+bingo-missing-summary = { $count ->
+    [one] Masih ada { $count } angka yang belum ditandai di kartu Anda: { $numbers }.
+   *[other] Masih ada { $count } angka yang belum ditandai di kartu Anda: { $numbers }.
+}
+bingo-missing-more = { $count ->
+    [one] { $count } angka lagi
+   *[other] { $count } angka lagi
+}
 bingo-no-calls-yet = Belum ada angka yang diumumkan.
 bingo-claim-in-progress = Seruan Bingo pemain lain sedang diperiksa. Coba lagi sebentar.
 bingo-claim-in-progress-you = Seruan Bingo Anda sedang diperiksa.
@@ -40,6 +52,10 @@ bingo-whose-turn-drawing = Angka berikutnya sedang diundi.
 bingo-whose-turn-waiting = { $seconds ->
     [one] Angka berikutnya dalam { $seconds } detik.
    *[other] Angka berikutnya dalam { $seconds } detik.
+}
+bingo-whose-turn-final = { $seconds ->
+    [one] Itu angka terakhir. Ronde berakhir dalam { $seconds } detik jika tidak ada yang menyerukan Bingo.
+   *[other] Itu angka terakhir. Ronde berakhir dalam { $seconds } detik jika tidak ada yang menyerukan Bingo.
 }
 bingo-claim-incorrect-you = Kartu Anda belum memenuhi syarat Bingo.
 bingo-claim-incorrect = Kartu { $player } belum memenuhi syarat Bingo.

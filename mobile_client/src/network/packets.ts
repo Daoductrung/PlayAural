@@ -30,6 +30,7 @@ export type MenuPacket = {
   grid_enabled?: boolean;
   grid_height?: number;
   grid_width?: number;
+  grid_page_keys?: boolean;
   capture_focus_context_id?: string;
   restore_focus_context_id?: string;
 };

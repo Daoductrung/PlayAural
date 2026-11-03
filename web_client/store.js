@@ -53,6 +53,7 @@ export function createStore() {
       escapeBehavior: "keybind",
       gridEnabled: false,
       gridWidth: 1,
+      gridPageKeys: false,
     },
     historyBuffers: createHistoryBuffers(),
     historyRevisions: createHistoryRevisions(),
@@ -154,6 +155,7 @@ export function createStore() {
         escapeBehavior: "keybind",
         gridEnabled: false,
         gridWidth: 1,
+        gridPageKeys: false,
       };
       notify();
     },

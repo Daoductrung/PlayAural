@@ -48,11 +48,11 @@ Petak bebas di tengah otomatis dihitung jika termasuk dalam pola.
 
 Tampilan utama hanya memuat kartu Anda yang berukuran 5 kali 5, sehingga penelusuran dengan tombol panah tetap mudah dipahami saat memakai pembaca layar.
 
-Gunakan tombol panah untuk berpindah dan Enter untuk menandai atau menghapus tanda. Tekan B untuk menyerukan Bingo, R untuk mengulangi angka terakhir, atau C untuk membuka daftar angka yang sudah diumumkan. Perintah ini juga tersedia di menu tindakan permainan yang dibuka dengan Escape. Perintah tidak disisipkan ke dalam susunan petak kartu.
+Gunakan tombol panah untuk berpindah dan Enter untuk menandai atau menghapus tanda. Tekan B untuk menyerukan Bingo, R untuk mengulangi angka terakhir, C untuk membuka daftar angka yang sudah diumumkan, atau N untuk mendengar angka yang masih perlu Anda tandai. Page Up dan Page Down berpindah ke angka pertama atau terakhir pada huruf yang sedang dipilih. Perintah ini juga tersedia di menu tindakan permainan yang dibuka dengan Escape. Perintah tidak disisipkan ke dalam susunan petak kartu.
 
 \*\*Bermain di web dan perangkat seluler\*\*
 
-Pada perangkat sentuh, tombol Serukan Bingo!, Ulangi angka terakhir, dan Lihat angka yang sudah diumumkan tersedia setelah kartu. Anda dapat menjangkau tindakan ini tanpa mengubah susunan kartu 5 kali 5.
+Pada perangkat sentuh, tombol Serukan Bingo!, Ulangi angka terakhir, Lihat angka yang sudah diumumkan, dan Angka yang belum ditandai di kartu saya tersedia setelah kartu. Anda dapat menjangkau tindakan ini tanpa mengubah susunan kartu 5 kali 5.
 
 Anda juga dapat menyerukan Bingo dari kartu dengan gestur tekan lama. Di web, tekan dan tahan sebuah petak. Dalam mode suara mandiri aplikasi seluler, ketuk dua kali dengan satu jari lalu tahan pada ketukan kedua. Mode aksesibilitas seluler lain dapat memakai tindakan tekan lama yang biasa digunakan. Tombol Serukan Bingo! selalu tersedia sebagai alternatif.
 
@@ -70,7 +70,9 @@ Ulangi angka terakhir membacakan lagi huruf dan angka yang baru saja diumumkan.
 
 Lihat angka yang sudah diumumkan membuka daftar yang terus diperbarui, berisi jumlah angka yang telah diumumkan dan sepuluh pengumuman terbaru.
 
-Status ronde menyebutkan sisa waktu sebelum angka berikutnya, apakah angka sedang diundi, atau kartu siapa yang sedang diperiksa. Karena Bingo tidak memakai giliran pemain, informasi ini menggantikan jawaban biasa untuk perintah mengetahui giliran.
+Angka yang belum ditandai di kartu saya menyebutkan berapa angka di kartu Anda yang belum ditandai. Sepuluh angka pertama dibacakan menurut urutan kartu (kolom B lebih dulu, dari atas ke bawah), lalu jumlah sisanya.
+
+Status ronde menyebutkan sisa waktu sebelum angka berikutnya diumumkan, apakah angka sedang diundi, kartu siapa yang sedang diperiksa, atau, setelah angka terakhir, sisa waktu untuk menyerukan Bingo. Karena Bingo tidak memakai giliran pemain, informasi ini menggantikan jawaban biasa untuk perintah mengetahui giliran.
 
 Penonton dapat menggunakan tindakan informasi umum, tetapi tidak dapat melihat kartu, menandai petak, atau menyerukan Bingo.
 
@@ -82,4 +84,4 @@ Seruan Bingo sah yang pertama mengakhiri ronde. Jika seluruh 75 angka sudah dium
 
 Panah Kiri dan Kanan berpindah antarkolom \*\*B\*\*, \*\*I\*\*, \*\*N\*\*, \*\*G\*\*, dan \*\*O\*\*. Panah Atas dan Bawah berpindah dalam kolom yang sedang dipilih. \*\*Enter\*\* menandai atau menghapus tanda pada petak yang dipilih.
 
-Tekan \*\*B\*\* untuk menyerukan Bingo, \*\*R\*\* untuk mengulangi angka terakhir, \*\*C\*\* untuk melihat angka yang sudah diumumkan, dan \*\*T\*\* untuk mendengar status ronde. Tekan \*\*Escape\*\* untuk membuka menu tindakan permainan.
+Tekan \*\*B\*\* untuk menyerukan Bingo, \*\*R\*\* untuk mengulangi angka terakhir, \*\*C\*\* untuk melihat angka yang sudah diumumkan, \*\*N\*\* untuk mendengar angka yang masih perlu ditandai, dan \*\*T\*\* untuk mendengar status ronde. \*\*Page Up\*\* dan \*\*Page Down\*\* berpindah ke angka pertama atau terakhir pada huruf yang sedang dipilih. Tekan \*\*Escape\*\* untuk membuka menu tindakan permainan.

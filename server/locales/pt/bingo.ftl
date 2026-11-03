@@ -33,6 +33,18 @@ bingo-you-unmark = Você desmarcou { $letter } { $number }.
 bingo-claim-bingo = Gritar Bingo!
 bingo-repeat-call = Repetir o último número
 bingo-check-called = Ver números sorteados
+bingo-check-missing = Números que faltam marcar na minha cartela
+bingo-column-start = Ir para o primeiro número da letra
+bingo-column-end = Ir para o último número da letra
+bingo-missing-none = Você já marcou todos os números da sua cartela.
+bingo-missing-summary = { $count ->
+    [one] Falta { $count } número para marcar na sua cartela: { $numbers }.
+   *[other] Faltam { $count } números para marcar na sua cartela: { $numbers }.
+}
+bingo-missing-more = { $count ->
+    [one] mais { $count } número
+   *[other] mais { $count } números
+}
 bingo-no-calls-yet = Ainda nenhum número foi sorteado.
 bingo-claim-in-progress = Outro pedido de Bingo está sendo verificado agora. Tente novamente em instantes.
 bingo-claim-in-progress-you = Seu pedido já está sendo verificado.
@@ -47,6 +59,10 @@ bingo-whose-turn-drawing = Sorteando o próximo número...
 bingo-whose-turn-waiting = { $seconds ->
     [one] Próximo número em { $seconds } segundo.
    *[other] Próximo número em { $seconds } segundos.
+}
+bingo-whose-turn-final = { $seconds ->
+    [one] Esse foi o último número. A rodada termina em { $seconds } segundo se ninguém gritar Bingo.
+   *[other] Esse foi o último número. A rodada termina em { $seconds } segundos se ninguém gritar Bingo.
 }
 bingo-claim-incorrect-you = Cartela incorreta.
 bingo-claim-incorrect = A cartela de { $player } está incorreta.

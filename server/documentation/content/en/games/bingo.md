@@ -57,11 +57,11 @@ The free center counts automatically whenever it belongs to the pattern.
 
 The main game view contains only your 5-by-5 card, keeping arrow-key navigation predictable for screen readers.
 
-Use the arrow keys to move and Enter to mark or unmark a square. Press B to call Bingo, R to repeat the last number, or C to open the called-number list. These commands are also available from the in-game actions menu opened with Escape; they are not mixed into the card itself.
+Use the arrow keys to move and Enter to mark or unmark a square. Press B to call Bingo, R to repeat the last number, C to open the called-number list, or N to hear which numbers you still have to mark. Page Up and Page Down jump to the first or last number of the letter you are on. These commands are also available from the in-game actions menu opened with Escape; they are not mixed into the card itself.
 
 \*\*Playing on Web and mobile\*\*
 
-On touch devices, the card is followed by buttons for \*\*Call Bingo!\*\*, \*\*Repeat the last number\*\*, and \*\*View called numbers\*\*. This keeps the actions easy to reach without breaking the card’s 5-by-5 layout.
+On touch devices, the card is followed by buttons for \*\*Call Bingo!\*\*, \*\*Repeat the last number\*\*, \*\*View called numbers\*\*, and \*\*Numbers left to mark on my card\*\*. This keeps the actions easy to reach without breaking the card’s 5-by-5 layout.
 
 You can also call Bingo from the card with a deliberate hold gesture. On Web, press and hold a square. With mobile self-voicing, double-tap and hold with one finger. Other mobile accessibility modes can use their usual long-press or long-click action. The visible \*\*Call Bingo!\*\* button is always available as an alternative.
 
@@ -76,7 +76,8 @@ After every announcement, the game leaves at least four seconds for players to c
 
 \* \*\*Repeat the last number:\*\* Hear the most recently announced letter and number again.
 \* \*\*View called numbers:\*\* Open a live list with the total called so far and the ten most recent calls.
-\* \*\*Round status:\*\* Hear how long remains before the next number, whether a number is being drawn, or whose card is being checked. Bingo has no player turns, so this replaces the usual “whose turn” response.
+\* \*\*Numbers left to mark on my card:\*\* Hear how many numbers on your card are still unmarked. The first ten are read in card order (B first, top to bottom), followed by how many more there are.
+\* \*\*Round status:\*\* Hear how long remains until the next number is announced, whether a number is being drawn, whose card is being checked, or, after the last number, how long is left to call Bingo. Bingo has no player turns, so this replaces the usual “whose turn” response.
 
 Spectators can use the public information actions but cannot see a card, mark squares, or call Bingo.
 
@@ -92,5 +93,7 @@ The first valid Bingo call ends the round. If all 75 numbers are announced and n
 \* \*\*B:\*\* Call Bingo.
 \* \*\*R:\*\* Repeat the last number.
 \* \*\*C:\*\* View called numbers.
+\* \*\*N:\*\* Hear the numbers still left to mark on your card (the first ten, then how many more).
+\* \*\*Page Up and Page Down:\*\* Jump to the first or last number of the current letter (column).
 \* \*\*T:\*\* Hear the current round status.
 \* \*\*Escape:\*\* Open the in-game actions menu.

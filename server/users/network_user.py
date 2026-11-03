@@ -345,6 +345,7 @@ class NetworkUser(User):
         grid_enabled: bool = False,
         grid_height: int = 0,
         grid_width: int = 1,
+        grid_page_keys: bool = False,
         capture_focus_context_id: str | None = None,
     ) -> None:
         if capture_focus_context_id is not None:
@@ -365,6 +366,10 @@ class NetworkUser(User):
             "grid_height": grid_height,
             "grid_width": grid_width,
         }
+        if grid_page_keys:
+            # Opt-in per game; omitted otherwise so every other game's
+            # packets and stored menu state stay exactly as they were.
+            state["grid_page_keys"] = True
 
         # Content-diff skip: a repaint of the menu the client is already
         # displaying, with identical content and no explicit focus directive,
@@ -397,6 +402,8 @@ class NetworkUser(User):
             "grid_height": grid_height,
             "grid_width": grid_width,
         }
+        if grid_page_keys:
+            packet["grid_page_keys"] = True
         if position is not None:
             # Convert 1-based to 0-based for client
             packet["position"] = position - 1
